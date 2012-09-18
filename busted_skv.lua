@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Tue Sep 18 15:19:33 2012 mstenber
--- Edit time:     16 min
+-- Last modified: Tue Sep 18 15:38:01 2012 mstenber
+-- Edit time:     20 min
 --
 
 require "luacov"
@@ -19,11 +19,14 @@ local ev = require "ev"
 
 local skv = require 'skv'
 
-local function run_loop_awhile(loop)
+TEST_TIMEOUT_INVALID=3
+
+local function run_loop_awhile(loop, timeout)
+   timeout = timeout or TEST_TIMEOUT_INVALID
    ev.Timer.new(function(loop,timer,revents)
                    --print 'done'
                    loop:unloop()
-                end, 0.5):start(loop)
+                end, timeout):start(loop)
    loop:loop()
 end
 
@@ -49,7 +52,10 @@ describe("class init",
                   local loop = ev.Loop.default
                   local o = skv:new{loop=loop, long_lived=true,
                                    port=12345}
-                  --run_loop_awhile(loop)
+                  add_eventloop_terminate_mock(o, 'start_wait_connections')
+                  run_loop_awhile(loop)
+                  assert.are.same(o.fsm:getState().name, 
+                                  "Server.WaitConnections")
                end)
             it("cannot be created [non-long lived]", 
                function()
@@ -61,6 +67,9 @@ describe("class init",
                   add_eventloop_terminate_mock(o, 'fail')
                   run_loop_awhile(loop)
                   assert.truthy(o.error)
+                  --print(o.fsm:getState().name)
+                  assert.are.same(o.fsm:getState().name, 
+                                  "Terminal.ClientFailConnect")
                end)
          end)
 
