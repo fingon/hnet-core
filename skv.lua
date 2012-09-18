@@ -9,11 +9,15 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Tue Sep 18 15:14:41 2012 mstenber
--- Edit time:     83 min
+-- Last modified: Tue Sep 18 16:29:29 2012 mstenber
+-- Edit time:     103 min
 --
 
 local skv = {}
+local skvclient = {}
+
+-- first, skv
+
 skv.__index = skv
 
 local sm = require 'skv_sm'
@@ -101,14 +105,10 @@ function skv:connect()
                                  return
                               end
                               self.fsm:Connected()
-                              if r
-                              then
-                                 self:received(r)
-                              end
                            end, fd, ev.WRITE)
       self.s_t = ev.Timer.new(function (loop, o, revents)
                                  if self.debug then 
-                                    print '!!t!!' end
+                                    print '!!t1!!' end
                                  self.fsm:ConnectFailed()
                               end, CONNECT_TIMEOUT)
       self.s_t:start(self.loop)
@@ -143,11 +143,13 @@ end
 
 function skv:init_server()
    self.fsm:Initialized()
+   self.connections = {}
 end
 
 function skv:bind()
    local s = socket.tcp()
    s:settimeout(0)
+   s:setoption('reuseaddr', true)
    r, err = s:bind(self.host, self.port)
    if r
    then
@@ -163,11 +165,50 @@ function skv:start_wait_connections()
    self.s:listen(10)
    local fd = self.s:getfd()
    self.s_r = ev.IO.new(function (loop, o, revents)
-                           
+                           if self.debug then print(' --accept--') end
+                           local c = self.s:accept()
+                           if self.debug then print(' --accept--', c) end
+                           if c ~= nil
+                           then
+                              self:new_client(c)
+                           end
                         end, fd, ev.READ)
    self.s_r:start(self.loop)
 end
 
+function skv:new_client(c)
+   skvclient:new{c=c, parent=self}
+end
 
+function skv:increase_retry_timer()
+   -- 1.5x every time.. should eventually behave reasonably
+   self.listen_timeout = self.listen_timeout * 3 / 2
+end
+
+function skv:start_retry_timer()
+   self.s_t = ev.Timer.new(function (loop, o, revents)
+                              if self.debug then 
+                                 print '!!t2!!' end
+                              self:clear_ev()
+                              self.fsm:Timeout()
+                           end, CONNECT_TIMEOUT):start(self.loop)
+end
+
+-- Server's single client side connection handling
+
+skvclient.__index = skvclient
+
+function skvclient:new(o)
+   local o = o or {}
+   check_parameters("skvclient:new", o, {"c", "parent"})
+   setmetatable(o, self)
+   o.parent.connections[o] = 1
+   return o
+end
+
+function skvclient:done()
+   assert(self.parent.connections[i] ~= nil)
+   self.parent.connections[o] = nil
+end
 
 return skv

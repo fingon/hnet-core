@@ -1,0 +1,15 @@
+-*- outline -*-
+
+* Things to do
+
+** Implement simple (len, binary-blob) low level i/o for SKV
+
+** Implement JSON wrapping on top of that
+
+** Write handlers for reading/writing JSON as needed
+
+** Add whole 'listener' abstraction, deal with it (client+server)
+
+* Done
+
+

@@ -7,10 +7,12 @@ Requirements
 - busted (http://olivinelabs.com/busted/)
 - luasocket (http://w3.impa.br/~diego/software/luasocket/)
 - lua-ev (https://github.com/brimworks/lua-ev)
+- struct (http://www.inf.puc-rio.br/~roberto/struct/)
 
 # XXX - how to get SMC easily
 # apt-get install luarocks graphviz libev-dev
 # luarocks install busted
 # luarocks install luasocket
 # luarocks install lua-ev
+# luarocks install struct
 
