@@ -1,2 +1,5 @@
-test:
-	busted busted_trickle.lua
+TESTS=$(wildcard busted_*.lua)
+
+tested: $(TESTS)
+	busted busted_tests.lua
+	touch tested

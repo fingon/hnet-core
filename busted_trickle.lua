@@ -6,12 +6,13 @@
 -- Author: Markus Stenberg <fingon@iki.fi>
 --
 -- Created:       Mon Sep 17 13:13:02 2012 mstenber
--- Last modified: Mon Sep 17 14:30:02 2012 mstenber
--- Edit time:     28 min
+-- Last modified: Tue Sep 18 10:57:53 2012 mstenber
+-- Edit time:     31 min
 --
 
 -- Make sure that the trickle module is sane
 
+require "luacov"
 require "trickle"
 require "busted"
 
