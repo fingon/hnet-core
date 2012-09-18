@@ -3,6 +3,10 @@ SMC=../smc/bin/smc.jar
 
 all: test
 
+cov: test
+	(cd /usr/local/bin && luacov)
+	mv /usr/local/bin/luacov.report.out .
+
 test: .tested
 
 skv_sm.lua: skv.sm
