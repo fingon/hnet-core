@@ -1,4 +1,5 @@
 ~$
+luacov.stats.out$
 luacov.report.out$
 ^.*ed$
 _sm\.pdf$
