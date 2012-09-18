@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Tue Sep 18 16:26:15 2012 mstenber
--- Edit time:     37 min
+-- Last modified: Tue Sep 18 16:55:31 2012 mstenber
+-- Edit time:     55 min
 --
 
 require "luacov"
@@ -19,11 +19,12 @@ local ev = require "ev"
 
 local skv = require 'skv'
 
-TEST_TIMEOUT_INVALID=3
+TEST_TIMEOUT_INVALID=0.5
 local CLIENT_STATE_NAME = 'Client.WaitUpdates'
 local SERVER_STATE_NAME = 'Server.WaitConnections'
 
-local function run_loop_awhile(loop, timeout)
+local function run_loop_awhile(timeout)
+   local loop = ev.Loop.default
    timeout = timeout or TEST_TIMEOUT_INVALID
    ev.Timer.new(function(loop,timer,revents)
                    --print 'done'
@@ -38,14 +39,23 @@ local function inject_snitch(o, n, sf)
       sf(...)
       f(...)
    end
-   
 end
 
-local function add_eventloop_terminate_mock(o, n)
+local function inject_refcounted_terminator(o, n, c)
    local loop = ev.Loop.default
-   inject_snitch(o, n, function ()
-                    loop:unloop()
-                       end)
+   local terminator = function ()
+      c[1] = c[1] - 1
+      if c[1] == 0
+      then
+         loop:unloop()
+      end
+   end
+   inject_snitch(o, n, terminator)
+end
+
+local function add_eventloop_terminator(o, n)
+   local c = {1}
+   inject_refcounted_terminator(o, n, c)
 end
 
 describe("class init", 
@@ -61,8 +71,8 @@ describe("class init",
                   local loop = ev.Loop.default
                   local o = skv:new{loop=loop, long_lived=true,
                                    port=12345}
-                  add_eventloop_terminate_mock(o, 'start_wait_connections')
-                  run_loop_awhile(loop)
+                  add_eventloop_terminator(o, 'start_wait_connections')
+                  run_loop_awhile()
                   assert.are.same(o.fsm:getState().name, 
                                   "Server.WaitConnections")
                   o:done()
@@ -74,8 +84,8 @@ describe("class init",
 --                                    ,debug=true
                                     ,port=12346
                                    }
-                  add_eventloop_terminate_mock(o, 'fail')
-                  run_loop_awhile(loop)
+                  add_eventloop_terminator(o, 'fail')
+                  run_loop_awhile()
                   assert.truthy(o.error)
                   --print(o.fsm:getState().name)
                   assert.are.same(o.fsm:getState().name, 
@@ -84,26 +94,19 @@ describe("class init",
                end)
          end)
 
-local function setup_client_server()
+local function setup_client_server(base_c, port)
    local loop = ev.Loop.default
-   local o1 = skv:new{loop=loop, long_lived=true, port=12347}
-   local o2 = skv:new{loop=loop, long_lived=true, port=12347}
+   local o1 = skv:new{loop=loop, long_lived=true, port=port}
+   local o2 = skv:new{loop=loop, long_lived=true, port=port}
    -- insert conditional closing stuff
-   local c = {0}
-   local terminator = function ()
-      c[1] = c[1] + 1
-      if c[1] == 2
-      then
-         loop:unloop()
-      end
-   end
+   local c = {base_c}
    
    for _, o in ipairs{o1, o2}
    do
-      inject_snitch(o, 'new_client', terminator)
-      inject_snitch(o.fsm, 'Connected', terminator)
+      inject_refcounted_terminator(o, 'new_client', c)
+      inject_refcounted_terminator(o.fsm, 'Connected', c)
    end
-   run_loop_awhile(loop)
+   run_loop_awhile()
    local s1 = o1.fsm:getState().name
    local s2 = o2.fsm:getState().name
 
@@ -112,20 +115,44 @@ local function setup_client_server()
    -- should not work with same port)
    if s1 == CLIENT_STATE_NAME
    then
-      assert(s2 == SERVER_STATE_NAME)
-      return o1, o2
+      assert.are.same(s2, SERVER_STATE_NAME)
+      return o1, o2, c
    end
-   assert(s1 == SERVER_STATE_NAME)
-   assert(s2 == CLIENT_STATE_NAME)
-   return o2, o1
+   assert.are.same(s1, SERVER_STATE_NAME)
+   assert.are.same(s2, CLIENT_STATE_NAME)
+   return o2, o1, c
 end
 
 describe("class working",
          function()
             it("should work fine with 2 instances",
                function()
-                  local loop = ev.Loop.default
-                  local c, s = setup_client_server()
-                  --run_loop_awhile(loop)
+                  local c, s, h = setup_client_server(2, 12347)
+               end)
+            it("client should reconnect if server disconnects suddenly",
+               function()
+                  local c, s, h = setup_client_server(2, 12348)
+
+                  -- ok, we simulate server disconnect and expect 3
+                  -- events to happen - client should get conn closed,
+                  -- and new connection; server should get also new connection
+                  inject_refcounted_terminator(c.fsm, 'ConnectionClosed', h)
+                  h[1] = 3
+
+                  n = 0
+                  for k, v in pairs(s.connections)
+                  do
+                     k:done()
+                     n = n + 1
+                  end
+                  assert.are.same(n, 1)
+                  -- should get new new_client, and new connected from server
+                  run_loop_awhile()
+                  local cs1 = c.fsm:getState().name
+                  local cs2 = s.fsm:getState().name
+                  assert.are.same(h[1], 0)
+                  assert.are.same(cs1, CLIENT_STATE_NAME)
+                  assert.are.same(cs2, SERVER_STATE_NAME)
+                  
                end)
          end)

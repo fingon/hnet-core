@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Tue Sep 18 16:29:29 2012 mstenber
--- Edit time:     103 min
+-- Last modified: Tue Sep 18 16:55:52 2012 mstenber
+-- Edit time:     107 min
 --
 
 local skv = {}
@@ -139,6 +139,22 @@ end
 function skv:send_listeners()
 end
 
+function skv:set_read_handler()
+   local fd = self.s:getfd()
+   self.s_r = ev.IO.new(function (loop, io, revents)
+                           r, e = self.s:receive()
+                           --print('client-read', r, e)
+                           if r
+                           then
+                              -- XXX - do something
+                           else
+                              self.fsm:ConnectionClosed()
+                           end
+                        end, fd, ev.READ)
+   self.s_r:start(self.loop)
+   
+end
+
 -- Server code
 
 function skv:init_server()
@@ -207,8 +223,9 @@ function skvclient:new(o)
 end
 
 function skvclient:done()
-   assert(self.parent.connections[i] ~= nil)
-   self.parent.connections[o] = nil
+   assert(self.parent.connections[self] ~= nil)
+   self.parent.connections[self] = nil
+   self.c:close()
 end
 
 return skv
