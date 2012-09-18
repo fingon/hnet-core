@@ -1,0 +1,7 @@
+Requirements
+- busted (luarocks install busted)
+- graphviz
+- smc
+
+# apt-get install luarocks graphviz
+# luarocks install busted
