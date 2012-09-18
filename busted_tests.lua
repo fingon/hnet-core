@@ -9,8 +9,9 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 11:19:49 2012 mstenber
--- Last modified: Tue Sep 18 11:20:18 2012 mstenber
+-- Last modified: Tue Sep 18 12:35:28 2012 mstenber
 -- Edit time:     1 min
 --
 
+require "busted_skv"
 require "busted_trickle"

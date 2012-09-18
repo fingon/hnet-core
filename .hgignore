@@ -1,6 +1,6 @@
 ~$
 luacov.report.out$
-^tested$
+^.*ed$
 _sm\.pdf$
 _sm\.dot$
 _sm\.lua$

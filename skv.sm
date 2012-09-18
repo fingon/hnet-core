@@ -1,12 +1,12 @@
-%start SKV::Init
+%start Client::Init
 %class SKV
 
-%map SKV
+%map Client
 %%
 
 // State Transition End State Action(s)
 Init 
-Entry { init(); }
+Entry { init_client(); }
 {
   Initialized Connecting { }
 }
@@ -20,10 +20,11 @@ Default
 
 Connecting 
 Entry { connect(); }
+Exit { clear_ev(); }
 {
   Connected WaitUpdates {}
-  ConnectFailed [ ctxt.is_long_lived() ] Master::Init {}
-  ConnectFailed nil { fail("Unable to connect"); }
+  ConnectFailed [ ctxt:is_long_lived() ] Server::Init {}
+  ConnectFailed Terminal::ClientFailConnect {  }
 }
 
 WaitUpdates
@@ -32,31 +33,33 @@ Entry  { send_local_updates(); send_listeners(); }
   HaveUpdate(k: Key, v:Value) nil { send_update(k, v); }
   AddListener(k: String, cb:Callback) nil { l = add_listener(k, cb); send_add_listener(l); }
   RemoveListener(l: Listener) nil { send_remove_listener(l); delete_listener(l); }
+  ConnectionClosed Connecting { remove_closed(); }
 // receiving of updates handled here; however, it doesn't affect system state machine
 // ReceiveUpdate nil { received_update(); }
 }
 
-//Die 
-//Entry { fail(); }
-//{
-//}
-
 %%
 
-%map Master
+%map Server
 %%
 
 Init 
-Entry { init_master(); }
+Entry { init_server(); }
 {
-  Initialized WaitConnections { }
-  ListenFailed InitWaitTimeout { }  
+  Initialized Binding {}
+}
+
+Binding 
+Entry { bind(); }
+{
+  Bound WaitConnections { }
+  BindFailed InitWaitTimeout { }  
 }
 
 InitWaitTimeout 
 Entry { increase_retry_timer(); start_retry_timer(); }
 {
-  Timeout SKV::Connecting { }
+  Timeout Client::Connecting { }
 }
 
 WaitConnections 
@@ -66,3 +69,12 @@ Entry { start_wait_connections(); }
 }
 %%
 
+%map Terminal
+%%
+
+ClientFailConnect
+Entry { fail("unable to connect to SKV"); }
+{
+}
+
+%%
