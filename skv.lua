@@ -9,14 +9,14 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Wed Sep 19 22:01:38 2012 mstenber
+-- Last modified: Wed Sep 19 22:16:01 2012 mstenber
 -- Edit time:     147 min
 --
 
-require "socket"
 require 'mst'
 require 'evwrap'
-local ev = require 'ev'
+--local ev = require 'ev'
+-- provided by mst
 
 -- SMC-generated state machine
 local sm = require 'skv_sm'

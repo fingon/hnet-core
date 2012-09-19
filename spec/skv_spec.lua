@@ -9,13 +9,21 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Wed Sep 19 22:02:59 2012 mstenber
--- Edit time:     57 min
+-- Last modified: Wed Sep 19 22:18:31 2012 mstenber
+-- Edit time:     60 min
 --
 
 require "luacov"
 require "busted"
+require "mst"
 local ev = require "ev"
+
+local run_loop_awhile = mst.run_loop_awhile
+assert(run_loop_awhile)
+local add_eventloop_terminator = mst.add_eventloop_terminator
+assert(add_eventloop_terminator)
+local inject_refcounted_terminator = mst.inject_refcounted_terminator
+assert(inject_refcounted_terminator)
 
 local _skv = require 'skv'
 local skv = _skv.skv
@@ -23,44 +31,8 @@ local skv = _skv.skv
 
 -- we don't care about rest of the module
 
-TEST_TIMEOUT_INVALID=0.5
 local CLIENT_STATE_NAME = 'Client.WaitUpdates'
 local SERVER_STATE_NAME = 'Server.WaitConnections'
-
-local function run_loop_awhile(timeout)
-   local loop = ev.Loop.default
-   timeout = timeout or TEST_TIMEOUT_INVALID
-   ev.Timer.new(function(loop,timer,revents)
-                   --print 'done'
-                   loop:unloop()
-                end, timeout):start(loop)
-   loop:loop()
-end
-
-local function inject_snitch(o, n, sf)
-   local f = o[n]
-   o[n] = function (...)
-      sf(...)
-      f(...)
-   end
-end
-
-local function inject_refcounted_terminator(o, n, c)
-   local loop = ev.Loop.default
-   local terminator = function ()
-      c[1] = c[1] - 1
-      if c[1] == 0
-      then
-         loop:unloop()
-      end
-   end
-   inject_snitch(o, n, terminator)
-end
-
-local function add_eventloop_terminator(o, n)
-   local c = {1}
-   inject_refcounted_terminator(o, n, c)
-end
 
 describe("class init", 
          function()
