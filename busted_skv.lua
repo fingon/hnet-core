@@ -9,15 +9,19 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Tue Sep 18 16:55:31 2012 mstenber
--- Edit time:     55 min
+-- Last modified: Wed Sep 19 15:30:13 2012 mstenber
+-- Edit time:     56 min
 --
 
 require "luacov"
 require "busted"
 local ev = require "ev"
 
-local skv = require 'skv'
+local _skv = require 'skv'
+local skv = _skv.skv
+
+
+-- we don't care about rest of the module
 
 TEST_TIMEOUT_INVALID=0.5
 local CLIENT_STATE_NAME = 'Client.WaitUpdates'
