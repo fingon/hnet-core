@@ -9,14 +9,15 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Sep 19 16:38:40 2012 mstenber
+-- Last modified: Wed Sep 19 16:46:44 2012 mstenber
 -- Edit time:     11 min
 --
 
 module(..., package.seeall)
 
 -- check parameters to e.g. function
-local function check_parameters(fname, o, l, depth)
+function check_parameters(fname, o, l, depth)
+   assert(o and l)
    for i, f in ipairs(l) do
       if o[f] == nil
       then
