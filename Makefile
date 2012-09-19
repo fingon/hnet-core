@@ -1,4 +1,4 @@
-TESTS=$(wildcard busted_*.lua)
+TESTS=$(wildcard spec/*.lua)
 SMC=../smc/bin/smc.jar
 
 all: test
@@ -17,5 +17,5 @@ skv_sm.lua: skv.sm
 	dot -Tpdf < skv_sm.dot > skv_sm.pdf
 
 .tested: skv_sm.lua $(TESTS) $(wildcard *.lua)
-	busted busted_tests.lua
+	busted spec
 #	touch $@
