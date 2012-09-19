@@ -5,8 +5,8 @@
 -- Author: Markus Stenberg <fingon@iki.fi>
 --
 -- Created:       Mon Sep 17 13:12:19 2012 mstenber
--- Last modified: Mon Sep 17 14:26:44 2012 mstenber
--- Edit time:     14 min
+-- Last modified: Wed Sep 19 14:33:36 2012 mstenber
+-- Edit time:     23 min
 --
 
 -- Trickle implementation - just done as a test of getting Lua code working
@@ -22,14 +22,18 @@
 --  got_consistent() when receiving something consistent
 --  got_inconsistent() when receiving something inconsistent
 
-module("trickle", package.seeall)
+local math = math
+local setmetatable = setmetatable
+local assert = assert
+
+module(...)
 
 Trickle = { }
+Trickle.__index = Trickle
 
 function Trickle:new(o)
    o = o or {} 
    setmetatable(o, self)
-   self.__index = self
    o:start()
    return o
 end

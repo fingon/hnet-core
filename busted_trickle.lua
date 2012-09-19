@@ -6,16 +6,15 @@
 -- Author: Markus Stenberg <fingon@iki.fi>
 --
 -- Created:       Mon Sep 17 13:13:02 2012 mstenber
--- Last modified: Tue Sep 18 10:57:53 2012 mstenber
--- Edit time:     31 min
+-- Last modified: Wed Sep 19 14:33:17 2012 mstenber
+-- Edit time:     33 min
 --
 
 -- Make sure that the trickle module is sane
 
 require "luacov"
-require "trickle"
 require "busted"
-
+require "trickle"
 
 function new_dummy_client()
    DummyClient = { t = 0 }
@@ -27,8 +26,6 @@ function new_dummy_client()
    end
    return DummyClient
 end
-
-
 
 describe("trickle startup", 
          function()
