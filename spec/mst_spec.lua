@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Sep 19 16:53:20 2012 mstenber
--- Edit time:     11 min
+-- Last modified: Wed Sep 19 17:17:42 2012 mstenber
+-- Edit time:     13 min
 --
 
 require "luacov"
@@ -59,3 +59,13 @@ describe("create_class", function ()
 
                                              end)
                          end)
+
+describe("copy_table", function ()
+            it("copies tables (shallowly)", function ()
+                  local t1 = {foo=1}
+                  local t2 = mst.copy_table(t1)
+                  t1.bar = 2
+                  assert(t1.foo == t2.foo)
+                  assert(t1.bar ~= t2.bar)
+                                            end)
+        end)

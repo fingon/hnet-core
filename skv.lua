@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Wed Sep 19 16:34:02 2012 mstenber
--- Edit time:     130 min
+-- Last modified: Wed Sep 19 17:20:31 2012 mstenber
+-- Edit time:     131 min
 --
 
 require "socket"
@@ -54,7 +54,7 @@ end
 function skv:done()
    if self.s
    then
-      self.s:close()
+      self.s:done()
       self.s = nil
    end
    self:clear_ev()
@@ -81,8 +81,8 @@ end
 
 function skv:connect()
    self.connected = false
-   self.s = evwrap.new_connect(self.host, self.port,
-                               function (c) 
+   self.s = evwrap.new_connect{host=self.host, port=self.port,
+                               callback=function (c) 
                                   if c
                                   then
                                      self.connected = true
@@ -97,7 +97,7 @@ function skv:connect()
                                   else
                                      self.fsm:ConnectFailed()
                                   end
-                                 end)
+                               end}
    if not self.connected
    then
       self.s_t = ev.Timer.new(function (loop, o, revents)
@@ -149,10 +149,10 @@ function skv:init_server()
 end
 
 function skv:bind()
-   s, err = evwrap.new_listener(self.host, self.port, 
-                                function (c) 
+   s, err = evwrap.new_listener{host=self.host, port=self.port, 
+                                callback=function (c) 
                                    self:new_client(c)
-                                end)
+                                end}
    if s
    then
       self.s = s
@@ -200,5 +200,5 @@ end
 function skvclient:done()
    assert(self.parent.connections[self] ~= nil)
    self.parent.connections[self] = nil
-   self.evw:close()
+   self.s:done()
 end

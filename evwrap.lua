@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Wed Sep 19 16:37:45 2012 mstenber
--- Edit time:     49 min
+-- Last modified: Wed Sep 19 17:19:47 2012 mstenber
+-- Edit time:     63 min
 --
 
 -- convenience stuff on top of ev
@@ -35,10 +35,12 @@ local EVWrapBase = mst.create_class{required={"s"}}
 
 function EVWrapBase:init()
    -- make sure the socket is indeed nonblocking
-   self.s.settimeout(0)
+   --self.s.settimeout(0)
 
    -- set up the event loop related things
    self.loop = self.loop or ev.Loop.default
+
+   local fd = self.s:getfd()
 
    if self.listen_write
    then
@@ -59,20 +61,31 @@ function EVWrapBase:init()
                            end, fd, ev.READ)
       -- writer we start only if there's need; reading starts
       -- implicitly as soon as we're initialized, which is .. now.
-      self.s_r.start(self.loop)
+      self.s_r:start(self.loop)
    end
 
 end
 
 function EVWrapBase:start()
-   self.s_r:start()
-   self.s_w:start()
+   if self.listen_read
+   then
+      self.s_r:start(self.loop)
+   end
+   if self.listen_write
+   then
+      self.s_w:start(self.loop)
+   end
 end
 
 function EVWrapBase:stop()
-   self.s_r:stop()
-   self.s_w:stop()
-
+   if self.listen_read
+   then
+      self.s_r:stop(self.loop)
+   end
+   if self.listen_write
+   then
+      self.s_w:stop(self.loop)
+   end
 end
 
 
@@ -88,7 +101,7 @@ function EVWrapBase:done()
 
    if self.s
    then
-      self.s.close()
+      self.s:close()
       self.s = nil
    end
    self.s_r = nil
@@ -97,7 +110,7 @@ end
 
 --- EVWrapIO (used for connecting + listen->accepted)
 
-EVWrapIO = EVWrapBase:new{listen_read=true, listen_write=true}
+EVWrapIO = EVWrapBase:new_subclass{listen_read=true, listen_write=true}
 
 function EVWrapIO:handle_io_read()
    r, error, partial = self.s:receive()
@@ -154,7 +167,7 @@ end
 
 --- EVWrapListen
 
-local EVWrapListen = EVWrapBase:new{listen_read=true, listen_write=false}
+local EVWrapListen = EVWrapBase:new_subclass{listen_read=true, listen_write=false}
 
 function EVWrapListen:handle_io_read()
    if self.debug then print(' --accept--') end
@@ -170,7 +183,7 @@ end
 
 --- EVWrapConnect
 
-local EVWrapConnect = EVWrapBase:new{listen_write=true}
+local EVWrapConnect = EVWrapBase:new_subclass{listen_write=true}
 
 function EVWrapConnect:init()
    -- stop the client - first connection has to go through for the i/o
@@ -205,38 +218,44 @@ function new(...)
    return EVWrap:new(...)
 end
 
-function wrap_socket(s, callback)
-   evio = EVWrapIO:new{s=s, callback=callback}
+function wrap_socket(d)
+   mst.check_parameters("evwrap:wrap_socket", d, {"s"}, 3)
+   evio = EVWrapIO:new(d)
    return evio
 end
 
-function new_listener(host, port, callback)
+function new_listener(d)
+   mst.check_parameters("evwrap:new_listener", d, {"host", "port", "callback"}, 3)
    local s = socket.tcp()
    s:settimeout(0)
    s:setoption('reuseaddr', true)
-   r, err = s:bind(self.host, self.port)
+   r, err = s:bind(d.host, d.port)
    if r
    then
       s:listen(10)
-      e = EVWrapListen:new{s=s, callback=callback}
+      d.s = s
+      e = EVWrapListen:new(d)
       return e
    end
    return r, err
 end
 
-function new_connect(host, port, connected_callback, callback)
+function new_connect(d)
+   -- host, port, connected_callback, callback
+   mst.check_parameters("evwrap:new_connect", d, {"host", "port", "callback"}, 3)
    local s = socket.tcp()
    s:settimeout(0)
-   r, e = s:connect(host, port)
-   evio = wrap_socket(s, callback)
+   r, e = s:connect(d.host, d.port)
+   d.s = s
+   d2 = mst.copy_table(d)
+   evio = wrap_socket(d)
    if r == 1
    then
       connected_callback(evio)
       return evio
    end
    -- apparently connect is still pending. create connect
-   evwc = EVWrapConnect:new{s=s, 
-                            host=host, port=port, evio=evio, 
-                            callback=connected_callback}
+   d2.evio = evio
+   evwc = EVWrapConnect:new(d2)
    return evwc
 end
