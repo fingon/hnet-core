@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Wed Sep 19 17:48:10 2012 mstenber
--- Edit time:     81 min
+-- Last modified: Wed Sep 19 21:58:13 2012 mstenber
+-- Edit time:     93 min
 --
 
 -- convenience stuff on top of ev
@@ -26,15 +26,17 @@
 
 local mst = require 'mst'
 local ev = require 'ev'
+local ERR_CONNECTION_REFUSED = "connection refused"
+local ERR_TIMEOUT = 'timeout'
 
 module(..., package.seeall)
 
 --- EVWrapBase (used to wrap both listening, connecting and r&w sockets)
 
-local EVWrapBase = mst.create_class{required={"s"}, debug=true, class="EVWrapBase"}
+local EVWrapBase = mst.create_class{required={"s"}, class="EVWrapBase"}
 
 function EVWrapBase:init()
-   self.d('init')
+   self:d('init')
    -- make sure the socket is indeed nonblocking
    --self.s.settimeout(0)
 
@@ -45,10 +47,10 @@ function EVWrapBase:init()
 
    if self.listen_write
    then
-      self.d('registering for write', fd)
+      self:d('registering for write', fd)
       self.s_w = ev.IO.new(function (loop, io, revents)
-                              assert(loop == self.loop)
-                              self.d('--got write--', fd)
+                              assert(loop == self.loop, "invalid loop(w)")
+                              self:d('--got write--', fd)
                               self:handle_io_write()
                            end, fd, ev.WRITE)
       -- write queue
@@ -58,10 +60,10 @@ function EVWrapBase:init()
 
    if self.listen_read
    then
-      self.d('registering for read', fd)
+      self:d('registering for read', fd)
       self.s_r = ev.IO.new(function (loop, io, revents)
-                              assert(loop == self.loop)
-                              self.d('--got read--', fd)
+                              assert(loop == self.loop, "invalid loop(r)")
+                              self:d('--got read--', fd)
                               self:handle_io_read()
                            end, fd, ev.READ)
       -- writer we start only if there's need; reading starts
@@ -127,7 +129,13 @@ function EVWrapIO:handle_io_read()
    s = r or partial
    if not s or #s == 0
    then
-      assert(error == "closed", "got error " .. error .. " from " .. tostring(self))
+      self:d('got read', s, #s, error)
+      if error == 'closed'
+      then
+         -- ?
+      else
+         -- ??
+      end
       if self.close_callback
       then
          self.close_callback(self)
@@ -164,7 +172,7 @@ function EVWrapIO:handle_io_write()
    end
    
    -- r can't be >#s, or we have oddity on our hands
-   assert(r<#s)
+   assert(r<#s, "too many bytes written")
 
    -- just wait for the next writable callback
    self.wq[1] = {s, r+1}
@@ -180,10 +188,10 @@ end
 local EVWrapListen = EVWrapBase:new_subclass{listen_read=true, listen_write=false, class="EVWrapListen"}
 
 function EVWrapListen:handle_io_read()
-   self.d(' --accept--')
+   self:d(' --accept--')
    local c = self.s:accept()
-   self.d(' --accept--', c)
-   assert(self.callback)
+   self:d(' --accept--', c)
+   self:a(self.callback, "no callback in handle_io_read")
    if c 
    then
       evw = EVWrapIO:new{s=c}
@@ -202,15 +210,22 @@ function EVWrapConnect:init()
    -- this is magic writer, it's on without any bytes to write
    -- (and triggers only once)
    self.s_w:start(self.loop)
+   
 end
 
 function EVWrapConnect:handle_io_write()
+   self:d('handle_io_write')
    r, err = self.s:connect(self.host, self.port)
-   self.d('!!w!!', r, e)
+   self:d('!!w!!', r, e)
    assert(self.callback, 'missing callback from EVWrapConnect')
    if err == ERR_CONNECTION_REFUSED
    then
       self.callback(nil, err)
+      return
+   end
+
+   if err == ERR_TIMEOUT
+   then
       return
    end
 
@@ -258,6 +273,7 @@ function new_connect(d)
    local s = socket.tcp()
    s:settimeout(0)
    r, e = s:connect(d.host, d.port)
+   --print('new_connect', r, e)
    d.s = s
    if r == 1
    then

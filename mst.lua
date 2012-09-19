@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Sep 19 17:47:41 2012 mstenber
--- Edit time:     25 min
+-- Last modified: Wed Sep 19 22:00:26 2012 mstenber
+-- Edit time:     37 min
 --
 
 module(..., package.seeall)
@@ -57,14 +57,27 @@ function create_class(o)
       return ''
    end
    function h:tostring()
-      return string.format('<%s - %s>', 
-                           self.class or tostring(getmetaclass(self)), 
+      local omt = getmetatable(self)
+      setmetatable(self, {})
+      t = tostring(self)
+      setmetatable(self, omt)
+      return string.format('<%s %s - %s>', 
+                           self.class or tostring(getmetatable(self)), 
+                           t,
                            self:repr())
    end
    function h:d(...)
+      self:a(type(self) == 'table', "wrong self type ", type(self))
       if self.debug
       then
-         print(self.tostring(), ...)
+         print(self:tostring(), ...)
+      end
+   end
+   function h:a(stmt, ...)
+      if not stmt
+      then
+         print(self:tostring(), ...)
+         error()
       end
    end
    return h

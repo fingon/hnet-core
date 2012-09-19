@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Wed Sep 19 15:30:13 2012 mstenber
--- Edit time:     56 min
+-- Last modified: Wed Sep 19 22:02:59 2012 mstenber
+-- Edit time:     57 min
 --
 
 require "luacov"
@@ -98,10 +98,10 @@ describe("class init",
                end)
          end)
 
-local function setup_client_server(base_c, port)
+local function setup_client_server(base_c, port, debug)
    local loop = ev.Loop.default
-   local o1 = skv:new{loop=loop, long_lived=true, port=port}
-   local o2 = skv:new{loop=loop, long_lived=true, port=port}
+   local o1 = skv:new{loop=loop, long_lived=true, port=port, debug=debug}
+   local o2 = skv:new{loop=loop, long_lived=true, port=port, debug=debug}
    -- insert conditional closing stuff
    local c = {base_c}
    
@@ -131,7 +131,8 @@ describe("class working",
          function()
             it("should work fine with 2 instances",
                function()
-                  local c, s, h = setup_client_server(2, 12347)
+                  local c, s, h = setup_client_server(2, 12347--, true
+                                                     )
                end)
             it("client should reconnect if server disconnects suddenly",
                function()

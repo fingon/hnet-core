@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Wed Sep 19 17:33:34 2012 mstenber
--- Edit time:     134 min
+-- Last modified: Wed Sep 19 22:01:38 2012 mstenber
+-- Edit time:     147 min
 --
 
 require "socket"
@@ -23,8 +23,8 @@ local sm = require 'skv_sm'
 
 module(..., package.seeall)
 
-skv = mst.create_class{mandatory={"loop", "long_lived"}}
-skvclient = mst.create_class{mandatory={"s", "parent"}}
+skv = mst.create_class{mandatory={"loop", "long_lived"}, class="skv"}
+skvclient = mst.create_class{mandatory={"s", "parent"}, class="skvclient"}
 
 -- first, skv
 
@@ -34,8 +34,6 @@ local HOST = '127.0.0.1'
 local PORT = 12345
 local CONNECT_TIMEOUT = 0.1
 local INITIAL_LISTEN_TIMEOUT = 0.2
-
-local ERR_CONNECTION_REFUSED = "connection refused"
 
 function skv:init()
    self.host = self.host or HOST
@@ -68,6 +66,10 @@ function skv:fail(s)
    end
 end
 
+function skv:repr()
+   return string.format('host:%s port:%d state:%s', self.host, self.port, self.fsm:getState().name)
+end
+
 -- Client code
 
 function skv:init_client()
@@ -81,10 +83,11 @@ end
 
 function skv:connect()
    self.connected = false
-   print 'skv:connect'
+   self:d('skv:connect')
    self.s = evwrap.new_connect{host=self.host, port=self.port,
+                               debug=self.debug,
                                callback=function (c) 
-                                  print 'connect callback'
+                                  self:d('connect callback')
                                   if c
                                   then
                                      self.connected = true
@@ -97,14 +100,15 @@ function skv:connect()
                                      end
                                      self.fsm:Connected()
                                   else
+                                     self.s:done()
+                                     self.s = nil
                                      self.fsm:ConnectFailed()
                                   end
                                end}
    if not self.connected
    then
       self.s_t = ev.Timer.new(function (loop, o, revents)
-                                 if self.debug then 
-                                    print '!!t1!!' end
+                                 self:d('!!t1!!')
                                  self.fsm:ConnectFailed()
                               end, CONNECT_TIMEOUT)
       self.s_t:start(self.loop)
@@ -114,12 +118,12 @@ end
 function skv:clear_ev()
    -- kill listeners, if any
    local c = 0
-   if self.debug then print 'clear_ev' end
+   self:d('clear_ev')
    for _, e in ipairs({"s_w", "s_t", "s_r"})
    do
       if self[e]
       then
-         if self.debug then print(' removing', e, self[e]) end
+         self:d(' removing', e, self[e])
          o = self[e]
          o:stop(self.loop)
          self[e] = nil
@@ -152,6 +156,7 @@ end
 
 function skv:bind()
    s, err = evwrap.new_listener{host=self.host, port=self.port, 
+                                debug=self.debug,
                                 callback=function (c) 
                                    self:new_client(c)
                                 end}
@@ -176,8 +181,7 @@ end
 
 function skv:start_retry_timer()
    self.s_t = ev.Timer.new(function (loop, o, revents)
-                              if self.debug then 
-                                 print '!!t2!!' end
+                              self:d('!!t2!!')
                               self:clear_ev()
                               self.fsm:Timeout()
                            end, CONNECT_TIMEOUT):start(self.loop)
@@ -186,21 +190,31 @@ end
 -- Server's single client side connection handling
 
 function skvclient:init()
+   self.is_done = false
+   assert(self)
    self.parent.connections[self] = 1
-   self.s.callback = function (s) self.handle_read(s) end
-   self.s.done_callback = function (s) self.handle_close() end
+   function self.s.callback(s) 
+      self:handle_read(s) 
+   end
+   function self.s.done_callback(s)
+      self:handle_close() 
+   end
 end
 
-function handle_read(s)
+function skvclient:handle_read(s)
    -- to do
 end
 
-function handle_close()
+function skvclient:handle_close()
    self:done()
 end
 
 function skvclient:done()
-   assert(self.parent.connections[self] ~= nil)
-   self.parent.connections[self] = nil
-   self.s:done()
+   if not self.is_done
+   then
+      self.is_done = true
+      self:a(self.parent.connections[self] ~= nil, ":done - not in parent table")
+      self.parent.connections[self] = nil
+      self.s:done()
+   end
 end
