@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Wed Sep 19 17:20:31 2012 mstenber
--- Edit time:     131 min
+-- Last modified: Wed Sep 19 17:33:34 2012 mstenber
+-- Edit time:     134 min
 --
 
 require "socket"
@@ -81,16 +81,18 @@ end
 
 function skv:connect()
    self.connected = false
+   print 'skv:connect'
    self.s = evwrap.new_connect{host=self.host, port=self.port,
                                callback=function (c) 
+                                  print 'connect callback'
                                   if c
                                   then
                                      self.connected = true
-                                     self.s = s
-                                     s.callback = function (r)
+                                     self.s = c
+                                     c.callback = function (r)
                                         self:handle_read(r)
                                      end
-                                     s.close_callback = function (s)
+                                     c.close_callback = function (s)
                                         self.fsm:ConnectionClosed()
                                      end
                                      self.fsm:Connected()

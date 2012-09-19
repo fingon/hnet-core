@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Wed Sep 19 17:19:47 2012 mstenber
--- Edit time:     63 min
+-- Last modified: Wed Sep 19 17:48:10 2012 mstenber
+-- Edit time:     81 min
 --
 
 -- convenience stuff on top of ev
@@ -31,9 +31,10 @@ module(..., package.seeall)
 
 --- EVWrapBase (used to wrap both listening, connecting and r&w sockets)
 
-local EVWrapBase = mst.create_class{required={"s"}}
+local EVWrapBase = mst.create_class{required={"s"}, debug=true, class="EVWrapBase"}
 
 function EVWrapBase:init()
+   self.d('init')
    -- make sure the socket is indeed nonblocking
    --self.s.settimeout(0)
 
@@ -44,8 +45,10 @@ function EVWrapBase:init()
 
    if self.listen_write
    then
+      self.d('registering for write', fd)
       self.s_w = ev.IO.new(function (loop, io, revents)
                               assert(loop == self.loop)
+                              self.d('--got write--', fd)
                               self:handle_io_write()
                            end, fd, ev.WRITE)
       -- write queue
@@ -55,8 +58,10 @@ function EVWrapBase:init()
 
    if self.listen_read
    then
+      self.d('registering for read', fd)
       self.s_r = ev.IO.new(function (loop, io, revents)
                               assert(loop == self.loop)
+                              self.d('--got read--', fd)
                               self:handle_io_read()
                            end, fd, ev.READ)
       -- writer we start only if there's need; reading starts
@@ -64,6 +69,11 @@ function EVWrapBase:init()
       self.s_r:start(self.loop)
    end
 
+end
+
+function EVWrapBase:repr()
+   local fd = self.s:getfd()
+   return string.format("fd:%d", fd)
 end
 
 function EVWrapBase:start()
@@ -110,14 +120,14 @@ end
 
 --- EVWrapIO (used for connecting + listen->accepted)
 
-EVWrapIO = EVWrapBase:new_subclass{listen_read=true, listen_write=true}
+EVWrapIO = EVWrapBase:new_subclass{listen_read=true, listen_write=true, class="EVWrapIO"}
 
 function EVWrapIO:handle_io_read()
    r, error, partial = self.s:receive()
    s = r or partial
    if not s or #s == 0
    then
-      assert(error == "closed")
+      assert(error == "closed", "got error " .. error .. " from " .. tostring(self))
       if self.close_callback
       then
          self.close_callback(self)
@@ -167,12 +177,12 @@ end
 
 --- EVWrapListen
 
-local EVWrapListen = EVWrapBase:new_subclass{listen_read=true, listen_write=false}
+local EVWrapListen = EVWrapBase:new_subclass{listen_read=true, listen_write=false, class="EVWrapListen"}
 
 function EVWrapListen:handle_io_read()
-   if self.debug then print(' --accept--') end
+   self.d(' --accept--')
    local c = self.s:accept()
-   if self.debug then print(' --accept--', c) end
+   self.d(' --accept--', c)
    assert(self.callback)
    if c 
    then
@@ -183,33 +193,35 @@ end
 
 --- EVWrapConnect
 
-local EVWrapConnect = EVWrapBase:new_subclass{listen_write=true}
+local EVWrapConnect = EVWrapBase:new_subclass{listen_write=true, class="EVWrapConnect"}
 
 function EVWrapConnect:init()
-   -- stop the client - first connection has to go through for the i/o
-   -- to have any meaning
-   self.evio:stop()
-
    -- superclass init
    EVWrapBase.init(self)
+
+   -- this is magic writer, it's on without any bytes to write
+   -- (and triggers only once)
+   self.s_w:start(self.loop)
 end
 
 function EVWrapConnect:handle_io_write()
-   r, err = s:connect(self.host, self.port)
-   if self.debug then 
-      print('!!w!!', r, e) end
+   r, err = self.s:connect(self.host, self.port)
+   self.d('!!w!!', r, e)
    assert(self.callback, 'missing callback from EVWrapConnect')
    if err == ERR_CONNECTION_REFUSED
    then
       self.callback(nil, err)
       return
    end
-   self.evio:start()
-   self.callback(self.evio)
 
-   -- make sure we don't close the socket when we die 
+   -- first off, we're done! so get rid of the filehandle + mark us done
    self.s = nil
    self:done()
+
+   -- then, forward the freshly wrapped IO socket onward
+   -- (someone needs to set up callback(s))
+   evio = wrap_socket(self.evio_d)
+   self.callback(evio)
 end
 
 -- proxy the 'new'
@@ -247,15 +259,14 @@ function new_connect(d)
    s:settimeout(0)
    r, e = s:connect(d.host, d.port)
    d.s = s
-   d2 = mst.copy_table(d)
-   evio = wrap_socket(d)
    if r == 1
    then
+      evio = wrap_socket(d)
       connected_callback(evio)
       return evio
    end
    -- apparently connect is still pending. create connect
-   d2.evio = evio
-   evwc = EVWrapConnect:new(d2)
+   d.evio_d = mst.copy_table(d)
+   evwc = EVWrapConnect:new(d)
    return evwc
 end

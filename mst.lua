@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Sep 19 17:16:56 2012 mstenber
--- Edit time:     19 min
+-- Last modified: Wed Sep 19 17:47:41 2012 mstenber
+-- Edit time:     25 min
 --
 
 module(..., package.seeall)
@@ -38,6 +38,7 @@ function create_class(o)
       o = o or {}
       setmetatable(o, self)
       self.__index = self
+      self.__tostring = self.tostring
       if o.mandatory
       then
          -- 1 = check_parameters, 2 == h:new, 3 == whoever calls h:new
@@ -51,6 +52,20 @@ function create_class(o)
       assert(o.init, "missing init method?")
       o:init()
       return o
+   end
+   function h:repr()
+      return ''
+   end
+   function h:tostring()
+      return string.format('<%s - %s>', 
+                           self.class or tostring(getmetaclass(self)), 
+                           self:repr())
+   end
+   function h:d(...)
+      if self.debug
+      then
+         print(self.tostring(), ...)
+      end
    end
    return h
 end
