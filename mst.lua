@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Sep 19 22:58:43 2012 mstenber
--- Edit time:     42 min
+-- Last modified: Thu Sep 20 11:40:30 2012 mstenber
+-- Edit time:     43 min
 --
 
 ev = require "ev"
@@ -102,6 +102,16 @@ function copy_table(t, n)
    return n
 end
 
+-- index in array
+function array_find(t, o)
+   for i, o2 in ipairs(t)
+   do
+      if o == o2
+      then
+         return i
+      end
+   end
+end
 
 --- assorted testing utilities
 

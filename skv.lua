@@ -9,14 +9,13 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Wed Sep 19 22:16:01 2012 mstenber
--- Edit time:     147 min
+-- Last modified: Thu Sep 20 12:20:07 2012 mstenber
+-- Edit time:     150 min
 --
 
 require 'mst'
+require 'mstloop'
 require 'evwrap'
---local ev = require 'ev'
--- provided by mst
 
 -- SMC-generated state machine
 local sm = require 'skv_sm'
@@ -107,11 +106,12 @@ function skv:connect()
                                end}
    if not self.connected
    then
-      self.s_t = ev.Timer.new(function (loop, o, revents)
-                                 self:d('!!t1!!')
-                                 self.fsm:ConnectFailed()
-                              end, CONNECT_TIMEOUT)
-      self.s_t:start(self.loop)
+      local l = mstloop.loop()
+      self.s_t = l:new_timeout_delta(CONNECT_TIMEOUT,
+                                     function ()
+                                        self:d('!!t1!!')
+                                        self.fsm:ConnectFailed()
+                                     end):start()
    end
 end
 
@@ -125,7 +125,7 @@ function skv:clear_ev()
       then
          self:d(' removing', e, self[e])
          o = self[e]
-         o:stop(self.loop)
+         o:stop()
          self[e] = nil
          c = c + 1
       end
@@ -180,11 +180,13 @@ function skv:increase_retry_timer()
 end
 
 function skv:start_retry_timer()
-   self.s_t = ev.Timer.new(function (loop, o, revents)
-                              self:d('!!t2!!')
-                              self:clear_ev()
-                              self.fsm:Timeout()
-                           end, CONNECT_TIMEOUT):start(self.loop)
+   local l = mstloop.loop()
+   self.s_t = l:new_timeout_delta(CONNECT_TIMEOUT,
+                                  function ()
+                                     self:d('!!t2!!')
+                                     self:clear_ev()
+                                     self.fsm:Timeout()
+                                  end):start()
 end
 
 -- Server's single client side connection handling

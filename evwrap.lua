@@ -9,11 +9,14 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Wed Sep 19 22:55:13 2012 mstenber
--- Edit time:     106 min
+-- Last modified: Thu Sep 20 12:24:00 2012 mstenber
+-- Edit time:     111 min
 --
 
--- convenience stuff on top of ev + LuaSocket
+-- convenience stuff on top of LuaSocket
+--
+-- it _used_ to be on top of lua-ev, but debuggability was bad =>
+-- moved to mstloop
 --
 -- there's write() call which queues things internally
 --
@@ -22,9 +25,8 @@
 -- also, the socket to be wrapped has to be given as 's'
 -- and the event loop to use as 'loop' (optional)
 
-local mst = require 'mst'
--- provided by mst
--- local ev = require 'ev'
+require 'mst'
+require 'mstloop'
 require 'socket'
 
 local ERR_CONNECTION_REFUSED = "connection refused"
@@ -40,36 +42,22 @@ function EVWrapBase:init()
    self:d('init')
    -- make sure the socket is indeed nonblocking
    --self.s.settimeout(0)
-
-   -- set up the event loop related things
-   self.loop = self.loop or ev.Loop.default
-
-   local fd = self.s:getfd()
+   local l = mstloop.loop()
 
    if self.listen_write
    then
-      self:d('registering for write', fd)
-      self.s_w = ev.IO.new(function (loop, io, revents)
-                              assert(loop == self.loop, "invalid loop(w)")
-                              self:d('--got write--', fd)
-                              self:handle_io_write()
-                           end, fd, ev.WRITE)
+      self.s_w = l:new_writer(self.s, function () self:handle_io_write() end)
       -- write queue
       self.wq = {}
-
    end
 
    if self.listen_read
    then
       self:d('registering for read', fd)
-      self.s_r = ev.IO.new(function (loop, io, revents)
-                              assert(loop == self.loop, "invalid loop(r)")
-                              self:d('--got read--', fd)
-                              self:handle_io_read()
-                           end, fd, ev.READ)
+      self.s_r = l:new_reader(self.s, function () self:handle_io_read() end)
       -- writer we start only if there's need; reading starts
       -- implicitly as soon as we're initialized, which is .. now.
-      self.s_r:start(self.loop)
+      self.s_r:start()
    end
 
 end
@@ -82,22 +70,22 @@ end
 function EVWrapBase:start()
    if self.listen_read
    then
-      self.s_r:start(self.loop)
+      self.s_r:start()
    end
    if self.listen_write
    then
-      self.s_w:start(self.loop)
+      self.s_w:start()
    end
 end
 
 function EVWrapBase:stop()
    if self.listen_read
    then
-      self.s_r:stop(self.loop)
+      self.s_r:stop()
    end
    if self.listen_write
    then
-      self.s_w:stop(self.loop)
+      self.s_w:stop()
    end
 end
 
@@ -156,7 +144,7 @@ function EVWrapIO:handle_io_write()
       if #self.wq == 0
       then
          self:d("handle_io_write - queue empty")
-         self.s_w:stop(self.loop)
+         self.s_w:stop()
          self:d('done write-stop')
          return
       end
@@ -193,7 +181,7 @@ end
 
 function EVWrapIO:write(s)
    table.insert(self.wq, s)
-   self.s_w:start(self.loop)
+   self.s_w:start()
 end
 
 --- EVWrapListen
@@ -224,7 +212,7 @@ function EVWrapConnect:init()
 
    -- this is magic writer, it's on without any bytes to write
    -- (and triggers only once)
-   self.s_w:start(self.loop)
+   self.s_w:start()
    
 end
 
