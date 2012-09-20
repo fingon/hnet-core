@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Thu Sep 20 13:47:32 2012 mstenber
+-- Last modified: Thu Sep 20 15:15:22 2012 mstenber
 -- Edit time:     122 min
 --
 
@@ -185,6 +185,7 @@ function ScbIO:handle_io_write()
 end
 
 function ScbIO:write(s)
+   self:d('write', #s)
    table.insert(self.wq, s)
    self.s_w:start()
 end

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Thu Sep 20 13:59:35 2012 mstenber
--- Edit time:     37 min
+-- Last modified: Thu Sep 20 15:44:49 2012 mstenber
+-- Edit time:     69 min
 --
 
 require "luacov"
@@ -21,17 +21,26 @@ require 'ssloop'
 
 local loop = ssloop.loop()
 
-function create_dummy_l_c(port, receiver)
+MAGIC='foo'
+MAGIC2='bar'
+
+function create_dummy_l_c(port, receiver, debug)
    -- assume receiver is a coroutine
    local d = {host='localhost', port=port, 
-              --debug=true,
+              debug=debug,
               callback=function (c)
-                 --print('create_dummy_l_c - got new connection', c)
-                 function c:callback(r)
+                 print('create_dummy_l_c - got new connection', c)
+                 function c.callback(d)
                     -- resume the receiver coroutine
-                    --print('got read callback')
-                    r, err = coroutine.resume(receiver, r)
-                    assert(r, "coroutine resume failed")
+                    print('got read callback', #d)
+                    local r, err = coroutine.resume(receiver, d)
+                    if not r
+                    then
+                       error("coroutine resume failed " .. err)
+                    else
+                       mst.a(err == MAGIC or err == MAGIC2,
+                             "invalid magic from coroutine", r, err)
+                    end
                     --print('read callback done')
                  end
                  --print('create_dummy_l_c - done')
@@ -56,40 +65,74 @@ function wait_connected(c)
 end
 
 function create_dummy_receiver(n)
-   local cr = coroutine.create(function ()
-                                  local c = 0
+   local r = {0}
+   local cr = coroutine.create(function (x)
+                                  mst.a(not x, "initial resume arg", x)
                                   while true
                                   do
-                                     --print('dummy receiver coroutine', c)
-                                     local r = coroutine.yield()
-                                     c = c + #r
-                                     if c == n
+                                     local data = coroutine.yield(MAGIC)
+                                     print('coroutine resumed', #data)
+                                     r[1] = r[1] + #data
+                                     if r[1] == n
                                      then
                                         loop:unloop()
                                         break
                                      end
                                   end
-                                  -- final yield
-                                  coroutine.yield()
+                                  return MAGIC2
                                end)
-   return cr
+   -- start it - it should be waiting at the first yield for data
+   coroutine.resume(cr)
+
+   return cr, r
 end
 
-describe("no-boom-init-test", function ()
+
+function test_once(n, debug)
+   local cr, rh = create_dummy_receiver(n)
+   local l, c = create_dummy_l_c(12444, cr, debug)
+   assert(l ~= nil, "no listener")
+   assert(c ~= nil, "no caller")
+   if n == 100000
+   then
+      --print('c is', c, c:tostring())
+      for i=1, 1000
+      do
+         c:write(string.rep('1234567890', 10))
+      end
+   elseif n == 1
+   then
+      c:write('1')
+   else
+      error()
+   end
+   --print('run_loop_awhile')
+   ssloop.run_loop_awhile()
+   --print('trying to resume coroutine once more - should be dead')
+   r, err = coroutine.resume(cr)
+   assert(not r, "coroutine still active")
+   assert(rh[1] == n, "did not receive anything? " .. tostring(rh[1]))
+end
+
+describe("scb-test", function ()
+            setup(function ()
+                     assert(#loop.r == 0, "some readers left")
+                     assert(#loop.w == 0, "some writers left")
+                     assert(#loop.t == 0, "some timeouts left")
+                  end)
+            teardown(function ()
+                        loop:done()
+                        loop.debug = false
+                     end)
             it("can create sockets", function ()
-                  local cr = create_dummy_receiver(1)
-                  local l, c = create_dummy_l_c(12444, cr)
-                  assert(l ~= nil, "no listener")
-                  assert(c ~= nil, "no caller")
-                  --print('c is', c, c:tostring())
-                  c:write('1')
-                  --print('run_loop_awhile')
-                  ssloop.run_loop_awhile()
-                  --print('trying to resume coroutine once more - should be dead')
-                  r, err = coroutine.resume(cr)
-                  assert(not r, "coroutine still active")
-                  l:done()
-                  c:done()
+                  test_once(1)
                                      end)
+
+            it("can transfer 100k", function ()
+                  test_once(100000)
+                                     end)
+            
+
                               end)
+
 

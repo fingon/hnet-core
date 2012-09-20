@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Thu Sep 20 13:58:05 2012 mstenber
--- Edit time:     71 min
+-- Last modified: Thu Sep 20 15:02:18 2012 mstenber
+-- Edit time:     74 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -217,12 +217,16 @@ function ssloop:loop()
    self:a(not self.running, 'already running')
    self.stopping = false
    self.running = true
-   while not self.stopping
-   do
-      -- just iterate through the poll loop 'forever'
-      self:poll()
-   end
-   self.running = false
+   mst.pcall_and_finally(function ()
+                               while not self.stopping
+                               do
+                                  -- just iterate through the poll loop 'forever'
+                                  self:poll()
+                               end
+                            end,
+                            function ()
+                               self.running = false
+                            end)
 end
 
 function ssloop:unloop()
@@ -270,6 +274,22 @@ function ssloop:next_timeout(now)
       end
    end
    return best
+end
+
+function ssloop:done()
+   -- make sure that _everything_ is gone
+   while #self.r > 0
+   do
+      self.rh[self.r[1]]:done()
+   end
+   while #self.w > 0
+   do
+      self.wh[self.w[1]]:done()
+   end
+   while #self.t > 0
+   do
+      self.t[1]:done()
+   end
 end
 
 --- public API

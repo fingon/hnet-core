@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Sep 20 13:40:18 2012 mstenber
--- Edit time:     52 min
+-- Last modified: Thu Sep 20 15:18:09 2012 mstenber
+-- Edit time:     56 min
 --
 
 module(..., package.seeall)
@@ -96,6 +96,29 @@ function create_class(o)
       end
    end
    return h
+end
+
+function a(stmt, ...)
+      if not stmt
+      then
+         print(debug.traceback())
+         print(...)
+         error()
+      end
+end
+
+function pcall_and_finally(fun1, fun2)
+   -- catch errors
+   r, err = pcall(fun1)
+
+   -- call finally
+   fun2()
+
+   -- and then propagate error
+   if not r
+   then
+      error(err)
+   end
 end
 
 -- shallow copy table

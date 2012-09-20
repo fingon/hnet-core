@@ -9,13 +9,14 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Thu Sep 20 13:00:36 2012 mstenber
--- Edit time:     61 min
+-- Last modified: Thu Sep 20 15:07:37 2012 mstenber
+-- Edit time:     68 min
 --
 
 require "luacov"
 require "busted"
 require "mst"
+require 'ssloop'
 
 local run_loop_awhile = ssloop.run_loop_awhile
 assert(run_loop_awhile)
@@ -26,6 +27,7 @@ assert(inject_refcounted_terminator)
 
 local _skv = require 'skv'
 local skv = _skv.skv
+local loop = ssloop.loop()
 
 
 -- we don't care about rest of the module
@@ -35,6 +37,14 @@ local SERVER_STATE_NAME = 'Server.WaitConnections'
 
 describe("class init", 
          function()
+            setup(function ()
+                     assert(#loop.r == 0, "some readers left")
+                     assert(#loop.w == 0, "some writers left")
+                     assert(#loop.t == 0, "some timeouts left")
+                  end)
+            teardown(function ()
+                        loop:done()
+                     end)
             it("cannot be created w/o loop", 
                function()
                   assert.error(function()
@@ -48,7 +58,6 @@ describe("class init",
                   run_loop_awhile()
                   assert.are.same(o.fsm:getState().name, 
                                   "Server.WaitConnections")
-                  o:done()
                end)
             it("cannot be created [non-long lived]", 
                function()
@@ -62,7 +71,6 @@ describe("class init",
                   --print(o.fsm:getState().name)
                   assert.are.same(o.fsm:getState().name, 
                                   "Terminal.ClientFailConnect")
-                  o:done()
                end)
          end)
 
@@ -94,12 +102,19 @@ local function setup_client_server(base_c, port, debug)
    return o2, o1, c
 end
 
-describe("class working",
-         function()
-            it("should work fine with 2 instances",
-               function()
+describe("class working", function()
+            setup(function ()
+                     assert(#loop.r == 0, "some readers left")
+                     assert(#loop.w == 0, "some writers left")
+                     assert(#loop.t == 0, "some timeouts left")
+                  end)
+            teardown(function ()
+                        loop:done()
+                     end)
+            it("should work fine with 2 instances", function()
                   local c, s, h = setup_client_server(2, 12347--, true
                                                      )
+                  loop:done()
                end)
             it("client should reconnect if server disconnects suddenly",
                function()
@@ -125,6 +140,6 @@ describe("class working",
                   assert.are.same(h[1], 0)
                   assert.are.same(cs1, CLIENT_STATE_NAME)
                   assert.are.same(cs2, SERVER_STATE_NAME)
-                  
+                  loop:done()
                end)
          end)
