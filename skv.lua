@@ -14,8 +14,8 @@
 --
 
 require 'mst'
-require 'mstloop'
-require 'evwrap'
+require 'ssloop'
+require 'scb'
 
 -- SMC-generated state machine
 local sm = require 'skv_sm'
@@ -83,7 +83,7 @@ end
 function skv:connect()
    self.connected = false
    self:d('skv:connect')
-   self.s = evwrap.new_connect{host=self.host, port=self.port,
+   self.s = scb.new_connect{host=self.host, port=self.port,
                                debug=self.debug,
                                callback=function (c) 
                                   self:d('connect callback')
@@ -106,7 +106,7 @@ function skv:connect()
                                end}
    if not self.connected
    then
-      local l = mstloop.loop()
+      local l = ssloop.loop()
       self.s_t = l:new_timeout_delta(CONNECT_TIMEOUT,
                                      function ()
                                         self:d('!!t1!!')
@@ -155,7 +155,7 @@ function skv:init_server()
 end
 
 function skv:bind()
-   s, err = evwrap.new_listener{host=self.host, port=self.port, 
+   s, err = scb.new_listener{host=self.host, port=self.port, 
                                 debug=self.debug,
                                 callback=function (c) 
                                    self:new_client(c)
@@ -180,7 +180,7 @@ function skv:increase_retry_timer()
 end
 
 function skv:start_retry_timer()
-   local l = mstloop.loop()
+   local l = ssloop.loop()
    self.s_t = l:new_timeout_delta(CONNECT_TIMEOUT,
                                   function ()
                                      self:d('!!t2!!')

@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 -- -*-lua-*-
 --
--- $Id: mstloop.lua $
+-- $Id: ssloop.lua $
 --
 -- Author: Markus Stenberg <fingon@iki.fi>
 --
@@ -111,13 +111,13 @@ function msttimeout:raw_stop()
    -- nop - event loop calculates who's active
 end
 
---- mstloop - main eventloop
+--- ssloop - main eventloop
 
-local mstloop = mst.create_class{class='mstloop'}
+local ssloop = mst.create_class{class='ssloop'}
 
 local _loop = false
 
-function mstloop:init()
+function ssloop:init()
    -- arrays to be passed to select
    self.r = {}
    self.w = {}
@@ -130,22 +130,22 @@ function mstloop:init()
    self.t = {}
 end
 
-function mstloop:new_reader(s, callback)
+function ssloop:new_reader(s, callback)
    local o = mstio:new{s=s, callback=callback, reader=true}
    -- as side effect of init, added to r/rh
 end
 
-function mstloop:new_writer(s, callback)
+function ssloop:new_writer(s, callback)
    local o = mstio:new{s=s, callback=callback, reader=false}
    -- as side effect of init, added to w/wh
 end
 
-function mstloop:new_timeout_delta(secs, callback)
+function ssloop:new_timeout_delta(secs, callback)
    local o = msttimeout:new{t=os.time()+secs,
                             callback=callback}
 end
 
-function mstloop:poll(timeout)
+function ssloop:poll(timeout)
    -- run select _once_, and run resulting callbacks
 
    -- first off, see if timeouts expired, if so, poll was 'success'
@@ -177,7 +177,7 @@ function mstloop:poll(timeout)
    self:run_timeouts(time)
 end
 
-function mstloop:run_timeouts(now)
+function ssloop:run_timeouts(now)
    local c = 0
    for i, v in ipairs(self.t)
    do
@@ -191,7 +191,7 @@ function mstloop:run_timeouts(now)
    return c
 end
 
-function mstloop:next_timeout(now)
+function ssloop:next_timeout(now)
    local c = 0
    local best = nil
    for i, v in ipairs(self.t)
@@ -217,7 +217,7 @@ function loop()
    -- get the singleton loop
    if not _loop
    then
-      _loop = mstloop:new()
+      _loop = ssloop:new()
    end
    return _loop
 end

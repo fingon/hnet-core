@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 -- -*-lua-*-
 --
--- $Id: evwrap_spec.lua $
+-- $Id: scb_spec.lua $
 --
 -- Author: Markus Stenberg <fingon@iki.fi>
 --
@@ -15,7 +15,7 @@
 
 require "luacov"
 require "busted"
-require "evwrap"
+require "scb"
 require "mst"
 
 local loop = ev.Loop.default
@@ -33,8 +33,8 @@ function create_dummy_l_c(port, receiver)
                     assert(r)
                  end
                                                     end}
-   local l = evwrap.new_listener(d)
-   local c = evwrap.new_connect(d)
+   local l = scb.new_listener(d)
+   local c = scb.new_connect(d)
    c = wait_connected(c)
    return l, c
 end

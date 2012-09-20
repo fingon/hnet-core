@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 -- -*-lua-*-
 --
--- $Id: evwrap.lua $
+-- $Id: scb.lua $
 --
 -- Author: Markus Stenberg <fingon@iki.fi>
 --
@@ -16,7 +16,7 @@
 -- convenience stuff on top of LuaSocket
 --
 -- it _used_ to be on top of lua-ev, but debuggability was bad =>
--- moved to mstloop
+-- moved to ssloop
 --
 -- there's write() call which queues things internally
 --
@@ -26,7 +26,7 @@
 -- and the event loop to use as 'loop' (optional)
 
 require 'mst'
-require 'mstloop'
+require 'ssloop'
 require 'socket'
 
 local ERR_CONNECTION_REFUSED = "connection refused"
@@ -42,7 +42,7 @@ function EVWrapBase:init()
    self:d('init')
    -- make sure the socket is indeed nonblocking
    --self.s.settimeout(0)
-   local l = mstloop.loop()
+   local l = ssloop.loop()
 
    if self.listen_write
    then
@@ -249,7 +249,7 @@ function new(...)
 end
 
 function wrap_socket(d)
-   mst.check_parameters("evwrap:wrap_socket", d, {"s"}, 3)
+   mst.check_parameters("scb:wrap_socket", d, {"s"}, 3)
    evio = EVWrapIO:new(d)
    assert(evio.listen_read)
    assert(evio.listen_write)
@@ -257,7 +257,7 @@ function wrap_socket(d)
 end
 
 function new_listener(d)
-   mst.check_parameters("evwrap:new_listener", d, {"host", "port", "callback"}, 3)
+   mst.check_parameters("scb:new_listener", d, {"host", "port", "callback"}, 3)
    local s = socket.tcp()
    s:settimeout(0)
    s:setoption('reuseaddr', true)
@@ -275,7 +275,7 @@ end
 
 function new_connect(d)
    -- host, port, connected_callback, callback
-   mst.check_parameters("evwrap:new_connect", d, {"host", "port", "callback"}, 3)
+   mst.check_parameters("scb:new_connect", d, {"host", "port", "callback"}, 3)
    local s = socket.tcp()
    s:settimeout(0)
    s:setoption('tcp-nodelay', true)
