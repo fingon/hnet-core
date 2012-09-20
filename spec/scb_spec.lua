@@ -9,29 +9,32 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Wed Sep 19 22:54:12 2012 mstenber
--- Edit time:     25 min
+-- Last modified: Thu Sep 20 13:51:00 2012 mstenber
+-- Edit time:     36 min
 --
 
 require "luacov"
 require "busted"
 require "scb"
 require "mst"
+require 'ssloop'
 
-local loop = ev.Loop.default
+local loop = ssloop.loop()
 
 function create_dummy_l_c(port, receiver)
    -- assume receiver is a coroutine
    local d = {host='localhost', port=port, 
               debug=true,
               callback=function (c)
-                 print('got new connection', c)
+                 print('create_dummy_l_c - got new connection', c)
                  function c:callback(r)
                     -- resume the receiver coroutine
                     print('got read callback')
-                    r, err = receiver.resume(r)
-                    assert(r)
+                    r, err = coroutine.resume(receiver, r)
+                    assert(r, "coroutine resume failed")
+                    print('read callback done')
                  end
+                 print('create_dummy_l_c - done')
                                                     end}
    local l = scb.new_listener(d)
    local c = scb.new_connect(d)
@@ -45,10 +48,10 @@ function wait_connected(c)
       r[1] = c
       loop:unloop()
    end
-   mst.run_loop_awhile()
+   ssloop.run_loop_awhile()
    c = r[1]
    print('wait_connected done')
-   assert(c)
+   assert(c, "no socket in wait_connected")
    return c
 end
 
@@ -57,6 +60,7 @@ function create_dummy_receiver(n)
                                   local c = 0
                                   while true
                                   do
+                                     print('dummy receiver coroutine', c)
                                      local r = coroutine.yield()
                                      c = c + #r
                                      if c == n
@@ -65,22 +69,24 @@ function create_dummy_receiver(n)
                                         break
                                      end
                                   end
+                                  -- final yield
+                                  coroutine.yield()
                                end)
    return cr
 end
 
 describe("no-boom-init-test", function ()
             it("can create sockets", function ()
-                  local dr = create_dummy_receiver(1)
+                  local cr = create_dummy_receiver(1)
                   local l, c = create_dummy_l_c(12444, cr)
-                  assert(l ~= nil)
-                  assert(c ~= nil)
+                  assert(l ~= nil, "no listener")
+                  assert(c ~= nil, "no caller")
                   print('c is', c, c:tostring())
                   c:write('1')
                   print('run_loop_awhile')
-                  mst.run_loop_awhile()
+                  ssloop.run_loop_awhile()
                   print('trying to resume coroutine once more - should be dead')
-                  r, err = coroutine.resume(dr)
+                  r, err = coroutine.resume(cr)
                   assert(not r, "coroutine still active")
                   l:done()
                   c:done()

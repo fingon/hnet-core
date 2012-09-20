@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Thu Sep 20 12:20:07 2012 mstenber
--- Edit time:     150 min
+-- Last modified: Thu Sep 20 13:53:17 2012 mstenber
+-- Edit time:     151 min
 --
 
 require 'mst'
@@ -22,7 +22,7 @@ local sm = require 'skv_sm'
 
 module(..., package.seeall)
 
-skv = mst.create_class{mandatory={"loop", "long_lived"}, class="skv"}
+skv = mst.create_class{mandatory={"long_lived"}, class="skv"}
 skvclient = mst.create_class{mandatory={"s", "parent"}, class="skvclient"}
 
 -- first, skv
@@ -66,7 +66,10 @@ function skv:fail(s)
 end
 
 function skv:repr()
-   return string.format('host:%s port:%d state:%s', self.host, self.port, self.fsm:getState().name)
+   return string.format('host:%s port:%d state:%s', 
+                        self.host or "?", 
+                        self.port or 0, 
+                        self.fsm and self.fsm:getState().name or "?")
 end
 
 -- Client code

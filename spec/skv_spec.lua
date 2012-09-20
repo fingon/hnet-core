@@ -9,20 +9,19 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Wed Sep 19 22:18:31 2012 mstenber
--- Edit time:     60 min
+-- Last modified: Thu Sep 20 13:00:36 2012 mstenber
+-- Edit time:     61 min
 --
 
 require "luacov"
 require "busted"
 require "mst"
-local ev = require "ev"
 
-local run_loop_awhile = mst.run_loop_awhile
+local run_loop_awhile = ssloop.run_loop_awhile
 assert(run_loop_awhile)
-local add_eventloop_terminator = mst.add_eventloop_terminator
+local add_eventloop_terminator = ssloop.add_eventloop_terminator
 assert(add_eventloop_terminator)
-local inject_refcounted_terminator = mst.inject_refcounted_terminator
+local inject_refcounted_terminator = ssloop.inject_refcounted_terminator
 assert(inject_refcounted_terminator)
 
 local _skv = require 'skv'
@@ -44,9 +43,7 @@ describe("class init",
                end)
             it("can be created [long lived]", 
                function()
-                  local loop = ev.Loop.default
-                  local o = skv:new{loop=loop, long_lived=true,
-                                   port=12345}
+                  local o = skv:new{long_lived=true, port=12345}
                   add_eventloop_terminator(o, 'start_wait_connections')
                   run_loop_awhile()
                   assert.are.same(o.fsm:getState().name, 
@@ -55,9 +52,8 @@ describe("class init",
                end)
             it("cannot be created [non-long lived]", 
                function()
-                  local loop = ev.Loop.default
-                  local o = skv:new{loop=loop, long_lived=false
---                                    ,debug=true
+                  local o = skv:new{long_lived=false
+                                    --  ,debug=true
                                     ,port=12346
                                    }
                   add_eventloop_terminator(o, 'fail')
@@ -71,9 +67,8 @@ describe("class init",
          end)
 
 local function setup_client_server(base_c, port, debug)
-   local loop = ev.Loop.default
-   local o1 = skv:new{loop=loop, long_lived=true, port=port, debug=debug}
-   local o2 = skv:new{loop=loop, long_lived=true, port=port, debug=debug}
+   local o1 = skv:new{long_lived=true, port=port, debug=debug}
+   local o2 = skv:new{long_lived=true, port=port, debug=debug}
    -- insert conditional closing stuff
    local c = {base_c}
    

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Thu Sep 20 12:24:00 2012 mstenber
--- Edit time:     111 min
+-- Last modified: Thu Sep 20 13:47:32 2012 mstenber
+-- Edit time:     122 min
 --
 
 -- convenience stuff on top of LuaSocket
@@ -34,11 +34,11 @@ local ERR_TIMEOUT = 'timeout'
 
 module(..., package.seeall)
 
---- EVWrapBase (used to wrap both listening, connecting and r&w sockets)
+--- ScbBase (used to wrap both listening, connecting and r&w sockets)
 
-local EVWrapBase = mst.create_class{required={"s"}, class="EVWrapBase"}
+local ScbBase = mst.create_class{required={"s"}, class="ScbBase"}
 
-function EVWrapBase:init()
+function ScbBase:init()
    self:d('init')
    -- make sure the socket is indeed nonblocking
    --self.s.settimeout(0)
@@ -46,7 +46,9 @@ function EVWrapBase:init()
 
    if self.listen_write
    then
-      self.s_w = l:new_writer(self.s, function () self:handle_io_write() end)
+      self.s_w = l:new_writer(self.s, function () 
+                                 self:d('write callback')
+                                 self:handle_io_write() end)
       -- write queue
       self.wq = {}
    end
@@ -54,7 +56,9 @@ function EVWrapBase:init()
    if self.listen_read
    then
       self:d('registering for read', fd)
-      self.s_r = l:new_reader(self.s, function () self:handle_io_read() end)
+      self.s_r = l:new_reader(self.s, function () 
+                                 self:d('read callback')
+                                 self:handle_io_read() end)
       -- writer we start only if there's need; reading starts
       -- implicitly as soon as we're initialized, which is .. now.
       self.s_r:start()
@@ -62,12 +66,12 @@ function EVWrapBase:init()
 
 end
 
-function EVWrapBase:repr()
+function ScbBase:repr()
    local fd = self.s:getfd()
    return string.format("fd:%d", fd)
 end
 
-function EVWrapBase:start()
+function ScbBase:start()
    if self.listen_read
    then
       self.s_r:start()
@@ -78,7 +82,7 @@ function EVWrapBase:start()
    end
 end
 
-function EVWrapBase:stop()
+function ScbBase:stop()
    if self.listen_read
    then
       self.s_r:stop()
@@ -90,7 +94,7 @@ function EVWrapBase:stop()
 end
 
 
-function EVWrapBase:done()
+function ScbBase:done()
    -- initially just stop the handlers
    self:stop()
 
@@ -109,13 +113,14 @@ function EVWrapBase:done()
    self.s_w = nil
 end
 
---- EVWrapIO (used for connecting + listen->accepted)
+--- ScbIO (used for connecting + listen->accepted)
 
-EVWrapIO = EVWrapBase:new_subclass{listen_read=true, listen_write=true, 
-                                   class="EVWrapIO"}
+ScbIO = ScbBase:new_subclass{listen_read=true, listen_write=true, 
+                                   class="ScbIO"}
 
-function EVWrapIO:handle_io_read()
-   r, error, partial = self.s:receive()
+function ScbIO:handle_io_read()
+   self:d('handle_io_read')
+   r, error, partial = self.s:receive(2^10)
    s = r or partial
    if not s or #s == 0
    then
@@ -136,7 +141,7 @@ function EVWrapIO:handle_io_read()
    end
 end
 
-function EVWrapIO:handle_io_write()
+function ScbIO:handle_io_write()
    while true
    do
 
@@ -160,7 +165,7 @@ function EVWrapIO:handle_io_write()
       -- todo - handle writing errors here
 
       -- fallback
-      assert(r, err)
+      self:a(r, err)
       
       -- update the queue
       if r == #s
@@ -169,7 +174,7 @@ function EVWrapIO:handle_io_write()
          table.remove(self.wq, 1)
       else
          -- r can't be >#s, or we have oddity on our hands
-         assert(r<#s, "too many bytes written")
+         self:a(r<#s, "too many bytes written")
 
          -- just wait for the next writable callback
          self.wq[1] = {s, r+1}
@@ -179,36 +184,37 @@ function EVWrapIO:handle_io_write()
    end
 end
 
-function EVWrapIO:write(s)
+function ScbIO:write(s)
    table.insert(self.wq, s)
    self.s_w:start()
 end
 
---- EVWrapListen
+--- ScbListen
 
-local EVWrapListen = EVWrapBase:new_subclass{listen_read=true, listen_write=false, class="EVWrapListen"}
+local ScbListen = ScbBase:new_subclass{listen_read=true, listen_write=false, class="ScbListen"}
 
-function EVWrapListen:handle_io_read()
+function ScbListen:handle_io_read()
    self:d(' --accept--')
    local c = self.s:accept()
    self:d(' --accept--', c, c:getfd())
    self:a(self.callback, "no callback in handle_io_read")
    if c 
    then
-      evio = EVWrapIO:new{s=c}
+      c:settimeout(0)
+      evio = ScbIO:new{s=c}
       self.callback(evio)
-      assert(evio.listen_read)
-      assert(evio.listen_write)
+      self:a(evio.listen_read, 'listen_read disappeared')
+      self:a(evio.listen_write, 'listen_write disappeared')
    end
 end
 
---- EVWrapConnect
+--- ScbConnect
 
-local EVWrapConnect = EVWrapBase:new_subclass{listen_write=true, class="EVWrapConnect"}
+local ScbConnect = ScbBase:new_subclass{listen_write=true, class="ScbConnect"}
 
-function EVWrapConnect:init()
+function ScbConnect:init()
    -- superclass init
-   EVWrapBase.init(self)
+   ScbBase.init(self)
 
    -- this is magic writer, it's on without any bytes to write
    -- (and triggers only once)
@@ -216,11 +222,11 @@ function EVWrapConnect:init()
    
 end
 
-function EVWrapConnect:handle_io_write()
+function ScbConnect:handle_io_write()
    self:d('handle_io_write')
    r, err = self.s:connect(self.host, self.port)
    self:d('!!w!!', r, e)
-   assert(self.callback, 'missing callback from EVWrapConnect')
+   self:a(self.callback, 'missing callback from ScbConnect')
    if err == ERR_CONNECTION_REFUSED
    then
       self.callback(nil, err)
@@ -245,12 +251,14 @@ end
 -- proxy the 'new'
 
 function new(...)
-   return EVWrap:new(...)
+   return Scb:new(...)
 end
 
 function wrap_socket(d)
    mst.check_parameters("scb:wrap_socket", d, {"s"}, 3)
-   evio = EVWrapIO:new(d)
+   local s = d.s
+   s:settimeout(0)
+   evio = ScbIO:new(d)
    assert(evio.listen_read)
    assert(evio.listen_write)
    return evio
@@ -267,8 +275,8 @@ function new_listener(d)
    then
       s:listen(10)
       d.s = s
-      e = EVWrapListen:new(d)
-      return e
+      l = ScbListen:new(d)
+      return l
    end
    return r, err
 end
@@ -290,6 +298,6 @@ function new_connect(d)
    end
    -- apparently connect is still pending. create connect
    d.evio_d = mst.copy_table(d)
-   evwc = EVWrapConnect:new(d)
-   return evwc
+   c = ScbConnect:new(d)
+   return c
 end
