@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Thu Sep 20 15:44:49 2012 mstenber
--- Edit time:     69 min
+-- Last modified: Thu Sep 20 18:16:30 2012 mstenber
+-- Edit time:     90 min
 --
 
 require "luacov"
@@ -21,18 +21,18 @@ require 'ssloop'
 
 local loop = ssloop.loop()
 
-MAGIC='foo'
-MAGIC2='bar'
+MAGIC='<data>'
+MAGIC2='<eof>'
 
 function create_dummy_l_c(port, receiver, debug)
    -- assume receiver is a coroutine
    local d = {host='localhost', port=port, 
               debug=debug,
               callback=function (c)
-                 print('create_dummy_l_c - got new connection', c)
+                 mst.d('create_dummy_l_c - got new connection', c)
                  function c.callback(d)
                     -- resume the receiver coroutine
-                    print('got read callback', #d)
+                    mst.d('got read callback', #d)
                     local r, err = coroutine.resume(receiver, d)
                     if not r
                     then
@@ -41,9 +41,9 @@ function create_dummy_l_c(port, receiver, debug)
                        mst.a(err == MAGIC or err == MAGIC2,
                              "invalid magic from coroutine", r, err)
                     end
-                    --print('read callback done')
+                    mst.d('read callback done')
                  end
-                 --print('create_dummy_l_c - done')
+                 mst.d('create_dummy_l_c - done')
                                                     end}
    local l = scb.new_listener(d)
    local c = scb.new_connect(d)
@@ -59,43 +59,46 @@ function wait_connected(c)
    end
    ssloop.run_loop_awhile()
    c = r[1]
-   --print('wait_connected done')
+   mst.d('wait_connected done')
    assert(c, "no socket in wait_connected")
    return c
 end
 
 function create_dummy_receiver(n)
-   local r = {0}
-   local cr = coroutine.create(function (x)
-                                  mst.a(not x, "initial resume arg", x)
+   local rh = {0}
+   local cr = coroutine.create(function (data)
                                   while true
                                   do
-                                     local data = coroutine.yield(MAGIC)
-                                     print('coroutine resumed', #data)
-                                     r[1] = r[1] + #data
-                                     if r[1] == n
+                                     mst.d('coroutine resumed', tostring(data))
+                                     rh[1] = rh[1] + #data
+                                     if rh[1] == n
                                      then
                                         loop:unloop()
-                                        break
+                                        mst.d('coroutine done')
+                                        return MAGIC2
                                      end
+                                     data = coroutine.yield(MAGIC)
                                   end
-                                  return MAGIC2
                                end)
-   -- start it - it should be waiting at the first yield for data
-   coroutine.resume(cr)
 
-   return cr, r
+   -- start it - it should be waiting at the first yield for data
+   --local r, err = coroutine.resume(cr)
+
+   --mst.a(r, "coroutine resume failed even at start")
+   --mst.a(err == MAGIC)
+
+   return cr, rh
 end
 
 
-function test_once(n, debug)
+function test_once(n, port, debug)
    local cr, rh = create_dummy_receiver(n)
-   local l, c = create_dummy_l_c(12444, cr, debug)
-   assert(l ~= nil, "no listener")
-   assert(c ~= nil, "no caller")
+   local l, c = create_dummy_l_c(port, cr, debug)
+   mst.a(l ~= nil, "no listener")
+   mst.a(c ~= nil, "no caller")
    if n == 100000
    then
-      --print('c is', c, c:tostring())
+      mst.d('c is', c, c:tostring())
       for i=1, 1000
       do
          c:write(string.rep('1234567890', 10))
@@ -106,10 +109,11 @@ function test_once(n, debug)
    else
       error()
    end
-   --print('run_loop_awhile')
+   mst.d('run_loop_awhile')
    ssloop.run_loop_awhile()
-   --print('trying to resume coroutine once more - should be dead')
-   r, err = coroutine.resume(cr)
+
+   mst.d('trying to resume coroutine once more - should be dead')
+   local r, err = coroutine.resume(cr)
    assert(not r, "coroutine still active")
    assert(rh[1] == n, "did not receive anything? " .. tostring(rh[1]))
 end
@@ -125,11 +129,11 @@ describe("scb-test", function ()
                         loop.debug = false
                      end)
             it("can create sockets", function ()
-                  test_once(1)
+                  test_once(1, 12444)
                                      end)
 
             it("can transfer 100k", function ()
-                  test_once(100000)
+                  test_once(100000, 12445)
                                      end)
             
 

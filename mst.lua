@@ -9,11 +9,14 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Sep 20 15:18:09 2012 mstenber
--- Edit time:     56 min
+-- Last modified: Thu Sep 20 18:12:11 2012 mstenber
+-- Edit time:     58 min
 --
 
 module(..., package.seeall)
+
+-- global debug switch
+debug=false
 
 -- check parameters to e.g. function
 function check_parameters(fname, o, l, depth)
@@ -82,7 +85,7 @@ function create_class(o)
    end
    function h:d(...)
       self:a(type(self) == 'table', "wrong self type ", type(self))
-      if self.debug
+      if self.debug or debug
       then
          print(self:tostring(), ...)
       end
@@ -106,6 +109,14 @@ function a(stmt, ...)
          error()
       end
 end
+
+function d(...)
+   if debug
+   then
+      print(self:tostring(), ...)
+   end
+end
+
 
 function pcall_and_finally(fun1, fun2)
    -- catch errors
