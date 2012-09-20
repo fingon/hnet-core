@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Thu Sep 20 13:50:42 2012 mstenber
--- Edit time:     68 min
+-- Last modified: Thu Sep 20 13:58:05 2012 mstenber
+-- Edit time:     71 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -25,6 +25,7 @@
 -- no longer useful it can be killed with done()
 
 require 'mst'
+require 'socket'
 
 module(..., package.seeall)
 
@@ -124,7 +125,7 @@ end
 
 --- ssloop - main eventloop
 
-local ssloop = mst.create_class{debug=true, class='ssloop'}
+local ssloop = mst.create_class{class='ssloop'}
 
 local _loop = false
 
@@ -155,8 +156,14 @@ function ssloop:new_writer(s, callback)
    return o
 end
 
+local function time()
+   -- where can we get good time info? socket!
+   -- (the normal os.time() returns only time in seconds)
+   return socket.gettime()
+end
+
 function ssloop:new_timeout_delta(secs, callback)
-   local o = msttimeout:new{timeout=os.time()+secs,
+   local o = msttimeout:new{timeout=time()+secs,
                             callback=callback}
    -- as a side effect, added to t
    self:d('added new timeout', o)
@@ -170,13 +177,13 @@ function ssloop:poll(timeout)
 
    -- first off, see if timeouts expired, if so, poll was 'success'
    -- without select
-   local time = os.time()
-   if self:run_timeouts(time) > 0
+   local now = time()
+   if self:run_timeouts(now) > 0
    then
       return
    end
 
-   local d = self:next_timeout(time)
+   local d = self:next_timeout(now)
    if timeout and (not d or d > timeout)
    then
       d = timeout
@@ -201,8 +208,8 @@ function ssloop:poll(timeout)
    end
 
    -- finally run the timeouts so they have maximal time available.. ;-)
-   local time = os.time()
-   self:run_timeouts(time)
+   local now = time()
+   self:run_timeouts(now)
 end
 
 function ssloop:loop()
