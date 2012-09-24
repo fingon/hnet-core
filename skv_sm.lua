@@ -201,7 +201,7 @@ end
 
 function Client.WaitUpdates:Exit (fsm)
     local ctxt = fsm.owner
-    ctxt:clear_ev()
+    ctxt:clear_jsoncodec()
 end
 
 function Client.WaitUpdates:AddListener (fsm, k, cb)
@@ -303,7 +303,7 @@ function Client.WaitVersion:ConnectionClosed (fsm)
     fsm:clearState()
     local r, msg = pcall(
         function ()
-            ctxt:clear_ev()
+            ctxt:clear_jsoncodec()
         end
     )
     if fsm.debugFlag then
@@ -314,18 +314,32 @@ function Client.WaitVersion:ConnectionClosed (fsm)
 end
 
 function Client.WaitVersion:ReceiveVersion (fsm, v)
+    local ctxt = fsm.owner
     if fsm.debugFlag then
         fsm.debugStream:write("LEAVING STATE   : Client.WaitVersion\n")
     end
-    fsm:getState():Exit(fsm)
-    if fsm.debugFlag then
-        fsm.debugStream:write("ENTER TRANSITION: Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
+    if ctxt:protocol_is_current_version(v) then
+        fsm:getState():Exit(fsm)
+        if fsm.debugFlag then
+            fsm.debugStream:write("ENTER TRANSITION: Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
+        end
+        -- No actions.
+        if fsm.debugFlag then
+            fsm.debugStream:write("EXIT TRANSITION : Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
+        end
+        fsm:setState(Client.WaitUpdates)
+        fsm:getState():Entry(fsm)
+    else
+        fsm:getState():Exit(fsm)
+        if fsm.debugFlag then
+            fsm.debugStream:write("ENTER TRANSITION: Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
+        end
+        if fsm.debugFlag then
+            fsm.debugStream:write("EXIT TRANSITION : Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
+        end
+        fsm:setState(Terminal.ClientFailConnect)
+        fsm:getState():Entry(fsm)
     end
-    if fsm.debugFlag then
-        fsm.debugStream:write("EXIT TRANSITION : Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
-    end
-    fsm:setState(Client.WaitUpdates)
-    fsm:getState():Entry(fsm)
 end
 
 Server.Default = SKVState:new('Server.Default', -1)

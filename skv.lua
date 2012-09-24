@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Mon Sep 24 11:36:45 2012 mstenber
--- Edit time:     164 min
+-- Last modified: Mon Sep 24 12:40:38 2012 mstenber
+-- Edit time:     172 min
 --
 
 require 'mst'
@@ -141,6 +141,10 @@ end
 function skv:send_listeners()
 end
 
+function skv:protocol_is_current_version(v)
+   return v == SKV_VERSION
+end
+
 function skv:handle_received_json(d)
    -- handle received datastructure from json blob
    -- must be a table
@@ -161,6 +165,9 @@ function skv:handle_received_json(d)
 end
 
 function skv:wrap_socket_jsoncodec()
+   -- clear existing listeners, json will install it's own
+   self:clear_ev()
+
    self.s = jsoncodec.wrap_socket{s=self.s, 
                                   callback=function (o)
                                      self:handle_received_json(o)
@@ -168,6 +175,11 @@ function skv:wrap_socket_jsoncodec()
                                   close_callback=function ()
                                      self.fsm:ConnectionClosed()
                                   end}
+end
+
+function skv:clear_jsoncodec()
+   self.s:done()
+   self.s = nil
 end
 
 -- Server code

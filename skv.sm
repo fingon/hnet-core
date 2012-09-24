@@ -29,7 +29,7 @@ Exit { clear_ev(); }
 
 WaitUpdates
 Entry  { send_local_updates(); send_listeners(); }
-Exit { clear_ev(); }
+Exit { clear_jsoncodec(); }
 {
   HaveUpdate(k: Key, v:Value) nil { send_update(k, v); }
   AddListener(k: String, cb:Callback) nil { l = add_listener(k, cb); send_add_listener(l); }
@@ -41,8 +41,9 @@ WaitVersion
 Entry  { wrap_socket_jsoncodec(); }
 Exit { }
 {
-  ReceiveVersion(v: Value) WaitUpdates {}
-  ConnectionClosed Connecting { clear_ev(); }
+  ReceiveVersion(v: Value) [ctxt:protocol_is_current_version(v)] WaitUpdates {}
+  ReceiveVersion(v: Value) Terminal::ClientFailConnect {}
+  ConnectionClosed Connecting { clear_jsoncodec(); }
 // receiving of updates handled here; however, it doesn't affect system state machine
 // ReceiveUpdate nil { received_update(); }
 }
