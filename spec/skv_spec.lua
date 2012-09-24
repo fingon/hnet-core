@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Mon Sep 24 16:12:05 2012 mstenber
--- Edit time:     94 min
+-- Last modified: Mon Sep 24 16:58:30 2012 mstenber
+-- Edit time:     112 min
 --
 
 require "luacov"
@@ -110,17 +110,34 @@ local function setup_client_server(base_c, debug)
    return o2, o1, c
 end
 
-local function test_state_propagation(src, dst)
-   src:set("foo", "bar")
+local function ensure_sane(s)
+   local l = s:get_jsoncodecs()
+   --mst.a(#l > 0, "no jsoncodects for", s)
+
+   for i, v in ipairs(l)
+   do
+      mst.a(v.read < 500, "too much read!", s, v)
+      mst.a(v.written < 500, "too much written!", s, v)
+   end
+end
+
+local function test_state_propagation(src, dst, st1, st2)
+   st1 = st1 or "bar"
+   st2 = st2 or "baz"
+   src:set("foo", st1)
    run_loop_until(
       function ()
-         return dst:get("foo") == "bar"
+         --ensure_sane(src)
+         --ensure_sane(dst)
+         return dst:get("foo") == st1
       end)
 
-   src:set("foo", "baz")
+   src:set("foo", st2)
    run_loop_until(
       function ()
-         return dst:get("foo") == "baz"
+         --ensure_sane(src)
+         --ensure_sane(dst)
+         return dst:get("foo") == st2
       end)
 end
 
@@ -141,20 +158,35 @@ describe("class working (ignoring setup)", function()
                   local o1 = skv:new{long_lived=true, port=port}
                   local o2 = skv:new{long_lived=true, port=port}
                   test_state_propagation(o1, o2)
-                                 end)
+                  -- 10kb payload
+                  test_state_propagation(o1, o2, string.rep('1234567890', 1000))
+                                          end)
 
-            it("transmits data c->s [nowait]", function ()
+
+            it("transmits data c->s [nowait] #cs", function ()
                   local port = get_available_port()
                   local s = skv:new{long_lived=true, port=port}
                   local c = skv:new{long_lived=false, auto_retry=true, port=port}
                   test_state_propagation(c, s)
                                  end)
 
-            it("transmits data s->c [nowait]", function ()
+            it("transmits data s->c [nowait] #sc", function ()
                   local port = get_available_port()
-                  local s = skv:new{long_lived=true, port=port}
-                  local c = skv:new{long_lived=false, auto_retry=true, port=port}
+                  local debug = true
+                  local debug = false
+                  local s = skv:new{long_lived=true, port=port, debug=debug}
+                  local c = skv:new{long_lived=false, auto_retry=true, port=port, debug=debug}
                   test_state_propagation(s, c)
+                                      end)
+
+            it("transmits data c->s->c [nowait]", function ()
+                  local port = get_available_port()
+                  local debug = true
+                  local debug = false
+                  local s = skv:new{long_lived=true, port=port, debug=debug}
+                  local c1 = skv:new{long_lived=false, auto_retry=true, port=port, debug=debug}
+                  local c2 = skv:new{long_lived=false, auto_retry=true, port=port, debug=debug}
+                  test_state_propagation(c1, c2)
                                       end)
             
                                            end)
@@ -170,18 +202,13 @@ describe("class working (post setup)", function()
                         -- calling again shouldn't do anything bad, test it here
                         loop:done()
                      end)
-            it("should work fine with 2 instances", function()
-                  local c, s, h = setup_client_server(2
-                                                      --,true --debug
-                                                     )
-               end)
-            it("should transfer state across (c->s)", function()
+            it("should transfer state across (c->s) #pcs", function()
                   local c, s, h = setup_client_server(2
                                                       --,true --debug
                                                      )
                   test_state_propagation(c, s)
               end)
-            it("should transfer state across (s->c)", function()
+            it("should transfer state across (s->c) #psc", function()
                   local c, s, h = setup_client_server(2
                                                       --,true --debug
                                                      )
@@ -213,5 +240,7 @@ describe("class working (post setup)", function()
                   assert.are.same(h[1], 0)
                   assert.are.same(cs1, CLIENT_STATE_NAME)
                   assert.are.same(cs2, SERVER_STATE_NAME)
+                  ensure_sane(c)
+                  ensure_sane(s)
                end)
          end)

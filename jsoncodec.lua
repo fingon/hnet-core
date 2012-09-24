@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 20 18:30:13 2012 mstenber
--- Last modified: Mon Sep 24 15:57:22 2012 mstenber
--- Edit time:     47 min
+-- Last modified: Mon Sep 24 16:53:50 2012 mstenber
+-- Edit time:     52 min
 --
 
 -- json codec that can be plugged on top of scb abstracted sockets, to
@@ -36,6 +36,9 @@ function jsoncodec:init()
    -- read queue
    self.rq = {}
    self.rql = 0
+
+   self.read = 0
+   self.written = 0
 
    -- 's' should have 'callback' which provides read data. let's steal it.
    -- similarly, add 'close_callback' so we can clean up cleanly
@@ -63,7 +66,8 @@ function jsoncodec:write(o)
    -- write encoded json representation to the underlying socket
    local x = struct.pack(HEADER_FORMAT .. 'c0', HEADER_MAGIC, string.len(s), s)
    self.s:write(x)
-   self:d('wrote', #x)
+   self.written = self.written + #x
+   self:d('wrote', #x, self.written)
 end
 
 function jsoncodec:rq_join()
@@ -91,7 +95,7 @@ function jsoncodec:handle_data(x)
       -- special case handling 1: rql < _is => return (nothing to be done)
       if self.rql < need1
       then
-         self:d('too short read queue', self.rql, need1)
+         self:d('too short read queue', self.rql, ri, need1)
          break
       end
 
@@ -138,7 +142,8 @@ function jsoncodec:handle_data(x)
       self.callback(o)
 
       -- update the index and re-iterate
-      ri = ri + need2
+      ri = need2 + 1
+      self:d('handle_data iter', ri)
    end
 
    -- chop the first string appropriately
@@ -146,10 +151,14 @@ function jsoncodec:handle_data(x)
    then
       self:d('consuming some bytes', ri)
 
+      self.read = self.read + (ri - 1)
+
       self.rq[1] = string.sub(self.rq[1], ri)
 
       -- and decrement the rql
       self.rql = self.rql - (ri - 1)
+      mst.a(self.rql >= 0, "invalid rql", self)
+
    end
 end
 

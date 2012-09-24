@@ -14,7 +14,6 @@ Entry { init_client(); }
 Default
 {
   HaveUpdate(k: Key, v:Value) nil { store_local_update(k, v); }
-//  AddListener(k: String, cb: Callback) nil { add_listener(k, cb); }
 //  RemoveListener(l: Listener) nil { delete_listener(l); }
 }
 
@@ -28,13 +27,15 @@ Exit { clear_ev(); }
   ConnectFailed Terminal::ClientFailConnect {  }
 }
 
-ClientFailRetry
-Entry { increase_retry_timer(); start_retry_timer(); }
+WaitVersion
+Entry  { wrap_socket_jsoncodec(); }
+Exit { }
 {
-  Timeout Connecting { }
+  ReceiveVersion(v: Value) [ctxt:protocol_is_current_version(v)] WaitUpdates {}
+  ReceiveVersion(v: Value) Terminal::ClientFailConnect {}
+  ConnectionClosed Connecting { clear_jsoncodec(); }
+// receiving of updates handled here; however, it doesn't affect system state machine
 }
-
-
 
 WaitUpdates
 Entry  { send_local_state(); 
@@ -46,17 +47,13 @@ Exit { clear_jsoncodec(); }
 //  AddListener(k: String, cb:Callback) nil { l = add_listener(k, cb); send_add_listener(l); }
 //  RemoveListener(l: Listener) nil { send_remove_listener(l); delete_listener(l); }
   ConnectionClosed Connecting { }
+  ReceiveUpdate(k: Key, v: Value) nil { store_remote_update(k, v); }
 }
 
-WaitVersion
-Entry  { wrap_socket_jsoncodec(); }
-Exit { }
+ClientFailRetry
+Entry { increase_retry_timer(); start_retry_timer(); }
 {
-  ReceiveVersion(v: Value) [ctxt:protocol_is_current_version(v)] WaitUpdates {}
-  ReceiveVersion(v: Value) Terminal::ClientFailConnect {}
-  ReceiveUpdate(k: Key, v: Value) nil { store_remote_update(k, v); }
-  ConnectionClosed Connecting { clear_jsoncodec(); }
-// receiving of updates handled here; however, it doesn't affect system state machine
+  Timeout Connecting { }
 }
 
 %%
@@ -95,7 +92,7 @@ Entry { }
 {
 // new connection loop here - no affect on the state machine though
   HaveUpdate(k: Key, v:Value) nil { store_local_update(k, v); send_update_to_clients(k, v); }
-  ReceiveUpdate(k: Key, v: Value) nil { store_remote_update(k, v); send_update_to_clients(k, v); }
+  ReceiveUpdate(k: Key, v: Value) nil { store_and_forward_remote_update(k, v); }
 }
 %%
 

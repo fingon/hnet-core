@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Sep 24 15:33:31 2012 mstenber
+-- Last modified: Mon Sep 24 16:40:27 2012 mstenber
 -- Edit time:     105 min
 --
 
@@ -300,6 +300,9 @@ function repr(o, shown)
    elseif t == 'string'
    then
       return string.format('%q', o)
+   elseif t == 'nil'
+   then
+      return 'nil'
    elseif _asis_repr[t]
    then
       return tostring(o)

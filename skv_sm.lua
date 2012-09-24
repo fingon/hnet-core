@@ -159,27 +159,62 @@ function Client.Connecting:Connected (fsm)
     fsm:getState():Entry(fsm)
 end
 
-Client.ClientFailRetry = Client.Default:new('Client.ClientFailRetry', 2)
+Client.WaitVersion = Client.Default:new('Client.WaitVersion', 2)
 
-function Client.ClientFailRetry:Entry (fsm)
+function Client.WaitVersion:Entry (fsm)
     local ctxt = fsm.owner
-    ctxt:increase_retry_timer()
-    ctxt:start_retry_timer()
+    ctxt:wrap_socket_jsoncodec()
 end
 
-function Client.ClientFailRetry:Timeout (fsm)
+function Client.WaitVersion:ConnectionClosed (fsm)
+    local ctxt = fsm.owner
     if fsm.debugFlag then
-        fsm.debugStream:write("LEAVING STATE   : Client.ClientFailRetry\n")
+        fsm.debugStream:write("LEAVING STATE   : Client.WaitVersion\n")
     end
     fsm:getState():Exit(fsm)
     if fsm.debugFlag then
-        fsm.debugStream:write("ENTER TRANSITION: Client.ClientFailRetry:Timeout()\n")
+        fsm.debugStream:write("ENTER TRANSITION: Client.WaitVersion:ConnectionClosed()\n")
     end
+    fsm:clearState()
+    local r, msg = pcall(
+        function ()
+            ctxt:clear_jsoncodec()
+        end
+    )
     if fsm.debugFlag then
-        fsm.debugStream:write("EXIT TRANSITION : Client.ClientFailRetry:Timeout()\n")
+        fsm.debugStream:write("EXIT TRANSITION : Client.WaitVersion:ConnectionClosed()\n")
     end
     fsm:setState(Client.Connecting)
     fsm:getState():Entry(fsm)
+end
+
+function Client.WaitVersion:ReceiveVersion (fsm, v)
+    local ctxt = fsm.owner
+    if fsm.debugFlag then
+        fsm.debugStream:write("LEAVING STATE   : Client.WaitVersion\n")
+    end
+    if ctxt:protocol_is_current_version(v) then
+        fsm:getState():Exit(fsm)
+        if fsm.debugFlag then
+            fsm.debugStream:write("ENTER TRANSITION: Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
+        end
+        -- No actions.
+        if fsm.debugFlag then
+            fsm.debugStream:write("EXIT TRANSITION : Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
+        end
+        fsm:setState(Client.WaitUpdates)
+        fsm:getState():Entry(fsm)
+    else
+        fsm:getState():Exit(fsm)
+        if fsm.debugFlag then
+            fsm.debugStream:write("ENTER TRANSITION: Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
+        end
+        if fsm.debugFlag then
+            fsm.debugStream:write("EXIT TRANSITION : Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
+        end
+        fsm:setState(Terminal.ClientFailConnect)
+        fsm:getState():Entry(fsm)
+    end
 end
 
 Client.WaitUpdates = Client.Default:new('Client.WaitUpdates', 3)
@@ -231,43 +266,14 @@ function Client.WaitUpdates:HaveUpdate (fsm, k, v)
     fsm:setState(endState)
 end
 
-Client.WaitVersion = Client.Default:new('Client.WaitVersion', 4)
-
-function Client.WaitVersion:Entry (fsm)
-    local ctxt = fsm.owner
-    ctxt:wrap_socket_jsoncodec()
-end
-
-function Client.WaitVersion:ConnectionClosed (fsm)
+function Client.WaitUpdates:ReceiveUpdate (fsm, k, v)
     local ctxt = fsm.owner
     if fsm.debugFlag then
-        fsm.debugStream:write("LEAVING STATE   : Client.WaitVersion\n")
-    end
-    fsm:getState():Exit(fsm)
-    if fsm.debugFlag then
-        fsm.debugStream:write("ENTER TRANSITION: Client.WaitVersion:ConnectionClosed()\n")
-    end
-    fsm:clearState()
-    local r, msg = pcall(
-        function ()
-            ctxt:clear_jsoncodec()
-        end
-    )
-    if fsm.debugFlag then
-        fsm.debugStream:write("EXIT TRANSITION : Client.WaitVersion:ConnectionClosed()\n")
-    end
-    fsm:setState(Client.Connecting)
-    fsm:getState():Entry(fsm)
-end
-
-function Client.WaitVersion:ReceiveUpdate (fsm, k, v)
-    local ctxt = fsm.owner
-    if fsm.debugFlag then
-        fsm.debugStream:write("LEAVING STATE   : Client.WaitVersion\n")
+        fsm.debugStream:write("LEAVING STATE   : Client.WaitUpdates\n")
     end
     local endState = fsm:getState()
     if fsm.debugFlag then
-        fsm.debugStream:write("ENTER TRANSITION: Client.WaitVersion:ReceiveUpdate(k=" .. tostring(k) .. ", v=" .. tostring(v) .. ")\n")
+        fsm.debugStream:write("ENTER TRANSITION: Client.WaitUpdates:ReceiveUpdate(k=" .. tostring(k) .. ", v=" .. tostring(v) .. ")\n")
     end
     fsm:clearState()
     local r, msg = pcall(
@@ -276,38 +282,32 @@ function Client.WaitVersion:ReceiveUpdate (fsm, k, v)
         end
     )
     if fsm.debugFlag then
-        fsm.debugStream:write("EXIT TRANSITION : Client.WaitVersion:ReceiveUpdate(k=" .. tostring(k) .. ", v=" .. tostring(v) .. ")\n")
+        fsm.debugStream:write("EXIT TRANSITION : Client.WaitUpdates:ReceiveUpdate(k=" .. tostring(k) .. ", v=" .. tostring(v) .. ")\n")
     end
     fsm:setState(endState)
 end
 
-function Client.WaitVersion:ReceiveVersion (fsm, v)
+Client.ClientFailRetry = Client.Default:new('Client.ClientFailRetry', 4)
+
+function Client.ClientFailRetry:Entry (fsm)
     local ctxt = fsm.owner
+    ctxt:increase_retry_timer()
+    ctxt:start_retry_timer()
+end
+
+function Client.ClientFailRetry:Timeout (fsm)
     if fsm.debugFlag then
-        fsm.debugStream:write("LEAVING STATE   : Client.WaitVersion\n")
+        fsm.debugStream:write("LEAVING STATE   : Client.ClientFailRetry\n")
     end
-    if ctxt:protocol_is_current_version(v) then
-        fsm:getState():Exit(fsm)
-        if fsm.debugFlag then
-            fsm.debugStream:write("ENTER TRANSITION: Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
-        end
-        -- No actions.
-        if fsm.debugFlag then
-            fsm.debugStream:write("EXIT TRANSITION : Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
-        end
-        fsm:setState(Client.WaitUpdates)
-        fsm:getState():Entry(fsm)
-    else
-        fsm:getState():Exit(fsm)
-        if fsm.debugFlag then
-            fsm.debugStream:write("ENTER TRANSITION: Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
-        end
-        if fsm.debugFlag then
-            fsm.debugStream:write("EXIT TRANSITION : Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
-        end
-        fsm:setState(Terminal.ClientFailConnect)
-        fsm:getState():Entry(fsm)
+    fsm:getState():Exit(fsm)
+    if fsm.debugFlag then
+        fsm.debugStream:write("ENTER TRANSITION: Client.ClientFailRetry:Timeout()\n")
     end
+    if fsm.debugFlag then
+        fsm.debugStream:write("EXIT TRANSITION : Client.ClientFailRetry:Timeout()\n")
+    end
+    fsm:setState(Client.Connecting)
+    fsm:getState():Entry(fsm)
 end
 
 Server.Default = SKVState:new('Server.Default', -1)
@@ -451,8 +451,7 @@ function Server.WaitConnections:ReceiveUpdate (fsm, k, v)
     fsm:clearState()
     local r, msg = pcall(
         function ()
-            ctxt:store_remote_update(k, v)
-            ctxt:send_update_to_clients(k, v)
+            ctxt:store_and_forward_remote_update(k, v)
         end
     )
     if fsm.debugFlag then
