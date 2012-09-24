@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Mon Sep 24 11:48:10 2012 mstenber
--- Edit time:     123 min
+-- Last modified: Mon Sep 24 12:23:44 2012 mstenber
+-- Edit time:     124 min
 --
 
 -- convenience stuff on top of LuaSocket
@@ -99,10 +99,7 @@ function ScbBase:done()
    self:stop()
 
    -- call done callback (if any)
-   if self.done_callback
-   then
-      self.done_callback(self)
-   end
+   self:call_callback_once('done_callback')
 
    if self.s
    then
@@ -131,10 +128,7 @@ function ScbIO:handle_io_read()
       else
          -- ??
       end
-      if self.close_callback
-      then
-         self.close_callback(self)
-      end
+      self:call_callback_once('close_callback')
       self:done()
    else
       self.callback(s)

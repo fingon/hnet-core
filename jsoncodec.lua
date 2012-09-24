@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 20 18:30:13 2012 mstenber
--- Last modified: Mon Sep 24 11:31:31 2012 mstenber
--- Edit time:     37 min
+-- Last modified: Mon Sep 24 12:23:08 2012 mstenber
+-- Edit time:     45 min
 --
 
 -- json codec that can be plugged on top of scb abstracted sockets, to
@@ -22,7 +22,11 @@ local struct = require 'struct'
 local json = require "dkjson"
 
 -- struct.size missing from some historic version in luarocks
-local _is = #struct.pack("i", 0)
+HEADER_FORMAT='ii'
+HEADER_MAGIC=1234567
+
+-- magic + length of the next payload
+local _hs = #struct.pack(HEADER_FORMAT, 0, 0)
 
 module(..., package.seeall)
 
@@ -39,11 +43,7 @@ function jsoncodec:init()
       self:handle_data(s)
    end
    self.s.close_callback = function ()
-      if self.close_callback
-      then
-         self.close_callback()
-      end
-      self:done()
+      self:handle_close()
    end
 end
 
@@ -52,7 +52,7 @@ function jsoncodec:write(o)
    local s = json.encode(o)
 
    -- write encoded json representation to the underlying socket
-   local x = struct.pack('ic0', string.len(s), s)
+   local x = struct.pack(HEADER_FORMAT .. 'c0', HEADER_MAGIC, string.len(s), s)
    self.s:write(x)
    self:d('wrote', #x)
 end
@@ -61,6 +61,11 @@ function jsoncodec:rq_join()
    -- combine all strings
    self.rq = {table.concat(self.rq)}
    self:a(#self.rq == 1)
+end
+
+function jsoncodec:handle_close()
+   self:call_callback_once('close_callback')
+   self:done()
 end
 
 function jsoncodec:handle_data(x)
@@ -73,7 +78,7 @@ function jsoncodec:handle_data(x)
 
    while true
    do
-      local need1 = ri + _is - 1
+      local need1 = ri + _hs - 1
       -- special case handling 1: rql < _is => return (nothing to be done)
       if self.rql < need1
       then
@@ -89,7 +94,14 @@ function jsoncodec:handle_data(x)
 
       self:a(#self.rq[1] >= need1)
 
-      cnt = struct.unpack('i', self.rq[1], ri)
+      magic, cnt = struct.unpack(HEADER_FORMAT, self.rq[1], ri)
+
+      if magic ~= HEADER_MAGIC
+      then
+         self:d('invalid magic')
+         self:handle_close()
+         return
+      end
 
       local need2 = need1 + cnt
 
@@ -108,7 +120,8 @@ function jsoncodec:handle_data(x)
       self:a(#self.rq[1] >= need2)
 
       -- ok, we have a blob to decode
-      s = struct.unpack('ic0', self.rq[1], ri)
+      magic, s = struct.unpack(HEADER_FORMAT .. 'c0', self.rq[1], ri)
+      
       o = json.decode(s)
 
       self:a(self.callback, 'no callback?!?')
@@ -133,10 +146,7 @@ end
 
 function jsoncodec:done()
    -- we're done; just propagate the info
-      if self.done_callback
-      then
-         self.done_callback()
-      end
+   self:call_callback_once('done_callback')
    self.s:done()
 end
 

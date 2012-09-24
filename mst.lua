@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Sep 24 11:34:33 2012 mstenber
--- Edit time:     58 min
+-- Last modified: Mon Sep 24 12:22:04 2012 mstenber
+-- Edit time:     59 min
 --
 
 module(..., package.seeall)
@@ -96,6 +96,19 @@ function create_class(o)
          print(debug.traceback())
          print(self:tostring(), ...)
          error()
+      end
+   end
+   function h:call_callback(name, ...)
+      if self[name]
+      then
+         self[name](...)
+      end
+   end
+   function h:call_callback_once(name, ...)
+      if self[name]
+      then
+         self[name](...)
+         self[name] = nil
       end
    end
    return h
