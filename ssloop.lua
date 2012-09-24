@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Thu Sep 20 15:02:18 2012 mstenber
--- Edit time:     74 min
+-- Last modified: Mon Sep 24 14:44:24 2012 mstenber
+-- Edit time:     78 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -85,7 +85,7 @@ function mstio:raw_stop()
    table.remove(a, i)
 end
 
-function mstio:repr()
+function mstio:repr_data()
    if self.reader
    then
       return 'reader fd:'..tostring(self.s:getfd())
@@ -194,17 +194,23 @@ function ssloop:poll(timeout)
 
    for _, s in ipairs(r)
    do
-      o = self.rh[s]
-      self:d('providing read callback to', o)
-      self:a(o.callback, 'no callback for', o)
-      o:callback()
+      local o = self.rh[s]
+      if o
+      then
+         self:d('providing read callback to', o)
+         self:a(o.callback, 'no callback for', o)
+         o:callback()
+      end
    end
    for _, s in ipairs(w)
    do
-      o = self.wh[s]
-      self:d('providing write callback to', o)
-      self:a(o.callback, 'no callback for', o)
-      o:callback()
+      local o = self.wh[s]
+      if o
+      then
+         self:d('providing write callback to', o)
+         self:a(o.callback, 'no callback for', o)
+         o:callback()
+      end
    end
 
    -- finally run the timeouts so they have maximal time available.. ;-)

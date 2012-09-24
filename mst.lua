@@ -9,14 +9,14 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Sep 24 12:22:04 2012 mstenber
--- Edit time:     59 min
+-- Last modified: Mon Sep 24 14:41:21 2012 mstenber
+-- Edit time:     100 min
 --
 
 module(..., package.seeall)
 
 -- global debug switch
-debug=false
+enable_debug=false
 
 -- check parameters to e.g. function
 function check_parameters(fname, o, l, depth)
@@ -49,7 +49,7 @@ function create_class(o)
       if o
       then
          -- shallow copy is cheap insurance, allows lazy use outside
-         o = copy_table(o)
+         o = table_copy(o)
       else
          o = {}
       end
@@ -63,38 +63,43 @@ function create_class(o)
       o:init()
       return o
    end
-   function h:repr()
+   function h:repr_data(shown)
       return nil
    end
-   function h:tostring()
+   function h:repr(shown)
       local omt = getmetatable(self)
       setmetatable(self, {})
       t = tostring(self)
       setmetatable(self, omt)
-      r = self:repr()
+      r = self:repr_data(shown)
       if r
       then
          reprs = ' - ' .. r
       else
-         reprs = ''
+         reprs = table_repr(self, shown)
       end
       return string.format('<%s %s%s>', 
                            self.class or tostring(getmetatable(self)), 
                            t,
                            reprs)
    end
+   function h:tostring()
+      -- by default, fall back to repr()
+      return self:repr()
+   end
+
    function h:d(...)
       self:a(type(self) == 'table', "wrong self type ", type(self))
-      if self.debug or debug
+      if self.debug or enable_debug
       then
-         print(self:tostring(), ...)
+         debug_print(self:tostring(), ...)
       end
    end
    function h:a(stmt, ...)
       if not stmt
       then
          print(debug.traceback())
-         print(self:tostring(), ...)
+         debug_print(self:tostring(), ...)
          error()
       end
    end
@@ -114,26 +119,50 @@ function create_class(o)
    return h
 end
 
+_repr_metatable = {__tostring=function ()
+                      return repr(self)
+                              end}
+
+function debug_print(...)
+   -- rewrite all table's to have metatable which has tostring => repr wrapper, if they don't have metatable
+   local tl = {}
+   local al = {...}
+   --print('handling arguments', #al)
+   for i, v in ipairs(al)
+   do
+      if type(v) == 'table' and not getmetatable(v)
+      then
+         setmetatable(v, _repr_metatable)
+         table.insert(tl, v)
+      end
+   end
+   print(...)
+   for i, v in ipairs(tl)
+   do
+      setmetatable(v, nil)
+   end
+end
+
 function a(stmt, ...)
       if not stmt
       then
          print(debug.traceback())
-         print(...)
+         debug_print(...)
          error()
       end
 end
 
 function d(...)
-   if debug
+   if enable_debug
    then
-      print(self:tostring(), ...)
+      debug_print(self:tostring(), ...)
    end
 end
 
 
 function pcall_and_finally(fun1, fun2)
    -- error propagation doesn't really matter as much.. as good tracebacks do
-   if debug
+   if enable_debug
    then
       fun1()
       fun2()
@@ -154,7 +183,7 @@ function pcall_and_finally(fun1, fun2)
 end
 
 -- shallow copy table
-function copy_table(t, n)
+function table_copy(t, n)
    assert(type(t) == "table")
    n = n or {}
    for k, v in pairs(t)
@@ -162,6 +191,102 @@ function copy_table(t, n)
       n[k] = v
    end
    return n
+end
+
+-- sorted keys of a table
+function table_sorted_keys(t)
+   local keys = {}
+   for k, v in pairs(t)
+   do
+      table.insert(keys, k)
+   end
+   table.sort(keys)
+   return keys
+end
+
+-- sorted table pairs
+function table_sorted_pairs_iterator(h, k)
+   local t, s, sr  = unpack(h)
+
+   if not k
+   then
+      i = 0
+   else
+      i = sr[k]
+   end
+
+   i = i + 1
+   if s[i]
+   then
+      return s[i], t[s[i]]
+   end
+end
+
+function table_sorted_pairs(t)
+   local s = table_sorted_keys(t)
+   local sr = {}
+   for i, v in ipairs(s)
+   do
+      sr[v] = i
+   end
+   local h = {t, s, sr}
+   return table_sorted_pairs_iterator, h, nil
+end
+
+-- python-style table repr
+function table_repr(t, shown)
+   local s = {}
+   local first = true
+
+   a(type(t) == 'table', 'non-table to table_repr', t)
+   shown = shown or {}
+
+   table.insert(s, "{")
+   if shown[t]
+   then
+      return '...'
+   end
+   shown[t] = true
+   for k, v in table_sorted_pairs(t)
+   do
+      if not first then table.insert(s, ", ") end
+      table.insert(s, k .. "=")
+      table.insert(s, repr(v, shown))
+      first = false
+   end
+   table.insert(s, "}")
+   return table.concat(s)
+end
+
+
+local _asis_repr = {['number']=true,
+                    ['function']=true,
+                    ['boolean']=true,
+                    ['userdata']=true,
+}
+
+-- python-style repr (works on any object, calls repr() if available,
+-- if not, tough
+function repr(o, shown)
+   local t = type(o)
+   if t == 'table'
+   then
+      shown = shown or {}
+      specific_repr = o.repr
+      if specific_repr
+      then
+         return specific_repr(o, shown)
+      end
+      return table_repr(o, shown)
+   elseif t == 'string'
+   then
+      return string.format('%q', o)
+   elseif _asis_repr[t]
+   then
+      return tostring(o)
+   else
+      error("unknown type " .. t)
+   end
 end
 
 -- index in array

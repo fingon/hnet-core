@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Mon Sep 24 11:49:42 2012 mstenber
--- Edit time:     73 min
+-- Last modified: Mon Sep 24 14:45:01 2012 mstenber
+-- Edit time:     76 min
 --
 
 require "luacov"
@@ -114,13 +114,15 @@ describe("class working", function()
                      end)
             it("should work fine with 2 instances", function()
                   local c, s, h = setup_client_server(2, 12347
-                                                      --, true --debug
+                                                      --,true --debug
                                                      )
                   loop:done()
                end)
             it("client should reconnect if server disconnects suddenly",
                function()
-                  local c, s, h = setup_client_server(2, 12348)
+                  local c, s, h = setup_client_server(2, 12348
+                                                      --,true --debug
+                                                     )
 
                   -- ok, we simulate server disconnect and expect 3
                   -- events to happen - client should get conn closed,

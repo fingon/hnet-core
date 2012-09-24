@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Mon Sep 24 12:40:38 2012 mstenber
--- Edit time:     172 min
+-- Last modified: Mon Sep 24 14:43:05 2012 mstenber
+-- Edit time:     196 min
 --
 
 require 'mst'
@@ -34,10 +34,13 @@ local HOST = '127.0.0.1'
 local PORT = 12345
 local CONNECT_TIMEOUT = 0.1
 local INITIAL_LISTEN_TIMEOUT = 0.2
-local VERSION_TAG = 'version'
+local MSG_VERSION = 'version'
+local MSG_UPDATE = 'update'
 local SKV_VERSION = '1.0'
 
 function skv:init()
+   self.local_state = {}
+   self.remote_state = {}
    self.host = self.host or HOST
    self.port = self.port or PORT
    if self.debug
@@ -68,7 +71,7 @@ function skv:fail(s)
    end
 end
 
-function skv:repr()
+function skv:repr_data()
    return string.format('host:%s port:%d state:%s', 
                         self.host or "?", 
                         self.port or 0, 
@@ -87,6 +90,7 @@ function skv:is_long_lived()
 end
 
 function skv:connect()
+   self.client = true
    self.connected = false
    self:d('skv:connect')
    self.s = scb.new_connect{host=self.host, port=self.port,
@@ -135,10 +139,10 @@ function skv:clear_ev()
    end
 end
 
-function skv:send_local_updates()
-end
-
-function skv:send_listeners()
+function skv:send_local_state(s)
+   -- send contents of 'local' to given socket (or our socket)
+   local dest = s or self.s
+   dest:write{[MSG_UPDATE] = self.local_state}
 end
 
 function skv:protocol_is_current_version(v)
@@ -148,20 +152,54 @@ end
 function skv:handle_received_json(d)
    -- handle received datastructure from json blob
    -- must be a table
-   self:d('handle_received_json', r)
+   self:d('handle_received_json', d)
    if type(d) ~= 'table'
    then
       self:d('got wierd typed data', type(d))
       return
    end
    -- is it version? if so, dispatch that
-   v = d[VERSION_TAG]
+   local v = d[MSG_VERSION]
    if v
    then
       self:d('got version', v)
       self.fsm:ReceiveVersion(v)
-      return
    end
+   local v = d[MSG_UPDATE]
+   if v
+   then
+      -- contains dictionary
+      for k, v in pairs(v)
+      do
+         self:set_via_update_from_client(k, v)
+      end
+   end
+end
+
+function skv:get(k)
+   -- local state overrides remote state
+   local v = self.local_state[k]
+   if v
+   then
+      return v
+   end
+   return self.remote_state[k]
+end
+
+function skv:set(k, v)
+   self.fsm:HaveUpdate(k, v)
+end
+
+function skv:store_local_update(k, v)
+   self.local_state[k] = v
+end
+
+function skv:set_via_update_from_server(k, v)
+   self.remote_state[k] = v
+end
+
+function skv:set_via_update_from_client(k, v)
+   self.remote_state[k] = v
 end
 
 function skv:wrap_socket_jsoncodec()
@@ -186,6 +224,7 @@ end
 
 function skv:init_server()
    self.fsm:Initialized()
+   self.client = false
    self.connections = {}
 end
 
@@ -238,11 +277,21 @@ function skvclient:init()
                                      self:handle_close()
                                   end
                                  }
-   self.s:write{[VERSION_TAG] = SKV_VERSION}
+   self.s:write{[MSG_VERSION] = SKV_VERSION}
 end
 
-function skvclient:handle_received_json(o)
-   -- to do
+function skvclient:handle_received_json(d)
+   self:d('handle_received_json', d)
+
+   local v = d[MSG_UPDATE]
+   if v
+   then
+      -- contains dictionary
+      for k, v in pairs(v)
+      do
+         self.parent:set_via_update_from_client(k, v)
+      end
+   end
 end
 
 function skvclient:handle_close()

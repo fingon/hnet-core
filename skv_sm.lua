@@ -22,7 +22,6 @@ SKVState.Exit = _empty
 local function _default (self, fsm)
     self:Default(fsm)
 end
-SKVState.AddListener = _default
 SKVState.BindFailed = _default
 SKVState.Bound = _default
 SKVState.ConnectFailed = _default
@@ -31,7 +30,6 @@ SKVState.ConnectionClosed = _default
 SKVState.HaveUpdate = _default
 SKVState.Initialized = _default
 SKVState.ReceiveVersion = _default
-SKVState.RemoveListener = _default
 SKVState.Timeout = _default
 
 function SKVState:Default (fsm)
@@ -67,48 +65,6 @@ function Client.Default:HaveUpdate (fsm, k, v)
     )
     if fsm.debugFlag then
         fsm.debugStream:write("EXIT TRANSITION : Client.Default:HaveUpdate(k=" .. tostring(k) .. ", v=" .. tostring(v) .. ")\n")
-    end
-    fsm:setState(endState)
-end
-
-function Client.Default:AddListener (fsm, k, cb)
-    local ctxt = fsm.owner
-    if fsm.debugFlag then
-        fsm.debugStream:write("LEAVING STATE   : Client.Default\n")
-    end
-    local endState = fsm:getState()
-    if fsm.debugFlag then
-        fsm.debugStream:write("ENTER TRANSITION: Client.Default:AddListener(k=" .. tostring(k) .. ", cb=" .. tostring(cb) .. ")\n")
-    end
-    fsm:clearState()
-    local r, msg = pcall(
-        function ()
-            ctxt:add_listener(k, cb)
-        end
-    )
-    if fsm.debugFlag then
-        fsm.debugStream:write("EXIT TRANSITION : Client.Default:AddListener(k=" .. tostring(k) .. ", cb=" .. tostring(cb) .. ")\n")
-    end
-    fsm:setState(endState)
-end
-
-function Client.Default:RemoveListener (fsm, l)
-    local ctxt = fsm.owner
-    if fsm.debugFlag then
-        fsm.debugStream:write("LEAVING STATE   : Client.Default\n")
-    end
-    local endState = fsm:getState()
-    if fsm.debugFlag then
-        fsm.debugStream:write("ENTER TRANSITION: Client.Default:RemoveListener(l=" .. tostring(l) .. ")\n")
-    end
-    fsm:clearState()
-    local r, msg = pcall(
-        function ()
-            ctxt:delete_listener(l)
-        end
-    )
-    if fsm.debugFlag then
-        fsm.debugStream:write("EXIT TRANSITION : Client.Default:RemoveListener(l=" .. tostring(l) .. ")\n")
     end
     fsm:setState(endState)
 end
@@ -195,35 +151,12 @@ Client.WaitUpdates = Client.Default:new('Client.WaitUpdates', 2)
 
 function Client.WaitUpdates:Entry (fsm)
     local ctxt = fsm.owner
-    ctxt:send_local_updates()
-    ctxt:send_listeners()
+    ctxt:send_local_state()
 end
 
 function Client.WaitUpdates:Exit (fsm)
     local ctxt = fsm.owner
     ctxt:clear_jsoncodec()
-end
-
-function Client.WaitUpdates:AddListener (fsm, k, cb)
-    local ctxt = fsm.owner
-    if fsm.debugFlag then
-        fsm.debugStream:write("LEAVING STATE   : Client.WaitUpdates\n")
-    end
-    local endState = fsm:getState()
-    if fsm.debugFlag then
-        fsm.debugStream:write("ENTER TRANSITION: Client.WaitUpdates:AddListener(k=" .. tostring(k) .. ", cb=" .. tostring(cb) .. ")\n")
-    end
-    fsm:clearState()
-    local r, msg = pcall(
-        function ()
-            ctxt.l = add_listener(k, cb)
-            ctxt:send_add_listener(l)
-        end
-    )
-    if fsm.debugFlag then
-        fsm.debugStream:write("EXIT TRANSITION : Client.WaitUpdates:AddListener(k=" .. tostring(k) .. ", cb=" .. tostring(cb) .. ")\n")
-    end
-    fsm:setState(endState)
 end
 
 function Client.WaitUpdates:ConnectionClosed (fsm)
@@ -253,33 +186,12 @@ function Client.WaitUpdates:HaveUpdate (fsm, k, v)
     fsm:clearState()
     local r, msg = pcall(
         function ()
+            ctxt:store_local_update(k, v)
             ctxt:send_update(k, v)
         end
     )
     if fsm.debugFlag then
         fsm.debugStream:write("EXIT TRANSITION : Client.WaitUpdates:HaveUpdate(k=" .. tostring(k) .. ", v=" .. tostring(v) .. ")\n")
-    end
-    fsm:setState(endState)
-end
-
-function Client.WaitUpdates:RemoveListener (fsm, l)
-    local ctxt = fsm.owner
-    if fsm.debugFlag then
-        fsm.debugStream:write("LEAVING STATE   : Client.WaitUpdates\n")
-    end
-    local endState = fsm:getState()
-    if fsm.debugFlag then
-        fsm.debugStream:write("ENTER TRANSITION: Client.WaitUpdates:RemoveListener(l=" .. tostring(l) .. ")\n")
-    end
-    fsm:clearState()
-    local r, msg = pcall(
-        function ()
-            ctxt:send_remove_listener(l)
-            ctxt:delete_listener(l)
-        end
-    )
-    if fsm.debugFlag then
-        fsm.debugStream:write("EXIT TRANSITION : Client.WaitUpdates:RemoveListener(l=" .. tostring(l) .. ")\n")
     end
     fsm:setState(endState)
 end
@@ -361,48 +273,6 @@ function Server.Default:HaveUpdate (fsm, k, v)
     )
     if fsm.debugFlag then
         fsm.debugStream:write("EXIT TRANSITION : Server.Default:HaveUpdate(k=" .. tostring(k) .. ", v=" .. tostring(v) .. ")\n")
-    end
-    fsm:setState(endState)
-end
-
-function Server.Default:AddListener (fsm, k, cb)
-    local ctxt = fsm.owner
-    if fsm.debugFlag then
-        fsm.debugStream:write("LEAVING STATE   : Server.Default\n")
-    end
-    local endState = fsm:getState()
-    if fsm.debugFlag then
-        fsm.debugStream:write("ENTER TRANSITION: Server.Default:AddListener(k=" .. tostring(k) .. ", cb=" .. tostring(cb) .. ")\n")
-    end
-    fsm:clearState()
-    local r, msg = pcall(
-        function ()
-            ctxt:add_listener(k, cb)
-        end
-    )
-    if fsm.debugFlag then
-        fsm.debugStream:write("EXIT TRANSITION : Server.Default:AddListener(k=" .. tostring(k) .. ", cb=" .. tostring(cb) .. ")\n")
-    end
-    fsm:setState(endState)
-end
-
-function Server.Default:RemoveListener (fsm, l)
-    local ctxt = fsm.owner
-    if fsm.debugFlag then
-        fsm.debugStream:write("LEAVING STATE   : Server.Default\n")
-    end
-    local endState = fsm:getState()
-    if fsm.debugFlag then
-        fsm.debugStream:write("ENTER TRANSITION: Server.Default:RemoveListener(l=" .. tostring(l) .. ")\n")
-    end
-    fsm:clearState()
-    local r, msg = pcall(
-        function ()
-            ctxt:delete_listener(l)
-        end
-    )
-    if fsm.debugFlag then
-        fsm.debugStream:write("EXIT TRANSITION : Server.Default:RemoveListener(l=" .. tostring(l) .. ")\n")
     end
     fsm:setState(endState)
 end
@@ -506,12 +376,6 @@ function skvContext:_init ()
     self:setState(Client.Init)
 end
 
-function skvContext:AddListener (...)
-    self.transition = 'AddListener'
-    self:getState():AddListener(self, ...)
-    self.transition = nil
-end
-
 function skvContext:BindFailed ()
     self.transition = 'BindFailed'
     self:getState():BindFailed(self)
@@ -557,12 +421,6 @@ end
 function skvContext:ReceiveVersion (...)
     self.transition = 'ReceiveVersion'
     self:getState():ReceiveVersion(self, ...)
-    self.transition = nil
-end
-
-function skvContext:RemoveListener (...)
-    self.transition = 'RemoveListener'
-    self:getState():RemoveListener(self, ...)
     self.transition = nil
 end
 

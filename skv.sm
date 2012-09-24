@@ -14,8 +14,8 @@ Entry { init_client(); }
 Default
 {
   HaveUpdate(k: Key, v:Value) nil { store_local_update(k, v); }
-  AddListener(k: String, cb: Callback) nil { add_listener(k, cb); }
-  RemoveListener(l: Listener) nil { delete_listener(l); }
+//  AddListener(k: String, cb: Callback) nil { add_listener(k, cb); }
+//  RemoveListener(l: Listener) nil { delete_listener(l); }
 }
 
 Connecting 
@@ -28,12 +28,14 @@ Exit { clear_ev(); }
 }
 
 WaitUpdates
-Entry  { send_local_updates(); send_listeners(); }
+Entry  { send_local_state(); 
+//send_listeners(); 
+}
 Exit { clear_jsoncodec(); }
 {
-  HaveUpdate(k: Key, v:Value) nil { send_update(k, v); }
-  AddListener(k: String, cb:Callback) nil { l = add_listener(k, cb); send_add_listener(l); }
-  RemoveListener(l: Listener) nil { send_remove_listener(l); delete_listener(l); }
+  HaveUpdate(k: Key, v:Value) nil { store_local_update(k, v); send_update(k, v); }
+//  AddListener(k: String, cb:Callback) nil { l = add_listener(k, cb); send_add_listener(l); }
+//  RemoveListener(l: Listener) nil { send_remove_listener(l); delete_listener(l); }
   ConnectionClosed Connecting { }
 }
 
@@ -56,8 +58,8 @@ Exit { }
 Default
 {
   HaveUpdate(k: Key, v:Value) nil { store_local_update(k, v); }
-  AddListener(k: String, cb: Callback) nil { add_listener(k, cb); }
-  RemoveListener(l: Listener) nil { delete_listener(l); }
+//  AddListener(k: String, cb: Callback) nil { add_listener(k, cb); }
+//  RemoveListener(l: Listener) nil { delete_listener(l); }
 }
 
 Init 

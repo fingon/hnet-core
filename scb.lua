@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Mon Sep 24 12:23:44 2012 mstenber
--- Edit time:     124 min
+-- Last modified: Mon Sep 24 14:11:40 2012 mstenber
+-- Edit time:     125 min
 --
 
 -- convenience stuff on top of LuaSocket
@@ -66,7 +66,7 @@ function ScbBase:init()
 
 end
 
-function ScbBase:repr()
+function ScbBase:repr_data()
    local fd = self.s:getfd()
    return string.format("fd:%d", fd)
 end
@@ -292,7 +292,7 @@ function new_connect(d)
       return evio
    end
    -- apparently connect is still pending. create connect
-   d.evio_d = mst.copy_table(d)
+   d.evio_d = mst.table_copy(d)
    c = ScbConnect:new(d)
    return c
 end

@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Thu Sep 20 18:16:30 2012 mstenber
+-- Last modified: Mon Sep 24 13:57:44 2012 mstenber
 -- Edit time:     90 min
 --
 
@@ -98,7 +98,7 @@ function test_once(n, port, debug)
    mst.a(c ~= nil, "no caller")
    if n == 100000
    then
-      mst.d('c is', c, c:tostring())
+      mst.d('c is', c)
       for i=1, 1000
       do
          c:write(string.rep('1234567890', 10))
