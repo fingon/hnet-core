@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Sep 20 18:12:11 2012 mstenber
+-- Last modified: Mon Sep 24 11:34:33 2012 mstenber
 -- Edit time:     58 min
 --
 
@@ -119,6 +119,14 @@ end
 
 
 function pcall_and_finally(fun1, fun2)
+   -- error propagation doesn't really matter as much.. as good tracebacks do
+   if debug
+   then
+      fun1()
+      fun2()
+      return
+   end
+
    -- catch errors
    r, err = pcall(fun1)
 

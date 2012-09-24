@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Thu Sep 20 15:15:22 2012 mstenber
--- Edit time:     122 min
+-- Last modified: Mon Sep 24 11:48:10 2012 mstenber
+-- Edit time:     123 min
 --
 
 -- convenience stuff on top of LuaSocket
@@ -72,22 +72,22 @@ function ScbBase:repr()
 end
 
 function ScbBase:start()
-   if self.listen_read
+   if self.s_r
    then
       self.s_r:start()
    end
-   if self.listen_write
+   if self.s_w
    then
       self.s_w:start()
    end
 end
 
 function ScbBase:stop()
-   if self.listen_read
+   if self.s_r
    then
       self.s_r:stop()
    end
-   if self.listen_write
+   if self.s_w
    then
       self.s_w:stop()
    end

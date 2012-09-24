@@ -30,6 +30,7 @@ SKVState.Connected = _default
 SKVState.ConnectionClosed = _default
 SKVState.HaveUpdate = _default
 SKVState.Initialized = _default
+SKVState.ReceiveVersion = _default
 SKVState.RemoveListener = _default
 SKVState.Timeout = _default
 
@@ -186,7 +187,7 @@ function Client.Connecting:Connected (fsm)
     if fsm.debugFlag then
         fsm.debugStream:write("EXIT TRANSITION : Client.Connecting:Connected()\n")
     end
-    fsm:setState(Client.WaitUpdates)
+    fsm:setState(Client.WaitVersion)
     fsm:getState():Entry(fsm)
 end
 
@@ -194,7 +195,6 @@ Client.WaitUpdates = Client.Default:new('Client.WaitUpdates', 2)
 
 function Client.WaitUpdates:Entry (fsm)
     local ctxt = fsm.owner
-    ctxt:set_read_handler()
     ctxt:send_local_updates()
     ctxt:send_listeners()
 end
@@ -282,6 +282,50 @@ function Client.WaitUpdates:RemoveListener (fsm, l)
         fsm.debugStream:write("EXIT TRANSITION : Client.WaitUpdates:RemoveListener(l=" .. tostring(l) .. ")\n")
     end
     fsm:setState(endState)
+end
+
+Client.WaitVersion = Client.Default:new('Client.WaitVersion', 3)
+
+function Client.WaitVersion:Entry (fsm)
+    local ctxt = fsm.owner
+    ctxt:wrap_socket_jsoncodec()
+end
+
+function Client.WaitVersion:ConnectionClosed (fsm)
+    local ctxt = fsm.owner
+    if fsm.debugFlag then
+        fsm.debugStream:write("LEAVING STATE   : Client.WaitVersion\n")
+    end
+    fsm:getState():Exit(fsm)
+    if fsm.debugFlag then
+        fsm.debugStream:write("ENTER TRANSITION: Client.WaitVersion:ConnectionClosed()\n")
+    end
+    fsm:clearState()
+    local r, msg = pcall(
+        function ()
+            ctxt:clear_ev()
+        end
+    )
+    if fsm.debugFlag then
+        fsm.debugStream:write("EXIT TRANSITION : Client.WaitVersion:ConnectionClosed()\n")
+    end
+    fsm:setState(Client.Connecting)
+    fsm:getState():Entry(fsm)
+end
+
+function Client.WaitVersion:ReceiveVersion (fsm, v)
+    if fsm.debugFlag then
+        fsm.debugStream:write("LEAVING STATE   : Client.WaitVersion\n")
+    end
+    fsm:getState():Exit(fsm)
+    if fsm.debugFlag then
+        fsm.debugStream:write("ENTER TRANSITION: Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
+    end
+    if fsm.debugFlag then
+        fsm.debugStream:write("EXIT TRANSITION : Client.WaitVersion:ReceiveVersion(v=" .. tostring(v) .. ")\n")
+    end
+    fsm:setState(Client.WaitUpdates)
+    fsm:getState():Entry(fsm)
 end
 
 Server.Default = SKVState:new('Server.Default', -1)
@@ -493,6 +537,12 @@ end
 function skvContext:Initialized ()
     self.transition = 'Initialized'
     self:getState():Initialized(self)
+    self.transition = nil
+end
+
+function skvContext:ReceiveVersion (...)
+    self.transition = 'ReceiveVersion'
+    self:getState():ReceiveVersion(self, ...)
     self.transition = nil
 end
 

@@ -22,19 +22,27 @@ Connecting
 Entry { connect(); }
 Exit { clear_ev(); }
 {
-  Connected WaitUpdates {}
+  Connected WaitVersion {}
   ConnectFailed [ ctxt:is_long_lived() ] Server::Init {}
   ConnectFailed Terminal::ClientFailConnect {  }
 }
 
 WaitUpdates
-Entry  { set_read_handler(); send_local_updates(); send_listeners(); }
+Entry  { send_local_updates(); send_listeners(); }
 Exit { clear_ev(); }
 {
   HaveUpdate(k: Key, v:Value) nil { send_update(k, v); }
   AddListener(k: String, cb:Callback) nil { l = add_listener(k, cb); send_add_listener(l); }
   RemoveListener(l: Listener) nil { send_remove_listener(l); delete_listener(l); }
   ConnectionClosed Connecting { }
+}
+
+WaitVersion
+Entry  { wrap_socket_jsoncodec(); }
+Exit { }
+{
+  ReceiveVersion(v: Value) WaitUpdates {}
+  ConnectionClosed Connecting { clear_ev(); }
 // receiving of updates handled here; however, it doesn't affect system state machine
 // ReceiveUpdate nil { received_update(); }
 }

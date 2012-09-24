@@ -9,13 +9,14 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Thu Sep 20 13:53:17 2012 mstenber
--- Edit time:     151 min
+-- Last modified: Mon Sep 24 11:36:45 2012 mstenber
+-- Edit time:     164 min
 --
 
 require 'mst'
 require 'ssloop'
 require 'scb'
+require 'jsoncodec'
 
 -- SMC-generated state machine
 local sm = require 'skv_sm'
@@ -33,6 +34,8 @@ local HOST = '127.0.0.1'
 local PORT = 12345
 local CONNECT_TIMEOUT = 0.1
 local INITIAL_LISTEN_TIMEOUT = 0.2
+local VERSION_TAG = 'version'
+local SKV_VERSION = '1.0'
 
 function skv:init()
    self.host = self.host or HOST
@@ -94,9 +97,6 @@ function skv:connect()
                                   then
                                      self.connected = true
                                      self.s = c
-                                     c.callback = function (r)
-                                        self:handle_read(r)
-                                     end
                                      c.close_callback = function (s)
                                         self.fsm:ConnectionClosed()
                                      end
@@ -141,13 +141,33 @@ end
 function skv:send_listeners()
 end
 
-function skv:handle_read(r)
-   assert(r and #r)
-   -- XXX - do something
+function skv:handle_received_json(d)
+   -- handle received datastructure from json blob
+   -- must be a table
+   self:d('handle_received_json', r)
+   if type(d) ~= 'table'
+   then
+      self:d('got wierd typed data', type(d))
+      return
+   end
+   -- is it version? if so, dispatch that
+   v = d[VERSION_TAG]
+   if v
+   then
+      self:d('got version', v)
+      self.fsm:ReceiveVersion(v)
+      return
+   end
 end
 
-function skv:set_read_handler()
-   -- nop?
+function skv:wrap_socket_jsoncodec()
+   self.s = jsoncodec.wrap_socket{s=self.s, 
+                                  callback=function (o)
+                                     self:handle_received_json(o)
+                                  end,
+                                  close_callback=function ()
+                                     self.fsm:ConnectionClosed()
+                                  end}
 end
 
 -- Server code
@@ -198,15 +218,18 @@ function skvclient:init()
    self.is_done = false
    assert(self)
    self.parent.connections[self] = 1
-   function self.s.callback(s) 
-      self:handle_read(s) 
-   end
-   function self.s.done_callback(s)
-      self:handle_close() 
-   end
+   self.s = jsoncodec.wrap_socket{s=self.s,
+                                  callback=function (s)
+                                     self:handle_received_json(o)
+                                  end,
+                                  close_callback=function ()
+                                     self:handle_close()
+                                  end
+                                 }
+   self.s:write{[VERSION_TAG] = SKV_VERSION}
 end
 
-function skvclient:handle_read(s)
+function skvclient:handle_received_json(o)
    -- to do
 end
 

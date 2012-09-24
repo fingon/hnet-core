@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Thu Sep 20 15:07:37 2012 mstenber
--- Edit time:     68 min
+-- Last modified: Mon Sep 24 11:49:42 2012 mstenber
+-- Edit time:     73 min
 --
 
 require "luacov"
@@ -75,6 +75,7 @@ describe("class init",
          end)
 
 local function setup_client_server(base_c, port, debug)
+   --mst.debug = debug
    local o1 = skv:new{long_lived=true, port=port, debug=debug}
    local o2 = skv:new{long_lived=true, port=port, debug=debug}
    -- insert conditional closing stuff
@@ -83,7 +84,7 @@ local function setup_client_server(base_c, port, debug)
    for _, o in ipairs{o1, o2}
    do
       inject_refcounted_terminator(o, 'new_client', c)
-      inject_refcounted_terminator(o.fsm, 'Connected', c)
+      inject_refcounted_terminator(o.fsm, 'ReceiveVersion', c)
    end
    run_loop_awhile()
    local s1 = o1.fsm:getState().name
@@ -112,7 +113,8 @@ describe("class working", function()
                         loop:done()
                      end)
             it("should work fine with 2 instances", function()
-                  local c, s, h = setup_client_server(2, 12347--, true
+                  local c, s, h = setup_client_server(2, 12347
+                                                      --, true --debug
                                                      )
                   loop:done()
                end)
