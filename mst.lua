@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Sep 24 14:41:21 2012 mstenber
--- Edit time:     100 min
+-- Last modified: Mon Sep 24 15:33:31 2012 mstenber
+-- Edit time:     105 min
 --
 
 module(..., package.seeall)
@@ -119,19 +119,21 @@ function create_class(o)
    return h
 end
 
-_repr_metatable = {__tostring=function ()
-                      return repr(self)
-                              end}
+_repr_metatable = {__tostring=function (self) return repr(self) end}
 
 function debug_print(...)
    -- rewrite all table's to have metatable which has tostring => repr wrapper, if they don't have metatable
    local tl = {}
    local al = {...}
+   local sm = {}
    --print('handling arguments', #al)
    for i, v in ipairs(al)
    do
-      if type(v) == 'table' and not getmetatable(v)
+      --print(type(v), getmetatable(v))
+      if type(v) == 'table' and (not getmetatable(v) or not getmetatable(v).__tostring)
       then
+         --print(' setting metatable', v)
+         sm[v] = getmetatable(v)
          setmetatable(v, _repr_metatable)
          table.insert(tl, v)
       end
@@ -139,7 +141,8 @@ function debug_print(...)
    print(...)
    for i, v in ipairs(tl)
    do
-      setmetatable(v, nil)
+      setmetatable(v, sm[v])
+      --print(' reverted metatable', v)
    end
 end
 
@@ -182,6 +185,7 @@ function pcall_and_finally(fun1, fun2)
    end
 end
 
+
 -- shallow copy table
 function table_copy(t, n)
    assert(type(t) == "table")
@@ -193,13 +197,28 @@ function table_copy(t, n)
    return n
 end
 
--- sorted keys of a table
-function table_sorted_keys(t)
+-- whether table is empty or not
+function table_is_empty(t)
+   for k, v in pairs(t)
+   do
+      return false
+   end
+   return true
+end
+
+-- keys of a table
+function table_keys(t)
    local keys = {}
    for k, v in pairs(t)
    do
       table.insert(keys, k)
    end
+   return keys
+end
+
+-- sorted keys of a table
+function table_sorted_keys(t)
+   local keys = table_keys(t)
    table.sort(keys)
    return keys
 end

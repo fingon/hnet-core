@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 20 18:30:13 2012 mstenber
--- Last modified: Mon Sep 24 12:23:08 2012 mstenber
--- Edit time:     45 min
+-- Last modified: Mon Sep 24 15:57:22 2012 mstenber
+-- Edit time:     47 min
 --
 
 -- json codec that can be plugged on top of scb abstracted sockets, to
@@ -47,7 +47,16 @@ function jsoncodec:init()
    end
 end
 
+function jsoncodec:repr_data()
+   return string.format('s:%s #rq:%d rql:%d',
+                        mst.repr(self.s),
+                        #self.rq,
+                        self.rql)
+end
+
 function jsoncodec:write(o)
+   self:d('write', o)
+
    -- encode the blob in a string
    local s = json.encode(o)
 

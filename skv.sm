@@ -24,8 +24,17 @@ Exit { clear_ev(); }
 {
   Connected WaitVersion {}
   ConnectFailed [ ctxt:is_long_lived() ] Server::Init {}
+  ConnectFailed [ ctxt:should_auto_retry() ] ClientFailRetry {}
   ConnectFailed Terminal::ClientFailConnect {  }
 }
+
+ClientFailRetry
+Entry { increase_retry_timer(); start_retry_timer(); }
+{
+  Timeout Connecting { }
+}
+
+
 
 WaitUpdates
 Entry  { send_local_state(); 
@@ -45,9 +54,9 @@ Exit { }
 {
   ReceiveVersion(v: Value) [ctxt:protocol_is_current_version(v)] WaitUpdates {}
   ReceiveVersion(v: Value) Terminal::ClientFailConnect {}
+  ReceiveUpdate(k: Key, v: Value) nil { store_remote_update(k, v); }
   ConnectionClosed Connecting { clear_jsoncodec(); }
 // receiving of updates handled here; however, it doesn't affect system state machine
-// ReceiveUpdate nil { received_update(); }
 }
 
 %%
@@ -85,6 +94,8 @@ WaitConnections
 Entry { }
 {
 // new connection loop here - no affect on the state machine though
+  HaveUpdate(k: Key, v:Value) nil { store_local_update(k, v); send_update_to_clients(k, v); }
+  ReceiveUpdate(k: Key, v: Value) nil { store_remote_update(k, v); send_update_to_clients(k, v); }
 }
 %%
 

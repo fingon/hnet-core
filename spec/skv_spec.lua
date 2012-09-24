@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Mon Sep 24 14:45:01 2012 mstenber
--- Edit time:     76 min
+-- Last modified: Mon Sep 24 16:12:05 2012 mstenber
+-- Edit time:     94 min
 --
 
 require "luacov"
@@ -19,16 +19,22 @@ require "mst"
 require 'ssloop'
 
 local run_loop_awhile = ssloop.run_loop_awhile
-assert(run_loop_awhile)
+local run_loop_until = ssloop.run_loop_until
 local add_eventloop_terminator = ssloop.add_eventloop_terminator
-assert(add_eventloop_terminator)
 local inject_refcounted_terminator = ssloop.inject_refcounted_terminator
-assert(inject_refcounted_terminator)
 
 local _skv = require 'skv'
 local skv = _skv.skv
 local loop = ssloop.loop()
 
+
+local _availport = 14400
+
+function get_available_port()
+   local sp = _availport
+   _availport = _availport + 1
+   return sp
+end
 
 -- we don't care about rest of the module
 
@@ -53,7 +59,7 @@ describe("class init",
                end)
             it("can be created [long lived]", 
                function()
-                  local o = skv:new{long_lived=true, port=12345}
+                  local o = skv:new{long_lived=true, port=get_available_port()}
                   add_eventloop_terminator(o, 'start_wait_connections')
                   run_loop_awhile()
                   assert.are.same(o.fsm:getState().name, 
@@ -63,7 +69,7 @@ describe("class init",
                function()
                   local o = skv:new{long_lived=false
                                     --  ,debug=true
-                                    ,port=12346
+                                    ,port=get_available_port()
                                    }
                   add_eventloop_terminator(o, 'fail')
                   run_loop_awhile()
@@ -74,7 +80,8 @@ describe("class init",
                end)
          end)
 
-local function setup_client_server(base_c, port, debug)
+local function setup_client_server(base_c, debug)
+   local port = get_available_port()
    --mst.debug = debug
    local o1 = skv:new{long_lived=true, port=port, debug=debug}
    local o2 = skv:new{long_lived=true, port=port, debug=debug}
@@ -103,7 +110,21 @@ local function setup_client_server(base_c, port, debug)
    return o2, o1, c
 end
 
-describe("class working", function()
+local function test_state_propagation(src, dst)
+   src:set("foo", "bar")
+   run_loop_until(
+      function ()
+         return dst:get("foo") == "bar"
+      end)
+
+   src:set("foo", "baz")
+   run_loop_until(
+      function ()
+         return dst:get("foo") == "baz"
+      end)
+end
+
+describe("class working (ignoring setup)", function()
             setup(function ()
                      assert(#loop.r == 0, "some readers left")
                      assert(#loop.w == 0, "some writers left")
@@ -111,16 +132,64 @@ describe("class working", function()
                   end)
             teardown(function ()
                         loop:done()
+                        -- calling again shouldn't do anything bad, test it here
+                        loop:done()
+                     end)
+
+            it("transmits data [nowait]", function ()
+                  local port = get_available_port()
+                  local o1 = skv:new{long_lived=true, port=port}
+                  local o2 = skv:new{long_lived=true, port=port}
+                  test_state_propagation(o1, o2)
+                                 end)
+
+            it("transmits data c->s [nowait]", function ()
+                  local port = get_available_port()
+                  local s = skv:new{long_lived=true, port=port}
+                  local c = skv:new{long_lived=false, auto_retry=true, port=port}
+                  test_state_propagation(c, s)
+                                 end)
+
+            it("transmits data s->c [nowait]", function ()
+                  local port = get_available_port()
+                  local s = skv:new{long_lived=true, port=port}
+                  local c = skv:new{long_lived=false, auto_retry=true, port=port}
+                  test_state_propagation(s, c)
+                                      end)
+            
+                                           end)
+
+describe("class working (post setup)", function()
+            setup(function ()
+                     assert(#loop.r == 0, "some readers left")
+                     assert(#loop.w == 0, "some writers left")
+                     assert(#loop.t == 0, "some timeouts left")
+                  end)
+            teardown(function ()
+                        loop:done()
+                        -- calling again shouldn't do anything bad, test it here
+                        loop:done()
                      end)
             it("should work fine with 2 instances", function()
-                  local c, s, h = setup_client_server(2, 12347
+                  local c, s, h = setup_client_server(2
                                                       --,true --debug
                                                      )
-                  loop:done()
                end)
+            it("should transfer state across (c->s)", function()
+                  local c, s, h = setup_client_server(2
+                                                      --,true --debug
+                                                     )
+                  test_state_propagation(c, s)
+              end)
+            it("should transfer state across (s->c)", function()
+                  local c, s, h = setup_client_server(2
+                                                      --,true --debug
+                                                     )
+                  test_state_propagation(s, c)
+              end)
             it("client should reconnect if server disconnects suddenly",
                function()
-                  local c, s, h = setup_client_server(2, 12348
+                  local c, s, h = setup_client_server(2
                                                       --,true --debug
                                                      )
 
@@ -144,6 +213,5 @@ describe("class working", function()
                   assert.are.same(h[1], 0)
                   assert.are.same(cs1, CLIENT_STATE_NAME)
                   assert.are.same(cs2, SERVER_STATE_NAME)
-                  loop:done()
                end)
          end)

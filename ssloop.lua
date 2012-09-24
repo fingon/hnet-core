@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Mon Sep 24 14:44:24 2012 mstenber
--- Edit time:     78 min
+-- Last modified: Mon Sep 24 15:08:11 2012 mstenber
+-- Edit time:     85 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -311,7 +311,7 @@ end
 
 --- assorted testing utilities
 
-TEST_TIMEOUT_INVALID=0.5
+TEST_TIMEOUT_INVALID=1.0
 
 function run_loop_awhile(timeout)
    local l = loop()
@@ -323,6 +323,21 @@ function run_loop_awhile(timeout)
    t:start()
    l:loop()
    -- whether timeout triggered or not, it should be gone
+   t:done()
+end
+
+function run_loop_until(stmt, timeout)
+   local l = loop()
+   timeout = timeout or TEST_TIMEOUT_INVALID
+   local t = l:new_timeout_delta(timeout,
+                                 function ()
+                                    error("timeout expired")
+                                 end, timeout)
+   t:start()
+   while not stmt()
+   do
+      l:poll()
+   end
    t:done()
 end
 

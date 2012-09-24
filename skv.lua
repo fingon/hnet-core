@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Mon Sep 24 14:43:05 2012 mstenber
--- Edit time:     196 min
+-- Last modified: Mon Sep 24 16:10:58 2012 mstenber
+-- Edit time:     224 min
 --
 
 require 'mst'
@@ -19,7 +19,15 @@ require 'scb'
 require 'jsoncodec'
 
 -- SMC-generated state machine
+-- fix braindeath of using pcall in a state machine in general..
+-- and not returning errors in particular
+local orig_pcall = pcall
+function pcall(f)
+   -- errors, huh?
+   f()
+end
 local sm = require 'skv_sm'
+pcall = orig_pcall
 
 module(..., package.seeall)
 
@@ -72,10 +80,23 @@ function skv:fail(s)
 end
 
 function skv:repr_data()
+   if self.fsm
+   then
+      -- make sure state is accesssible
+      r, err = pcall(function () self.fsm:getState() end)
+      if not r
+      then
+         r = "?"
+      else
+         r = self.fsm:getState().name
+      end
+   else
+      r = "!"
+   end
    return string.format('host:%s port:%d state:%s', 
                         self.host or "?", 
                         self.port or 0, 
-                        self.fsm and self.fsm:getState().name or "?")
+                        r)
 end
 
 -- Client code
@@ -87,6 +108,10 @@ end
 
 function skv:is_long_lived()
    return self.long_lived
+end
+
+function skv:should_auto_retry()
+   return not self:is_long_lived() and self.auto_retry
 end
 
 function skv:connect()
@@ -139,10 +164,22 @@ function skv:clear_ev()
    end
 end
 
+function skv:get_combined_state()
+   -- combine both remote and local state. trivial solution: use
+   -- table_copy() to create shallow copy table of remote state, and
+   -- then update it with local state
+   local state = mst.table_copy(self.remote_state)
+   mst.table_copy(self.local_state, state)
+   return state
+end
+
 function skv:send_local_state(s)
    -- send contents of 'local' to given socket (or our socket)
    local dest = s or self.s
-   dest:write{[MSG_UPDATE] = self.local_state}
+   if not mst.table_is_empty(self.local_state)
+   then
+      dest:write{[MSG_UPDATE] = self.local_state}
+   end
 end
 
 function skv:protocol_is_current_version(v)
@@ -165,13 +202,13 @@ function skv:handle_received_json(d)
       self:d('got version', v)
       self.fsm:ReceiveVersion(v)
    end
-   local v = d[MSG_UPDATE]
-   if v
+   local uh = d[MSG_UPDATE]
+   if uh
    then
       -- contains dictionary
-      for k, v in pairs(v)
+      for k, v in pairs(uh)
       do
-         self:set_via_update_from_client(k, v)
+         self.fsm:HaveUpdate(k, v)
       end
    end
 end
@@ -187,18 +224,31 @@ function skv:get(k)
 end
 
 function skv:set(k, v)
+   self:d('set', k, v)
    self.fsm:HaveUpdate(k, v)
 end
 
 function skv:store_local_update(k, v)
+   self:d('store_local_update', k, v)
    self.local_state[k] = v
 end
 
-function skv:set_via_update_from_server(k, v)
-   self.remote_state[k] = v
+function skv:send_update(k, v)
+   self:d('send_update', k, v)
+   self.s:write{[MSG_UPDATE] = {[k] = v}}
 end
 
-function skv:set_via_update_from_client(k, v)
+function skv:send_update_to_clients(k, v)
+   self:d('send_update_to_clients', k, v)
+   for c, _ in pairs(self.connections)
+   do
+      c.s:write{[MSG_UPDATE] = {[k] = v}}
+   end
+end
+
+
+
+function skv:store_remote_update(k, v)
    self.remote_state[k] = v
 end
 
@@ -207,6 +257,7 @@ function skv:wrap_socket_jsoncodec()
    self:clear_ev()
 
    self.s = jsoncodec.wrap_socket{s=self.s, 
+                                  debug=self.debug,
                                   callback=function (o)
                                      self:handle_received_json(o)
                                   end,
@@ -245,7 +296,7 @@ function skv:bind()
 end
 
 function skv:new_client(s)
-   skvclient:new{s=s, parent=self}
+   skvclient:new{s=s, parent=self, debug=self.debug}
 end
 
 function skv:increase_retry_timer()
@@ -268,34 +319,47 @@ end
 function skvclient:init()
    self.is_done = false
    assert(self)
-   self.parent.connections[self] = 1
+   self.parent.connections[self] = true
    self.s = jsoncodec.wrap_socket{s=self.s,
-                                  callback=function (s)
+                                  debug=self.debug,
+                                  callback=function (o)
                                      self:handle_received_json(o)
                                   end,
                                   close_callback=function ()
                                      self:handle_close()
                                   end
                                  }
+   -- send version
    self.s:write{[MSG_VERSION] = SKV_VERSION}
+   -- and the local+remote state if any
+   local state = self.parent:get_combined_state()
+
+   if not mst.table_is_empty(state)
+   then
+      self.s:write{[MSG_UPDATE] = state}
+   end
 end
 
 function skvclient:handle_received_json(d)
    self:d('handle_received_json', d)
 
-   local v = d[MSG_UPDATE]
-   if v
+   local uh = d[MSG_UPDATE]
+   if uh
    then
       -- contains dictionary
-      for k, v in pairs(v)
+      for k, v in pairs(uh)
       do
-         self.parent:set_via_update_from_client(k, v)
+         self.parent.fsm:HaveUpdate(k, v)
       end
    end
 end
 
 function skvclient:handle_close()
    self:done()
+end
+
+function skvclient:repr_data()
+   return '?'
 end
 
 function skvclient:done()
