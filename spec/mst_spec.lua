@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Tue Sep 25 11:33:51 2012 mstenber
--- Edit time:     15 min
+-- Last modified: Tue Sep 25 13:04:34 2012 mstenber
+-- Edit time:     17 min
 --
 
 require "luacov"
@@ -90,3 +90,11 @@ describe("repr", function()
                   assert.are.same(repr(n), '42')
                         end)
                  end)
+
+describe("array_to_table", function ()
+            it("works", function ()
+                  local a = {1, 2, 3, 'z'}
+                  local t = mst.array_to_table(a)
+                  assert(t.z)
+                                            end)
+        end)
