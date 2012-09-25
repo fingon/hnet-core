@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Sep 25 11:40:50 2012 mstenber
--- Edit time:     115 min
+-- Last modified: Tue Sep 25 12:47:50 2012 mstenber
+-- Edit time:     139 min
 --
 
 module(..., package.seeall)
@@ -29,93 +29,119 @@ function check_parameters(fname, o, l, depth)
    end
 end
 
--- create a new class
-function create_class(o)
+-- baseclass used as base for all classes
+baseclass = {}
+
+function baseclass:init()
+end
+
+function baseclass:new_subclass(o)
+   return create_class(o, self)
+end
+
+function baseclass:new(o)
+   if o
+   then
+      -- shallow copy is cheap insurance, allows lazy use outside
+      o = table_copy(o)
+   else
+      o = {}
+   end
+   local cmt = getmetatable(self).cmt
+
+   mst.a(cmt, "missing child-metatable", self)
+   setmetatable(o, cmt)
+
+   mst.a(o.init, "missing init method?", self)
+   if o.mandatory
+   then
+      -- 1 = check_parameters, 2 == baseclass:new, 3 == whoever calls baseclass:new
+      check_parameters(tostring(o) .. ':new()', o, o.mandatory, 3)
+   end
+   o:init()
+   return o
+end
+
+function baseclass:repr_data(shown)
+   return nil
+end
+
+function baseclass:repr(shown)
+   local omt = getmetatable(self)
+   setmetatable(self, {})
+   t = tostring(self)
+   setmetatable(self, omt)
+   r = self:repr_data(shown)
+   if r
+   then
+      reprs = ' - ' .. r
+   else
+      reprs = table_repr(self, shown)
+   end
+   return string.format('<%s %s%s>', 
+                        self.class or tostring(getmetatable(self)), 
+                        t,
+                        reprs)
+end
+
+function baseclass:tostring()
+   -- by default, fall back to repr()
+   return self:repr()
+end
+
+function baseclass:d(...)
+   self:a(type(self) == 'table', "wrong self type ", type(self))
+   if self.debug or enable_debug
+   then
+      debug_print(self:tostring(), ...)
+   end
+end
+function baseclass:a(stmt, ...)
+   if not stmt
+   then
+      print(debug.traceback())
+      debug_print(self:tostring(), ...)
+      error()
+   end
+end
+
+function baseclass:call_callback(name, ...)
+   if self[name]
+   then
+      self[name](...)
+   end
+end
+
+function baseclass:call_callback_once(name, ...)
+   if self[name]
+   then
+      self[name](...)
+      self[name] = nil
+   end
+end
+
+local _ts = function (self)
+   return self.tostring(self)
+end
+
+-- create a new class with the given superclass(es)
+-- (the extra arguments)
+function create_class(o, ...)
+   local scs = {...}
+   if #scs == 0
+   then
+      scs = {baseclass}
+   end
+   mst.a(#scs == 1, "no support for > 1 superclass for now", #scs)
    h = o or {}
-   --h.__index = h
-
-   function h:init()
-      -- nop
-      --io.stdout:setvbuf("no") 
-   end
-   function h:new_subclass(o)
-      setmetatable(o, self)
-      self.__index = self
-      self.__tostring = self.tostring
-      --o:init()
-      return o
-   end
-   function h:new(o)
-      if o
-      then
-         -- shallow copy is cheap insurance, allows lazy use outside
-         o = table_copy(o)
-      else
-         o = {}
-      end
-      o = self:new_subclass(o, 1)
-      assert(o.init, "missing init method?")
-      if o.mandatory
-      then
-         -- 1 = check_parameters, 2 == h:new, 3 == whoever calls h:new
-         check_parameters(tostring(o) .. ':new()', o, o.mandatory, 3)
-      end
-      o:init()
-      return o
-   end
-   function h:repr_data(shown)
-      return nil
-   end
-   function h:repr(shown)
-      local omt = getmetatable(self)
-      setmetatable(self, {})
-      t = tostring(self)
-      setmetatable(self, omt)
-      r = self:repr_data(shown)
-      if r
-      then
-         reprs = ' - ' .. r
-      else
-         reprs = table_repr(self, shown)
-      end
-      return string.format('<%s %s%s>', 
-                           self.class or tostring(getmetatable(self)), 
-                           t,
-                           reprs)
-   end
-   function h:tostring()
-      -- by default, fall back to repr()
-      return self:repr()
-   end
-
-   function h:d(...)
-      self:a(type(self) == 'table', "wrong self type ", type(self))
-      if self.debug or enable_debug
-      then
-         debug_print(self:tostring(), ...)
-      end
-   end
-   function h:a(stmt, ...)
-      if not stmt
-      then
-         print(debug.traceback())
-         debug_print(self:tostring(), ...)
-         error()
-      end
-   end
-   function h:call_callback(name, ...)
-      if self[name]
-      then
-         self[name](...)
-      end
-   end
-   function h:call_callback_once(name, ...)
-      if self[name]
-      then
-         self[name](...)
-         self[name] = nil
-      end
-   end
+   -- created instances will index h, and have tostring
+   local cmt = {__index = h,
+                __tostring = _ts}
+   -- also, do inherited indexing of superclasses, and have tostring
+   -- for class too
+   setmetatable(h, {__index=scs[1],
+                    __tostring=_ts,
+                   cmt=cmt})
    return h
 end
 
@@ -147,12 +173,12 @@ function debug_print(...)
 end
 
 function a(stmt, ...)
-      if not stmt
-      then
-         print(debug.traceback())
-         debug_print(...)
-         error()
-      end
+   if not stmt
+   then
+      print(debug.traceback())
+      debug_print(...)
+      error()
+   end
 end
 
 function d(...)
