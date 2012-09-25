@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Mon Sep 24 13:57:12 2012 mstenber
+-- Last modified: Tue Sep 25 11:33:51 2012 mstenber
 -- Edit time:     15 min
 --
 
@@ -67,6 +67,15 @@ describe("table_copy", function ()
                   t1.bar = 2
                   assert(t1.foo == t2.foo)
                   assert(t1.bar ~= t2.bar)
+                                            end)
+        end)
+
+describe("table_deep_copy", function ()
+            it("copies tables (deep)", function ()
+                  local t1 = {foo=1}
+                  t1['bar'] = t1
+                  local t2 = mst.table_deep_copy(t1)
+                  assert(t2.bar == t2)
                                             end)
         end)
 

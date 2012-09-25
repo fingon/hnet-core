@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Mon Sep 24 16:46:04 2012 mstenber
--- Edit time:     235 min
+-- Last modified: Tue Sep 25 11:39:48 2012 mstenber
+-- Edit time:     239 min
 --
 
 require 'mst'
@@ -229,27 +229,31 @@ end
 
 function skv:set(k, v)
    self:d('set', k, v)
+   if mst.repr_equal(self.local_state[k], v)
+   then
+      self:d(' .. redundant, local state already matches')
+      return
+   end
    self.fsm:HaveUpdate(k, v)
 end
 
 function skv:store_and_forward_remote_update(k, v)
-   local s1 = mst.repr(self.remote_state[k])
-   local s2 = mst.repr(v)
-
    -- if remote state was already same, skip
-   if s1 == s2
+   if mst.repr_equal(self.remote_state[k], v)
    then
       return
    end
    
-   -- update remote state
-   self.remote_state[k] = v
-
-   -- if we have local state on 'k', skip forwarding
+   -- if we have local state on 'k', skip forwarding and discard
+   -- remote state we may have
    if self.local_state[k]
    then
+      self.remote_state[k] = nil
       return
    end
+
+   -- update remote state
+   self.remote_state[k] = v
 
    self:send_update_to_clients(k, v)
 end

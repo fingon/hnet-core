@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Sep 24 16:40:27 2012 mstenber
--- Edit time:     105 min
+-- Last modified: Tue Sep 25 11:40:50 2012 mstenber
+-- Edit time:     115 min
 --
 
 module(..., package.seeall)
@@ -185,6 +185,39 @@ function pcall_and_finally(fun1, fun2)
    end
 end
 
+function table_is(t)
+   return type(t) == 'table'
+end
+
+-- deep copy table
+function table_deep_copy_rec(t, n, already)
+   -- already contains the 'already done' mapping of tables
+   -- table => new table
+   assert(already)
+
+   -- first off, check if 't' already done => return it as-is
+   local na = already[t]
+   if na
+   then
+      assert(not n)
+      return na
+   end
+   n = n or {}
+   setmetatable(n, getmetatable(t))
+   already[t] = n
+   for k, v in pairs(t)
+   do
+      nk = table_is(k) and table_deep_copy_rec(k, nil, already) or k
+      nv = table_is(v) and table_deep_copy_rec(v, nil, already) or v
+      n[nk] = nv
+   end
+   return n
+end
+
+function table_deep_copy(t)
+   already = {}
+   return table_deep_copy_rec(t, nil, already)
+end
 
 -- shallow copy table
 function table_copy(t, n)
@@ -309,6 +342,22 @@ function repr(o, shown)
    else
       error("unknown type " .. t)
    end
+end
+
+-- do the two objects have same repr?
+function repr_equal(o1, o2)
+   -- first, stronger equality constraint - if objects
+   -- are same, they also have same representation (duh)
+   if o1 == o2
+   then
+      return true
+   end
+
+   -- not same objects, fall back to doing actual repr()s (not very
+   -- efficient, but correct way to compare some things' equality)
+   local s1 = repr(o1)
+   local s2 = repr(o2)
+   return s1 == s2
 end
 
 -- index in array
