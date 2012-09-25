@@ -9,14 +9,19 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Sep 25 14:42:05 2012 mstenber
--- Edit time:     152 min
+-- Last modified: Tue Sep 25 16:45:15 2012 mstenber
+-- Edit time:     186 min
 --
 
 module(..., package.seeall)
 
+local event 
+
 -- global debug switch
 enable_debug=false
+
+-- enable own assert
+enable_assert=true
 
 -- check parameters to e.g. function
 function check_parameters(fname, o, l, depth)
@@ -30,6 +35,16 @@ function check_parameters(fname, o, l, depth)
 end
 
 -- baseclass used as base for all classes
+
+-- magic features:
+
+-- - mandatory contains array with list of mandatory parameters for
+--   constructor
+
+-- - events contains array of events (=magic callback-like things) the
+--   class produces (event class is instantiated for each)
+--   in new.. and in done, they're cleared out correctly
+
 baseclass = {}
 
 function baseclass:init()
@@ -45,6 +60,26 @@ function baseclass:done()
    end
    self._is_done = true
    self:uninit()
+
+   -- get rid of observers
+   -- they're keyed (event={fun, fun..})
+   for k, l in pairs(self._observers or {})
+   do
+      for i, v in ipairs(l)
+      do
+         k:remove_observer(v)
+      end
+   end
+   self._observers = nil
+
+   -- get rid of events
+   for i, v in ipairs(self.events or {})
+   do
+      local o = self[v]
+      self:a(o, "event missing")
+      o:done()
+      self[v] = nil
+   end
 end
 
 function baseclass:new_subclass(o)
@@ -70,8 +105,36 @@ function baseclass:new(o)
       -- 1 = check_parameters, 2 == baseclass:new, 3 == whoever calls baseclass:new
       check_parameters(tostring(o) .. ':new()', o, o.mandatory, 3)
    end
+   
+   -- set up event handlers (if any)
+   for i, v in ipairs(o.events or {})
+   do
+      --print('creating event handler', v)
+      o[v] = event:new()
+   end
+
    o:init()
    return o
+end
+
+function baseclass:connect(ev, fun)
+   self:a(ev, 'null event')
+   self:a(fun, 'null fun')
+
+   -- connect event 'ev' to local observer function 'fun'
+   -- (and keep the connection up as long as we are)
+
+   -- first, update local _observers
+   if not self._observers
+   then
+      self._observers = {}
+   end
+   local t = self._observers[ev] or {}
+   self._observers[ev] = t
+   table.insert(t, fun)
+
+   -- then call the event itself to add the observer
+   ev:add_observer(fun)
 end
 
 function baseclass:repr_data(shown)
@@ -108,7 +171,13 @@ function baseclass:d(...)
       debug_print(self:tostring(), ...)
    end
 end
+
 function baseclass:a(stmt, ...)
+   if not enable_assert
+   then
+      assert(stmt, ...)
+      return
+   end
    if not stmt
    then
       print(debug.traceback())
@@ -185,6 +254,11 @@ function debug_print(...)
 end
 
 function a(stmt, ...)
+   if not enable_assert
+   then
+      assert(stmt, ...)
+      return
+   end
    if not stmt
    then
       print(debug.traceback())
@@ -340,8 +414,7 @@ function table_repr(t, shown)
    for k, v in table_sorted_pairs(t)
    do
       if not first then table.insert(s, ", ") end
-      table.insert(s, k .. "=")
-      table.insert(s, repr(v, shown))
+      table.insert(s, repr(k, shown) .. "=" .. repr(v, shown))
       first = false
    end
    table.insert(s, "}")
@@ -414,4 +487,46 @@ function repr(o, shown)
       error("unknown type " .. t)
    end
 end
+
+-- event class (used within the baseclass)
+
+-- observer design pattern (Gamma et al).
+
+-- the classic description involves subject <> observer classes we
+-- call subject event instead - as what we're tracking are function
+-- invocations, in practise (the update() call is actually just call
+-- of the event object itself)
+
+-- what we provide is __call-wrapped metatables for both.
+-- convenience factors:
+--  - sanity checking
+--  - 1:n, n:1 relationships (normal pattern has only 1:n)
+
+event = create_class{class='event'}
+
+function event:init()
+   self.observers = {}
+end
+
+function event:uninit()
+   self:a(mst.table_is_empty(self.observers), "observers not gone when event is!")
+end
+
+function event:add_observer(o)
+   self.observers[o] = true
+end
+
+function event:remove_observer(o)
+   self.observers[o] = nil
+end
+
+function event:update(...)
+   for k, _ in pairs(self.observers)
+   do
+      k(...)
+   end
+end
+
+-- event instances' __call should map directly to event.update
+getmetatable(event).cmt.__call = event.update
 

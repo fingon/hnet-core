@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Tue Sep 25 13:04:34 2012 mstenber
--- Edit time:     17 min
+-- Last modified: Tue Sep 25 16:44:36 2012 mstenber
+-- Edit time:     40 min
 --
 
 require "luacov"
@@ -58,6 +58,40 @@ describe("create_class", function ()
                   assert.are.same(o3.bar, 2)
 
                                              end)
+
+            it("can create + connect events #ev",
+               function ()
+                  local c1 = mst.create_class{events={'foo'}, class='c1'}
+
+                  local c2 = mst.create_class{class='c1'}
+                  for i=1,2
+                  do
+                     local o1 = c1:new()
+                     mst.a(o1.foo, 'event creation failed')
+                     local o2 = c2:new()
+                     local got = {0}
+                     o2:connect(o1.foo, 
+                                function (v)
+                                   mst.a(v == 'bar', v)
+                                   got[1] = 1
+                                end)
+                     o1.foo('bar')
+                     mst.a(got[1] ~= 0)
+                     -- try different uninit orders
+                     if i == 1
+                     then
+                        mst.enable_assert = false
+                        assert.error(function ()
+                                        o1:done()
+                                     end)
+                        mst.enable_assert = true
+                     else
+                        o2:done()
+                        o1:done()
+                     end
+                  end
+
+               end)
                          end)
 
 describe("table_copy", function ()
@@ -85,7 +119,7 @@ describe("repr", function()
                   local t = {foo=1}
                   local s = "foo"
                   local n = 42
-                  assert.are.same(repr(t), '{foo=1}')
+                  assert.are.same(repr(t), '{"foo"=1}')
                   assert.are.same(repr(s), '"foo"')
                   assert.are.same(repr(n), '42')
                         end)
@@ -98,3 +132,4 @@ describe("array_to_table", function ()
                   assert(t.z)
                                             end)
         end)
+
