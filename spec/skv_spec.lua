@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Mon Sep 24 16:58:30 2012 mstenber
--- Edit time:     112 min
+-- Last modified: Tue Sep 25 14:50:20 2012 mstenber
+-- Edit time:     114 min
 --
 
 require "luacov"
@@ -49,7 +49,7 @@ describe("class init",
                      assert(#loop.t == 0, "some timeouts left")
                   end)
             teardown(function ()
-                        loop:done()
+                        loop:clear()
                      end)
             it("cannot be created w/o loop", 
                function()
@@ -148,9 +148,7 @@ describe("class working (ignoring setup)", function()
                      assert(#loop.t == 0, "some timeouts left")
                   end)
             teardown(function ()
-                        loop:done()
-                        -- calling again shouldn't do anything bad, test it here
-                        loop:done()
+                        loop:clear()
                      end)
 
             it("transmits data [nowait]", function ()
@@ -198,9 +196,7 @@ describe("class working (post setup)", function()
                      assert(#loop.t == 0, "some timeouts left")
                   end)
             teardown(function ()
-                        loop:done()
-                        -- calling again shouldn't do anything bad, test it here
-                        loop:done()
+                        loop:clear()
                      end)
             it("should transfer state across (c->s) #pcs", function()
                   local c, s, h = setup_client_server(2

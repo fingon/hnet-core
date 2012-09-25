@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Mon Sep 24 15:08:11 2012 mstenber
--- Edit time:     85 min
+-- Last modified: Tue Sep 25 14:49:42 2012 mstenber
+-- Edit time:     88 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -32,6 +32,11 @@ module(..., package.seeall)
 -- mstwrapper - basic wrapper with started state, and abstract raw_start/stop
 local mstwrapper = mst.create_class{started=false, class=mstwrapper}
 
+function mstwrapper:uninit()
+   -- stop us in case caller didn't
+   self:stop()
+end
+
 function mstwrapper:start()
    if not self.started
    then
@@ -48,11 +53,6 @@ function mstwrapper:stop()
       self:raw_stop()
    end
    return self
-end
-
-function mstwrapper:done()
-   -- stop us in case caller didn't
-   self:stop()
 end
 
 --- mstio - wrapper for a single reader or writer
@@ -104,7 +104,7 @@ function msttimeout:init()
    table.insert(l.t, self)
 end
 
-function msttimeout:done()
+function msttimeout:uninit()
    local l = loop()
    local i = mst.array_find(l.t, self)
 
@@ -140,6 +140,28 @@ function ssloop:init()
 
    -- array of timeouts
    self.t = {}
+end
+
+function ssloop:uninit()
+   -- clear the handlers, if they're around
+   self:clear()
+end
+
+
+function ssloop:clear()
+   -- make sure that _everything_ is gone
+   while #self.r > 0
+   do
+      self.rh[self.r[1]]:done()
+   end
+   while #self.w > 0
+   do
+      self.wh[self.w[1]]:done()
+   end
+   while #self.t > 0
+   do
+      self.t[1]:done()
+   end
 end
 
 function ssloop:new_reader(s, callback)
@@ -280,22 +302,6 @@ function ssloop:next_timeout(now)
       end
    end
    return best
-end
-
-function ssloop:done()
-   -- make sure that _everything_ is gone
-   while #self.r > 0
-   do
-      self.rh[self.r[1]]:done()
-   end
-   while #self.w > 0
-   do
-      self.wh[self.w[1]]:done()
-   end
-   while #self.t > 0
-   do
-      self.t[1]:done()
-   end
 end
 
 --- public API

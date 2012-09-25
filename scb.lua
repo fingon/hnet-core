@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Mon Sep 24 14:11:40 2012 mstenber
+-- Last modified: Tue Sep 25 14:43:39 2012 mstenber
 -- Edit time:     125 min
 --
 
@@ -63,7 +63,22 @@ function ScbBase:init()
       -- implicitly as soon as we're initialized, which is .. now.
       self.s_r:start()
    end
+end
 
+function ScbBase:uninit()
+   -- initially just stop the handlers
+   self:stop()
+
+   -- call done callback (if any)
+   self:call_callback_once('done_callback')
+
+   if self.s
+   then
+      self.s:close()
+      self.s = nil
+   end
+   self.s_r = nil
+   self.s_w = nil
 end
 
 function ScbBase:repr_data()
@@ -93,22 +108,6 @@ function ScbBase:stop()
    end
 end
 
-
-function ScbBase:done()
-   -- initially just stop the handlers
-   self:stop()
-
-   -- call done callback (if any)
-   self:call_callback_once('done_callback')
-
-   if self.s
-   then
-      self.s:close()
-      self.s = nil
-   end
-   self.s_r = nil
-   self.s_w = nil
-end
 
 --- ScbIO (used for connecting + listen->accepted)
 

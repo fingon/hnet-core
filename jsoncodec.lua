@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 20 18:30:13 2012 mstenber
--- Last modified: Mon Sep 24 16:53:50 2012 mstenber
+-- Last modified: Tue Sep 25 14:42:57 2012 mstenber
 -- Edit time:     52 min
 --
 
@@ -48,6 +48,12 @@ function jsoncodec:init()
    self.s.close_callback = function ()
       self:handle_close()
    end
+end
+
+function jsoncodec:uninit()
+   -- we're done; just propagate the info
+   self:call_callback_once('done_callback')
+   self.s:done()
 end
 
 function jsoncodec:repr_data()
@@ -160,12 +166,6 @@ function jsoncodec:handle_data(x)
       mst.a(self.rql >= 0, "invalid rql", self)
 
    end
-end
-
-function jsoncodec:done()
-   -- we're done; just propagate the info
-   self:call_callback_once('done_callback')
-   self.s:done()
 end
 
 function wrap_socket(d)

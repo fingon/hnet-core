@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Tue Sep 25 12:15:03 2012 mstenber
--- Edit time:     247 min
+-- Last modified: Tue Sep 25 14:45:54 2012 mstenber
+-- Edit time:     248 min
 --
 
 require 'mst'
@@ -61,8 +61,7 @@ function skv:init()
    self.fsm:enterStartState()
 end
 
--- we're done with the object -> clear state
-function skv:done()
+function skv:uninit()
    if self.s
    then
       self.s:done()
@@ -381,7 +380,6 @@ end
 -- Server's single client side connection handling
 
 function skvclient:init()
-   self.is_done = false
    assert(self)
    self.parent.connections[self] = true
    self.json = jsoncodec.wrap_socket{s=self.s,
@@ -406,6 +404,12 @@ function skvclient:init()
    end
 end
 
+function skvclient:uninit()
+   self:a(self.parent.connections[self] ~= nil, ":done - not in parent table")
+   self.parent.connections[self] = nil
+   self.json:done()
+end
+
 function skvclient:handle_received_json(d)
    self:d('handle_received_json', d)
 
@@ -426,14 +430,4 @@ end
 
 function skvclient:repr_data()
    return '?'
-end
-
-function skvclient:done()
-   if not self.is_done
-   then
-      self.is_done = true
-      self:a(self.parent.connections[self] ~= nil, ":done - not in parent table")
-      self.parent.connections[self] = nil
-      self.json:done()
-   end
 end

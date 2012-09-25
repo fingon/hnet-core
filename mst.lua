@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Sep 25 13:02:58 2012 mstenber
--- Edit time:     148 min
+-- Last modified: Tue Sep 25 14:42:05 2012 mstenber
+-- Edit time:     152 min
 --
 
 module(..., package.seeall)
@@ -33,6 +33,18 @@ end
 baseclass = {}
 
 function baseclass:init()
+end
+
+function baseclass:uninit()
+end
+
+function baseclass:done()
+   if self._is_done
+   then
+      return
+   end
+   self._is_done = true
+   self:uninit()
 end
 
 function baseclass:new_subclass(o)

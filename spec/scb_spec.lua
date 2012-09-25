@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Mon Sep 24 13:57:44 2012 mstenber
--- Edit time:     90 min
+-- Last modified: Tue Sep 25 14:49:58 2012 mstenber
+-- Edit time:     91 min
 --
 
 require "luacov"
@@ -125,7 +125,7 @@ describe("scb-test", function ()
                      assert(#loop.t == 0, "some timeouts left")
                   end)
             teardown(function ()
-                        loop:done()
+                        loop:clear()
                         loop.debug = false
                      end)
             it("can create sockets", function ()
