@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Sep 25 12:47:50 2012 mstenber
--- Edit time:     139 min
+-- Last modified: Tue Sep 25 13:02:58 2012 mstenber
+-- Edit time:     148 min
 --
 
 module(..., package.seeall)
@@ -337,11 +337,44 @@ function table_repr(t, shown)
 end
 
 
-local _asis_repr = {['number']=true,
-                    ['function']=true,
-                    ['boolean']=true,
-                    ['userdata']=true,
-}
+-- do the two objects have same repr?
+function repr_equal(o1, o2)
+   -- first, stronger equality constraint - if objects
+   -- are same, they also have same representation (duh)
+   if o1 == o2
+   then
+      return true
+   end
+
+   -- not same objects, fall back to doing actual repr()s (not very
+   -- efficient, but correct way to compare some things' equality)
+   local s1 = repr(o1)
+   local s2 = repr(o2)
+   return s1 == s2
+end
+
+-- index in array
+function array_find(t, o)
+   for i, o2 in ipairs(t)
+   do
+      if o == o2
+      then
+         return i
+      end
+   end
+end
+
+-- transform array to table, with default value v if provided
+function array_to_table(a, default)
+   local t = {}
+   for i, v in ipairs(a)
+   do
+      t[v] = default or true
+   end
+   return t
+end
+
+local _asis_repr = array_to_table{'number', 'function', 'boolean', 'userdata'}
 
 -- python-style repr (works on any object, calls repr() if available,
 -- if not, tough
@@ -367,33 +400,6 @@ function repr(o, shown)
       return tostring(o)
    else
       error("unknown type " .. t)
-   end
-end
-
--- do the two objects have same repr?
-function repr_equal(o1, o2)
-   -- first, stronger equality constraint - if objects
-   -- are same, they also have same representation (duh)
-   if o1 == o2
-   then
-      return true
-   end
-
-   -- not same objects, fall back to doing actual repr()s (not very
-   -- efficient, but correct way to compare some things' equality)
-   local s1 = repr(o1)
-   local s2 = repr(o2)
-   return s1 == s2
-end
-
--- index in array
-function array_find(t, o)
-   for i, o2 in ipairs(t)
-   do
-      if o == o2
-      then
-         return i
-      end
    end
 end
 
