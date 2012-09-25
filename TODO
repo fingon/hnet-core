@@ -4,6 +4,11 @@
 
 ** Add whole 'listener' abstraction, deal with it (client+server)
 
+** SWIG ELSA + provide for Lua running inside BIRD
+
+** Write PA alg prototype in Lua
+
+
 * Done (24.9.+)
 
 ** Implement simple (len, binary-blob) low level i/o for SKV

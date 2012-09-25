@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Tue Sep 25 11:39:48 2012 mstenber
--- Edit time:     239 min
+-- Last modified: Tue Sep 25 12:15:03 2012 mstenber
+-- Edit time:     247 min
 --
 
 require 'mst'
@@ -212,7 +212,7 @@ function skv:handle_received_json(d)
       -- contains dictionary
       for k, v in pairs(uh)
       do
-         self.fsm:ReceiveUpdate(k, v)
+         self.fsm:ReceiveUpdate(self.json, k, v)
       end
    end
 end
@@ -237,29 +237,6 @@ function skv:set(k, v)
    self.fsm:HaveUpdate(k, v)
 end
 
-function skv:store_and_forward_remote_update(k, v)
-   -- if remote state was already same, skip
-   if mst.repr_equal(self.remote_state[k], v)
-   then
-      return
-   end
-   
-   -- if we have local state on 'k', skip forwarding and discard
-   -- remote state we may have
-   if self.local_state[k]
-   then
-      self.remote_state[k] = nil
-      return
-   end
-
-   -- update remote state
-   self.remote_state[k] = v
-
-   self:send_update_to_clients(k, v)
-end
-
-
-
 function skv:store_local_update(k, v)
    self:d('store_local_update', k, v)
    self.local_state[k] = v
@@ -280,9 +257,46 @@ end
 
 
 
-function skv:store_remote_update(k, v)
+function skv:client_remote_update(json, k, v)
    self.remote_state[k] = v
+   lv = self.local_state[k]
+   if lv and not mst.repr_equal(lv, v)
+   then
+      json:write{[MSG_UPDATE] = {[k] = lv}}
+   end
 end
+
+function skv:server_remote_update(json, k, v)
+   -- if remote state was already same, skip
+   if mst.repr_equal(self.remote_state[k], v)
+   then
+      return
+   end
+   
+   -- if we have local state on 'k', skip forwarding and discard
+   -- remote state we may have
+   lv = self.local_state[k]
+   if self.local_state[k]
+   then
+      -- if local state is different than what we got from remote,
+      -- update remote
+      if not mst.repr_equal(lv, v)
+      then
+         json:write{[MSG_UPDATE] = {[k] = lv}}
+      end
+      self.remote_state[k] = nil
+      return
+   end
+
+   -- update remote state
+   self.remote_state[k] = v
+
+   self:send_update_to_clients(k, v)
+end
+
+
+
+
 
 function skv:wrap_socket_jsoncodec()
    -- clear existing listeners, json will install it's own
@@ -401,7 +415,7 @@ function skvclient:handle_received_json(d)
       -- contains dictionary
       for k, v in pairs(uh)
       do
-         self.parent.fsm:ReceiveUpdate(k, v)
+         self.parent.fsm:ReceiveUpdate(self.json, k, v)
       end
    end
 end

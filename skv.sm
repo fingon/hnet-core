@@ -47,7 +47,7 @@ Exit { clear_jsoncodec(); }
 //  AddListener(k: String, cb:Callback) nil { l = add_listener(k, cb); send_add_listener(l); }
 //  RemoveListener(l: Listener) nil { send_remove_listener(l); delete_listener(l); }
   ConnectionClosed Connecting { }
-  ReceiveUpdate(k: Key, v: Value) nil { store_remote_update(k, v); }
+  ReceiveUpdate(json:Json, k: Key, v: Value) nil { client_remote_update(json, k, v); }
 }
 
 ClientFailRetry
@@ -92,7 +92,7 @@ Entry { }
 {
 // new connection loop here - no affect on the state machine though
   HaveUpdate(k: Key, v:Value) nil { store_local_update(k, v); send_update_to_clients(k, v); }
-  ReceiveUpdate(k: Key, v: Value) nil { store_and_forward_remote_update(k, v); }
+  ReceiveUpdate(json:JsonCodec, k: Key, v: Value) nil { server_remote_update(json, k, v); }
 }
 %%
 

@@ -30,6 +30,7 @@ SKVState.ConnectionClosed = _default
 SKVState.HaveUpdate = _default
 SKVState.Initialized = _default
 SKVState.ReceiveUpdate = _default
+SKVState.ReceiveUpdate = _default
 SKVState.ReceiveVersion = _default
 SKVState.Timeout = _default
 
@@ -266,23 +267,23 @@ function Client.WaitUpdates:HaveUpdate (fsm, k, v)
     fsm:setState(endState)
 end
 
-function Client.WaitUpdates:ReceiveUpdate (fsm, k, v)
+function Client.WaitUpdates:ReceiveUpdate (fsm, json, k, v)
     local ctxt = fsm.owner
     if fsm.debugFlag then
         fsm.debugStream:write("LEAVING STATE   : Client.WaitUpdates\n")
     end
     local endState = fsm:getState()
     if fsm.debugFlag then
-        fsm.debugStream:write("ENTER TRANSITION: Client.WaitUpdates:ReceiveUpdate(k=" .. tostring(k) .. ", v=" .. tostring(v) .. ")\n")
+        fsm.debugStream:write("ENTER TRANSITION: Client.WaitUpdates:ReceiveUpdate(json=" .. tostring(json) .. ", k=" .. tostring(k) .. ", v=" .. tostring(v) .. ")\n")
     end
     fsm:clearState()
     local r, msg = pcall(
         function ()
-            ctxt:store_remote_update(k, v)
+            ctxt:client_remote_update(json, k, v)
         end
     )
     if fsm.debugFlag then
-        fsm.debugStream:write("EXIT TRANSITION : Client.WaitUpdates:ReceiveUpdate(k=" .. tostring(k) .. ", v=" .. tostring(v) .. ")\n")
+        fsm.debugStream:write("EXIT TRANSITION : Client.WaitUpdates:ReceiveUpdate(json=" .. tostring(json) .. ", k=" .. tostring(k) .. ", v=" .. tostring(v) .. ")\n")
     end
     fsm:setState(endState)
 end
@@ -439,23 +440,23 @@ function Server.WaitConnections:HaveUpdate (fsm, k, v)
     fsm:setState(endState)
 end
 
-function Server.WaitConnections:ReceiveUpdate (fsm, k, v)
+function Server.WaitConnections:ReceiveUpdate (fsm, json, k, v)
     local ctxt = fsm.owner
     if fsm.debugFlag then
         fsm.debugStream:write("LEAVING STATE   : Server.WaitConnections\n")
     end
     local endState = fsm:getState()
     if fsm.debugFlag then
-        fsm.debugStream:write("ENTER TRANSITION: Server.WaitConnections:ReceiveUpdate(k=" .. tostring(k) .. ", v=" .. tostring(v) .. ")\n")
+        fsm.debugStream:write("ENTER TRANSITION: Server.WaitConnections:ReceiveUpdate(json=" .. tostring(json) .. ", k=" .. tostring(k) .. ", v=" .. tostring(v) .. ")\n")
     end
     fsm:clearState()
     local r, msg = pcall(
         function ()
-            ctxt:store_and_forward_remote_update(k, v)
+            ctxt:server_remote_update(json, k, v)
         end
     )
     if fsm.debugFlag then
-        fsm.debugStream:write("EXIT TRANSITION : Server.WaitConnections:ReceiveUpdate(k=" .. tostring(k) .. ", v=" .. tostring(v) .. ")\n")
+        fsm.debugStream:write("EXIT TRANSITION : Server.WaitConnections:ReceiveUpdate(json=" .. tostring(json) .. ", k=" .. tostring(k) .. ", v=" .. tostring(v) .. ")\n")
     end
     fsm:setState(endState)
 end
@@ -514,6 +515,12 @@ end
 function skvContext:Initialized ()
     self.transition = 'Initialized'
     self:getState():Initialized(self)
+    self.transition = nil
+end
+
+function skvContext:ReceiveUpdate (...)
+    self.transition = 'ReceiveUpdate'
+    self:getState():ReceiveUpdate(self, ...)
     self.transition = nil
 end
 
