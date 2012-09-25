@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Tue Sep 25 14:50:20 2012 mstenber
--- Edit time:     114 min
+-- Last modified: Tue Sep 25 17:42:59 2012 mstenber
+-- Edit time:     123 min
 --
 
 require "luacov"
@@ -121,15 +121,25 @@ local function ensure_sane(s)
    end
 end
 
-local function test_state_propagation(src, dst, st1, st2)
+local function test_state_propagation(src, dst, st1, st2, st3)
    st1 = st1 or "bar"
    st2 = st2 or "baz"
+   st3 = st3 or "bazinga"
+
    src:set("foo", st1)
    run_loop_until(
       function ()
          --ensure_sane(src)
          --ensure_sane(dst)
          return dst:get("foo") == st1
+      end)
+
+   src:set("bar", st3)
+   run_loop_until(
+      function ()
+         --ensure_sane(src)
+         --ensure_sane(dst)
+         return dst:get("bar") == st3
       end)
 
    src:set("foo", st2)
@@ -209,6 +219,46 @@ describe("class working (post setup)", function()
                                                       --,true --debug
                                                      )
                   test_state_propagation(s, c)
+              end)
+            it("test change notifications #cn", function()
+                  local c, s, h = setup_client_server(2
+                                                      --,true --debug
+                                                     )
+                  
+                  local calls = {0, 0}
+                  -- this occurs twice
+                  local fun1 = function (k, v)
+                     mst.a(k == "foo")
+                     calls[2] = calls[2] + 1
+                  end
+                  local fun3 = function (k, v)
+                     mst.a(k == "foo")
+                     calls[2] = calls[2] + 1
+                  end
+                  local fun2 = function (k, v)
+                     calls[1] = calls[1] + 1
+                  end
+
+                  s:add_change_observer(fun1, 'foo')
+                  s:add_change_observer(fun3, 'foo')
+                  -- these occur 2x each (due to foo changing twice)
+
+                  s:add_change_observer(fun2)
+                  -- this occurs 3 times (2x foo, 1x bar)
+
+                  test_state_propagation(c, s)
+                  mst.a(calls[1] == 3)
+                  mst.a(calls[2] == 4)
+                  s:remove_change_observer(fun2)
+                  s:remove_change_observer(fun1, 'foo')
+                  s:remove_change_observer(fun3, 'foo')
+                  mst.enable_assert = false
+                  assert.error(function ()
+                                  s:remove_change_observer(fun1)
+                               end)
+                  mst.enable_assert = true
+                  mst.a(mst.table_is_empty(s.change_events, 'remaining change_events'))
+
               end)
             it("client should reconnect if server disconnects suddenly",
                function()

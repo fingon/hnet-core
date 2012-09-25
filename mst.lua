@@ -9,13 +9,11 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Sep 25 16:45:15 2012 mstenber
--- Edit time:     186 min
+-- Last modified: Tue Sep 25 17:38:21 2012 mstenber
+-- Edit time:     188 min
 --
 
 module(..., package.seeall)
-
-local event 
 
 -- global debug switch
 enable_debug=false
@@ -517,6 +515,7 @@ function event:add_observer(o)
 end
 
 function event:remove_observer(o)
+   self:a(self.observers[o], 'observer missing', o)
    self.observers[o] = nil
 end
 

@@ -2,8 +2,6 @@
 
 * Things to do
 
-** Add whole 'listener' abstraction, deal with it (client+server)
-
 ** SWIG ELSA + provide for Lua running inside BIRD
 
 ** Write PA alg prototype in Lua
@@ -16,6 +14,11 @@
 ** Implement JSON wrapping on top of that
 
 ** Write handlers for reading/writing JSON as needed
+
+** Add whole 'listener' abstraction, deal with it (client+server)
+
+ - {add,remove}_change_observer in skv
+
 
 
 

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Tue Sep 25 14:45:54 2012 mstenber
--- Edit time:     248 min
+-- Last modified: Tue Sep 25 17:42:33 2012 mstenber
+-- Edit time:     266 min
 --
 
 require 'mst'
@@ -47,6 +47,8 @@ local MSG_UPDATE = 'update'
 local SKV_VERSION = '1.0'
 
 function skv:init()
+   self.change_events = {}
+
    self.local_state = {}
    self.remote_state = {}
    self.host = self.host or HOST
@@ -60,6 +62,46 @@ function skv:init()
    end
    self.fsm:enterStartState()
 end
+
+function skv:add_change_observer(cb, k)
+   k = k or true
+   local o = self.change_events[k]
+   if not o
+   then
+      o = mst.event:new()
+      self.change_events[k] = o
+   end
+   o:add_observer(cb)
+end
+
+function skv:remove_change_observer(cb, k)
+   k = k or true
+   o = self.change_events[k]
+   self:a(o, "invalid k", k, self)
+   o:remove_observer(cb)
+   if mst.table_is_empty(o.observers)
+   then
+      o:done()
+      self.change_events[k] = nil
+   end
+end
+
+function skv:change_occured(k, v)
+   assert(k and k ~= true)
+
+   local o = self.change_events[k]
+   if o
+   then
+      o(k, v)
+   end
+
+   o = self.change_events[true]
+   if o
+   then
+      o(k, v)
+   end
+end
+
 
 function skv:uninit()
    if self.s
@@ -257,15 +299,21 @@ end
 
 
 function skv:client_remote_update(json, k, v)
+   local ov = self:get(k)
    self.remote_state[k] = v
    lv = self.local_state[k]
    if lv and not mst.repr_equal(lv, v)
    then
       json:write{[MSG_UPDATE] = {[k] = lv}}
    end
+   if not mst.repr_equal(ov, v)
+   then
+      self:change_occured(k, v)
+   end
 end
 
 function skv:server_remote_update(json, k, v)
+   local ov = self:get(k)
    -- if remote state was already same, skip
    if mst.repr_equal(self.remote_state[k], v)
    then
@@ -285,6 +333,11 @@ function skv:server_remote_update(json, k, v)
       end
       self.remote_state[k] = nil
       return
+   end
+
+   if not mst.repr_equal(ov, v)
+   then
+      self:change_occured(k, v)
    end
 
    -- update remote state
