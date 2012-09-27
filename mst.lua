@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Sep 27 18:09:02 2012 mstenber
--- Edit time:     252 min
+-- Last modified: Thu Sep 27 18:18:58 2012 mstenber
+-- Edit time:     255 min
 --
 
 module(..., package.seeall)
@@ -669,7 +669,12 @@ function ipv6_ascii_cleanup(s)
    then
       ipv6_ascii_cleanup_sub(nl, 1, best[2]-1, r)
       table.insert(r, '')
-      ipv6_ascii_cleanup_sub(nl, best[1]+best[2], #nl, r)
+      if best[1]+best[2] >  #nl
+      then
+         table.insert(r, '')
+      else
+         ipv6_ascii_cleanup_sub(nl, best[1]+best[2], #nl, r)
+      end
    else
       ipv6_ascii_cleanup_sub(nl, 1, #nl, r)
    end
@@ -708,9 +713,12 @@ function ipv6_ascii_to_binary(b)
    do
       if #v == 0
       then
-         mst.a(not idx, "multiple ::s")
-         idx = i
-         --mst.d('found magic index', idx)
+         mst.a(not idx or (idx == i-1 and i == #l), "multiple ::s")
+         if not idx
+         then
+            idx = i
+            --mst.d('found magic index', idx)
+         end
       end
    end
    local t = {}

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Thu Sep 27 18:08:47 2012 mstenber
--- Edit time:     55 min
+-- Last modified: Thu Sep 27 18:16:23 2012 mstenber
+-- Edit time:     56 min
 --
 
 require "luacov"
@@ -173,10 +173,11 @@ describe('string_split', function()
 describe('ipv6', function()
             it("works", function()
                   --mst.enable_debug = true
-                  local a1 = 'dead:beef'
+                  local a0 = 'dead:beef'
+                  local a1 = 'dead:beef::'
                   local a2 = 'dead:beef::1'
                   local a3 = 'dead:beef::cafe:1'
-                  local as = {a1, a2, a3}
+                  local as = {a0, a1, a2, a3}
                   for i, v in ipairs(as)
                   do
                      local enc = mst.ipv6_ascii_to_binary(v)
