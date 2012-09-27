@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Sep 27 18:18:58 2012 mstenber
--- Edit time:     255 min
+-- Last modified: Thu Sep 27 19:18:07 2012 mstenber
+-- Edit time:     262 min
 --
 
 module(..., package.seeall)
@@ -379,11 +379,11 @@ function string_is_printable(s)
    do
       if not t[c]
       then
-         mst.d('non-printable', i, c, s)
+         --mst.d('non-printable', i, c, s)
          return false
       end
    end
-   mst.d('printable', s)
+   --mst.d('printable', s)
    return true
 end
 
@@ -407,9 +407,32 @@ function string_split(s, delim)
    return t
 end
 
+function string_to_hex(s)
+   local t = {}
+   for i, c in mst.string_ipairs(s)
+   do
+      table.insert(t, string.format('%02x', string.byte(c)))
+   end
+   return table.concat(t)
+end
+
 
 function table_is(t)
    return type(t) == 'table'
+end
+
+-- does t contain everything within t1?
+-- (using repr_equal)
+function table_contains(t, t1)
+   mst.a(t and t1, "missing parameters to table_contains")
+   for k, v in pairs(t1)
+   do
+      if not repr_equal(t[k], v)
+      then
+         return false
+      end
+   end
+   return true
 end
 
 -- deep copy table

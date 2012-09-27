@@ -2,8 +2,6 @@
 
 * Things to do
 
-** Write LSA en-decode functionality in LUA
-
 ** Write PA alg prototype in Lua
 
 
@@ -21,4 +19,4 @@
 
 ** SWIG ELSA + provide for Lua running inside BIRD
 
-
+** Write AC LSA en-decode functionality in LUA
