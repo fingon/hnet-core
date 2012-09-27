@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 20 18:30:13 2012 mstenber
--- Last modified: Tue Sep 25 14:42:57 2012 mstenber
--- Edit time:     52 min
+-- Last modified: Thu Sep 27 13:41:30 2012 mstenber
+-- Edit time:     59 min
 --
 
 -- json codec that can be plugged on top of scb abstracted sockets, to
@@ -18,15 +18,16 @@
 -- (or well, any structure that dkjson supports for encoding..)
 
 require 'mst'
-local struct = require 'struct'
+local vstruct = require 'vstruct'
 local json = require "dkjson"
 
--- struct.size missing from some historic version in luarocks
-HEADER_FORMAT='ii'
 HEADER_MAGIC=1234567
 
+-- < = network endian
+local _format = vstruct.compile('< magic:u4 size:u4')
+
 -- magic + length of the next payload
-local _hs = #struct.pack(HEADER_FORMAT, 0, 0)
+local _hs = #_format.pack({magic=HEADER_MAGIC,size=0})
 
 module(..., package.seeall)
 
@@ -70,7 +71,7 @@ function jsoncodec:write(o)
    local s = json.encode(o)
 
    -- write encoded json representation to the underlying socket
-   local x = struct.pack(HEADER_FORMAT .. 'c0', HEADER_MAGIC, string.len(s), s)
+   local x = _format.pack{magic=HEADER_MAGIC, size=string.len(s)} .. s
    self.s:write(x)
    self.written = self.written + #x
    self:d('wrote', #x, self.written)
@@ -94,7 +95,6 @@ function jsoncodec:handle_data(x)
    table.insert(self.rq, x)
    self.rql = self.rql + #x
    local ri = 1
-
    while true
    do
       local need1 = ri + _hs - 1
@@ -113,7 +113,11 @@ function jsoncodec:handle_data(x)
 
       self:a(#self.rq[1] >= need1)
 
-      magic, cnt = struct.unpack(HEADER_FORMAT, self.rq[1], ri)
+      
+      local cur = vstruct.cursor(ri == 1 and self.rq[1] or string.sub(self.rq[1], ri))
+      local d = _format.unpack(cur)
+      local magic = d.magic
+      local cnt = d.size
 
       if magic ~= HEADER_MAGIC
       then
@@ -139,7 +143,7 @@ function jsoncodec:handle_data(x)
       self:a(#self.rq[1] >= need2)
 
       -- ok, we have a blob to decode
-      magic, s = struct.unpack(HEADER_FORMAT .. 'c0', self.rq[1], ri)
+      local s = string.sub(self.rq[1], need1+1, need2)
       
       o = json.decode(s)
 
