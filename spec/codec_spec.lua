@@ -9,22 +9,23 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 18:34:49 2012 mstenber
--- Last modified: Thu Sep 27 19:24:15 2012 mstenber
--- Edit time:     5 min
+-- Last modified: Thu Sep 27 19:38:03 2012 mstenber
+-- Edit time:     8 min
 --
 
 require "luacov"
 require "busted"
 require "codec"
 
+local tests = {
+   {codec.rhf_ac_tlv, {body=string.rep('1', 40)}},
+   {codec.usp_ac_tlv, {prefix='dead::/16'}},
+   {codec.asp_ac_tlv, {iid=3, prefix='dead::/16'}},
+}
+
 describe("test the ac endecode",
          function ()
             it("basic en-decode ~= same", function ()
-                  local tests = {
-                     {codec.rhf_ac_tlv, {body=string.rep('1', 40)}},
-                     {codec.usp_ac_tlv, {prefix='dead::/16'}},
-                     {codec.asp_ac_tlv, {iid=3, prefix='dead::/16'}},
-                  }
                   for i, v in ipairs(tests)
                   do
                      local cl, orig = unpack(v)
@@ -38,5 +39,14 @@ describe("test the ac endecode",
 
                      mst.a(mst.table_contains(o2, orig), "something missing", cl.class, o2, orig)
                   end
+                                          end)
+            it("can handle list of tlvs", function()
+                  -- glom all tests together to one big thing
+                  local l = mst.map(tests, function (s) 
+                                       return s[1]:encode(s[2]) 
+                                           end)
+                  local s = table.concat(l)
+                  local l2 = codec.decode_ac_tlvs(s)
+                  assert.are.same(#l, #l2)
                                           end)
          end)

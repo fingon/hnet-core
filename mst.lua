@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Sep 27 19:18:07 2012 mstenber
--- Edit time:     262 min
+-- Last modified: Thu Sep 27 19:40:56 2012 mstenber
+-- Edit time:     264 min
 --
 
 module(..., package.seeall)
@@ -344,6 +344,8 @@ function array_map(a, fun)
    return t
 end
 
+map = array_map
+
 function string_ipairs_iterator(s, i)
    i = i + 1
    if i > #s 
@@ -653,6 +655,20 @@ function strtol(s, base)
       r = r * base + v
    end
    return r
+end
+
+-- min
+function min(...)
+   local smallest = false
+   local l = {...}
+   for i, v in ipairs(l)
+   do
+      if not smallest or v < smallest
+      then
+         smallest = v
+      end
+   end
+   return smallest
 end
 
 -- ipv6 handling stuff

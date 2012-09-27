@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Thu Sep 27 19:29:22 2012 mstenber
--- Edit time:     114 min
+-- Last modified: Thu Sep 27 19:45:49 2012 mstenber
+-- Edit time:     124 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -27,13 +27,7 @@
 local mst = require 'mst'
 local vstruct = require 'vstruct'
 
-local string = string
-local type = type
-local math = math
-local pairs = pairs
-local tostring = tostring
-
-module(...)
+module(..., package.seeall)
 
 AC_TLV_RHF=1
 AC_TLV_USP=2
@@ -157,28 +151,6 @@ function ac_tlv:do_encode(o)
    return abstract_data.do_encode(self, o) .. o.body
 end
 
---- rhf_ac_tlv based on ac_tlv prototype instance (we still override class)
-
-rhf_ac_tlv = ac_tlv:new{class='rhf_ac_tlv', tlv_type=AC_TLV_RHF}
-
-function rhf_ac_tlv:try_decode(cur)
-   local o, err = ac_tlv.try_decode(self, cur)
-   if not o then return o, err end
-   -- only constraint we have is that the length > 32 (according 
-   -- to draft-acee-ospf-ospfv3-autoconfig-03)
-   if o.length <= 32 then return nil, 'too short RHF payload' end
-   return o
-end
-
-function rhf_ac_tlv:valid()
-   r, err = ac_tlv.valid(self)
-   if not r
-   then
-      return r, err
-   end
-   return true
-end
-
 --- prefix_body
 prefix_body = abstract_data:new{class='prefix_body', 
                                 format='prefix_length:u1 r1:u1 r2:u1 r3:u1',
@@ -242,15 +214,59 @@ function prefix_ac_tlv:do_encode(o)
    return ac_tlv.do_encode(self, o)
 end
 
---- usp_ac_tlv
+-- rhf_ac_tlv 
+
+rhf_ac_tlv = ac_tlv:new{class='rhf_ac_tlv', tlv_type=AC_TLV_RHF}
+
+function rhf_ac_tlv:try_decode(cur)
+   local o, err = ac_tlv.try_decode(self, cur)
+   if not o then return o, err end
+   -- only constraint we have is that the length > 32 (according 
+   -- to draft-acee-ospf-ospfv3-autoconfig-03)
+   if o.length <= 32 then return nil, 'too short RHF payload' end
+   return o
+end
+
+-- usp_ac_tlv
 
 usp_ac_tlv = prefix_ac_tlv:new{class='usp_ac_tlv',
                                tlv_type=AC_TLV_USP}
 
 
---- asp_ac_tlv
+-- asp_ac_tlv
 
 asp_ac_tlv = prefix_ac_tlv:new{class='asp_ac_tlv',
                                format='type:u2 length:u2 iid:u4',
                                tlv_type=AC_TLV_ASP,
                                header_default={type=0, length=0, iid=0}}
+
+-- tlv list decoding
+
+local _tlv_decoders = {rhf_ac_tlv, usp_ac_tlv, asp_ac_tlv}
+
+function decode_ac_tlvs(s)
+   local cur = vstruct.cursor(s)
+   mst.d('decoders', #_tlv_decoders)
+   local hls = mst.map(_tlv_decoders,
+                       function (t) 
+                          return t.header_length
+                       end)
+   mst.d('hls', hls)
+   local minimum_size = mst.min(unpack(hls))
+   mst.d('minimum_size', minimum_size)
+
+   local t = {}
+   while has_left(cur, minimum_size)
+   do
+      for i, v in ipairs(_tlv_decoders)
+      do
+         local o, err = v:decode(cur)
+         if o
+         then
+            table.insert(t, o)
+            break
+         end
+      end
+   end
+   return t, cur.pos
+end
