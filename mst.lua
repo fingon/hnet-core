@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Sep 27 16:30:59 2012 mstenber
--- Edit time:     249 min
+-- Last modified: Thu Sep 27 18:09:02 2012 mstenber
+-- Edit time:     252 min
 --
 
 module(..., package.seeall)
@@ -220,7 +220,7 @@ function create_class(o, ...)
    -- for class too
    setmetatable(h, {__index=scs[1],
                     __tostring=_ts,
-                   cmt=cmt})
+                    cmt=cmt})
    return h
 end
 
@@ -305,6 +305,23 @@ function array_find(t, o)
          return i
       end
    end
+end
+
+function array_is(t)
+   -- whether it's actually table
+   if not table_is(t)
+   then
+      return
+   end
+   local cnt = table_count(t)
+   for i=1,cnt
+   do
+      if t[i] == nil
+      then
+         return
+      end
+   end
+   return true
 end
 
 -- transform array to table, with default value v if provided
@@ -436,6 +453,16 @@ function table_copy(t, n)
    return n
 end
 
+-- get count of items within table
+function table_count(t)
+   c = 0
+   for k, v in pairs(t)
+   do
+      c = c + 1
+   end
+   return c
+end
+
 -- whether table is empty or not
 function table_is_empty(t)
    for k, v in pairs(t)
@@ -505,17 +532,29 @@ function table_repr(t, shown)
       return '...'
    end
    shown[t] = true
-   for k, v in table_sorted_pairs(t)
-   do
-      if not first then table.insert(s, ", ") end
-      if type(k) == 'string' and string_is_printable(k)
-      then
-         ks = k
-      else
-         ks = string.format('[%s]', repr(k, shown))
+   if array_is(t)
+   then
+      for i, v in ipairs(t)
+      do
+         if i > 1
+         then
+            table.insert(s, ", ")
+         end
+         table.insert(s, repr(v, shown))
       end
-      table.insert(s, ks .. "=" .. repr(v, shown))
-      first = false
+   else
+      for k, v in table_sorted_pairs(t)
+      do
+         if not first then table.insert(s, ", ") end
+         if type(k) == 'string' and string_is_printable(k)
+         then
+            ks = k
+         else
+            ks = string.format('[%s]', repr(k, shown))
+         end
+         table.insert(s, ks .. "=" .. repr(v, shown))
+         first = false
+      end
    end
    table.insert(s, "}")
    return table.concat(s)
