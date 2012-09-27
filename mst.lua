@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Sep 25 17:38:21 2012 mstenber
--- Edit time:     188 min
+-- Last modified: Thu Sep 27 13:22:06 2012 mstenber
+-- Edit time:     212 min
 --
 
 module(..., package.seeall)
@@ -268,7 +268,7 @@ end
 function d(...)
    if enable_debug
    then
-      debug_print(self:tostring(), ...)
+      debug_print(...)
    end
 end
 
@@ -294,6 +294,72 @@ function pcall_and_finally(fun1, fun2)
       error(err)
    end
 end
+
+
+-- index in array
+function array_find(t, o)
+   for i, o2 in ipairs(t)
+   do
+      if o == o2
+      then
+         return i
+      end
+   end
+end
+
+-- transform array to table, with default value v if provided
+function array_to_table(a, default)
+   local t = {}
+   for i, v in ipairs(a)
+   do
+      t[v] = default or true
+   end
+   return t
+end
+
+function string_ipairs_iterator(s, i)
+   i = i + 1
+   if i > #s 
+   then
+      return
+   end
+   local ss = string.sub(s, i, i)
+   return i, ss
+end
+
+function string_ipairs(s, st)
+   st = st or 1
+   return string_ipairs_iterator, s, st-1
+end
+
+function string_to_table(s)
+   local t = {}
+   for i, c in string_ipairs(s)
+   do
+      t[c] = true
+   end
+   return t
+end
+
+local _my_printable_table = string_to_table("1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
+
+function string_is_printable(s)
+   local t = _my_printable_table
+   mst.a(type(s) == 'string', 'string_is_printable with non-string', s)
+   mst.a(t ~= nil, '_my_printable_table not set')
+   for i, c in string_ipairs(s)
+   do
+      if not t[c]
+      then
+         mst.d('non-printable', i, c, s)
+         return false
+      end
+   end
+   mst.d('printable', s)
+   return true
+end
+
+
 
 function table_is(t)
    return type(t) == 'table'
@@ -368,7 +434,7 @@ end
 
 -- sorted table pairs
 function table_sorted_pairs_iterator(h, k)
-   local t, s, sr  = unpack(h)
+   local t, s, sr = unpack(h)
 
    if not k
    then
@@ -412,7 +478,13 @@ function table_repr(t, shown)
    for k, v in table_sorted_pairs(t)
    do
       if not first then table.insert(s, ", ") end
-      table.insert(s, repr(k, shown) .. "=" .. repr(v, shown))
+      if type(k) == 'string' and string_is_printable(k)
+      then
+         ks = k
+      else
+         ks = string.format('[%s]', repr(k, shown))
+      end
+      table.insert(s, ks .. "=" .. repr(v, shown))
       first = false
    end
    table.insert(s, "}")
@@ -434,27 +506,6 @@ function repr_equal(o1, o2)
    local s1 = repr(o1)
    local s2 = repr(o2)
    return s1 == s2
-end
-
--- index in array
-function array_find(t, o)
-   for i, o2 in ipairs(t)
-   do
-      if o == o2
-      then
-         return i
-      end
-   end
-end
-
--- transform array to table, with default value v if provided
-function array_to_table(a, default)
-   local t = {}
-   for i, v in ipairs(a)
-   do
-      t[v] = default or true
-   end
-   return t
 end
 
 local _asis_repr = array_to_table{'number', 'function', 'boolean', 'userdata'}

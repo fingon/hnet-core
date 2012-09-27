@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Tue Sep 25 16:44:36 2012 mstenber
--- Edit time:     40 min
+-- Last modified: Thu Sep 27 13:22:19 2012 mstenber
+-- Edit time:     42 min
 --
 
 require "luacov"
@@ -119,7 +119,8 @@ describe("repr", function()
                   local t = {foo=1}
                   local s = "foo"
                   local n = 42
-                  assert.are.same(repr(t), '{"foo"=1}')
+                  --mst.enable_debug = true
+                  assert.are.same(repr(t), '{foo=1}')
                   assert.are.same(repr(s), '"foo"')
                   assert.are.same(repr(n), '42')
                         end)
