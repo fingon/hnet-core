@@ -16,6 +16,7 @@ Requirements
 (libev-dev)
 
 # luarocks install busted
+# luarocks install luacov
 # luarocks install luasocket
 
 (# luarocks install lua-ev)
