@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 20 18:30:13 2012 mstenber
--- Last modified: Thu Sep 27 13:41:30 2012 mstenber
--- Edit time:     59 min
+-- Last modified: Thu Sep 27 13:42:32 2012 mstenber
+-- Edit time:     60 min
 --
 
 -- json codec that can be plugged on top of scb abstracted sockets, to
@@ -145,7 +145,7 @@ function jsoncodec:handle_data(x)
       -- ok, we have a blob to decode
       local s = string.sub(self.rq[1], need1+1, need2)
       
-      o = json.decode(s)
+      local o = json.decode(s)
 
       self:a(self.callback, 'no callback?!?')
       self:d('providing callback to client')

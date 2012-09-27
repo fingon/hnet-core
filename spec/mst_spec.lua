@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Thu Sep 27 13:22:19 2012 mstenber
--- Edit time:     42 min
+-- Last modified: Thu Sep 27 16:31:13 2012 mstenber
+-- Edit time:     53 min
 --
 
 require "luacov"
@@ -133,4 +133,54 @@ describe("array_to_table", function ()
                   assert(t.z)
                                             end)
         end)
+
+describe('strtol', function()
+            it("works", function()
+                  assert.are.same(mst.strtol('1011'), 1011)
+                  assert.are.same(mst.strtol('fff0', 16), 65535-15)
+                        end)
+                   end)
+
+describe('strtol', function()
+            it("works", function()
+                  assert.are.same(mst.strtol('1011'), 1011)
+                  assert.are.same(mst.strtol('fff0', 16), 65535-15)
+                        end)
+                   end)
+
+describe('string_split', function()
+            it("works", function()
+                  local ir = {
+                     {"foo:bar", {"foo", "bar"}},
+                     {"foo:", {"foo", ""}},
+                     {":foo", {"", "foo"}},
+                     {"foo:bar:baz", {"foo", "bar", "baz"}},
+                     {"foo:bar::baz", {"foo", "bar", "", "baz"}},
+                  }
+                  for i, v in ipairs(ir)
+                  do
+                     local input, output = unpack(v)
+                     local got = mst.repr(mst.string_split(input, ':'))
+                     local expected = mst.repr(output) 
+                     assert.are.same(expected, got)
+                  end
+                     
+                        end)
+                         end)
+
+describe('ipv6', function()
+            it("works", function()
+                  --mst.enable_debug = true
+                  local a1 = 'dead:beef'
+                  local a2 = 'dead:beef::1'
+                  local a3 = 'dead:beef::cafe:1'
+                  local as = {a1, a2, a3}
+                  for i, v in ipairs(as)
+                  do
+                     local enc = mst.ipv6_ascii_to_binary(v)
+                     local s = mst.ipv6_binary_to_ascii(enc)
+                     assert.are.same(s, v)
+                  end
+                        end)
+                 end)
 

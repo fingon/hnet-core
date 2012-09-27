@@ -2,7 +2,7 @@
 
 * Things to do
 
-** SWIG ELSA + provide for Lua running inside BIRD
+** Write LSA en-decode functionality in LUA
 
 ** Write PA alg prototype in Lua
 
@@ -19,6 +19,6 @@
 
  - {add,remove}_change_observer in skv
 
-
+** SWIG ELSA + provide for Lua running inside BIRD
 
 

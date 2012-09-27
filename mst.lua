@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Sep 27 13:22:06 2012 mstenber
--- Edit time:     212 min
+-- Last modified: Thu Sep 27 16:30:59 2012 mstenber
+-- Edit time:     249 min
 --
 
 module(..., package.seeall)
@@ -317,6 +317,16 @@ function array_to_table(a, default)
    return t
 end
 
+function array_map(a, fun)
+   mst.a(type(a) == "table", "invalid input to array_map", a)
+   local t = {}
+   for i, v in ipairs(a)
+   do
+      table.insert(t, fun(v))
+   end
+   return t
+end
+
 function string_ipairs_iterator(s, i)
    i = i + 1
    if i > #s 
@@ -328,6 +338,7 @@ function string_ipairs_iterator(s, i)
 end
 
 function string_ipairs(s, st)
+   mst.a(type(s) == "string", "non-string input", s)
    st = st or 1
    return string_ipairs_iterator, s, st-1
 end
@@ -359,6 +370,25 @@ function string_is_printable(s)
    return true
 end
 
+
+function string_split_rec(s, delim, ofs, t)
+   for i=ofs,#s
+   do
+      if string.sub(s, i, i+#delim-1) == delim
+      then
+         table.insert(t, string.sub(s, ofs, i-1))
+         string_split_rec(s, delim, i+#delim, t)
+         return
+      end
+   end
+   table.insert(t, string.sub(s, ofs))
+end
+
+function string_split(s, delim)
+   local t = {}
+   string_split_rec(s, delim, 1, t)
+   return t
+end
 
 
 function table_is(t)
@@ -536,6 +566,135 @@ function repr(o, shown)
       error("unknown type " .. t)
    end
 end
+
+-- strtol
+function strtol(s, base)
+   base = base or 10
+   local s = string.lower(s)
+   r = 0
+   for i, c in mst.string_ipairs(s)
+   do
+      local v 
+      if c >= '0' and c <= '9'
+      then
+         v = string.byte(c) - string.byte('0')
+      elseif c >= 'a' and c <= 'z'
+      then
+         v = string.byte(c) - string.byte('a') + 10
+      else
+         return nil, string.format('invalid character at position %d:%s', i, c)
+      end
+      if v >= base
+      then
+         return nil, string.format('invalid character at position %d:%s', i, c)
+      end
+      r = r * base + v
+   end
+   return r
+end
+
+-- ipv6 handling stuff
+function ipv6_ascii_cleanup_sub(nl, si, ei, r)
+   for i=si,ei
+   do
+      table.insert(r, string.format("%x", nl[i]))
+   end
+end
+
+function ipv6_ascii_cleanup(s)
+   local sl = string_split(s, ':')
+   local nl = array_map(sl, function (x) return strtol(x, 16) end)
+   local best = false
+   for i, v in ipairs(nl)
+   do
+      if v == 0
+      then
+         local ml = 1
+         for j = i+1, #nl
+         do
+            if nl[j] == 0
+            then
+               ml = ml + 1
+            else
+               break
+            end
+         end
+         if not best or best[1] < ml
+         then
+            best = {ml, i}
+         end
+      end
+   end
+   local r = {}
+   if best
+   then
+      ipv6_ascii_cleanup_sub(nl, 1, best[2]-1, r)
+      table.insert(r, '')
+      ipv6_ascii_cleanup_sub(nl, best[1]+best[2], #nl, r)
+   else
+      ipv6_ascii_cleanup_sub(nl, 1, #nl, r)
+   end
+   return table.concat(r, ":")
+end
+
+function ipv6_binary_to_ascii(b)
+   mst.a(type(b) == 'string', 'non-string input to ipv6_binary_to_ascii', b)
+   --assert(#b % 4 == 0, 'non-int size')
+   local t = {}
+   -- let's assume we're given ipv6 address in binary. convert it to ascii
+   for i, c in mst.string_ipairs(b)
+   do
+      local b = string.byte(c)
+      if i % 2 == 1 and i > 1
+      then
+         table.insert(t, ':')
+      end
+      table.insert(t, string.format('%02x', b))
+   end
+   return ipv6_ascii_cleanup(table.concat(t))
+end
+
+local _null = string.char(0)
+
+function ipv6_ascii_to_binary(b)
+   mst.a(type(b) == 'string', 'non-string input to ipv6_ascii_to_binary', b)
+   -- let us assume it is in standard XXXX:YYYY:ZZZZ: format, with
+   -- potentially one ::
+   local l = string_split(b, ":")
+   mst.d('ipv6_ascii_to_binary', l)
+
+   mst.a(#l <= 8) 
+   local idx = false
+   for i, v in ipairs(l)
+   do
+      if #v == 0
+      then
+         mst.a(not idx, "multiple ::s")
+         idx = i
+         --mst.d('found magic index', idx)
+      end
+   end
+   local t = {}
+   for i, v in ipairs(l)
+   do
+      if i == idx
+      then
+         local _pad=(9-#l)
+         mst.d('padding', _pad)
+         for _=1,_pad
+         do
+            -- dump few magic 0000's 
+            table.insert(t, _null .. _null)
+         end
+      else
+         n, err = strtol(v, 16)
+         mst.a(n, 'error in strtol', err)
+         table.insert(t, string.char(math.floor(n / 256)) .. string.char(n % 256))
+      end
+   end
+   return table.concat(t)
+end
+
 
 -- event class (used within the baseclass)
 
