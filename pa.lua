@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Mon Oct  1 17:04:57 2012 mstenber
--- Edit time:     198 min
+-- Last modified: Mon Oct  1 17:15:42 2012 mstenber
+-- Edit time:     204 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -26,7 +26,7 @@
 
 require 'mst'
 
-mst.enable_debug = true
+--mst.enable_debug = true
 
 module(..., package.seeall)
 
@@ -149,7 +149,11 @@ function pa:filtered_values_done(h, f)
    mst.a(h.class == 'multimap')
    for i, o in ipairs(h:values())
    do
-      if f(o) then o:done() end
+      if f(o) 
+      then 
+         self:d('done with', o)
+         o:done() 
+      end
    end
 end
 
@@ -374,6 +378,10 @@ end
 
 -- 6.3.4
 function pa:assign_other(asp)
+   -- if we get here, it's valid asp.. just question of what we need
+   -- to do with lap
+   asp.valid = true
+
    -- consider if we already have it
    for i, v in ipairs(self.lap[asp.iid] or {})
    do
