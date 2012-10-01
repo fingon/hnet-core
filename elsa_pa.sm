@@ -1,0 +1,109 @@
+// The class should be probably called Elsa-PA-USP-IF-Prefix, but
+// that's bit depressing to type..
+
+%start Prefix::Init
+%class ASP
+
+%map Prefix
+%%
+
+// Around init time, should store..
+
+// - which USP this belongs to
+// - which IF it belongs to
+// - who advertises USP
+
+// Completion events
+// - Initialized (after init_prefix())
+// - Assigned (after assign_new / assign_existing)
+// - Originated (after originate_asp)
+// - DeOriginated (after deoriginate_asp)
+
+// Events of interest (that are sent to _all_ Prefix instances
+
+// - ASPChange
+// - RouterChange
+// - State (something changed, or check_state() triggered it)
+
+Init
+Entry { init_prefix(); }
+{
+  // If we don't have anything assigned, we can also bail instantly
+  Initialized [ not ctxt.has_usp_ac() ] Done { }
+
+  // USP AC exists. ASP should too, let's see if we should assign one
+  // or someone else should.
+  Initialized [ ctxt.highest() ] AssignOwn {}        
+  Initialized [ ctxt.has_asp() ] AssignExisting {}
+
+  Initialized WaitASP {}        
+}
+
+AssignOwn 
+Entry{ assign_new(); }
+{
+  Assigned OriginateAssign {}
+}
+
+AssignExisting
+Entry { assign_existing(); }
+{
+  Assigned CheckState {}
+}
+
+DropAssign
+Entry { deoriginate_asp(); }
+{
+  DeOriginated Init {}
+}
+
+WaitASP
+Entry { drop_assign_if_any(); }
+{
+  ASPChange() [ ctxt.is_highest() ] AssignOwn {}
+  ASPChange() [ ctxt.has_asp_ac() ] AssignExisting {}
+}
+
+CheckState
+Entry { check_state(); }
+{
+  // First off, check if USP disappeared. We should go to the 
+  // timeout mode in that case.
+  State [ not ctxt.has_router_usp_ac() and not ctxt.has_usp_ac() ] WaitUSP { }
+  State [ ctxt.no_usp() ] WaitUSPRouter { }
+  
+  // USP is available. Consider if we should keep our own originated
+  // assignment (if any)
+  State [ ctxt.originated() and not ctxt.highest() ] DropAssign {}
+  State [ not ctxt.originated() and ctxt.highest() ] OriginateAssign {}
+}
+
+OriginateAssign 
+Entry { originate_asp(); }
+{
+  Originated CheckState {}
+}
+
+WaitUSP
+Entry { start_timeout(USP_EXPIRY_TIMEOUT); }
+Exit { stop_timeout(); }
+{
+  RouterChange [ctxt.router_usp()] CheckState {}
+  RouterChange [not ctxt.router_usp()] WaitUSPRouter {}
+  Timeout Done {}
+}
+
+WaitUSPRouter
+Entry { start_timeout(USP_ROUTER_EXPIRY_TIMEOUT); }
+Exit { stop_timeout(); }
+{
+  RouterChange [ctxt.router_usp()] CheckState {}
+  Timeout Done {}
+}
+
+Done
+Entry { deoriginate_asp(); done(); }
+{
+}
+
+%%

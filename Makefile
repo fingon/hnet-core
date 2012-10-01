@@ -1,3 +1,4 @@
+LUA_SMS=skv_sm.lua elsa_pa_sm.lua
 TESTS=$(wildcard spec/*.lua)
 SMC=../smc/bin/smc.jar
 
@@ -11,10 +12,10 @@ cov: test
 
 test: .tested
 
-skv_sm.lua: skv.sm
-	java -jar $(SMC) -g -lua skv.sm
-	java -jar $(SMC) -graph -glevel 2 skv.sm
-	dot -Tpdf < skv_sm.dot > skv_sm.pdf
+%_sm.lua: %.sm
+	java -jar $(SMC) -g -lua $<
+	java -jar $(SMC) -graph -glevel 2 $<
+	dot -Tpdf < $*_sm.dot > $*_sm.pdf
 
 .tested: skv_sm.lua $(TESTS) $(wildcard *.lua)
 	busted spec
