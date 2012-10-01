@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Thu Sep 27 19:45:49 2012 mstenber
+-- Last modified: Mon Oct  1 11:38:57 2012 mstenber
 -- Edit time:     124 min
 --
 
@@ -117,6 +117,9 @@ end
 
 function has_left(cur, n)
    -- cur.pos is indexed by 'last read' position => 0 = start of file
+   mst.a(type(n) == 'number')
+   mst.a(type(cur) == 'table')
+
    return (#cur.str - cur.pos) >= n
 end
 

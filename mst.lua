@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Sep 27 19:40:56 2012 mstenber
--- Edit time:     264 min
+-- Last modified: Mon Oct  1 13:06:33 2012 mstenber
+-- Edit time:     271 min
 --
 
 module(..., package.seeall)
@@ -307,6 +307,16 @@ function array_find(t, o)
    end
 end
 
+-- remove from array (inefficient, sigh)
+function array_remove(t, o)
+   local i = array_find(t, o)
+   if i
+   then
+      table.remove(t, i)
+      return true
+   end
+end
+
 function array_is(t)
    -- whether it's actually table
    if not table_is(t)
@@ -335,13 +345,9 @@ function array_to_table(a, default)
 end
 
 function array_map(a, fun)
-   mst.a(type(a) == "table", "invalid input to array_map", a)
-   local t = {}
-   for i, v in ipairs(a)
-   do
-      table.insert(t, fun(v))
-   end
-   return t
+   return table_map(a, function (k, v)
+                       return fun(v)
+                       end)
 end
 
 map = array_map
@@ -404,6 +410,8 @@ function string_split_rec(s, delim, ofs, t)
 end
 
 function string_split(s, delim)
+   mst.a(s, 'undefined argument to string_split', s, delim)
+
    local t = {}
    string_split_rec(s, delim, 1, t)
    return t
@@ -497,14 +505,30 @@ function table_is_empty(t)
    return true
 end
 
--- keys of a table
-function table_keys(t)
-   local keys = {}
+-- table mapping
+function table_map(t, f)
+   mst.a(type(t) == "table", "invalid input to table_map", t)
+   local r = {}
    for k, v in pairs(t)
    do
-      table.insert(keys, k)
+      local fr = f(k, v)
+      table.insert(r, fr)
    end
-   return keys
+   return r
+end
+
+-- keys of a table
+function table_keys(t)
+   return table_map(t, function (k, v)
+                       return k
+                       end)
+end
+
+-- values of a table
+function table_values(t)
+   return table_map(t, function (k, v)
+                       return v
+                       end)
 end
 
 -- sorted keys of a table

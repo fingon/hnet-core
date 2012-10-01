@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Tue Sep 25 14:49:42 2012 mstenber
--- Edit time:     88 min
+-- Last modified: Mon Oct  1 13:06:26 2012 mstenber
+-- Edit time:     89 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -77,12 +77,11 @@ function mstio:raw_stop()
    local l = loop()
    local a = self.reader and l.r or l.w
    local h = self.reader and l.rh or l.wh
-   local i = mst.array_find(a, self.s)
-
-   self:a(i, "we're missing from event loop socket list")
+   local r = mst.array_remove(a, self.s)
+   
+   self:a(r, "we were missing from event loop socket list")
    self:a(h[self.s] ~= nil, "we're missing from event loop hash")
    h[self.s] = nil
-   table.remove(a, i)
 end
 
 function mstio:repr_data()
@@ -106,13 +105,7 @@ end
 
 function msttimeout:uninit()
    local l = loop()
-   local i = mst.array_find(l.t, self)
-
-   if i
-   then
-      self:a(i, "we're missing from event loop timeout list")
-      table.remove(l.t, i)
-   end
+   mst.array_remove(l.t, self)
 end
 
 function msttimeout:raw_start()
