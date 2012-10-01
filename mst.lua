@@ -9,9 +9,16 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Oct  1 13:06:33 2012 mstenber
--- Edit time:     271 min
+-- Last modified: Mon Oct  1 17:02:26 2012 mstenber
+-- Edit time:     315 min
 --
+
+-- data structure abstractions provided:
+
+-- array_* = table with values in values, number indexes
+-- set_* = table with values in keys
+-- table_* = normal Python-style dictionary
+--  class called 'dict' to prevent conflicts
 
 module(..., package.seeall)
 
@@ -295,7 +302,6 @@ function pcall_and_finally(fun1, fun2)
    end
 end
 
-
 -- index in array
 function array_find(t, o)
    for i, o2 in ipairs(t)
@@ -334,6 +340,31 @@ function array_is(t)
    return true
 end
 
+function array_repr(t, shown)
+   local s = {}
+   local first = true
+
+   a(type(t) == 'table', 'non-table to table_repr', t)
+   shown = shown or {}
+
+   table.insert(s, "{")
+   if shown[t]
+   then
+      return '...'
+   end
+   shown[t] = true
+   for i, v in ipairs(t)
+   do
+      if i > 1
+      then
+         table.insert(s, ", ")
+      end
+      table.insert(s, repr(v, shown))
+   end
+   table.insert(s, "}")
+   return table.concat(s)
+end
+
 -- transform array to table, with default value v if provided
 function array_to_table(a, default)
    local t = {}
@@ -344,13 +375,59 @@ function array_to_table(a, default)
    return t
 end
 
+-- array map 
 function array_map(a, fun)
    return table_map(a, function (k, v)
                        return fun(v)
                        end)
 end
 
-map = array_map
+-- array filtering
+function array_filter(a, fun)
+   local t = {}
+   for i, v in ipairs(a)
+   do
+      if fun(v)
+      then
+         table.insert(t, v)
+      end
+   end
+   return t
+end
+
+array = create_class{class='array',
+                     insert=table.insert,
+                     remove=array_remove,
+                     map=array_map,
+                     filter=array_filter,
+                     find=array_find,
+                     to_table=array_to_table,
+                     repr=array_repr}
+
+
+function set_map(s, fun)
+   a(type(s) == 'table', 'non-table to set_map', t)
+   local t = set:new{}
+   for k, v in pairs(s)
+   do
+      fun(k)
+      t[k] = true
+   end
+   return t
+end
+
+set = create_class{class='set',
+                   map=set_map,
+                   repr=table_repr,
+                   }
+
+function set:insert(o)
+   self[o] = true
+end
+
+function set:remove(o)
+   self[o] = nil
+end
 
 function string_ipairs_iterator(s, i)
    i = i + 1
@@ -508,7 +585,7 @@ end
 -- table mapping
 function table_map(t, f)
    mst.a(type(t) == "table", "invalid input to table_map", t)
-   local r = {}
+   local r = array:new{}
    for k, v in pairs(t)
    do
       local fr = f(k, v)
@@ -568,6 +645,7 @@ function table_sorted_pairs(t)
 end
 
 -- python-style table repr
+
 function table_repr(t, shown)
    local s = {}
    local first = true
@@ -581,34 +659,82 @@ function table_repr(t, shown)
       return '...'
    end
    shown[t] = true
-   if array_is(t)
-   then
-      for i, v in ipairs(t)
-      do
-         if i > 1
-         then
-            table.insert(s, ", ")
-         end
-         table.insert(s, repr(v, shown))
+   for k, v in table_sorted_pairs(t)
+   do
+      if not first then table.insert(s, ", ") end
+      if type(k) == 'string' and string_is_printable(k)
+      then
+         ks = k
+      else
+         ks = string.format('[%s]', repr(k, shown))
       end
-   else
-      for k, v in table_sorted_pairs(t)
-      do
-         if not first then table.insert(s, ", ") end
-         if type(k) == 'string' and string_is_printable(k)
-         then
-            ks = k
-         else
-            ks = string.format('[%s]', repr(k, shown))
-         end
-         table.insert(s, ks .. "=" .. repr(v, shown))
-         first = false
-      end
+      table.insert(s, ks .. "=" .. repr(v, shown))
+      first = false
    end
    table.insert(s, "}")
    return table.concat(s)
 end
 
+map = create_class{class='map',
+                   contains=table_contains,
+                   copy=table_copy,
+                   count=table_count,
+                   deep_copy=table_deep_copy,
+                   is_empty=table.is_empty,
+                   keys=table_keys,
+                   map=table_map,
+                   repr=table_repr,
+                   sorted_keys=table_sorted_keys,
+                   sorted_pairs=table_sorted_pairs,
+                   values=table_values}
+
+-- add 'insert', 'remove' operations'
+multimap = map:new_subclass{class='multimap'}
+function multimap:insert(k, v)
+   local t = self[k]
+   if t == nil
+   then
+      t = array:new{}
+      self[k] = t
+   end
+   local exists = t:find(v) 
+   t:insert(v)
+   return not exists
+end
+
+function multimap:remove(k, v)
+   local t = self[k]
+   mst.a(t, 'nonexistent key', k, v)
+   local r = t:remove(v)
+   mst.a(r, 'nonexistent value in list', v)
+   if #t == 0
+   then
+      self[k] = nil
+   end
+   return r
+end
+
+function multimap:foreach(f)
+   for k, l in pairs(self)
+   do
+      for i, v in ipairs(l)
+      do
+         f(k, v)
+      end
+   end
+end
+
+function multimap:values()
+   local t = {}
+   for k, l in pairs(self)
+   do
+      for i, v in ipairs(l)
+      do
+         table.insert(t, v)
+      end
+   end
+   return t
+end
 
 -- do the two objects have same repr?
 function repr_equal(o1, o2)
@@ -639,6 +765,10 @@ function repr(o, shown)
       if specific_repr
       then
          return specific_repr(o, shown)
+      end
+      if array_is(o)
+      then
+         return array_repr(o, shown)
       end
       return table_repr(o, shown)
    elseif t == 'string'

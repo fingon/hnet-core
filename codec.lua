@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Mon Oct  1 11:38:57 2012 mstenber
+-- Last modified: Mon Oct  1 14:16:51 2012 mstenber
 -- Edit time:     124 min
 --
 
@@ -250,10 +250,10 @@ local _tlv_decoders = {rhf_ac_tlv, usp_ac_tlv, asp_ac_tlv}
 function decode_ac_tlvs(s)
    local cur = vstruct.cursor(s)
    mst.d('decoders', #_tlv_decoders)
-   local hls = mst.map(_tlv_decoders,
-                       function (t) 
-                          return t.header_length
-                       end)
+   local hls = mst.array_map(_tlv_decoders,
+                             function (t) 
+                                return t.header_length
+                             end)
    mst.d('hls', hls)
    local minimum_size = mst.min(unpack(hls))
    mst.d('minimum_size', minimum_size)

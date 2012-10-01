@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 18:34:49 2012 mstenber
--- Last modified: Thu Sep 27 19:38:03 2012 mstenber
+-- Last modified: Mon Oct  1 14:17:09 2012 mstenber
 -- Edit time:     8 min
 --
 
@@ -42,9 +42,9 @@ describe("test the ac endecode",
                                           end)
             it("can handle list of tlvs", function()
                   -- glom all tests together to one big thing
-                  local l = mst.map(tests, function (s) 
-                                       return s[1]:encode(s[2]) 
-                                           end)
+                  local l = mst.array_map(tests, function (s) 
+                                             return s[1]:encode(s[2]) 
+                                                 end)
                   local s = table.concat(l)
                   local l2 = codec.decode_ac_tlvs(s)
                   assert.are.same(#l, #l2)
