@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Tue Sep 25 14:49:58 2012 mstenber
--- Edit time:     91 min
+-- Last modified: Mon Oct  1 23:27:51 2012 mstenber
+-- Edit time:     95 min
 --
 
 require "luacov"
@@ -18,6 +18,8 @@ require "busted"
 require "scb"
 require "mst"
 require 'ssloop'
+
+--mst.enable_debug = true
 
 local loop = ssloop.loop()
 
@@ -129,7 +131,12 @@ describe("scb-test", function ()
                         loop.debug = false
                      end)
             it("can create sockets", function ()
-                  test_once(1, 12444)
+                  xpcall(function ()
+                         test_once(1, 12444)
+                         end,
+                         function ()
+                            print(debug.traceback())
+                         end)
                                      end)
 
             it("can transfer 100k", function ()

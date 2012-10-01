@@ -2,8 +2,17 @@
 
 * Things to do
 
-** Write PA alg prototype in Lua
+** Comprehensively test PA alg
 
+** Integrate PA alg, OSPF-ELSA codec, SKV, and rest 
+
+** Make command line tool to inject USPs
+
+* Done (1.10.+)
+
+** Figure why enabling debug breaks tests
+
+** Write PA alg prototype in Lua
 
 * Done (24.9.+)
 

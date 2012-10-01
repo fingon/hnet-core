@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Thu Sep 27 18:16:23 2012 mstenber
--- Edit time:     56 min
+-- Last modified: Mon Oct  1 22:44:06 2012 mstenber
+-- Edit time:     58 min
 --
 
 require "luacov"
@@ -143,13 +143,6 @@ describe('strtol', function()
                         end)
                    end)
 
-describe('strtol', function()
-            it("works", function()
-                  assert.are.same(mst.strtol('1011'), 1011)
-                  assert.are.same(mst.strtol('fff0', 16), 65535-15)
-                        end)
-                   end)
-
 describe('string_split', function()
             it("works", function()
                   local ir = {
@@ -170,20 +163,10 @@ describe('string_split', function()
                         end)
                          end)
 
-describe('ipv6', function()
-            it("works", function()
-                  --mst.enable_debug = true
-                  local a0 = 'dead:beef'
-                  local a1 = 'dead:beef::'
-                  local a2 = 'dead:beef::1'
-                  local a3 = 'dead:beef::cafe:1'
-                  local as = {a0, a1, a2, a3}
-                  for i, v in ipairs(as)
-                  do
-                     local enc = mst.ipv6_ascii_to_binary(v)
-                     local s = mst.ipv6_binary_to_ascii(enc)
-                     assert.are.same(s, v)
-                  end
-                        end)
-                 end)
-
+describe("multimap", function ()  
+            it("can be created", function ()
+                  local mm = mst.multimap:new()
+                  mm:insert('foo', 'bar')
+                  assert.are.same(mm:count(), 1)
+                                 end)
+                     end)

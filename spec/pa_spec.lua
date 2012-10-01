@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Mon Oct  1 17:03:09 2012 mstenber
--- Edit time:     13 min
+-- Last modified: Mon Oct  1 21:51:01 2012 mstenber
+-- Edit time:     27 min
 --
 
 require "luacov"
@@ -54,22 +54,26 @@ function dummy_ospf:iterate_rid(f)
    end
 end
 
+function check_sanity()
+   -- make sure there's not multiple lap with same prefix
+   seen = {}
+   for i, v in ipairs(pa.lap:values())
+   do
+      mst.a(not seen[v.prefix], 'duplicate prefix', v)
+      seen[v.prefix] = true
+   end
+end
 
 describe("pa", function ()
-            it("can be created", function ()
-                  local pa = pa.pa:new()
-                                 end)
-            it("can do nop run or two", function ()
-                  local ospf = dummy_ospf:new()
-                  local pa = pa.pa:new{client=ospf}
-                  pa:run()
-                  pa:run()
-                                 end)
-            it("works1", function ()
-                  local ospf = dummy_ospf:new{usp={{'dead::/16', 'rid1'},
-                                                   {'dead:beef::/32', 'rid2'},
-                                                   {'cafe::/16', 'rid3'}},
-                                              asp={{'dead:bee0::/64', 'if0', 'rid1'}},
+            setup(function ()
+                  ospf = dummy_ospf:new{usp={{'dead::/16', 'rid1'},
+                                             {'dead:beef::/32', 'rid2'},
+                                             {'cafe::/16', 'rid3'}},
+
+                                              -- in practise, 2 usp
+                                              asp={{'dead:bee0::/64', 
+                                                    'if1',
+                                                    'rid1'}},
                                               iif={{'if1'},
                                                    {'if2'}},
                                               ridr={{'rid1'},
@@ -77,9 +81,41 @@ describe("pa", function ()
                                                     {'rid3'},
                                               },
                                              }
-                  local pa = pa.pa:new{client=ospf}
+                  pa = pa.pa:new{client=ospf}
+                  end)
+            teardown(function ()
+                        check_sanity()
+                     end)
+            it("can be created", function ()
+                                 end)
+            it("works [small rid]", function ()
                   pa:run()
+
+                  -- make sure there's certain # of assignments
+                  -- 2 USP, 2 if => 3 local assignments + 1 remote
+                  mst.a(pa.lap:count() == 4, "lap mismatch")
+                  -- 1 original ASP + 3 from us => 4
+                  mst.a(pa.asp:count() == 4, "asp mismatch")
+                  -- 3 USP
+                  mst.a(pa.usp:count() == 3, "usp mismatch")
+
                   pa:run()
+
+                  mst.d('lap', pa.lap)
+
+
+
+
+                  -- second run shouldn't change anything
+
+                  -- make sure there's certain # of assignments
+                  -- 2 USP, 2 if => 3 local assignments + 1 remote
+                  mst.a(pa.lap:count() == 4, "lap mismatch")
+                  -- 1 original ASP + 3 from us => 4
+                  mst.a(pa.asp:count() == 4, "asp mismatch")
+                  -- 3 USP
+                  mst.a(pa.usp:count() == 3, "usp mismatch")
+
                                  end)
             
                end)

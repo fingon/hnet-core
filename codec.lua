@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Mon Oct  1 14:16:51 2012 mstenber
--- Edit time:     124 min
+-- Last modified: Mon Oct  1 23:28:32 2012 mstenber
+-- Edit time:     125 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -26,6 +26,7 @@
 
 local mst = require 'mst'
 local vstruct = require 'vstruct'
+local ipv6s = require 'ipv6s'
 
 module(..., package.seeall)
 
@@ -166,7 +167,7 @@ function prefix_body:try_decode(cur)
    s = s * 4
    if not has_left(cur, s) then return nil, 'not enough for prefix' end
    r = cur:read(s)
-   o.prefix = mst.ipv6_binary_to_ascii(r)
+   o.prefix = ipv6s.binary_to_ascii(r)
    return o
 end
 
@@ -176,7 +177,7 @@ function prefix_body:do_encode(o)
    mst.a(o.prefix, 'prefix missing', o)
    mst.a(o.prefix_length, 'prefix_length missing', o)
 
-   b = mst.ipv6_ascii_to_binary(o.prefix)
+   b = ipv6s.ascii_to_binary(o.prefix)
    s = math.floor((o.prefix_length + 31) / 32)
    s = s * 4
    pad = string.rep(_null, s-#b)

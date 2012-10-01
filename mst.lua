@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Oct  1 17:02:26 2012 mstenber
--- Edit time:     315 min
+-- Last modified: Mon Oct  1 23:27:09 2012 mstenber
+-- Edit time:     322 min
 --
 
 -- data structure abstractions provided:
@@ -610,7 +610,16 @@ end
 
 -- sorted keys of a table
 function table_sorted_keys(t)
-   local keys = table_keys(t)
+   -- ugh.. this kinda sucks, if there's userdata keys within :p
+   -- ugly workaround
+   local keys = table_keys(t):map(function (x)
+                                     if type(x) == 'userdata'
+                                     then
+                                        return repr(x)
+                                     else
+                                        return x
+                                     end
+                                  end)
    table.sort(keys)
    return keys
 end
@@ -691,6 +700,7 @@ map = create_class{class='map',
 -- add 'insert', 'remove' operations'
 multimap = map:new_subclass{class='multimap'}
 function multimap:insert(k, v)
+   self:a(self.class)
    local t = self[k]
    if t == nil
    then
@@ -703,6 +713,7 @@ function multimap:insert(k, v)
 end
 
 function multimap:remove(k, v)
+   self:a(self.class)
    local t = self[k]
    mst.a(t, 'nonexistent key', k, v)
    local r = t:remove(v)
@@ -715,6 +726,7 @@ function multimap:remove(k, v)
 end
 
 function multimap:foreach(f)
+   self:a(self.class)
    for k, l in pairs(self)
    do
       for i, v in ipairs(l)
@@ -725,22 +737,29 @@ function multimap:foreach(f)
 end
 
 function multimap:values()
+   self:a(self.class)
    local t = {}
-   for k, l in pairs(self)
-   do
-      for i, v in ipairs(l)
-      do
-         table.insert(t, v)
-      end
-   end
+   self:foreach(function (k, v) table.insert(t, v) end)
    return t
+end
+
+function multimap:count()
+   self:a(self.class)
+   local c = 0
+   self:foreach(function (k, v) c = c + 1 end)
+   return c
 end
 
 -- do the two objects have same repr?
 function repr_equal(o1, o2)
    -- first, stronger equality constraint - if objects
    -- are same, they also have same representation (duh)
-   if o1 == o2
+   if type(o1) ~= type(o2)
+   then
+      return false
+   end
+
+   if type(o1) ~= 'userdata' and o1 == o2
    then
       return true
    end
@@ -824,117 +843,6 @@ function min(...)
    end
    return smallest
 end
-
--- ipv6 handling stuff
-function ipv6_ascii_cleanup_sub(nl, si, ei, r)
-   for i=si,ei
-   do
-      table.insert(r, string.format("%x", nl[i]))
-   end
-end
-
-function ipv6_ascii_cleanup(s)
-   local sl = string_split(s, ':')
-   local nl = array_map(sl, function (x) return strtol(x, 16) end)
-   local best = false
-   for i, v in ipairs(nl)
-   do
-      if v == 0
-      then
-         local ml = 1
-         for j = i+1, #nl
-         do
-            if nl[j] == 0
-            then
-               ml = ml + 1
-            else
-               break
-            end
-         end
-         if not best or best[1] < ml
-         then
-            best = {ml, i}
-         end
-      end
-   end
-   local r = {}
-   if best
-   then
-      ipv6_ascii_cleanup_sub(nl, 1, best[2]-1, r)
-      table.insert(r, '')
-      if best[1]+best[2] >  #nl
-      then
-         table.insert(r, '')
-      else
-         ipv6_ascii_cleanup_sub(nl, best[1]+best[2], #nl, r)
-      end
-   else
-      ipv6_ascii_cleanup_sub(nl, 1, #nl, r)
-   end
-   return table.concat(r, ":")
-end
-
-function ipv6_binary_to_ascii(b)
-   mst.a(type(b) == 'string', 'non-string input to ipv6_binary_to_ascii', b)
-   --assert(#b % 4 == 0, 'non-int size')
-   local t = {}
-   -- let's assume we're given ipv6 address in binary. convert it to ascii
-   for i, c in mst.string_ipairs(b)
-   do
-      local b = string.byte(c)
-      if i % 2 == 1 and i > 1
-      then
-         table.insert(t, ':')
-      end
-      table.insert(t, string.format('%02x', b))
-   end
-   return ipv6_ascii_cleanup(table.concat(t))
-end
-
-local _null = string.char(0)
-
-function ipv6_ascii_to_binary(b)
-   mst.a(type(b) == 'string', 'non-string input to ipv6_ascii_to_binary', b)
-   -- let us assume it is in standard XXXX:YYYY:ZZZZ: format, with
-   -- potentially one ::
-   local l = string_split(b, ":")
-   mst.d('ipv6_ascii_to_binary', l)
-
-   mst.a(#l <= 8) 
-   local idx = false
-   for i, v in ipairs(l)
-   do
-      if #v == 0
-      then
-         mst.a(not idx or (idx == i-1 and i == #l), "multiple ::s")
-         if not idx
-         then
-            idx = i
-            --mst.d('found magic index', idx)
-         end
-      end
-   end
-   local t = {}
-   for i, v in ipairs(l)
-   do
-      if i == idx
-      then
-         local _pad=(9-#l)
-         mst.d('padding', _pad)
-         for _=1,_pad
-         do
-            -- dump few magic 0000's 
-            table.insert(t, _null .. _null)
-         end
-      else
-         n, err = strtol(v, 16)
-         mst.a(n, 'error in strtol', err)
-         table.insert(t, string.char(math.floor(n / 256)) .. string.char(n % 256))
-      end
-   end
-   return table.concat(t)
-end
-
 
 -- event class (used within the baseclass)
 
