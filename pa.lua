@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Oct  2 14:13:19 2012 mstenber
--- Edit time:     286 min
+-- Last modified: Tue Oct  2 17:27:54 2012 mstenber
+-- Edit time:     314 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -22,7 +22,8 @@
 --  iterate_rid(f) => callback with rid
 --  iterate_asp(f) => callback with prefix, iid, rid
 --  iterate_usp(f) => callback with prefix, rid
---  iterate_if(f) => callback with iid, highest_rid
+--  iterate_if(rid, f) => callback with iid, highest_rid
+--  rid (or given to constructor)
 
 -- client can also override/subclass the lap class here within pa, to
 -- provide the real assign/unassign/deprecation (by providing do_*
@@ -61,6 +62,7 @@ function lap:init()
 end
 
 function lap:uninit()
+   self:d('uninit')
    self:depracate()
    self.parent.lap:remove(self.iid, self)
 end
@@ -118,14 +120,19 @@ asp = mst.create_class{class='asp', mandatory={'prefix',
 function asp:init()
    local added = self.parent.asp:insert(self.rid, self)
    mst.a(added, "already existed?", self)
+   self:d('init')
+
 end
 
 function asp:uninit()
+   self:d('uninit')
+
    -- unassign is better - it has some built-in tolerance
    -- (depracate = instantly offline)
    self:unassign_lap()
 
    self.parent.asp:remove(self.rid, self)
+
 end
 
 function asp:repr_data()
@@ -177,7 +184,7 @@ function asp:unassign_lap()
 end
 
 function asp:is_remote()
-   return self.rid ~= self.parent.client.rid
+   return self.rid ~= self.parent.rid
 end
 
 -- usable prefix, can be either local or remote (no behavioral
@@ -190,6 +197,8 @@ function usp:init()
 end
 
 function usp:uninit()
+   self:d('uninit')
+
    self.parent.usp:remove(self.rid, self)
 end
 
@@ -213,9 +222,12 @@ function pa:init()
 
    -- all usp data, ordered by prefix
    self.usp = mst.multimap:new()
+
 end
 
 function pa:uninit()
+   self:d('uninit')
+
    -- just kill the contents of all datastructures
    self:filtered_values_done(self.usp)
    self:filtered_values_done(self.asp)
@@ -234,16 +246,31 @@ function pa:filtered_values_done(h, f)
    end
 end
 
+function pa:get_local_asp_values()
+   mst.a(self)
+   mst.a(self.class=='pa')
+
+   return self.asp:values():filter(function (v) return not v:is_remote() end)
+end
+
 function pa:repr_data()
-   return string.format('#lap:%d #ridr:%d #asp:%d #usp:%d',
+   local asps = self.asp:values()
+   local lasp = self:get_local_asp_values()
+
+   return string.format('rid:%s #lap:%d #ridr:%d #asp:%d[%d] #usp:%d',
+                        self.rid,
                         #self.lap:values(),
                         #self.ridr:values(),
-                        #self.asp:values(),
+                        #asps, 
+                        #lasp, 
                         #self.usp:values())
 end
 
 function pa:run_if_usp(iid, highest_rid, usp)
-   local rid = self.client.rid
+   local rid = self.rid
+
+   self:a(rid, 'no rid')
+
 
    self:d('run_if_usp', iid, usp.prefix)
 
@@ -270,8 +297,10 @@ function pa:run_if_usp(iid, highest_rid, usp)
    
    for i, asp in ipairs(self.asp:values())
    do
+      self:d(' considering', asp)
       if asp.iid == iid and ipv6s.prefix_contains(usp.prefix, asp.prefix)
       then
+         self:d(' fitting')
          if not highest or highest.rid < asp.rid
          then
             highest = asp
@@ -377,7 +406,7 @@ function pa:assign_own(iid, usp)
    o = asp:new{prefix=p,
                parent=self,
                iid=iid,
-               rid=self.client.rid, 
+               rid=self.rid, 
                valid=true}
    o:assign_lap()
 end
@@ -414,7 +443,7 @@ function pa:find_new_from(iid, usp, assigned)
    for i=1,10
    do
       -- get the rest of the bytes from md5
-      local s = string.format("%s-%s-%s-%d", self.client.rid, iid, usp.prefix, i)
+      local s = string.format("%s-%s-%s-%d", self.rid, iid, usp.prefix, i)
       local sb = md5.sum(s)
       p = b .. string.sub(sb, #b+1, 8)
       mst.a(#p == 8)
@@ -468,18 +497,7 @@ function pa:assign_other(asp)
    -- to do with lap
    asp.valid = true
 
-   -- consider if we already have it
-   for i, v in ipairs(self.lap[asp.iid] or {})
-   do
-      -- we do!
-      if v.prefix == asp.prefix
-      then
-         v.valid = true
-         return
-      end
-   end
-
-   -- nope, not assigned - do so now
+   -- So we just fire up the assign_lap, it will ignore duplicate calls anyway
 
    -- Note: the verbiage about locally converted interfaces etc seems
    -- excessively strict in the draft.
@@ -493,7 +511,7 @@ function pa:run()
    mst.a(client, 'no client')
 
    -- mark existing data invalid
-   self.lap:foreach(function (ii, o) o.valid = false end)
+   -- (laps have their own lifecycle governed via timeouts etc)
    self.asp:foreach(function (ii, o) o.valid = false end)
    self.usp:foreach(function (ii, o) o.valid = false end)
    self.ridr:keys():map(function (k) self.ridr[k]=false end)
@@ -528,7 +546,8 @@ function pa:run()
                              end)
 
    -- run the prefix assignment
-   client:iterate_if(function (iid, highest_rid)
+   client:iterate_if(self.rid, 
+                     function (iid, highest_rid)
                         for i, usp in ipairs(self.usp:values())
                         do
                            mst.a(usp.class == 'usp', usp, usp.class)
@@ -564,6 +583,7 @@ function pa:get_asp(prefix, iid, rid)
    for i, o in ipairs(self.asp[rid] or {})
    do
       if o.prefix == prefix and o.iid == iid
+      -- and o.rid == rid (implicit from the hash by rid)
       then
          return o
       end
@@ -575,14 +595,21 @@ function pa:add_or_update_asp(prefix, iid, rid)
    local o = self:get_asp(prefix, iid, rid)
    if o
    then
-      self:d(' updated old asp')
+      self:d(' updated old asp', o:is_remote())
       -- mark it valid if it's remote
       if o:is_remote()
       then
          o.valid = true
       else
-         self:a(o.rid == self.client.rid, o.rid, self.client.rid)
+         self:a(o.rid == self.rid, o.rid, self.rid)
+
+         -- validity should be governed by PA alg
+         self:a(not o.valid)
       end
+      return
+   elseif rid == self.rid
+   then
+      self:d(' skipping own asp (delete?)')
       return
    end
    self:d(' adding new asp')

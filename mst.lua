@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Oct  2 13:40:04 2012 mstenber
--- Edit time:     338 min
+-- Last modified: Tue Oct  2 17:14:14 2012 mstenber
+-- Edit time:     344 min
 --
 
 -- data structure abstractions provided:
@@ -29,6 +29,11 @@ enable_debug=os.getenv("ENABLE_MST_DEBUG") or false
 
 -- enable own assert
 enable_assert=true
+
+-- forward declare types
+array = nil
+map = nil
+set = nil
 
 -- check parameters to e.g. function
 function check_parameters(fname, o, l, depth)
@@ -371,7 +376,7 @@ end
 
 -- transform array to table, with default value v if provided
 function array_to_table(a, default)
-   local t = {}
+   local t = map:new()
    for i, v in ipairs(a)
    do
       t[v] = default or true
@@ -388,12 +393,12 @@ end
 
 -- array filtering
 function array_filter(a, fun)
-   local t = {}
+   local t = array:new()
    for i, v in ipairs(a)
    do
       if fun(v)
       then
-         table.insert(t, v)
+         t:insert(v)
       end
    end
    return t
@@ -408,6 +413,10 @@ array = create_class{class='array',
                      to_table=array_to_table,
                      repr=array_repr,
                     }
+
+function array:count()
+   return #self
+end
 
 
 --- string utilities
@@ -429,7 +438,7 @@ function string_ipairs(s, st)
 end
 
 function string_to_table(s)
-   local t = {}
+   local t = map:new()
    for i, c in string_ipairs(s)
    do
       t[c] = true
@@ -437,10 +446,16 @@ function string_to_table(s)
    return t
 end
 
-local _my_printable_table = string_to_table("1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
+local _my_printable_table = false
 
 function string_is_printable(s)
    local t = _my_printable_table
+   if not t
+   then
+      t = string_to_table("1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
+      _my_printable_table= t
+   end
+   
    mst.a(type(s) == 'string', 'string_is_printable with non-string', s)
    mst.a(t ~= nil, '_my_printable_table not set')
    for i, c in string_ipairs(s)
@@ -466,13 +481,13 @@ function string_split_rec(s, delim, ofs, t)
          return
       end
    end
-   table.insert(t, string.sub(s, ofs))
+   t:insert(string.sub(s, ofs))
 end
 
 function string_split(s, delim)
    mst.a(s, 'undefined argument to string_split', s, delim)
 
-   local t = {}
+   local t = array:new()
    string_split_rec(s, delim, 1, t)
    return t
 end
@@ -749,8 +764,8 @@ end
 
 function multimap:values()
    self:a(self.class)
-   local t = {}
-   self:foreach(function (k, v) table.insert(t, v) end)
+   local t = array:new()
+   self:foreach(function (k, v) t:insert(v) end)
    return t
 end
 

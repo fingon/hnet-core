@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Tue Oct  2 13:10:23 2012 mstenber
--- Edit time:     62 min
+-- Last modified: Tue Oct  2 16:11:51 2012 mstenber
+-- Edit time:     63 min
 --
 
 require "busted"
@@ -186,6 +186,17 @@ describe("set", function ()
 
                    end)
                 end)
+
+describe("array", function ()
+            it("can be created", function ()
+                  local a = mst.array:new()
+                  a:insert(1)
+                  a:insert(2)
+                  a:insert(3)
+                  mst.a(a:count() == 3)
+                  mst.a(a:filter(function (x) return x==1 end):count() == 1)
+                   end)
+             end)
 
 describe("map", function ()
             it("can be created", function ()

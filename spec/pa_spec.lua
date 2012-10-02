@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Tue Oct  2 14:15:15 2012 mstenber
--- Edit time:     37 min
+-- Last modified: Tue Oct  2 17:33:03 2012 mstenber
+-- Edit time:     104 min
 --
 
 require "busted"
@@ -19,7 +19,7 @@ require 'mst'
 
 
 -- 3 globals used to keep track of stuff
-ospf = nil
+o = nil
 pa = nil
 timeouts = mst.set:new()
 
@@ -35,39 +35,59 @@ function dummy_lap:stop_depracate_timeout()
    timeouts:remove(self)
 end
 
-dummy_ospf = mst.create_class{class='dummy_ospf',
-                              asp = {},
-                              usp = {},
-                              iif = {},
-                              ridr = {},
-                              rid = 'myrid',
-}
+ospf = mst.create_class{class='ospf'}
 
-function dummy_ospf:iterate_asp(f)
+function ospf:init()
+   self.asp = self.asp or {}
+   self.usp = self.usp or {}
+   self.iif = self.iif or {}
+   self.ridr = self.ridr or {}
+   self.pas = self.pas or {}
+end
+
+function ospf:iterate_asp(f)
    for i, v in ipairs(self.asp)
    do
       f(unpack(v))
    end
+   mst.d('iterating pas')
+
+   for i, t in ipairs(self.pas)
+   do
+      mst.d('dumping pa', i)
+
+      for j, asp in ipairs(t:get_local_asp_values())
+      do
+         mst.a(not asp._is_done)
+         mst.a(asp.rid)
+         mst.a(t.rid == asp.rid)
+         f(asp.prefix, asp.iid, asp.rid)
+      end
+   end
 end
 
-function dummy_ospf:iterate_usp(f)
+function ospf:iterate_usp(f)
    for i, v in ipairs(self.usp)
    do
       f(unpack(v))
    end
 end
 
-function dummy_ospf:iterate_if(f)
-   for i, v in ipairs(self.iif)
+function ospf:iterate_if(rid, f)
+   for i, v in ipairs(self.iif[rid] or {})
    do
       f(unpack(v))
    end
 end
 
-function dummy_ospf:iterate_rid(f)
+function ospf:iterate_rid(f)
    for i, v in ipairs(self.ridr)
    do
       f(unpack(v))
+   end
+   for i, pa in ipairs(self.pas)
+   do
+      f(pa.rid)
    end
 end
 
@@ -81,34 +101,45 @@ function check_sanity()
    end
 end
 
-function find_lap(prefix)
+function find_pa_lap(pa, criteria)
+   mst.d('find_pa_lap', pa, criteria)
+
    for i, v in ipairs(pa.lap:values())
    do
-      if v.prefix == prefix
+      if not criteria.prefix or criteria.prefix == v.prefix
       then
-         return v
+         if not criteria.iid or criteria.iid == v.iid
+         then
+            mst.d(' found', v)
+            return v
+         end
       end
    end
 end
 
+function find_lap(prefix)
+   return find_pa_lap(pa, {prefix=prefix})
+end
+
 describe("pa", function ()
             setup(function ()
-                  ospf = dummy_ospf:new{usp={{'dead::/16', 'rid1'},
-                                             {'dead:beef::/32', 'rid2'},
-                                             {'cafe::/16', 'rid3'}},
+                     o = ospf:new{usp={{'dead::/16', 'rid1'},
+                                       {'dead:beef::/32', 'rid2'},
+                                       {'cafe::/16', 'rid3'}},
 
-                                              -- in practise, 2 usp
-                                              asp={{'dead:bee0::/64', 
-                                                    'if1',
-                                                    'rid1'}},
-                                              iif={{'if1'},
-                                                   {'if2'}},
-                                              ridr={{'rid1'},
-                                                    {'rid2'},
-                                                    {'rid3'},
-                                              },
-                                             }
-                  pa = _pa.pa:new{client=ospf, lap_class=dummy_lap}
+                                  -- in practise, 2 usp
+                                  asp={{'dead:bee0::/64', 
+                                        'if1',
+                                        'rid1'}},
+                                  iif={myrid={{'if1'},
+                                              {'if2'}}},
+                                  ridr={{'rid1'},
+                                        {'rid2'},
+                                        {'rid3'},
+                                  },
+                                 }
+                     pa = _pa.pa:new{client=o, lap_class=dummy_lap,
+                                     rid='myrid'}
                   end)
             teardown(function ()
                         -- make sure pa seems sane
@@ -145,33 +176,154 @@ describe("pa", function ()
                   -- 3 USP
                   mst.a(pa.usp:count() == 3, "usp mismatch")
 
-                                 end)
+                                    end)
             
                end)
 
 
 describe("pa-old", function ()
             it("make sure old assignments show up by default", function ()
-                  ospf = dummy_ospf:new{usp={{'dead::/16', 'rid1'},
-                                             {'dead:beef::/32', 'rid2'},
-                                             {'cafe::/16', 'rid3'}},
-                                              -- in practise, 2 usp
-                                              asp={{'dead:bee0::/64', 
-                                                    'if1',
-                                                    'rid1'}},
-                                              iif={{'if1'},
-                                                   {'if2'}},
-                                              ridr={{'rid1'},
-                                                    {'rid2'},
-                                                    {'rid3'},
-                                              },
-                                             }
-                  pa = _pa.pa:new{client=ospf, lap_class=dummy_lap,
+                  o = ospf:new{usp={{'dead::/16', 'rid1'},
+                                    {'dead:beef::/32', 'rid2'},
+                                    {'cafe::/16', 'rid3'}},
+                               -- in practise, 2 usp
+                               asp={{'dead:bee0::/64', 
+                                     'if1',
+                                     'rid1'}},
+                               iif={myrid={{'if1'},
+                                           {'if2'}}},
+                               ridr={{'rid1'},
+                                     {'rid2'},
+                                     {'rid3'},
+                               },
+                              }
+                  pa = _pa.pa:new{client=o, 
+                                  rid='myrid',
+                                  lap_class=dummy_lap,
                                   old_assignments={['dead::/16']=
                                                    {{'if2', 'dead:bee1::/64'},
                                                    },
                                   }}
                   pa:run()
                   mst.a(find_lap('dead:bee1::/64'))
+                                                               end)
                    end)
-end)
+
+describe("pa-net", function ()
+            it("simple 3 pa", function ()
+
+                  -- two different variants of the same test case 3
+                  -- routers, but they are connected to each other
+                  -- either at the start (j=1), or after they've been
+                  -- running a bit (j=2)
+
+                  for j=1,2
+                  do
+                     o = ospf:new{usp={{'dead::/16', 'rid1'},
+                                       --{'cafe::/16', 'rid3'},
+                                      },
+                                  iif={n1={{'if1'}, {'if2'}, {'if0'}},
+                                       n2={{'if2'}, {'if3'}, {'if0'}},
+                                       n3={{'if3'}, {'if4'}, {'if0'}},
+                                  },
+                                  ridr={{'rid1'},
+                                        {'rid2'},
+                                        {'rid3'},
+                                  },
+                                 }
+                     
+
+                     mst.d('simple 3 pa iter', j)
+
+                     local n1 = _pa.pa:new{client=o, 
+                                           rid='n1',
+                                           lap_class=dummy_lap,
+                                          }
+                     local n2 = _pa.pa:new{client=o, 
+                                           rid='n2',
+                                           lap_class=dummy_lap,
+                                          }
+                     local n3 = _pa.pa:new{client=o, 
+                                           rid='n3',
+                                           lap_class=dummy_lap,
+                                          }
+                     local nl = mst.array:new{n1, n2, n3}
+
+                     if j == 1
+                     then
+                        -- connect the pa's
+                        o.pas = nl
+                     end
+
+                     for i=1,2
+                     do
+                        mst.d('run1 iter', i)
+                        for i, n in ipairs(nl)
+                        do
+                           n:run()
+                        end
+                     end
+
+
+                     if j == 2
+                     then
+                        -- connect the pa's
+                        o.pas = nl
+                     end
+
+                     for i=1,5
+                     do
+                        mst.d('run2 iter', i)
+                        for i, n in ipairs(nl)
+                        do
+                           n:run()
+                        end
+                     end
+
+                     -- make sure there's local assignments
+                     mst.a(find_pa_lap(n1, {iid='if1'}))
+                     mst.a(find_pa_lap(n1, {iid='if2'}))
+                     mst.a(not find_pa_lap(n1, {iid='if3'}))
+
+                     mst.a(not find_pa_lap(n2, {iid='if1'}))
+                     mst.a(find_pa_lap(n2, {iid='if2'}))
+                     mst.a(find_pa_lap(n2, {iid='if3'}))
+
+                     mst.a(not find_pa_lap(n3, {iid='if1'}))
+                     mst.a(not find_pa_lap(n3, {iid='if2'}))
+                     mst.a(find_pa_lap(n3, {iid='if3'}))
+                     mst.a(find_pa_lap(n3, {iid='if4'}))
+
+                     -- make sure mgmt if is everywhere
+                     mst.a(find_pa_lap(n1, {iid='if0'}))
+                     mst.a(find_pa_lap(n2, {iid='if0'}))
+                     mst.a(find_pa_lap(n3, {iid='if0'}))
+
+                     local ls = mst.array_map(nl, 
+                                              function (n)
+                                                 return n:get_local_asp_values()
+                                              end)
+
+                     -- each should have one local asp, except
+                     -- the n3 has if0 + if3
+                     mst.a(#ls == 3, #ls)
+                     mst.d('got', ls[1])
+
+                     mst.d('got', #ls[1], #ls[2], #ls[3])
+
+                     if j == 1
+                     then
+                        mst.a(#ls[1] == 3)
+                        mst.a(#ls[2] == 1)
+                        mst.a(#ls[3] == 1)
+                     else
+                        mst.a(#ls[1] == 1)
+                        mst.a(#ls[2] == 1)
+                        mst.a(#ls[3] == 3)
+                     end
+                  end
+
+
+
+                              end)
+                   end)
