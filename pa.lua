@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Oct  2 10:53:34 2012 mstenber
--- Edit time:     262 min
+-- Last modified: Tue Oct  2 10:56:58 2012 mstenber
+-- Edit time:     264 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -26,8 +26,8 @@
 
 -- client can also override/subclass the lap class here within pa, to
 -- provide the real assign/unassign/deprecation (by providing do_*
--- methods, or non-do methods if more granular control over the three
--- different prefix states is desired)
+-- methods). once done, they should call Done/Error. if asynchronous,
+-- they should also provide stop_* methods.
 
 require 'mst'
 require 'ipv6s'

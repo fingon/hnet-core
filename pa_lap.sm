@@ -51,7 +51,7 @@ Entry { do_unassign(); }
   
   // handle other 2 commands if this one is async
   Assign Assigning { stop_unassign(); }
-  Depracate Depracating { stop_assign(); }
+  Depracate Depracating { stop_unassign(); }
 }
 
 Depracating
@@ -60,8 +60,8 @@ Entry { do_depracate(); }
   Done Zombie {}        
 
   // handle other 2 commands if this one is async
-  Assign Assigning { stop_unassign(); }
-  Unassign Unassigning { stop_assign(); }
+  Assign Assigning { stop_depracate(); }
+  Unassign Unassigning { stop_depracate(); }
 }
 
 
