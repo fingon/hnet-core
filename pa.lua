@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Oct  2 10:56:58 2012 mstenber
--- Edit time:     264 min
+-- Last modified: Tue Oct  2 11:11:55 2012 mstenber
+-- Edit time:     271 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -31,6 +31,7 @@
 
 require 'mst'
 require 'ipv6s'
+local md5 = require 'md5'
 
 -- SMC-generated state machine
 -- fix braindeath of using pcall in a state machine in general..
@@ -328,7 +329,7 @@ function pa:assign_own(iid, usp)
    end
    
    -- 4. hysteresis (sigh)
-
+   
    -- 5. if none available, skip
    if not p
    then
@@ -364,13 +365,14 @@ function pa:find_new_from(usp, assigned)
 
    self:a(assigned, 'assigned missing')
    mst.a(b)
+
+   -- initially, try 10 times (completely arbiterary number) to figure
+   -- a randomish prefix (based on the router id)
    for i=1,10
    do
-      p = b
-      while #p < 8
-      do
-         p = p .. string.char(math.floor(256 * math.random()) % 256)
-      end
+      -- get the rest of the bytes from md5
+      local sb = md5.sum(string.format("%s%d", self.client.rid, i))
+      p = b .. string.sub(sb, #b+1, 8)
       mst.a(#p == 8)
       if not assigned[p]
       then

@@ -1,14 +1,23 @@
-Requirements
+-*- outline -*-
+
+* Non-LUA required software
+---------------------------
 - smc (http://smc.sourceforge.net)
 - graphviz
 (- ev-dev)
 
+* LUA requirements
+------------------
 - lua 5.1+ with C dev header
 - busted (http://olivinelabs.com/busted/)
 - luasocket (http://w3.impa.br/~diego/software/luasocket/)
 (- lua-ev (https://github.com/brimworks/lua-ev))
 ((- struct (http://www.inf.puc-rio.br/~roberto/struct/))
 - vstruct (https://github.com/ToxicFrog/vstruct)
+- md5
+
+* Installation
+--------------
 
 # XXX - how to get SMC easily
 
@@ -18,6 +27,7 @@ Requirements
 # luarocks install busted
 # luarocks install luacov
 # luarocks install luasocket
+# luarocks install md5
 
 (# luarocks install lua-ev)
 
