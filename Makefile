@@ -1,4 +1,4 @@
-LUA_SMS=skv_sm.lua elsa_pa_sm.lua
+LUA_SMS=skv_sm.lua pa_lap_sm.lua
 TESTS=$(wildcard spec/*.lua)
 SMC=../smc/bin/smc.jar
 

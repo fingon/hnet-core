@@ -1,0 +1,94 @@
+// This is 'locally assigned prefix' state machine.
+// It receives 3 types of events:
+
+// Assign()
+// => do_assign => Assigned/AssignFailed
+//    .. also stop_assign, if async
+// Unassign()
+// => do_unassign => Unassigned/UnassignFailed
+//    .. also stop_unassign, if async
+// Depracate()
+// => do_depracate => Depracated/DepracateFailed
+//    .. also stop_depracate, if async
+
+// Based on the prefix assignment code's adventures.
+// Internally, there's third one - 
+// Timeout()
+
+%start LAP::Init
+%class LAP
+
+%map LAP
+%%
+
+// We ignore transitions not defined here (for example, multi-Assign
+// is perfectly valid)
+Default
+{
+  Error (s: String) Error { error(s); }
+  Default nil {}
+}
+
+Init
+{
+  Assign() Assigning {}
+}
+
+Assigning
+Entry { do_assign(); }
+{
+  Done Live {}        
+  
+  // handle other 2 commands if this one is async
+  Unassign Unassigning { stop_assign(); }
+  Depracate Depracating { stop_assign(); }
+}
+
+Unassigning
+Entry { do_unassign(); }
+{
+  Done Standby {}        
+  
+  // handle other 2 commands if this one is async
+  Assign Assigning { stop_unassign(); }
+  Depracate Depracating { stop_assign(); }
+}
+
+Depracating
+Entry { do_depracate(); }
+{
+  Done Zombie {}        
+
+  // handle other 2 commands if this one is async
+  Assign Assigning { stop_unassign(); }
+  Unassign Unassigning { stop_assign(); }
+}
+
+
+Live
+{
+  Unassign Unassigning {}
+  Depracate Depracating {}
+}
+
+Standby
+Entry { start_depracate_timeout(); }
+Exit { stop_depracate_timeout(); }
+{
+  Assign Assigning {}
+  Timeout Depracating {}
+  Depracate Depracating {}
+}
+
+Zombie
+{
+  Assign() Assigning {}
+}
+
+Error
+Entry { done(); }
+{
+}
+
+
+%%

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Mon Oct  1 23:27:24 2012 mstenber
--- Edit time:     242 min
+-- Last modified: Tue Oct  2 10:53:34 2012 mstenber
+-- Edit time:     262 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -22,10 +22,27 @@
 --  iterate_rid(f) => callback with rid
 --  iterate_asp(f) => callback with prefix, iid, rid
 --  iterate_usp(f) => callback with prefix, rid
---  iterate_if(f) => callback with iid
+--  iterate_if(f) => callback with iid, highest_rid
+
+-- client can also override/subclass the lap class here within pa, to
+-- provide the real assign/unassign/deprecation (by providing do_*
+-- methods, or non-do methods if more granular control over the three
+-- different prefix states is desired)
 
 require 'mst'
 require 'ipv6s'
+
+-- SMC-generated state machine
+-- fix braindeath of using pcall in a state machine in general..
+-- and not returning errors in particular
+local orig_pcall = pcall
+function pcall(f)
+   -- errors, huh?
+   f()
+end
+local lap_sm = require 'pa_lap_sm'
+pcall = orig_pcall
+
 
 --mst.enable_debug = true
 
@@ -37,10 +54,13 @@ lap = mst.create_class{class='lap', mandatory={'prefix', 'iid', 'parent'}}
 
 function lap:init()
    self.parent.lap:insert(self.iid, self)
+   self.sm = lap_sm:new{owner=self}
+   self.sm:enterStartState()
    self:assign()
 end
 
 function lap:uninit()
+   self:depracate()
    self.parent.lap:remove(self.iid, self)
 end
 
@@ -48,29 +68,43 @@ function lap:repr_data()
    return mst.repr{prefix=self.prefix, iid=self.iid}
 end
 
+function lap:start_depracate_timeout()
+   -- child responsibility - should someday result in a Timeout()
+end
+
+function lap:stop_depracate_timeout()
+
+end
+
+function lap:error(s)
+   self:d('got error', s)
+end
+
+-- external API (which is just forwarded to the state machine)
+
 function lap:assign()
-   self.assigned = true
-   self.depracated = false
-   -- XXX
+   self.sm:Assign()
 end
 
 function lap:unassign()
-   if not self.assigned
-   then
-      return
-   end
-   self.assigned = false
-   -- XXX
+   self.sm:Unassign()
 end
 
 function lap:depracate()
-   if self.depracated
-   then
-      return
-   end
-   self:unassign()
-   self.depracated = true
-   -- XXX
+   self.sm:Depracate()
+end
+
+-- these are subclass responsibility
+function lap:do_assign()
+   self.sm:Done()
+end
+
+function lap:do_depracate()
+   self.sm:Done()
+end
+
+function lap:do_unassign()
+   self.sm:Done()
 end
 
 -- assigned prefix
@@ -86,7 +120,10 @@ function asp:init()
 end
 
 function asp:uninit()
-   self:depracate_lap()
+   -- unassign is better - it has some built-in tolerance
+   -- (depracate = instantly offline)
+   self:unassign_lap()
+
    self.parent.asp:remove(self.rid, self)
 end
 
@@ -115,7 +152,7 @@ function asp:find_or_create_lap()
    if o then return o end
    self:d(' not found => creating')
 
-   return lap:new{prefix=self.prefix, iid=self.iid, parent=self.parent}
+   return self.parent.lap_class:new{prefix=self.prefix, iid=self.iid, parent=self.parent}
 end
 
 function asp:assign_lap()
@@ -129,6 +166,13 @@ function asp:depracate_lap()
    local lap = self:find_lap()
    if not lap then return end
    lap:depracate()
+end
+
+function asp:unassign_lap()
+   -- look up locally assigned prefixes (if any)
+   local lap = self:find_lap()
+   if not lap then return end
+   lap:unassign()
 end
 
 function asp:is_remote()
@@ -152,7 +196,7 @@ function usp:repr_data()
    return mst.repr{prefix=self.prefix, rid=self.rid}
 end
 
-pa = mst.create_class{class='pa'}
+pa = mst.create_class{class='pa', lap_class=lap}
 
 -- main prefix assignment class
 
@@ -190,7 +234,7 @@ function pa:repr_data()
                         #self.usp:values())
 end
 
-function pa:run_if_usp(iid, usp)
+function pa:run_if_usp(iid, highest_rid, usp)
    local rid = self.client.rid
 
    self:d('run_if_usp', iid, usp.prefix)
@@ -246,10 +290,14 @@ function pa:run_if_usp(iid, usp)
    end
 
    -- (iii) no assignment by anyone, highest rid
-   -- XXX - deal with 'neighbors on link'
-   self:assign_own(iid, usp)
+   if not highest_rid or highest_rid <= rid 
+   then
+      self:assign_own(iid, usp)
+      return
+   end
 
    -- (iv) no assignment by anyone, not highest rid
+   -- nop (do nothing)
 end
 
 -- 6.3.1
@@ -434,11 +482,11 @@ function pa:run()
                              end)
 
    -- run the prefix assignment
-   client:iterate_if(function (iid)
+   client:iterate_if(function (iid, highest_rid)
                         for i, usp in ipairs(self.usp:values())
                         do
                            mst.a(usp.class == 'usp', usp, usp.class)
-                           self:run_if_usp(iid, usp)
+                           self:run_if_usp(iid, highest_rid, usp)
                         end
                      end)
 

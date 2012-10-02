@@ -9,14 +9,28 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Mon Oct  1 21:51:01 2012 mstenber
--- Edit time:     27 min
+-- Last modified: Tue Oct  2 10:50:53 2012 mstenber
+-- Edit time:     28 min
 --
 
 require "luacov"
 require "busted"
 require "pa"
 require 'mst'
+
+timeouts = mst.set:new()
+
+dummy_lap = pa.lap:new_subclass{class='dummy_lap'}
+
+function dummy_lap:start_depracate_timeout()
+   assert(not timeouts[self])
+   timeouts.insert(self)
+end
+
+function dummy_lap:stop_depracate_timeout()
+   assert(timeouts[self])
+   timeouts.remove(self)
+end
 
 dummy_ospf = mst.create_class{class='dummy_ospf',
                               asp = {},
@@ -81,7 +95,7 @@ describe("pa", function ()
                                                     {'rid3'},
                                               },
                                              }
-                  pa = pa.pa:new{client=ospf}
+                  pa = pa.pa:new{client=ospf, lap_class=dummy_lap}
                   end)
             teardown(function ()
                         check_sanity()
@@ -102,8 +116,6 @@ describe("pa", function ()
                   pa:run()
 
                   mst.d('lap', pa.lap)
-
-
 
 
                   -- second run shouldn't change anything
