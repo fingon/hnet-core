@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Tue Oct  2 13:49:05 2012 mstenber
--- Edit time:     30 min
+-- Last modified: Tue Oct  2 14:15:15 2012 mstenber
+-- Edit time:     37 min
 --
 
 require "busted"
@@ -81,6 +81,16 @@ function check_sanity()
    end
 end
 
+function find_lap(prefix)
+   for i, v in ipairs(pa.lap:values())
+   do
+      if v.prefix == prefix
+      then
+         return v
+      end
+   end
+end
+
 describe("pa", function ()
             setup(function ()
                   ospf = dummy_ospf:new{usp={{'dead::/16', 'rid1'},
@@ -139,3 +149,29 @@ describe("pa", function ()
             
                end)
 
+
+describe("pa-old", function ()
+            it("make sure old assignments show up by default", function ()
+                  ospf = dummy_ospf:new{usp={{'dead::/16', 'rid1'},
+                                             {'dead:beef::/32', 'rid2'},
+                                             {'cafe::/16', 'rid3'}},
+                                              -- in practise, 2 usp
+                                              asp={{'dead:bee0::/64', 
+                                                    'if1',
+                                                    'rid1'}},
+                                              iif={{'if1'},
+                                                   {'if2'}},
+                                              ridr={{'rid1'},
+                                                    {'rid2'},
+                                                    {'rid3'},
+                                              },
+                                             }
+                  pa = _pa.pa:new{client=ospf, lap_class=dummy_lap,
+                                  old_assignments={['dead::/16']=
+                                                   {{'if2', 'dead:bee1::/64'},
+                                                   },
+                                  }}
+                  pa:run()
+                  mst.a(find_lap('dead:bee1::/64'))
+                   end)
+end)

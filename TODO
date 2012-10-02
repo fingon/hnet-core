@@ -14,6 +14,8 @@
 
 ** Write PA alg prototype in Lua
 
+** Converted to strict.lua
+
 * Done (24.9.+)
 
 ** Implement simple (len, binary-blob) low level i/o for SKV

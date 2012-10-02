@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Oct  2 13:45:54 2012 mstenber
--- Edit time:     281 min
+-- Last modified: Tue Oct  2 14:13:19 2012 mstenber
+-- Edit time:     286 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -333,12 +333,23 @@ function pa:assign_own(iid, usp)
       local old = self:get_old_assignments()
       if old
       then
+         self:d('considering old assignments', usp.prefix)
+
          for i, v in ipairs(old[usp.prefix] or {})
          do
+            --self:d('got', v)
             local oiid, oprefix = unpack(v)
-            if oiid == iid and not assigned[oprefix]
+            self:d('  ', oiid, oprefix)
+
+            if oiid == iid 
             then
-               p = oprefix
+               if not assigned[oprefix]
+               then
+                  self:d(' found in old assignments', oprefix)
+                  p = oprefix
+               else
+                  self:d(' found in old assignments, but reserved', oprefix)
+               end
             end
          end
       end
@@ -374,6 +385,7 @@ end
 -- child responsibility - return old assignment multimap, with
 -- usp-prefix => {{iid, asp-prefix}, ...}
 function pa:get_old_assignments()
+   return self.old_assignments
 end
 
 function pa:find_assigned(usp)
