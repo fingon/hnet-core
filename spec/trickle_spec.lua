@@ -6,17 +6,18 @@
 -- Author: Markus Stenberg <fingon@iki.fi>
 --
 -- Created:       Mon Sep 17 13:13:02 2012 mstenber
--- Last modified: Tue Oct  2 13:10:33 2012 mstenber
--- Edit time:     33 min
+-- Last modified: Tue Oct  2 13:50:26 2012 mstenber
+-- Edit time:     34 min
 --
 
 -- Make sure that the trickle module is sane
 
+require 'strict'
 require "busted"
 require "trickle"
 
 function new_dummy_client()
-   DummyClient = { t = 0 }
+   local DummyClient = { t = 0 }
    function DummyClient:send()
    end
 
@@ -25,6 +26,11 @@ function new_dummy_client()
    end
    return DummyClient
 end
+
+-- global variables used here
+
+dc = nil
+t = nil
 
 describe("trickle startup", 
          function()

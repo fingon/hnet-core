@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Mon Oct  1 23:28:32 2012 mstenber
+-- Last modified: Tue Oct  2 13:42:47 2012 mstenber
 -- Edit time:     125 min
 --
 
@@ -61,8 +61,8 @@ function abstract_data:decode(cur)
    then
       cur = vstruct.cursor(cur)
    end
-   pos = cur.pos
-   o, err = self:try_decode(cur)
+   local pos = cur.pos
+   local o, err = self:try_decode(cur)
    if o
    then
       return o

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Tue Sep 25 17:42:33 2012 mstenber
--- Edit time:     266 min
+-- Last modified: Tue Oct  2 13:41:48 2012 mstenber
+-- Edit time:     268 min
 --
 
 require 'mst'
@@ -301,7 +301,7 @@ end
 function skv:client_remote_update(json, k, v)
    local ov = self:get(k)
    self.remote_state[k] = v
-   lv = self.local_state[k]
+   local lv = self.local_state[k]
    if lv and not mst.repr_equal(lv, v)
    then
       json:write{[MSG_UPDATE] = {[k] = lv}}
@@ -396,11 +396,11 @@ function skv:init_server()
 end
 
 function skv:bind()
-   s, err = scb.new_listener{host=self.host, port=self.port, 
-                                debug=self.debug,
-                                callback=function (c) 
-                                   self:new_client(c)
-                                end}
+   local s, err = scb.new_listener{host=self.host, port=self.port, 
+                                   debug=self.debug,
+                                   callback=function (c) 
+                                      self:new_client(c)
+                                   end}
    if s
    then
       self.s = s

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Tue Sep 25 14:43:39 2012 mstenber
--- Edit time:     125 min
+-- Last modified: Tue Oct  2 13:41:34 2012 mstenber
+-- Edit time:     128 min
 --
 
 -- convenience stuff on top of LuaSocket
@@ -55,6 +55,7 @@ function ScbBase:init()
 
    if self.listen_read
    then
+      local fd = self.s:getfd()
       self:d('registering for read', fd)
       self.s_r = l:new_reader(self.s, function () 
                                  self:d('read callback')
@@ -116,8 +117,8 @@ ScbIO = ScbBase:new_subclass{listen_read=true, listen_write=true,
 
 function ScbIO:handle_io_read()
    self:d('handle_io_read')
-   r, error, partial = self.s:receive(2^10)
-   s = r or partial
+   local r, error, partial = self.s:receive(2^10)
+   local s = r or partial
    if not s or #s == 0
    then
       self:d('got read', s, #s, error)
@@ -149,9 +150,9 @@ function ScbIO:handle_io_write()
       
       -- we have _something_. let's try to write the first one..
       self:d("handle_io_write - sending")
-      s, i = self.wq[1]
+      local s, i = self.wq[1]
       i = i or 1
-      r, err = self.s:send(s, i)
+      local r, err = self.s:send(s, i)
 
       self:d("handle_io_write - send done", r, err)
 
@@ -218,8 +219,8 @@ end
 
 function ScbConnect:handle_io_write()
    self:d('handle_io_write')
-   r, err = self.s:connect(self.host, self.port)
-   self:d('!!w!!', r, e)
+   local r, err = self.s:connect(self.host, self.port)
+   self:d('!!w!!', r, err)
    self:a(self.callback, 'missing callback from ScbConnect')
    if err == ERR_CONNECTION_REFUSED
    then
@@ -264,7 +265,7 @@ function new_listener(d)
    s:settimeout(0)
    s:setoption('reuseaddr', true)
    s:setoption('tcp-nodelay', true)
-   r, err = s:bind(d.host, d.port)
+   local r, err = s:bind(d.host, d.port)
    if r
    then
       s:listen(10)
@@ -281,7 +282,7 @@ function new_connect(d)
    local s = socket.tcp()
    s:settimeout(0)
    s:setoption('tcp-nodelay', true)
-   r, e = s:connect(d.host, d.port)
+   local r, e = s:connect(d.host, d.port)
    --print('new_connect', r, e)
    d.s = s
    if r == 1

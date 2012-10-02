@@ -9,17 +9,21 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Tue Oct  2 13:10:25 2012 mstenber
--- Edit time:     28 min
+-- Last modified: Tue Oct  2 13:49:05 2012 mstenber
+-- Edit time:     30 min
 --
 
 require "busted"
-require "pa"
+local _pa = require "pa"
 require 'mst'
 
+
+-- 3 globals used to keep track of stuff
+ospf = nil
+pa = nil
 timeouts = mst.set:new()
 
-dummy_lap = pa.lap:new_subclass{class='dummy_lap'}
+dummy_lap = _pa.lap:new_subclass{class='dummy_lap'}
 
 function dummy_lap:start_depracate_timeout()
    assert(not timeouts[self])
@@ -69,7 +73,7 @@ end
 
 function check_sanity()
    -- make sure there's not multiple lap with same prefix
-   seen = {}
+   local seen = {}
    for i, v in ipairs(pa.lap:values())
    do
       mst.a(not seen[v.prefix], 'duplicate prefix', v)
@@ -94,7 +98,7 @@ describe("pa", function ()
                                                     {'rid3'},
                                               },
                                              }
-                  pa = pa.pa:new{client=ospf, lap_class=dummy_lap}
+                  pa = _pa.pa:new{client=ospf, lap_class=dummy_lap}
                   end)
             teardown(function ()
                         -- make sure pa seems sane

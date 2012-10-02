@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Oct  2 13:00:45 2012 mstenber
+-- Last modified: Tue Oct  2 13:45:54 2012 mstenber
 -- Edit time:     281 min
 --
 
@@ -47,7 +47,7 @@ pcall = orig_pcall
 
 --mst.enable_debug = true
 
-module(..., package.seeall)
+module('pa', package.seeall)
 
 -- local assigned prefix
 

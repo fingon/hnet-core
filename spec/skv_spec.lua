@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Tue Oct  2 13:10:30 2012 mstenber
+-- Last modified: Tue Oct  2 13:42:01 2012 mstenber
 -- Edit time:     123 min
 --
 
@@ -271,7 +271,7 @@ describe("class working (post setup)", function()
                   inject_refcounted_terminator(c.fsm, 'ConnectionClosed', h)
                   h[1] = 3
 
-                  n = 0
+                  local n = 0
                   for k, v in pairs(s.connections)
                   do
                      k:done()

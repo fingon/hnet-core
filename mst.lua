@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Oct  2 13:16:18 2012 mstenber
--- Edit time:     335 min
+-- Last modified: Tue Oct  2 13:40:04 2012 mstenber
+-- Edit time:     338 min
 --
 
 -- data structure abstractions provided:
@@ -19,6 +19,8 @@
 -- set_* = table with values in keys
 -- table_* = normal Python-style dictionary
 --  class called 'dict' to prevent conflicts
+
+require 'strict'
 
 module(..., package.seeall)
 
@@ -149,9 +151,9 @@ end
 function baseclass:repr(shown)
    local omt = getmetatable(self)
    setmetatable(self, {})
-   t = tostring(self)
+   local t = tostring(self)
    setmetatable(self, omt)
-   r = self:repr_data(shown)
+   local r = self:repr_data(shown)
    if r
    then
       reprs = ' - ' .. r
@@ -290,7 +292,7 @@ function pcall_and_finally(fun1, fun2)
    end
 
    -- catch errors
-   r, err = pcall(fun1)
+   local r, err = pcall(fun1)
 
    -- call finally
    fun2()
@@ -789,7 +791,7 @@ function repr(o, shown)
    if t == 'table'
    then
       shown = shown or {}
-      specific_repr = o.repr
+      local specific_repr = o.repr
       if specific_repr
       then
          return specific_repr(o, shown)

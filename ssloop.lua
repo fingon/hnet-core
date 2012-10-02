@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Mon Oct  1 13:06:26 2012 mstenber
--- Edit time:     89 min
+-- Last modified: Tue Oct  2 13:37:02 2012 mstenber
+-- Edit time:     91 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -30,7 +30,7 @@ require 'socket'
 module(..., package.seeall)
 
 -- mstwrapper - basic wrapper with started state, and abstract raw_start/stop
-local mstwrapper = mst.create_class{started=false, class=mstwrapper}
+local mstwrapper = mst.create_class{started=false, class='mstwrapper'}
 
 function mstwrapper:uninit()
    -- stop us in case caller didn't

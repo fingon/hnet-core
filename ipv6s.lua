@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Mon Oct  1 22:59:55 2012 mstenber
+-- Last modified: Tue Oct  2 13:42:35 2012 mstenber
 -- Edit time:     16 min
 --
 
@@ -119,7 +119,7 @@ function ascii_to_binary(b)
             table.insert(t, _null .. _null)
          end
       else
-         n, err = mst.strtol(v, 16)
+         local n, err = mst.strtol(v, 16)
          mst.a(n, 'error in strtol', err)
          table.insert(t, string.char(math.floor(n / 256)) .. string.char(n % 256))
       end
