@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Oct  1 23:27:09 2012 mstenber
--- Edit time:     322 min
+-- Last modified: Tue Oct  2 11:34:52 2012 mstenber
+-- Edit time:     331 min
 --
 
 -- data structure abstractions provided:
@@ -206,13 +206,13 @@ function baseclass:call_callback_once(name, ...)
    end
 end
 
-local _ts = function (self)
-   return self.tostring(self)
-end
-
 -- create a new class with the given superclass(es)
 -- (the extra arguments)
 function create_class(o, ...)
+   local ts = function (self)
+      return self.tostring(self)
+   end
+
    local scs = {...}
    if #scs == 0
    then
@@ -222,11 +222,11 @@ function create_class(o, ...)
    h = o or {}
    -- created instances will index h, and have tostring
    local cmt = {__index = h,
-                __tostring = _ts}
+                __tostring = ts}
    -- also, do inherited indexing of superclasses, and have tostring
    -- for class too
    setmetatable(h, {__index=scs[1],
-                    __tostring=_ts,
+                    __tostring=ts,
                     cmt=cmt})
    return h
 end
@@ -301,6 +301,8 @@ function pcall_and_finally(fun1, fun2)
       error(err)
    end
 end
+
+--- array handling
 
 -- index in array
 function array_find(t, o)
@@ -402,32 +404,11 @@ array = create_class{class='array',
                      filter=array_filter,
                      find=array_find,
                      to_table=array_to_table,
-                     repr=array_repr}
+                     repr=array_repr,
+                    }
 
 
-function set_map(s, fun)
-   a(type(s) == 'table', 'non-table to set_map', t)
-   local t = set:new{}
-   for k, v in pairs(s)
-   do
-      fun(k)
-      t[k] = true
-   end
-   return t
-end
-
-set = create_class{class='set',
-                   map=set_map,
-                   repr=table_repr,
-                   }
-
-function set:insert(o)
-   self[o] = true
-end
-
-function set:remove(o)
-   self[o] = nil
-end
+--- string utilities
 
 function string_ipairs_iterator(s, i)
    i = i + 1
@@ -503,6 +484,7 @@ function string_to_hex(s)
    return table.concat(t)
 end
 
+--- table utilities + class
 
 function table_is(t)
    return type(t) == 'table'
@@ -689,13 +671,40 @@ map = create_class{class='map',
                    copy=table_copy,
                    count=table_count,
                    deep_copy=table_deep_copy,
-                   is_empty=table.is_empty,
+                   is_empty=table_is_empty,
                    keys=table_keys,
                    map=table_map,
                    repr=table_repr,
                    sorted_keys=table_sorted_keys,
                    sorted_pairs=table_sorted_pairs,
                    values=table_values}
+
+--- set
+
+function set_map(s, fun)
+   a(type(s) == 'table', 'non-table to set_map', t)
+   local t = set:new{}
+   for k, v in pairs(s)
+   do
+      fun(k)
+      t[k] = true
+   end
+   return t
+end
+
+set = map:new_subclass{class='set',
+                       map=set_map,
+                      }
+
+function set:insert(o)
+   self[o] = true
+end
+
+function set:remove(o)
+   self[o] = nil
+end
+
+
 
 -- add 'insert', 'remove' operations'
 multimap = map:new_subclass{class='multimap'}

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Oct  2 11:13:43 2012 mstenber
--- Edit time:     273 min
+-- Last modified: Tue Oct  2 13:00:45 2012 mstenber
+-- Edit time:     281 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -215,11 +215,18 @@ function pa:init()
    self.usp = mst.multimap:new()
 end
 
+function pa:uninit()
+   -- just kill the contents of all datastructures
+   self:filtered_values_done(self.usp)
+   self:filtered_values_done(self.asp)
+   self:filtered_values_done(self.lap)
+end
+
 function pa:filtered_values_done(h, f)
    mst.a(h.class == 'multimap')
    for i, o in ipairs(h:values())
    do
-      if f(o) 
+      if f and f(o) 
       then 
          self:d('done with', o)
          o:done() 
@@ -321,6 +328,24 @@ function pa:assign_own(iid, usp)
       end
    end
 
+   if not p
+   then
+      local old = self:get_old_assignments()
+      if old
+      then
+         for i, v in ipairs(old[usp.prefix] or {})
+         do
+            local oiid, oprefix = unpack(v)
+            if oiid == iid and not assigned[oprefix]
+            then
+               p = oprefix
+            end
+         end
+      end
+   end
+
+   -- XXX - could also get from e.g. storage
+
    -- 3. assign /64 if possible
    if not p
    then
@@ -329,6 +354,7 @@ function pa:assign_own(iid, usp)
    end
    
    -- 4. hysteresis (sigh)
+   -- XXX
    
    -- 5. if none available, skip
    if not p
@@ -343,6 +369,11 @@ function pa:assign_own(iid, usp)
                rid=self.client.rid, 
                valid=true}
    o:assign_lap()
+end
+
+-- child responsibility - return old assignment multimap, with
+-- usp-prefix => {{iid, asp-prefix}, ...}
+function pa:get_old_assignments()
 end
 
 function pa:find_assigned(usp)
@@ -477,7 +508,7 @@ function pa:run()
                          self:add_or_update_asp(prefix, iid, rid)
                       end)
 
-   -- drop those that are not valid immediately
+   -- drop expired remote assignments
    self:filtered_values_done(self.asp,
                              function (asp) 
                                 mst.a(asp.class == 'asp', asp, asp.class)

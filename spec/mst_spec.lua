@@ -9,11 +9,10 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Mon Oct  1 22:44:06 2012 mstenber
--- Edit time:     58 min
+-- Last modified: Tue Oct  2 13:10:23 2012 mstenber
+-- Edit time:     62 min
 --
 
-require "luacov"
 require "busted"
 require "mst"
 
@@ -170,3 +169,33 @@ describe("multimap", function ()
                   assert.are.same(mm:count(), 1)
                                  end)
                      end)
+
+describe("set", function ()
+            it("can be created", function ()
+                  local s = mst.set:new()
+                  mst.a(s)
+                  mst.a(s.class == 'set')
+                  mst.a(s.is_empty)
+                  mst.a(s:is_empty())
+                  s:insert('foo')
+                  mst.a(s['foo'])
+                  mst.a(not s['bar'])
+                  s:insert('bar')
+                  mst.a(s['bar'])
+                  mst.a(not s:is_empty())
+
+                   end)
+                end)
+
+describe("map", function ()
+            it("can be created", function ()
+                  local m = mst.map:new()
+                  mst.a(m)
+                  mst.a(m.class == 'map')
+                  mst.a(m.is_empty)
+                  mst.a(m:is_empty())
+                  m.foo = 'bar'
+                  mst.a(not m:is_empty())
+                  mst.a(m.foo == 'bar')
+                                 end)
+                end)

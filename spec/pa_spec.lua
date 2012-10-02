@@ -9,11 +9,10 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Tue Oct  2 10:50:53 2012 mstenber
+-- Last modified: Tue Oct  2 13:10:25 2012 mstenber
 -- Edit time:     28 min
 --
 
-require "luacov"
 require "busted"
 require "pa"
 require 'mst'
@@ -24,12 +23,12 @@ dummy_lap = pa.lap:new_subclass{class='dummy_lap'}
 
 function dummy_lap:start_depracate_timeout()
    assert(not timeouts[self])
-   timeouts.insert(self)
+   timeouts:insert(self)
 end
 
 function dummy_lap:stop_depracate_timeout()
    assert(timeouts[self])
-   timeouts.remove(self)
+   timeouts:remove(self)
 end
 
 dummy_ospf = mst.create_class{class='dummy_ospf',
@@ -98,7 +97,11 @@ describe("pa", function ()
                   pa = pa.pa:new{client=ospf, lap_class=dummy_lap}
                   end)
             teardown(function ()
+                        -- make sure pa seems sane
                         check_sanity()
+                        -- and kill it explicitly
+                        pa:done()
+                        mst.a(timeouts:is_empty())
                      end)
             it("can be created", function ()
                                  end)

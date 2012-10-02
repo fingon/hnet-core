@@ -5,10 +5,8 @@ SMC=../smc/bin/smc.jar
 all: test
 
 cov: test
-#	(cd /usr/local/bin && luacov)
-#	mv /usr/local/bin/luacov.report.out .
-	mv /usr/local/bin/luacov.stats.out .
-	luacov
+	COMMAND="lua -lluacov" busted spec
+	./run_luacov.sh
 
 test: .tested
 

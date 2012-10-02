@@ -9,11 +9,10 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 18:34:49 2012 mstenber
--- Last modified: Mon Oct  1 14:17:09 2012 mstenber
+-- Last modified: Tue Oct  2 13:10:19 2012 mstenber
 -- Edit time:     8 min
 --
 
-require "luacov"
 require "busted"
 require "codec"
 

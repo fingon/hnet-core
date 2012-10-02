@@ -9,11 +9,10 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Mon Oct  1 23:27:51 2012 mstenber
--- Edit time:     95 min
+-- Last modified: Tue Oct  2 13:10:28 2012 mstenber
+-- Edit time:     96 min
 --
 
-require "luacov"
 require "busted"
 require "scb"
 require "mst"

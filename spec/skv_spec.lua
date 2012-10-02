@@ -9,11 +9,10 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Tue Sep 25 17:42:59 2012 mstenber
+-- Last modified: Tue Oct  2 13:10:30 2012 mstenber
 -- Edit time:     123 min
 --
 
-require "luacov"
 require "busted"
 require "mst"
 require 'ssloop'

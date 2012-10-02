@@ -9,11 +9,10 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 22:04:20 2012 mstenber
--- Last modified: Mon Oct  1 23:27:40 2012 mstenber
+-- Last modified: Tue Oct  2 13:10:21 2012 mstenber
 -- Edit time:     15 min
 --
 
-require 'luacov'
 require 'ipv6s'
 require 'busted'
 require 'mst'
