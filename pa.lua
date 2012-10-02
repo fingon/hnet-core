@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Oct  2 11:11:55 2012 mstenber
--- Edit time:     271 min
+-- Last modified: Tue Oct  2 11:13:43 2012 mstenber
+-- Edit time:     273 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -324,7 +324,7 @@ function pa:assign_own(iid, usp)
    -- 3. assign /64 if possible
    if not p
    then
-      p = self:find_new_from(usp, assigned)
+      p = self:find_new_from(iid, usp, assigned)
       local o
    end
    
@@ -359,7 +359,7 @@ function pa:find_assigned(usp)
    return t
 end
 
-function pa:find_new_from(usp, assigned)
+function pa:find_new_from(iid, usp, assigned)
    local b = ipv6s.prefix_to_bin(usp.prefix)
    local p
 
@@ -371,7 +371,8 @@ function pa:find_new_from(usp, assigned)
    for i=1,10
    do
       -- get the rest of the bytes from md5
-      local sb = md5.sum(string.format("%s%d", self.client.rid, i))
+      local s = string.format("%s-%s-%s-%d", self.client.rid, iid, usp.prefix, i)
+      local sb = md5.sum(s)
       p = b .. string.sub(sb, #b+1, 8)
       mst.a(#p == 8)
       if not assigned[p]
