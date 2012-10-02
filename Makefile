@@ -17,4 +17,5 @@ test: .tested
 
 .tested: skv_sm.lua $(TESTS) $(wildcard *.lua)
 	busted spec
+	ENABLE_MST_DEBUG=1 busted spec 2>&1 | grep successes
 #	touch $@

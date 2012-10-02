@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Oct  2 11:34:52 2012 mstenber
--- Edit time:     331 min
+-- Last modified: Tue Oct  2 13:16:18 2012 mstenber
+-- Edit time:     335 min
 --
 
 -- data structure abstractions provided:
@@ -23,7 +23,7 @@
 module(..., package.seeall)
 
 -- global debug switch
-enable_debug=false
+enable_debug=os.getenv("ENABLE_MST_DEBUG") or false
 
 -- enable own assert
 enable_assert=true
