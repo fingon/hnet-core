@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Wed Oct  3 16:01:17 2012 mstenber
+-- Last modified: Wed Oct  3 17:33:27 2012 mstenber
 -- Edit time:     104 min
 --
 
@@ -105,7 +105,7 @@ function test_once(n, port)
    then
       c:write('1')
    else
-      error()
+      error('unsupported size')
    end
    mst.d('run_loop_awhile')
    ssloop.run_loop_awhile()

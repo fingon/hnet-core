@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Oct  3 16:20:07 2012 mstenber
--- Edit time:     362 min
+-- Last modified: Wed Oct  3 17:33:03 2012 mstenber
+-- Edit time:     364 min
 --
 
 -- data structure abstractions provided:
@@ -194,7 +194,7 @@ function baseclass:a(stmt, ...)
    then
       print(debug.traceback())
       debug_print(self:tostring(), ...)
-      error()
+      error(self:tostring()' assertion failed')
    end
 end
 
@@ -275,7 +275,7 @@ function a(stmt, ...)
    then
       print(debug.traceback())
       debug_print(...)
-      error()
+      error('assertion failed')
    end
 end
 
