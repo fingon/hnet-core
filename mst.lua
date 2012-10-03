@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Oct  2 17:14:14 2012 mstenber
--- Edit time:     344 min
+-- Last modified: Wed Oct  3 16:20:07 2012 mstenber
+-- Edit time:     362 min
 --
 
 -- data structure abstractions provided:
@@ -418,6 +418,9 @@ function array:count()
    return #self
 end
 
+function array:is_empty()
+   return #self == 0
+end
 
 --- string utilities
 
@@ -444,6 +447,16 @@ function string_to_table(s)
       t[c] = true
    end
    return t
+end
+
+function string_strip(s)
+  -- from PiL2 20.4
+  return (s:gsub("^%s*(.-)%s*$", "%1"))
+end
+
+function string_rstrip(s)
+  -- from PiL2 20.4
+  return (s:gsub("^(.-)%s*$", "%1"))
 end
 
 local _my_printable_table = false
@@ -868,6 +881,16 @@ function min(...)
       end
    end
    return smallest
+end
+
+function d_xpcall(fun)
+   local r = {xpcall(fun,
+                     function (...)
+                        print(debug.traceback())
+                        debug_print('!!! d_xpcall failed', ...)
+                     end)}
+   table.remove(r, 1)
+   return unpack(r)
 end
 
 -- event class (used within the baseclass)
