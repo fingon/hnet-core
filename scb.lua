@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Tue Oct  2 13:41:34 2012 mstenber
--- Edit time:     128 min
+-- Last modified: Wed Oct  3 16:06:21 2012 mstenber
+-- Edit time:     154 min
 --
 
 -- convenience stuff on top of LuaSocket
@@ -48,7 +48,7 @@ function ScbBase:init()
    then
       self.s_w = l:new_writer(self.s, function () 
                                  self:d('write callback')
-                                 self:handle_io_write() end)
+                                 self:handle_io_write() end, self)
       -- write queue
       self.wq = {}
    end
@@ -59,14 +59,13 @@ function ScbBase:init()
       self:d('registering for read', fd)
       self.s_r = l:new_reader(self.s, function () 
                                  self:d('read callback')
-                                 self:handle_io_read() end)
-      -- writer we start only if there's need; reading starts
-      -- implicitly as soon as we're initialized, which is .. now.
-      self.s_r:start()
+                                 self:handle_io_read() end, self)
    end
 end
 
 function ScbBase:uninit()
+   self:d('uninit')
+
    -- initially just stop the handlers
    self:stop()
 
@@ -75,6 +74,7 @@ function ScbBase:uninit()
 
    if self.s
    then
+      self:d('closing', self.s)
       self.s:close()
       self.s = nil
    end
@@ -83,8 +83,7 @@ function ScbBase:uninit()
 end
 
 function ScbBase:repr_data()
-   local fd = self.s:getfd()
-   return string.format("fd:%d", fd)
+   return mst.repr{s=self.s, p=self.p}
 end
 
 function ScbBase:start()
@@ -114,6 +113,11 @@ end
 
 ScbIO = ScbBase:new_subclass{listen_read=true, listen_write=true, 
                                    class="ScbIO"}
+
+function ScbBase:detach()
+   self:stop()
+   self.s = nil
+end
 
 function ScbIO:handle_io_read()
    self:d('handle_io_read')
@@ -196,10 +200,11 @@ function ScbListen:handle_io_read()
    if c 
    then
       c:settimeout(0)
-      evio = ScbIO:new{s=c}
-      self.callback(evio)
+      evio = ScbIO:new{s=c, p=self}
       self:a(evio.listen_read, 'listen_read disappeared')
       self:a(evio.listen_write, 'listen_write disappeared')
+      evio:start()
+      self.callback(evio)
    end
 end
 
@@ -207,20 +212,10 @@ end
 
 local ScbConnect = ScbBase:new_subclass{listen_write=true, class="ScbConnect"}
 
-function ScbConnect:init()
-   -- superclass init
-   ScbBase.init(self)
-
-   -- this is magic writer, it's on without any bytes to write
-   -- (and triggers only once)
-   self.s_w:start()
-   
-end
-
 function ScbConnect:handle_io_write()
    self:d('handle_io_write')
    local r, err = self.s:connect(self.host, self.port)
-   self:d('!!w!!', r, err)
+   self:d('connect result', r, err)
    self:a(self.callback, 'missing callback from ScbConnect')
    if err == ERR_CONNECTION_REFUSED
    then
@@ -234,13 +229,16 @@ function ScbConnect:handle_io_write()
    end
 
    -- first off, we're done! so get rid of the filehandle + mark us done
-   self.s = nil
-   self:done()
+   self:stop()
 
    -- then, forward the freshly wrapped IO socket onward
    -- (someone needs to set up callback(s))
    evio = wrap_socket(self.evio_d)
    self.callback(evio)
+
+   -- we're ready to be cleaned (as if we were anywhere anyway, after :stop())
+   self.s = nil
+   self:done()
 end
 
 -- proxy the 'new'
@@ -256,6 +254,7 @@ function wrap_socket(d)
    evio = ScbIO:new(d)
    assert(evio.listen_read)
    assert(evio.listen_write)
+   evio:start()
    return evio
 end
 
@@ -271,9 +270,10 @@ function new_listener(d)
       s:listen(10)
       d.s = s
       l = ScbListen:new(d)
+      l:start()
       return l
    end
-   return r, err
+   return nil, err
 end
 
 function new_connect(d)
@@ -294,5 +294,6 @@ function new_connect(d)
    -- apparently connect is still pending. create connect
    d.evio_d = mst.table_copy(d)
    c = ScbConnect:new(d)
+   c:start()
    return c
 end

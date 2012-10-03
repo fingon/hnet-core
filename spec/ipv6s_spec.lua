@@ -9,15 +9,13 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 22:04:20 2012 mstenber
--- Last modified: Tue Oct  2 13:10:21 2012 mstenber
--- Edit time:     15 min
+-- Last modified: Wed Oct  3 13:22:44 2012 mstenber
+-- Edit time:     16 min
 --
 
 require 'ipv6s'
 require 'busted'
 require 'mst'
-
---mst.enable_debug=true
 
 describe("ascii_cleanup", function ()
             it("should work",
@@ -49,7 +47,6 @@ describe("ascii_to_binary/binary_to_ascii", function ()
                   end
                end)
             it("works", function()
-                  --mst.enable_debug = true
                   local a0 = 'dead:beef'
                   local a1 = 'dead:beef::'
                   local a2 = 'dead:beef::1'

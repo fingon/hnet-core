@@ -10,6 +10,11 @@ local strformat = require 'string'.format
 
 local statemap = require 'statemap'
 
+        local CONNECT_TIMEOUT = 0.1
+        local INITIAL_LISTEN_TIMEOUT = 0.2
+
+
+
 _ENV = nil
 
 local SKVState = statemap.State.class()
@@ -75,7 +80,7 @@ Client.Init = Client.Default:new('Client.Init', 0)
 
 function Client.Init:Entry (fsm)
     local ctxt = fsm.owner
-    ctxt:init_client()
+    ctxt:init_client(INITIAL_LISTEN_TIMEOUT)
 end
 
 function Client.Init:Initialized (fsm)
@@ -97,12 +102,13 @@ Client.Connecting = Client.Default:new('Client.Connecting', 1)
 
 function Client.Connecting:Entry (fsm)
     local ctxt = fsm.owner
+    ctxt:start_retry_timer(CONNECT_TIMEOUT)
     ctxt:connect()
 end
 
 function Client.Connecting:Exit (fsm)
     local ctxt = fsm.owner
-    ctxt:clear_ev()
+    ctxt:clear_timeout_maybe()
 end
 
 function Client.Connecting:ConnectFailed (fsm)
@@ -115,7 +121,12 @@ function Client.Connecting:ConnectFailed (fsm)
         if fsm.debugFlag then
             fsm.debugStream:write("ENTER TRANSITION: Client.Connecting:ConnectFailed()\n")
         end
-        -- No actions.
+        fsm:clearState()
+        local r, msg = pcall(
+            function ()
+                ctxt:clear_socket_maybe()
+            end
+        )
         if fsm.debugFlag then
             fsm.debugStream:write("EXIT TRANSITION : Client.Connecting:ConnectFailed()\n")
         end
@@ -126,7 +137,12 @@ function Client.Connecting:ConnectFailed (fsm)
         if fsm.debugFlag then
             fsm.debugStream:write("ENTER TRANSITION: Client.Connecting:ConnectFailed()\n")
         end
-        -- No actions.
+        fsm:clearState()
+        local r, msg = pcall(
+            function ()
+                ctxt:clear_socket_maybe()
+            end
+        )
         if fsm.debugFlag then
             fsm.debugStream:write("EXIT TRANSITION : Client.Connecting:ConnectFailed()\n")
         end
@@ -137,6 +153,12 @@ function Client.Connecting:ConnectFailed (fsm)
         if fsm.debugFlag then
             fsm.debugStream:write("ENTER TRANSITION: Client.Connecting:ConnectFailed()\n")
         end
+        fsm:clearState()
+        local r, msg = pcall(
+            function ()
+                ctxt:clear_socket_maybe()
+            end
+        )
         if fsm.debugFlag then
             fsm.debugStream:write("EXIT TRANSITION : Client.Connecting:ConnectFailed()\n")
         end
@@ -160,11 +182,67 @@ function Client.Connecting:Connected (fsm)
     fsm:getState():Entry(fsm)
 end
 
+function Client.Connecting:Timeout (fsm)
+    local ctxt = fsm.owner
+    if fsm.debugFlag then
+        fsm.debugStream:write("LEAVING STATE   : Client.Connecting\n")
+    end
+    if  ctxt:is_long_lived()  then
+        fsm:getState():Exit(fsm)
+        if fsm.debugFlag then
+            fsm.debugStream:write("ENTER TRANSITION: Client.Connecting:Timeout()\n")
+        end
+        fsm:clearState()
+        local r, msg = pcall(
+            function ()
+                ctxt:clear_socket_maybe()
+            end
+        )
+        if fsm.debugFlag then
+            fsm.debugStream:write("EXIT TRANSITION : Client.Connecting:Timeout()\n")
+        end
+        fsm:setState(Server.Init)
+        fsm:getState():Entry(fsm)
+    elseif  ctxt:should_auto_retry()  then
+        fsm:getState():Exit(fsm)
+        if fsm.debugFlag then
+            fsm.debugStream:write("ENTER TRANSITION: Client.Connecting:Timeout()\n")
+        end
+        fsm:clearState()
+        local r, msg = pcall(
+            function ()
+                ctxt:clear_socket_maybe()
+            end
+        )
+        if fsm.debugFlag then
+            fsm.debugStream:write("EXIT TRANSITION : Client.Connecting:Timeout()\n")
+        end
+        fsm:setState(Client.ClientFailRetry)
+        fsm:getState():Entry(fsm)
+    else
+        fsm:getState():Exit(fsm)
+        if fsm.debugFlag then
+            fsm.debugStream:write("ENTER TRANSITION: Client.Connecting:Timeout()\n")
+        end
+        fsm:clearState()
+        local r, msg = pcall(
+            function ()
+                ctxt:clear_socket_maybe()
+            end
+        )
+        if fsm.debugFlag then
+            fsm.debugStream:write("EXIT TRANSITION : Client.Connecting:Timeout()\n")
+        end
+        fsm:setState(Terminal.ClientFailConnect)
+        fsm:getState():Entry(fsm)
+    end
+end
+
 Client.WaitVersion = Client.Default:new('Client.WaitVersion', 2)
 
 function Client.WaitVersion:Entry (fsm)
     local ctxt = fsm.owner
-    ctxt:wrap_socket_jsoncodec()
+    ctxt:wrap_socket_json()
 end
 
 function Client.WaitVersion:ConnectionClosed (fsm)
@@ -179,7 +257,7 @@ function Client.WaitVersion:ConnectionClosed (fsm)
     fsm:clearState()
     local r, msg = pcall(
         function ()
-            ctxt:clear_jsoncodec()
+            ctxt:clear_json()
         end
     )
     if fsm.debugFlag then
@@ -227,7 +305,7 @@ end
 
 function Client.WaitUpdates:Exit (fsm)
     local ctxt = fsm.owner
-    ctxt:clear_jsoncodec()
+    ctxt:clear_json()
 end
 
 function Client.WaitUpdates:ConnectionClosed (fsm)
@@ -294,6 +372,11 @@ function Client.ClientFailRetry:Entry (fsm)
     local ctxt = fsm.owner
     ctxt:increase_retry_timer()
     ctxt:start_retry_timer()
+end
+
+function Client.ClientFailRetry:Exit (fsm)
+    local ctxt = fsm.owner
+    ctxt:clear_timeout()
 end
 
 function Client.ClientFailRetry:Timeout (fsm)
@@ -374,7 +457,7 @@ function Server.Binding:BindFailed (fsm)
     if fsm.debugFlag then
         fsm.debugStream:write("EXIT TRANSITION : Server.Binding:BindFailed()\n")
     end
-    fsm:setState(Server.InitWaitTimeout)
+    fsm:setState(Server.InitWait)
     fsm:getState():Entry(fsm)
 end
 
@@ -393,24 +476,29 @@ function Server.Binding:Bound (fsm)
     fsm:getState():Entry(fsm)
 end
 
-Server.InitWaitTimeout = Server.Default:new('Server.InitWaitTimeout', 2)
+Server.InitWait = Server.Default:new('Server.InitWait', 2)
 
-function Server.InitWaitTimeout:Entry (fsm)
+function Server.InitWait:Entry (fsm)
     local ctxt = fsm.owner
     ctxt:increase_retry_timer()
     ctxt:start_retry_timer()
 end
 
-function Server.InitWaitTimeout:Timeout (fsm)
+function Server.InitWait:Exit (fsm)
+    local ctxt = fsm.owner
+    ctxt:clear_timeout()
+end
+
+function Server.InitWait:Timeout (fsm)
     if fsm.debugFlag then
-        fsm.debugStream:write("LEAVING STATE   : Server.InitWaitTimeout\n")
+        fsm.debugStream:write("LEAVING STATE   : Server.InitWait\n")
     end
     fsm:getState():Exit(fsm)
     if fsm.debugFlag then
-        fsm.debugStream:write("ENTER TRANSITION: Server.InitWaitTimeout:Timeout()\n")
+        fsm.debugStream:write("ENTER TRANSITION: Server.InitWait:Timeout()\n")
     end
     if fsm.debugFlag then
-        fsm.debugStream:write("EXIT TRANSITION : Server.InitWaitTimeout:Timeout()\n")
+        fsm.debugStream:write("EXIT TRANSITION : Server.InitWait:Timeout()\n")
     end
     fsm:setState(Client.Connecting)
     fsm:getState():Entry(fsm)

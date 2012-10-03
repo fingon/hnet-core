@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Tue Oct  2 13:37:02 2012 mstenber
--- Edit time:     91 min
+-- Last modified: Wed Oct  3 17:19:21 2012 mstenber
+-- Edit time:     119 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -33,6 +33,7 @@ module(..., package.seeall)
 local mstwrapper = mst.create_class{started=false, class='mstwrapper'}
 
 function mstwrapper:uninit()
+   self:d('uninit')
    -- stop us in case caller didn't
    self:stop()
 end
@@ -71,6 +72,7 @@ function mstio:raw_start()
    self:a(not i, "we should be missing from event loop socket list")
    table.insert(a, self.s)
    h[self.s] = self
+   self:d('started')
 end
 
 function mstio:raw_stop()
@@ -82,14 +84,19 @@ function mstio:raw_stop()
    self:a(r, "we were missing from event loop socket list")
    self:a(h[self.s] ~= nil, "we're missing from event loop hash")
    h[self.s] = nil
+   self:d('stopped')
 end
 
 function mstio:repr_data()
+   local fd = self.s:getfd()
+   local s = mst.repr{fd=fd, 
+                      p=self.p,
+                      started=self.started}
    if self.reader
    then
-      return 'reader fd:'..tostring(self.s:getfd())
+      return 'reader '.. s
    end
-   return 'writer fd:'..tostring(self.s:getfd())
+   return 'writer '.. s
 end
 
 --- msttimeout - wrapper for timeout 
@@ -101,9 +108,12 @@ function msttimeout:init()
    local l = loop()
    self.started = false
    table.insert(l.t, self)
+   self:d('init')
+
 end
 
 function msttimeout:uninit()
+   self:d('uninit')
    local l = loop()
    mst.array_remove(l.t, self)
 end
@@ -136,36 +146,58 @@ function ssloop:init()
 end
 
 function ssloop:uninit()
+   self:d('uninit')
+
    -- clear the handlers, if they're around
    self:clear()
 end
 
-
-function ssloop:clear()
-   -- make sure that _everything_ is gone
-   while #self.r > 0
-   do
-      self.rh[self.r[1]]:done()
-   end
-   while #self.w > 0
-   do
-      self.wh[self.w[1]]:done()
-   end
-   while #self.t > 0
-   do
-      self.t[1]:done()
-   end
+function ssloop:repr_data()
+   return string.format('#r:%d #w:%d #t:%d', #self.r, #self.w, #self.t)
 end
 
-function ssloop:new_reader(s, callback)
-   local o = mstio:new{s=s, callback=callback, reader=true}
+function ssloop:clear()
+   self:d('clear')
+
+   local cleared = mst.array:new()
+   -- make sure that _everything_ is gone
+   -- we gather a list to clear, and then clear it later
+   for i, v in ipairs(self.r)
+   do
+      cleared:insert(self.rh[v])
+   end
+   for i, v in ipairs(self.w)
+   do
+      cleared:insert(self.wh[v])
+   end
+   for i, v in ipairs(self.t)
+   do
+      cleared:insert(v)
+   end
+   if cleared:is_empty()
+   then
+      return
+   end
+   self:d('clearing', cleared)
+   for i, v in ipairs(cleared)
+   do
+      v:done()
+   end
+   self:a('unable to clear r', not #self.r)
+   self:a('unable to clear w', not #self.w)
+   self:a('unable to clear t', not #self.t)
+   return cleared
+end
+
+function ssloop:new_reader(s, callback, p)
+   local o = mstio:new{s=s, callback=callback, reader=true, p=p}
    -- not added anywhere before start()
    self:d('added new reader', o)
    return o
 end
 
-function ssloop:new_writer(s, callback)
-   local o = mstio:new{s=s, callback=callback, reader=false}
+function ssloop:new_writer(s, callback, p)
+   local o = mstio:new{s=s, callback=callback, reader=false, p=p}
    -- not added anywhere before start()
    self:d('added new writer', o)
    return o

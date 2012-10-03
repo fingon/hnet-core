@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Tue Oct  2 13:10:28 2012 mstenber
--- Edit time:     96 min
+-- Last modified: Wed Oct  3 16:01:17 2012 mstenber
+-- Edit time:     104 min
 --
 
 require "busted"
@@ -18,17 +18,14 @@ require "scb"
 require "mst"
 require 'ssloop'
 
---mst.enable_debug = true
-
 local loop = ssloop.loop()
 
 MAGIC='<data>'
 MAGIC2='<eof>'
 
-function create_dummy_l_c(port, receiver, debug)
+function create_dummy_l_c(port, receiver)
    -- assume receiver is a coroutine
    local d = {host='localhost', port=port, 
-              debug=debug,
               callback=function (c)
                  mst.d('create_dummy_l_c - got new connection', c)
                  function c.callback(d)
@@ -61,7 +58,7 @@ function wait_connected(c)
    ssloop.run_loop_awhile()
    c = r[1]
    mst.d('wait_connected done')
-   assert(c, "no socket in wait_connected")
+   mst.a(c, "no socket in wait_connected")
    return c
 end
 
@@ -92,9 +89,9 @@ function create_dummy_receiver(n)
 end
 
 
-function test_once(n, port, debug)
+function test_once(n, port)
    local cr, rh = create_dummy_receiver(n)
-   local l, c = create_dummy_l_c(port, cr, debug)
+   local l, c = create_dummy_l_c(port, cr)
    mst.a(l ~= nil, "no listener")
    mst.a(c ~= nil, "no caller")
    if n == 100000
@@ -115,27 +112,24 @@ function test_once(n, port, debug)
 
    mst.d('trying to resume coroutine once more - should be dead')
    local r, err = coroutine.resume(cr)
-   assert(not r, "coroutine still active")
-   assert(rh[1] == n, "did not receive anything? " .. tostring(rh[1]))
+   mst.a(not r, "coroutine still active")
+   mst.a(rh[1] == n, "did not receive anything? " .. tostring(rh[1]))
 end
 
 describe("scb-test", function ()
-            setup(function ()
-                     assert(#loop.r == 0, "some readers left")
-                     assert(#loop.w == 0, "some writers left")
-                     assert(#loop.t == 0, "some timeouts left")
+            before_each(function ()
+                           local r = loop:clear()
+                           mst.a(not r, 'left before', r)
                   end)
-            teardown(function ()
+            after_each(function ()
                         loop:clear()
-                        loop.debug = false
+                        local r = loop:clear()
+                        mst.a(not r, 'left after', r)
                      end)
-            it("can create sockets", function ()
-                  xpcall(function ()
-                         test_once(1, 12444)
-                         end,
-                         function ()
-                            print(debug.traceback())
-                         end)
+            it("can create sockets #byte", function ()
+                  mst.d_xpcall(function ()
+                                  test_once(1, 12444)
+                               end)
                                      end)
 
             it("can transfer 100k", function ()

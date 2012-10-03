@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Tue Oct  2 13:41:48 2012 mstenber
--- Edit time:     268 min
+-- Last modified: Wed Oct  3 16:41:49 2012 mstenber
+-- Edit time:     320 min
 --
 
 require 'mst'
@@ -40,8 +40,6 @@ skv.__index = skv
 
 local HOST = '127.0.0.1'
 local PORT = 12345
-local CONNECT_TIMEOUT = 0.1
-local INITIAL_LISTEN_TIMEOUT = 0.2
 local MSG_VERSION = 'version'
 local MSG_UPDATE = 'update'
 local SKV_VERSION = '1.0'
@@ -53,14 +51,32 @@ function skv:init()
    self.remote_state = {}
    self.host = self.host or HOST
    self.port = self.port or PORT
-   if self.debug
-   then
-      --local f = iself.open('x.log', 'w')
-      self.fsm = sm:new({owner=self, debugFlag=true})
-   else
-      self.fsm = sm:new({owner=self})
-   end
+   self.fsm = sm:new({owner=self})
+   self.fsm.debugFlag = true
+   self.fsm.debugStream = {write=function (f, s)
+                              self:d(mst.string_strip(s))
+                                 end}
    self.fsm:enterStartState()
+   self:d('init done')
+
+end
+
+function skv:uninit()
+   self:d('uninit started')
+
+   self:clear_socket_maybe()
+   self:clear_timeout_maybe()
+   if self.json
+   then
+      self:clear_json()
+   end
+
+   -- kill dangling skv clients also
+   for c, _ in pairs(self.connections or {})
+   do
+      c:done()
+   end
+   self:a(not self.connections or self.connections:is_empty())
 end
 
 function skv:add_change_observer(cb, k)
@@ -102,21 +118,6 @@ function skv:change_occured(k, v)
    end
 end
 
-
-function skv:uninit()
-   if self.s
-   then
-      self.s:done()
-      self.s = nil
-   end
-   if self.json
-   then
-      self.json:done()
-      self.s = nil
-   end
-   self:clear_ev()
-end
-
 function skv:fail(s)
    self.error = s
    if self.debug
@@ -139,16 +140,18 @@ function skv:repr_data()
    else
       r = "!"
    end
-   return string.format('host:%s port:%d state:%s', 
-                        self.host or "?", 
-                        self.port or 0, 
-                        r)
+   local dead = self._is_done
+   return mst.repr{h=self.host, 
+                   p=self.port, 
+                   st=r, 
+                   d=dead,
+                  }
 end
 
 -- Client code
 
-function skv:init_client()
-   self.listen_timeout = INITIAL_LISTEN_TIMEOUT
+function skv:init_client(listen_timeout)
+   self.listen_timeout = listen_timeout
    self.fsm:Initialized()
 end
 
@@ -164,51 +167,72 @@ function skv:connect()
    self.client = true
    self.connected = false
    self:d('skv:connect')
-   self.s = scb.new_connect{host=self.host, port=self.port,
-                               debug=self.debug,
-                               callback=function (c) 
-                                  self:d('connect callback')
-                                  if c
-                                  then
-                                     self.connected = true
-                                     self.s = c
-                                     c.close_callback = function (s)
-                                        self.fsm:ConnectionClosed()
-                                     end
-                                     self.fsm:Connected()
-                                  else
-                                     self.s:done()
-                                     self.s = nil
-                                     self.fsm:ConnectFailed()
-                                  end
-                               end}
-   if not self.connected
+   self:a(not self.s)
+   self.s = scb.new_connect{p=self,
+                            host=self.host, port=self.port,
+                            debug=self.debug,
+                             callback=function (c) 
+                                self:d('connect callback')
+                                if c
+                                then
+                                   self.connected = true
+                                   -- get rid of old (it may not even exist)
+                                   -- (if connect happened synchronously)
+                                   self:a(self.s ~= c)
+                                   if self.s
+                                   then
+                                      self.s:detach()
+                                      self:clear_socket()
+                                   end
+                                   self:d('set new socket [connect]')
+                                   self.s = c 
+                                   c.close_callback = function (s)
+                                      self.fsm:ConnectionClosed()
+                                   end
+                                   self.fsm:Connected()
+                                else
+                                   self.fsm:ConnectFailed()
+                                end
+                             end}
+   self:d('leaving connect', self.s)
+
+end
+
+-- these clear functions assert, to make sure the state is consistent
+
+function skv:clear_timeout()
+   self:a(self.timeout)
+   self.timeout:done()
+   self.timeout = nil
+end
+
+function skv:clear_timeout_maybe()
+   if self.timeout
    then
-      local l = ssloop.loop()
-      self.s_t = l:new_timeout_delta(CONNECT_TIMEOUT,
-                                     function ()
-                                        self:d('!!t1!!')
-                                        self.fsm:ConnectFailed()
-                                     end):start()
+      self:clear_timeout()
    end
 end
 
-function skv:clear_ev()
-   -- kill listeners, if any
-   local c = 0
-   self:d('clear_ev')
-   for _, e in ipairs({"s_w", "s_t", "s_r"})
-   do
-      if self[e]
-      then
-         self:d(' removing', e, self[e])
-         o = self[e]
-         o:stop()
-         self[e] = nil
-         c = c + 1
-      end
+function skv:clear_socket()
+   self:d('cleared socket')
+   self:a(self.s)
+   self.s:done()
+   self.s = nil
+end
+
+function skv:clear_socket_maybe()
+   if self.s
+   then
+      self:clear_socket()
    end
 end
+
+function skv:clear_json()
+   self:a(self.json)
+   self.json:done()
+   self.json = nil
+end
+
 
 function skv:get_combined_state()
    -- combine both remote and local state. trivial solution: use
@@ -350,10 +374,10 @@ end
 
 
 
-function skv:wrap_socket_jsoncodec()
-   -- clear existing listeners, json will install it's own
-   self:clear_ev()
-
+function skv:wrap_socket_json()
+   self:d('wrap_socket_json', self.s)
+   self:a(not self.json, 'already have json')
+   self:a(self.s, 'no socket to wrap')
    self.json = jsoncodec.wrap_socket{s=self.s, 
                                      debug=self.debug,
                                      callback=function (o)
@@ -364,11 +388,6 @@ function skv:wrap_socket_jsoncodec()
                                      end}
    
    self.s = nil
-end
-
-function skv:clear_jsoncodec()
-   self.json:done()
-   self.json = nil
 end
 
 function skv:get_jsoncodecs()
@@ -392,17 +411,19 @@ end
 function skv:init_server()
    self.fsm:Initialized()
    self.client = false
-   self.connections = {}
+   self.connections = mst.set:new()
 end
 
 function skv:bind()
-   local s, err = scb.new_listener{host=self.host, port=self.port, 
+   local s, err = scb.new_listener{p=self,
+                                   host=self.host, port=self.port, 
                                    debug=self.debug,
                                    callback=function (c) 
                                       self:new_client(c)
                                    end}
    if s
    then
+      self:a(not self.s)
       self.s = s
       self.fsm:Bound()
       return
@@ -420,12 +441,12 @@ function skv:increase_retry_timer()
    self.listen_timeout = self.listen_timeout * 3 / 2
 end
 
-function skv:start_retry_timer()
+function skv:start_retry_timer(timeout)
+   timeout = timeout or self.listen_timeout
    local l = ssloop.loop()
-   self.s_t = l:new_timeout_delta(CONNECT_TIMEOUT,
+   self:a(not self.timeout, 'previous timeout around')
+   self.timeout = l:new_timeout_delta(timeout,
                                   function ()
-                                     self:d('!!t2!!')
-                                     self:clear_ev()
                                      self.fsm:Timeout()
                                   end):start()
 end
@@ -435,6 +456,7 @@ end
 function skvclient:init()
    assert(self)
    self.parent.connections[self] = true
+   self:a(not self.json)
    self.json = jsoncodec.wrap_socket{s=self.s,
                                      debug=self.debug,
                                      callback=function (o)
@@ -478,6 +500,7 @@ function skvclient:handle_received_json(d)
 end
 
 function skvclient:handle_close()
+   self:d('handle_close')
    self:done()
 end
 

@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Tue Oct  2 16:11:51 2012 mstenber
+-- Last modified: Wed Oct  3 13:22:47 2012 mstenber
 -- Edit time:     63 min
 --
 
@@ -119,7 +119,6 @@ describe("repr", function()
                   local a = {1, 'foo'}
                   local s = "foo"
                   local n = 42
-                  --mst.enable_debug = true
                   assert.are.same(repr(t), '{foo=1}')
                   assert.are.same(repr(a), '{1, "foo"}')
                   assert.are.same(repr(s), '"foo"')

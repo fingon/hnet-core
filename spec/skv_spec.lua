@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Tue Oct  2 13:42:01 2012 mstenber
--- Edit time:     123 min
+-- Last modified: Wed Oct  3 16:30:32 2012 mstenber
+-- Edit time:     159 min
 --
 
 require "busted"
@@ -42,13 +42,15 @@ local SERVER_STATE_NAME = 'Server.WaitConnections'
 
 describe("class init", 
          function()
-            setup(function ()
-                     assert(#loop.r == 0, "some readers left")
-                     assert(#loop.w == 0, "some writers left")
-                     assert(#loop.t == 0, "some timeouts left")
+            before_each(function ()
+                     local r = loop:clear()
+                     mst.a(not r, 'something left dangling (setup)', r)
                   end)
-            teardown(function ()
+            after_each(function ()
                         loop:clear()
+                        -- we intentionally clear it first
+                        local r = loop:clear()
+                        mst.a(not r, 'something left dangling (td)', r)
                      end)
             it("cannot be created w/o loop", 
                function()
@@ -67,7 +69,6 @@ describe("class init",
             it("cannot be created [non-long lived]", 
                function()
                   local o = skv:new{long_lived=false
-                                    --  ,debug=true
                                     ,port=get_available_port()
                                    }
                   add_eventloop_terminator(o, 'fail')
@@ -79,11 +80,11 @@ describe("class init",
                end)
          end)
 
-local function setup_client_server(base_c, debug)
+local function setup_client_server(base_c)
+   mst.d('setup_client_server')
    local port = get_available_port()
-   --mst.debug = debug
-   local o1 = skv:new{long_lived=true, port=port, debug=debug}
-   local o2 = skv:new{long_lived=true, port=port, debug=debug}
+   local o1 = skv:new{long_lived=true, port=port}
+   local o2 = skv:new{long_lived=true, port=port}
    -- insert conditional closing stuff
    local c = {base_c}
    
@@ -92,7 +93,9 @@ local function setup_client_server(base_c, debug)
       inject_refcounted_terminator(o, 'new_client', c)
       inject_refcounted_terminator(o.fsm, 'ReceiveVersion', c)
    end
+   mst.d(' run_loop_awhile')
    run_loop_awhile()
+   mst.d(' run_loop_awhile done')
    local s1 = o1.fsm:getState().name
    local s2 = o2.fsm:getState().name
 
@@ -106,6 +109,9 @@ local function setup_client_server(base_c, debug)
    end
    assert.are.same(s1, SERVER_STATE_NAME)
    assert.are.same(s2, CLIENT_STATE_NAME)
+   mst.d('setup_client_server done')
+
+
    return o2, o1, c
 end
 
@@ -151,13 +157,15 @@ local function test_state_propagation(src, dst, st1, st2, st3)
 end
 
 describe("class working (ignoring setup)", function()
-            setup(function ()
-                     assert(#loop.r == 0, "some readers left")
-                     assert(#loop.w == 0, "some writers left")
-                     assert(#loop.t == 0, "some timeouts left")
+            before_each(function ()
+                     local r = loop:clear()
+                     mst.a(not r, 'something left dangling (setup)', r)
                   end)
-            teardown(function ()
+            after_each(function ()
                         loop:clear()
+                        -- we intentionally clear it first
+                        local r = loop:clear()
+                        mst.a(not r, 'something left dangling (td)', r)
                      end)
 
             it("transmits data [nowait]", function ()
@@ -179,50 +187,54 @@ describe("class working (ignoring setup)", function()
 
             it("transmits data s->c [nowait] #sc", function ()
                   local port = get_available_port()
-                  local debug = true
-                  local debug = false
-                  local s = skv:new{long_lived=true, port=port, debug=debug}
-                  local c = skv:new{long_lived=false, auto_retry=true, port=port, debug=debug}
+                  local s = skv:new{long_lived=true, port=port}
+                  local c = skv:new{long_lived=false, auto_retry=true, port=port}
                   test_state_propagation(s, c)
                                       end)
 
             it("transmits data c->s->c [nowait]", function ()
                   local port = get_available_port()
-                  local debug = true
-                  local debug = false
-                  local s = skv:new{long_lived=true, port=port, debug=debug}
-                  local c1 = skv:new{long_lived=false, auto_retry=true, port=port, debug=debug}
-                  local c2 = skv:new{long_lived=false, auto_retry=true, port=port, debug=debug}
+                  local s = skv:new{long_lived=true, port=port}
+                  local c1 = skv:new{long_lived=false, auto_retry=true, port=port}
+                  local c2 = skv:new{long_lived=false, auto_retry=true, port=port}
                   test_state_propagation(c1, c2)
                                       end)
             
                                            end)
 
-describe("class working (post setup)", function()
-            setup(function ()
-                     assert(#loop.r == 0, "some readers left")
-                     assert(#loop.w == 0, "some writers left")
-                     assert(#loop.t == 0, "some timeouts left")
+describe("class working (post setup) #clear", function()
+            before_each(function ()
+                     local r = loop:clear()
+                     mst.a(not r, 'something left dangling (setup)', r)
                   end)
-            teardown(function ()
-                        loop:clear()
+            after_each(function ()
+                        local r = loop:clear()
+                        mst.a(not r, 'something left dangling (td)', r)
                      end)
             it("should transfer state across (c->s) #pcs", function()
-                  local c, s, h = setup_client_server(2
-                                                      --,true --debug
-                                                     )
+                  mst.d('!!! init')
+                  local c, s, h = mst.d_xpcall(
+                     function ()
+                        return setup_client_server(2)
+                     end)
+                  mst.d('!!! test_state_propagation')
                   test_state_propagation(c, s)
+                  mst.d('!!! s/c done')
+                  mst.d_xpcall(
+                     function ()
+                        c:done()
+                        s:done()
+                     end)
+                  mst.d('!!! over')
               end)
             it("should transfer state across (s->c) #psc", function()
-                  local c, s, h = setup_client_server(2
-                                                      --,true --debug
-                                                     )
+                  local c, s, h = setup_client_server(2)
                   test_state_propagation(s, c)
+                  c:done()
+                  s:done()
               end)
             it("test change notifications #cn", function()
-                  local c, s, h = setup_client_server(2
-                                                      --,true --debug
-                                                     )
+                  local c, s, h = setup_client_server(2)
                   
                   local calls = {0, 0}
                   -- this occurs twice
@@ -257,13 +269,13 @@ describe("class working (post setup)", function()
                                end)
                   mst.enable_assert = true
                   mst.a(mst.table_is_empty(s.change_events, 'remaining change_events'))
+                  c:done()
+                  s:done()
 
               end)
             it("client should reconnect if server disconnects suddenly",
                function()
-                  local c, s, h = setup_client_server(2
-                                                      --,true --debug
-                                                     )
+                  local c, s, h = setup_client_server(2)
 
                   -- ok, we simulate server disconnect and expect 3
                   -- events to happen - client should get conn closed,
@@ -287,5 +299,7 @@ describe("class working (post setup)", function()
                   assert.are.same(cs2, SERVER_STATE_NAME)
                   ensure_sane(c)
                   ensure_sane(s)
+                  c:done()
+                  s:done()
                end)
          end)

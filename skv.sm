@@ -1,3 +1,8 @@
+%{
+        local CONNECT_TIMEOUT = 0.1
+        local INITIAL_LISTEN_TIMEOUT = 0.2
+%}
+
 %start Client::Init
 %class SKV
 
@@ -6,7 +11,7 @@
 
 // State Transition End State Action(s)
 Init 
-Entry { init_client(); }
+Entry { init_client(INITIAL_LISTEN_TIMEOUT); }
 {
   Initialized Connecting { }
 }
@@ -18,22 +23,29 @@ Default
 }
 
 Connecting 
-Entry { connect(); }
-Exit { clear_ev(); }
+Entry { start_retry_timer(CONNECT_TIMEOUT); connect(); }
+Exit { clear_timeout_maybe(); }
 {
-  Connected WaitVersion {}
-  ConnectFailed [ ctxt:is_long_lived() ] Server::Init {}
-  ConnectFailed [ ctxt:should_auto_retry() ] ClientFailRetry {}
-  ConnectFailed Terminal::ClientFailConnect {  }
+  Connected WaitVersion { }
+
+  // XXX - should the failure behavior be same for failure + timeout?
+
+  ConnectFailed [ ctxt:is_long_lived() ] Server::Init { clear_socket_maybe(); }
+  ConnectFailed [ ctxt:should_auto_retry() ] ClientFailRetry { clear_socket_maybe(); }
+  ConnectFailed Terminal::ClientFailConnect {  clear_socket_maybe(); }
+
+  Timeout [ ctxt:is_long_lived() ] Server::Init { clear_socket_maybe(); }
+  Timeout [ ctxt:should_auto_retry() ] ClientFailRetry { clear_socket_maybe(); }
+  Timeout Terminal::ClientFailConnect {  clear_socket_maybe(); }
 }
 
 WaitVersion
-Entry  { wrap_socket_jsoncodec(); }
+Entry  { wrap_socket_json(); }
 Exit { }
 {
   ReceiveVersion(v: Value) [ctxt:protocol_is_current_version(v)] WaitUpdates {}
   ReceiveVersion(v: Value) Terminal::ClientFailConnect {}
-  ConnectionClosed Connecting { clear_jsoncodec(); }
+  ConnectionClosed Connecting { clear_json(); }
 // receiving of updates handled here; however, it doesn't affect system state machine
 }
 
@@ -41,7 +53,7 @@ WaitUpdates
 Entry  { send_local_state(); 
 //send_listeners(); 
 }
-Exit { clear_jsoncodec(); }
+Exit { clear_json(); }
 {
   HaveUpdate(k: Key, v:Value) nil { store_local_update(k, v); send_update(k, v); }
 //  AddListener(k: String, cb:Callback) nil { l = add_listener(k, cb); send_add_listener(l); }
@@ -52,6 +64,7 @@ Exit { clear_jsoncodec(); }
 
 ClientFailRetry
 Entry { increase_retry_timer(); start_retry_timer(); }
+Exit { clear_timeout(); }
 {
   Timeout Connecting { }
 }
@@ -78,11 +91,12 @@ Binding
 Entry { bind(); }
 {
   Bound WaitConnections { }
-  BindFailed InitWaitTimeout { }  
+  BindFailed InitWait { }  
 }
 
-InitWaitTimeout 
+InitWait
 Entry { increase_retry_timer(); start_retry_timer(); }
+Exit { clear_timeout(); }
 {
   Timeout Client::Connecting { }
 }

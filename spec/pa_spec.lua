@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Tue Oct  2 17:33:03 2012 mstenber
--- Edit time:     104 min
+-- Last modified: Wed Oct  3 16:34:17 2012 mstenber
+-- Edit time:     109 min
 --
 
 require "busted"
@@ -122,7 +122,7 @@ function find_lap(prefix)
 end
 
 describe("pa", function ()
-            setup(function ()
+            before_each(function ()
                      o = ospf:new{usp={{'dead::/16', 'rid1'},
                                        {'dead:beef::/32', 'rid2'},
                                        {'cafe::/16', 'rid3'}},
@@ -141,7 +141,7 @@ describe("pa", function ()
                      pa = _pa.pa:new{client=o, lap_class=dummy_lap,
                                      rid='myrid'}
                   end)
-            teardown(function ()
+            after_each(function ()
                         -- make sure pa seems sane
                         check_sanity()
                         -- and kill it explicitly
@@ -206,6 +206,7 @@ describe("pa-old", function ()
                                   }}
                   pa:run()
                   mst.a(find_lap('dead:bee1::/64'))
+                  pa:done()
                                                                end)
                    end)
 
@@ -321,9 +322,14 @@ describe("pa-net", function ()
                         mst.a(#ls[2] == 1)
                         mst.a(#ls[3] == 3)
                      end
+
+                  -- finally clear up things
+                  for i, v in ipairs(nl)
+                  do
+                     v:done()
                   end
 
-
+                  end
 
                               end)
                    end)
