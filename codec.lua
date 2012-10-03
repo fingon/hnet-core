@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Tue Oct  2 13:42:47 2012 mstenber
--- Edit time:     125 min
+-- Last modified: Wed Oct  3 22:04:34 2012 mstenber
+-- Edit time:     130 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -54,6 +54,10 @@ function abstract_data:init()
       self:a(self.header_default, 'header_default missing')
       self.header_length = #self.header.pack(self.header_default)
    end
+end
+
+function abstract_data:repr_data()
+   return mst.repr{format=self.format, header_length=self.header_length, header_default=self.header_default}
 end
 
 function abstract_data:decode(cur)
@@ -249,7 +253,10 @@ asp_ac_tlv = prefix_ac_tlv:new{class='asp_ac_tlv',
 local _tlv_decoders = {rhf_ac_tlv, usp_ac_tlv, asp_ac_tlv}
 
 function decode_ac_tlvs(s)
+
    local cur = vstruct.cursor(s)
+   mst.d('decode_ac_tlvs', #s)
+
    mst.d('decoders', #_tlv_decoders)
    local hls = mst.array_map(_tlv_decoders,
                              function (t) 
@@ -268,6 +275,7 @@ function decode_ac_tlvs(s)
          if o
          then
             table.insert(t, o)
+            mst.d('decoded', o)
             break
          end
       end
