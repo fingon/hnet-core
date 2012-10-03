@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Oct  2 17:27:54 2012 mstenber
--- Edit time:     314 min
+-- Last modified: Wed Oct  3 12:15:14 2012 mstenber
+-- Edit time:     320 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -206,7 +206,7 @@ function usp:repr_data()
    return mst.repr{prefix=self.prefix, rid=self.rid}
 end
 
-pa = mst.create_class{class='pa', lap_class=lap}
+pa = mst.create_class{class='pa', lap_class=lap, mandatory={'rid'}}
 
 -- main prefix assignment class
 
@@ -254,6 +254,10 @@ function pa:get_local_asp_values()
 end
 
 function pa:repr_data()
+   if not self.asp
+   then
+      return '?'
+   end
    local asps = self.asp:values()
    local lasp = self:get_local_asp_values()
 
@@ -409,6 +413,8 @@ function pa:assign_own(iid, usp)
                rid=self.rid, 
                valid=true}
    o:assign_lap()
+
+   self.changes = self.changes + 1
 end
 
 -- child responsibility - return old assignment multimap, with
@@ -483,6 +489,7 @@ function pa:check_asp_conflicts(asp)
       then
          -- as described in 6.3.3
          asp:depracate()
+         self.changes = self.changes + 1
          return
       end
    end
@@ -505,6 +512,8 @@ function pa:assign_other(asp)
 end
 
 function pa:run()
+   self.changes = 0
+
    self:d('run called')
 
    client = self.client
@@ -556,12 +565,21 @@ function pa:run()
                      end)
 
    -- handle the expired local assignments
-   self:filtered_values_done(self.asp,
-                             function (asp) 
-                                return not asp:is_remote() and not asp.valid 
-                             end)
-   self:d('run done')
+   for i, asp in ipairs(self:get_local_asp_values())
+   do
+      if not asp.valid
+      then
+         asp:done()
+         self.changes = self.changes + 1
+      end
+   end
 
+   self:d('run done', self.changes)
+
+   if self.changes > 0
+   then
+      return self.changes
+   end
 end
 
 function pa:add_or_update_usp(prefix, rid)
