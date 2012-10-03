@@ -4,9 +4,39 @@
 
 ** Comprehensively test PA alg
 
-** Integrate PA alg, OSPF-ELSA codec, SKV, and rest 
+** Integrate PA alg, OSPF-ELSA codec, SKV, and rest [1/3]
 
-*** elsa_pa module
+*** wrapper around elsa_pa for elsa.lua
+
+*** pm module (probably should run elsewhere than in OSPF?)
+
+ maintain local if state according to 'ospf-lap' changes
+
+ - mutate radvd.conf
+
+** Make command line tool to inject USPs
+
+** Multihoming support
+
+- requires next-hop finding (from rt.c / process_prefixes can take some
+  hints, as it calculates the IPv6 prefix reachability based on the
+  advertising router ids - we should do something similar, router id if the
+  USP => calculate next hop for that)
+
+- PM should configure skv-published USP+if+nexthop pairs to 'ip rule' table
+
+'ospf-usp' key will contain stuff for ip rule table
+ {{prefix=usp-prefix, ifname=ifname, nh=next-hop}, ...}
+
+** Naming support?
+
+- should provide stateless DHCPv6 with DNS info at least (gathered from all
+  providers?)
+
+* Done (1.10.+)
+
+** Integrate PA alg, OSPF-ELSA codec, SKV, and rest 
+*** elsa_pa module [done 03/10]
 
  OSPF => PA
 
@@ -29,40 +59,14 @@
 SKV content:
 
 'pd.<if>' results of DHCPv6 prefix delegation for a single interface
- format: {{prefix, valid-lifetime}, ...}
+ format: {{prefix[, valid-lifetime]}, ...}
 
 'iflist' should be a list of interfaces that have been seen _at some point_
 (this can be updated by scripts, or ospf)
 
 'ospf-lap' key will contain state local hosts should care about
- {{ifname, prefix}, ...} for every non-depracated prefix
+ {{ifname=ifname, prefix=prefix}, ...} for every non-depracated prefix
 
-*** pm module (probably should run elsewhere than in OSPF?)
-
- maintain local if state according to 'ospf-lap' changes
-
- - mutate radvd.conf
-
-** Make command line tool to inject USPs
-
-** Multihoming support
-
-- requires next-hop finding (from rt.c / process_prefixes can take some
-  hints, as it calculates the IPv6 prefix reachability based on the
-  advertising router ids - we should do something similar, router id if the
-  USP => calculate next hop for that)
-
-- PM should configure skv-published USP+if+nexthop pairs to 'ip rule' table
-
-'ospf-usp' key will contain stuff for ip rule table
- {{usp-prefix, if, next-hop}, ...}
-
-** Naming support?
-
-- should provide stateless DHCPv6 with DNS info at least (gathered from all
-  providers?)
-
-* Done (1.10.+)
 
 ** Figure why enabling debug breaks tests
 
