@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Oct  3 17:33:03 2012 mstenber
--- Edit time:     364 min
+-- Last modified: Wed Oct  3 23:30:09 2012 mstenber
+-- Edit time:     369 min
 --
 
 -- data structure abstractions provided:
@@ -621,11 +621,13 @@ function table_values(t)
 end
 
 -- sorted keys of a table
+_not_comparable_type = {userdata=true, table=true}
+
 function table_sorted_keys(t)
    -- ugh.. this kinda sucks, if there's userdata keys within :p
    -- ugly workaround
    local keys = table_keys(t):map(function (x)
-                                     if type(x) == 'userdata'
+                                     if _not_comparable_type[type(x)]
                                      then
                                         return repr(x)
                                      else
