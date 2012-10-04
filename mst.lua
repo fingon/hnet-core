@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Oct  4 11:37:42 2012 mstenber
--- Edit time:     371 min
+-- Last modified: Fri Oct  5 01:18:47 2012 mstenber
+-- Edit time:     397 min
 --
 
 -- data structure abstractions provided:
@@ -375,8 +375,8 @@ function array_repr(t, shown)
 end
 
 -- transform array to table, with default value v if provided
-function array_to_table(a, default)
-   local t = map:new()
+function array_to_table(a, default, dest)
+   local t = dest or map:new()
    for i, v in ipairs(a)
    do
       t[v] = default or true
@@ -412,6 +412,7 @@ array = create_class{class='array',
                      find=array_find,
                      to_table=array_to_table,
                      repr=array_repr,
+                     join=table.concat,
                     }
 
 function array:count()
@@ -420,6 +421,37 @@ end
 
 function array:is_empty()
    return #self == 0
+end
+
+function array:to_set()
+   return array_to_table(self, nil, set:new())
+end
+
+function array:extend(l)
+   for i, v in ipairs(l)
+   do
+      self:insert(v)
+   end
+end
+
+function array:slice(i1, i2)
+   function convert_real(i)
+      if i < 0
+      then
+         i = 1 + #self + i
+      end
+      return i
+   end
+   i1 = i1 or 1
+   i2 = i2 or #self
+   i1 = convert_real(i1)
+   i2 = convert_real(i2)
+   local t = array:new{}
+   for i=i1,i2
+   do
+      t:insert(self[i])
+   end
+   return t
 end
 
 --- string utilities
@@ -485,11 +517,12 @@ end
 
 
 function string_split_rec(s, delim, ofs, t)
+   mst.a(s and delim and ofs and t)
    for i=ofs,#s
    do
       if string.sub(s, i, i+#delim-1) == delim
       then
-         table.insert(t, string.sub(s, ofs, i-1))
+         t:insert(string.sub(s, ofs, i-1))
          string_split_rec(s, delim, i+#delim, t)
          return
       end
@@ -498,6 +531,7 @@ function string_split_rec(s, delim, ofs, t)
 end
 
 function string_split(s, delim)
+   delim = delim or ' '
    mst.a(s, 'undefined argument to string_split', s, delim)
 
    local t = array:new()
@@ -736,6 +770,37 @@ function set:remove(o)
    self[o] = nil
 end
 
+function set:intersection(t)
+   local r = set:new{}
+   for k, _ in pairs(self)
+   do
+      if t[k]
+      then
+         r:insert(k)
+      end
+   end
+   return r
+end
+
+function set:difference(t)
+   local r = set:new{}
+   for k, _ in pairs(self)
+   do
+      if not t[k]
+      then
+         r:insert(k)
+      end
+   end
+   return r
+end
+
+function set:union(t)
+   -- in theory, just 2x difference + intersection
+   -- but much faster to have dedicated op here
+   local r = table_copy(self)
+   table_copy(t, r)
+   return r
+end
 
 
 -- add 'insert', 'remove' operations'
@@ -893,6 +958,63 @@ function d_xpcall(fun)
                      end)}
    table.remove(r, 1)
    return unpack(r)
+end
+
+-- bit manipulation
+function bitv_is_set_bit(v, n)
+   mst.a(v and n)
+   if n > 1
+   then
+      v = math.floor(v / 2^(n-1))
+   end
+   return v % 2 > 0
+end
+
+function bitv_set_bit(v, n)
+   mst.a(v and n)
+   if not bitv_is_set_bit(v, n)
+   then
+      local bv = 2^(n-1)
+      v = v + bv
+   end
+   return v
+end
+
+function bitv_clear_bit(v, n)
+   mst.a(v and n)
+   if bitv_is_set_bit(v, n)
+   then
+      local bv = 2^(n-1)
+      v = v - bv
+   end
+   return v
+end
+
+function bitv_xor_bit(v, n)
+   mst.a(v and n)
+   if bitv_is_set_bit(v, n)
+   then
+      return bitv_clear_bit(v, n)
+   else
+      return bitv_set_bit(v, n)
+   end
+end
+
+function bitv_highest_bit(v)
+   mst.a(v)
+   local r = math.floor(math.log(v)/math.log(2)) + 1
+   mst.d('bitv_highest_bit', v, r)
+   return r
+end
+
+-- python system command equivalent
+function system(cmd)
+   mst.d('system', cmd)
+   local f = io.popen(cmd)
+   local d = f:read('*a')
+   f:close()
+   mst.d('got', d)
+   return d
 end
 
 -- event class (used within the baseclass)
