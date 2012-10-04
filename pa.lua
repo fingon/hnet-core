@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Thu Oct  4 13:01:54 2012 mstenber
--- Edit time:     334 min
+-- Last modified: Fri Oct  5 00:46:36 2012 mstenber
+-- Edit time:     335 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -261,13 +261,14 @@ function pa:repr_data()
    local asps = self.asp:values()
    local lasp = self:get_local_asp_values()
 
-   return string.format('rid:%s #lap:%d #ridr:%d #asp:%d[%d] #usp:%d',
+   return string.format('rid:%s #lap:%d #ridr:%d #asp:%d[%d] #usp:%d #if:%d',
                         self.rid,
                         #self.lap:values(),
                         #self.ridr:values(),
                         #asps, 
                         #lasp, 
-                        #self.usp:values())
+                        #self.usp:values(),
+                        self.ifs and #self.ifs:values() or -1)
 end
 
 function pa:run_if_usp(iid, highest_rid, usp)

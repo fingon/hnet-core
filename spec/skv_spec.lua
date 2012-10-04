@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Thu Oct  4 16:01:30 2012 mstenber
--- Edit time:     168 min
+-- Last modified: Fri Oct  5 01:13:07 2012 mstenber
+-- Edit time:     171 min
 --
 
 require "busted"
@@ -197,6 +197,16 @@ describe("class working (ignoring setup)", function()
                   local s = skv:new{long_lived=true, port=port}
                   local c1 = skv:new{long_lived=false, auto_retry=true, port=port}
                   local c2 = skv:new{long_lived=false, auto_retry=true, port=port}
+                  test_state_propagation(c1, c2)
+                                      end)
+
+            it("transmits data c->s->c [wait] #wc", function ()
+                  local port = get_available_port()
+                  local s = skv:new{long_lived=true, server=true, port=port}
+                  local c1 = skv:new{long_lived=false, port=port}
+                  c1:connect()
+                  local c2 = skv:new{long_lived=false, port=port}
+                  c2:connect()
                   test_state_propagation(c1, c2)
                                       end)
             

@@ -1,5 +1,13 @@
 -*- outline -*-
 
+* Bugs to fix
+
+** Fix timeouting tests
+
+- nothing should, probably, or we should tune timeouts for test running to 'low' values
+
+** Make pm look for return codes (fix mst.system call somehow?)
+
 * Things to do
 
 ** PA alg features
@@ -9,21 +17,6 @@
 if OSPF changes RID, we should update it in elsa_pa (and pa)
 
 ** Comprehensively test PA alg
-
-** Integrate PA alg, OSPF-ELSA codec, SKV, and rest [1/3]
-
-*** pm module (probably should run elsewhere than in OSPF?)
-
- maintain local if state according to 'ospf-lap' / 'ospf-usp' changes
-
- - mutate radvd.conf
-
- - ip address add/remove
-
- ospf-usp can be used to control which prefixes we care about, but
- alternative approach is to give control of _all_ assignments to this.
-
-
 
 ** Multihoming support
 
@@ -75,6 +68,17 @@ just get provided with LSA updates
 skvtool.lua!
 
 ** Integrate PA alg, OSPF-ELSA codec, SKV, and rest 
+
+*** pm module (probably should run elsewhere than in OSPF?) [done 05/10]
+
+ maintain local if state according to 'ospf-lap' / 'ospf-usp' changes
+
+ - mutate radvd.conf
+
+ - ip address add/remove
+
+ ospf-usp can be used to control which prefixes we care about, but
+ alternative approach is to give control of _all_ assignments to this.
 
 *** wrapper around elsa_pa for elsa.lua [done 04/10]
 

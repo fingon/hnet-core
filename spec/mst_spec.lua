@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Oct  3 13:22:47 2012 mstenber
--- Edit time:     63 min
+-- Last modified: Thu Oct  4 23:20:45 2012 mstenber
+-- Edit time:     73 min
 --
 
 require "busted"
@@ -194,6 +194,15 @@ describe("array", function ()
                   a:insert(3)
                   mst.a(a:count() == 3)
                   mst.a(a:filter(function (x) return x==1 end):count() == 1)
+                  -- test that slice works
+                  mst.a(mst.repr_equal(a, a:slice()))
+                  mst.a(mst.repr_equal(a:slice(2), {2, 3}))
+                  mst.a(mst.repr_equal(a:slice(-2), {2, 3}))
+                  mst.a(mst.repr_equal(a, a:slice(1, 3)))
+                  mst.a(mst.repr_equal(a:slice(1, 2), {1, 2}))
+                  mst.a(mst.repr_equal(a:slice(1, 1), {1}))
+                  mst.a(mst.repr_equal(a:slice(1, -2), {1, 2}))
+                  mst.a(mst.repr_equal(a:slice(1, -3), {1}))
                    end)
              end)
 
@@ -209,3 +218,23 @@ describe("map", function ()
                   mst.a(m.foo == 'bar')
                                  end)
                 end)
+
+
+describe("bits", function ()
+            it("works", function ()
+                  local t1 = 1
+                  local t2 = 3
+                  local t3 = 128
+                  local t4 = 127
+                  local t5 = 129
+                  mst.a(mst.bitv_highest_bit(t1) == 1)
+                  mst.a(mst.bitv_highest_bit(t2) == 2)
+                  mst.a(mst.bitv_highest_bit(t3) == 8)
+                  mst.a(mst.bitv_highest_bit(t4) == 7)
+                  mst.a(mst.bitv_highest_bit(t5) == 8)
+                  local t6 = mst.bitv_xor_bit(t5, 8)
+                  mst.d(t6 == 1)
+                  local t7 = mst.bitv_xor_bit(t5, 9)
+                  mst.d(t7 == 129+256)
+                        end)
+end)

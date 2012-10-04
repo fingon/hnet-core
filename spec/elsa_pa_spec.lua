@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Thu Oct  4 19:35:20 2012 mstenber
--- Edit time:     83 min
+-- Last modified: Fri Oct  5 00:10:00 2012 mstenber
+-- Edit time:     86 min
 --
 
 require 'mst'
@@ -18,27 +18,8 @@ require 'busted'
 require 'elsa_pa'
 require 'skv'
 require 'ssloop'
-
-delsa = mst.create_class{class='delsa'}
-
-function delsa:iterate_lsa(f, criteria)
-   for rid, body in pairs(self.lsas)
-   do
-      f{rid=rid, body=body}
-   end
-end
-
-function delsa:iterate_if(rid, f)
-   for i, v in ipairs(self.iid[rid] or {})
-   do
-      f(v)
-   end
-end
-
-function delsa:originate_lsa(lsa)
-   self:a(lsa.type == elsa_pa.AC_TYPE)
-   self.lsas[lsa.rid] = lsa.body
-end
+local _delsa = require 'delsa'
+delsa = _delsa.delsa
 
 local usp_dead_tlv = codec.usp_ac_tlv:encode{prefix='dead::/16'}
 
