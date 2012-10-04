@@ -2,6 +2,14 @@
 
 * Things to do
 
+** Document architecture better
+
+- at least what moves, where
+
+- which modules exist
+
+- ...
+
 ** Comprehensively test PA alg
 
 ** Integrate PA alg, OSPF-ELSA codec, SKV, and rest [1/3]
@@ -36,6 +44,7 @@
 * Done (1.10.+)
 
 ** Integrate PA alg, OSPF-ELSA codec, SKV, and rest 
+
 *** elsa_pa module [done 03/10]
 
  OSPF => PA

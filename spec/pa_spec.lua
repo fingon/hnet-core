@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Wed Oct  3 16:34:17 2012 mstenber
--- Edit time:     109 min
+-- Last modified: Thu Oct  4 11:40:34 2012 mstenber
+-- Edit time:     115 min
 --
 
 require "busted"
@@ -76,7 +76,7 @@ end
 function ospf:iterate_if(rid, f)
    for i, v in ipairs(self.iif[rid] or {})
    do
-      f(unpack(v))
+      f(v)
    end
 end
 
@@ -129,10 +129,10 @@ describe("pa", function ()
 
                                   -- in practise, 2 usp
                                   asp={{'dead:bee0::/64', 
-                                        'if1',
+                                        42, -- #if1
                                         'rid1'}},
-                                  iif={myrid={{'if1'},
-                                              {'if2'}}},
+                                  iif={myrid={{index=42,name='if1'},
+                                              {index=43,name='if2'}}},
                                   ridr={{'rid1'},
                                         {'rid2'},
                                         {'rid3'},
@@ -190,8 +190,8 @@ describe("pa-old", function ()
                                asp={{'dead:bee0::/64', 
                                      'if1',
                                      'rid1'}},
-                               iif={myrid={{'if1'},
-                                           {'if2'}}},
+                               iif={myrid={{index=42,name='if1'},
+                                           {index=43,name='if2'}}},
                                ridr={{'rid1'},
                                      {'rid2'},
                                      {'rid3'},
@@ -201,7 +201,7 @@ describe("pa-old", function ()
                                   rid='myrid',
                                   lap_class=dummy_lap,
                                   old_assignments={['dead::/16']=
-                                                   {{'if2', 'dead:bee1::/64'},
+                                                   {{43, 'dead:bee1::/64'},
                                                    },
                                   }}
                   pa:run()
@@ -223,9 +223,15 @@ describe("pa-net", function ()
                      o = ospf:new{usp={{'dead::/16', 'rid1'},
                                        --{'cafe::/16', 'rid3'},
                                       },
-                                  iif={n1={{'if1'}, {'if2'}, {'if0'}},
-                                       n2={{'if2'}, {'if3'}, {'if0'}},
-                                       n3={{'if3'}, {'if4'}, {'if0'}},
+                                  iif={n1={{index=42,name='if1'}, 
+                                           {index=43,name='if2'}, 
+                                           {index=41,name='if0'}},
+                                       n2={{index=43,name='if2'}, 
+                                           {index=44,name='if3'}, 
+                                           {index=41,name='if0'}},
+                                       n3={{index=44,name='if3'}, 
+                                           {index=45,name='if4'}, 
+                                           {index=41,name='if0'}},
                                   },
                                   ridr={{'rid1'},
                                         {'rid2'},
@@ -282,23 +288,23 @@ describe("pa-net", function ()
                      end
 
                      -- make sure there's local assignments
-                     mst.a(find_pa_lap(n1, {iid='if1'}))
-                     mst.a(find_pa_lap(n1, {iid='if2'}))
-                     mst.a(not find_pa_lap(n1, {iid='if3'}))
+                     mst.a(find_pa_lap(n1, {iid=42}))
+                     mst.a(find_pa_lap(n1, {iid=43}))
+                     mst.a(not find_pa_lap(n1, {iid=44}))
 
-                     mst.a(not find_pa_lap(n2, {iid='if1'}))
-                     mst.a(find_pa_lap(n2, {iid='if2'}))
-                     mst.a(find_pa_lap(n2, {iid='if3'}))
+                     mst.a(not find_pa_lap(n2, {iid=42}))
+                     mst.a(find_pa_lap(n2, {iid=43}))
+                     mst.a(find_pa_lap(n2, {iid=44}))
 
-                     mst.a(not find_pa_lap(n3, {iid='if1'}))
-                     mst.a(not find_pa_lap(n3, {iid='if2'}))
-                     mst.a(find_pa_lap(n3, {iid='if3'}))
-                     mst.a(find_pa_lap(n3, {iid='if4'}))
+                     mst.a(not find_pa_lap(n3, {iid=42}))
+                     mst.a(not find_pa_lap(n3, {iid=43}))
+                     mst.a(find_pa_lap(n3, {iid=44}))
+                     mst.a(find_pa_lap(n3, {iid=45}))
 
                      -- make sure mgmt if is everywhere
-                     mst.a(find_pa_lap(n1, {iid='if0'}))
-                     mst.a(find_pa_lap(n2, {iid='if0'}))
-                     mst.a(find_pa_lap(n3, {iid='if0'}))
+                     mst.a(find_pa_lap(n1, {iid=41}))
+                     mst.a(find_pa_lap(n2, {iid=41}))
+                     mst.a(find_pa_lap(n3, {iid=41}))
 
                      local ls = mst.array_map(nl, 
                                               function (n)

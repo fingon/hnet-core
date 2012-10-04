@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Oct  3 23:26:44 2012 mstenber
--- Edit time:     53 min
+-- Last modified: Thu Oct  4 11:23:04 2012 mstenber
+-- Edit time:     58 min
 --
 
 require 'mst'
@@ -43,7 +43,10 @@ end
 describe("elsa_pa", function ()
             it("can be created", function ()
                   local base_lsas = {r1=codec.usp_ac_tlv:encode{prefix='dead::/16'}}
-                  local e = delsa:new{iid={mypid={42, 123}}, 
+                  local e = delsa:new{iid={mypid={{index=42, 
+                                                   name='eth0'},
+                                                  {index=123,
+                                                   name='eth1'}}}, 
                                       lsas=base_lsas}
                   local skv = skv.skv:new{long_lived=true, port=31337}
                   local ep = elsa_pa.elsa_pa:new{elsa=e, skv=skv, rid='mypid'}
@@ -81,8 +84,10 @@ describe("elsa_pa", function ()
                   mst.d_xpcall(function ()
 
                   local base_lsas = {r1=codec.usp_ac_tlv:encode{prefix='dead::/16'}}
-                  local e = delsa:new{iid={ep1={42, 123}, 
-                                           ep2={43,123}},
+                  local e = delsa:new{iid={ep1={{index=42, name='eth0'},
+                                                {index=123, name='eth1'}}, 
+                                           ep2={{index=43,name='eth0'},
+                                                {index=123, name='eth1'}}},
                                       lsas=base_lsas}
                   local skv1 = skv.skv:new{long_lived=true, port=31338}
                   local skv2 = skv.skv:new{long_lived=true, port=31339}

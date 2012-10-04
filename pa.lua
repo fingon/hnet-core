@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Wed Oct  3 12:15:14 2012 mstenber
--- Edit time:     320 min
+-- Last modified: Thu Oct  4 11:32:12 2012 mstenber
+-- Edit time:     327 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -22,7 +22,7 @@
 --  iterate_rid(f) => callback with rid
 --  iterate_asp(f) => callback with prefix, iid, rid
 --  iterate_usp(f) => callback with prefix, rid
---  iterate_if(rid, f) => callback with iid, highest_rid
+--  iterate_if(rid, f) => callback with if-object, highest_rid
 --  rid (or given to constructor)
 
 -- client can also override/subclass the lap class here within pa, to
@@ -519,6 +519,18 @@ function pa:run()
    client = self.client
    mst.a(client, 'no client')
 
+   -- store the index => if-object (and less material index => highest-rid)
+   self.ifs = mst.map:new()
+   self.highest = mst.map:new()
+
+   client:iterate_if(self.rid, 
+                     function (ifo, highest_rid)
+                        self.ifs[ifo.index] = ifo
+                        self.highest[ifo.index] = highest_rid
+                     end
+                    )
+
+
    -- mark existing data invalid
    -- (laps have their own lifecycle governed via timeouts etc)
    self.asp:foreach(function (ii, o) o.valid = false end)
@@ -555,14 +567,15 @@ function pa:run()
                              end)
 
    -- run the prefix assignment
-   client:iterate_if(self.rid, 
-                     function (iid, highest_rid)
-                        for i, usp in ipairs(self.usp:values())
-                        do
-                           mst.a(usp.class == 'usp', usp, usp.class)
-                           self:run_if_usp(iid, highest_rid, usp)
-                        end
-                     end)
+   for iid, ifo in pairs(self.ifs)
+   do
+      local highest_rid = self.highest[iid]
+      for i, usp in ipairs(self.usp:values())
+      do
+         mst.a(usp.class == 'usp', usp, usp.class)
+         self:run_if_usp(iid, highest_rid, usp)
+      end
+   end
 
    -- handle the expired local assignments
    for i, asp in ipairs(self:get_local_asp_values())

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Oct  3 23:30:09 2012 mstenber
--- Edit time:     369 min
+-- Last modified: Thu Oct  4 11:37:42 2012 mstenber
+-- Edit time:     371 min
 --
 
 -- data structure abstractions provided:
@@ -194,7 +194,7 @@ function baseclass:a(stmt, ...)
    then
       print(debug.traceback())
       debug_print(self:tostring(), ...)
-      error(self:tostring()' assertion failed')
+      error(self:tostring() .. ' assertion failed', 2)
    end
 end
 
@@ -275,7 +275,7 @@ function a(stmt, ...)
    then
       print(debug.traceback())
       debug_print(...)
-      error('assertion failed')
+      error('assertion failed', 2)
    end
 end
 
@@ -841,7 +841,7 @@ function repr(o, shown)
    then
       return tostring(o)
    else
-      error("unknown type " .. t)
+      error("unknown type " .. t, 2)
    end
 end
 
