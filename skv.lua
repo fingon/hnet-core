@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Thu Oct  4 19:33:19 2012 mstenber
--- Edit time:     356 min
+-- Last modified: Thu Oct  4 20:47:58 2012 mstenber
+-- Edit time:     362 min
 --
 
 require 'mst'
@@ -47,7 +47,7 @@ local MSG_ACK = 'id-ack'
 local SKV_VERSION = '1.0'
 
 function skv:init()
-   self.change_events = {}
+   self.change_events = mst.multimap:new{}
 
    self.local_state = {}
    self.remote_state = {}
@@ -84,39 +84,24 @@ end
 
 function skv:add_change_observer(cb, k)
    k = k or true
-   local o = self.change_events[k]
-   if not o
-   then
-      o = mst.event:new()
-      self.change_events[k] = o
-   end
-   o:add_observer(cb)
+   self.change_events:insert(k, cb)
 end
 
 function skv:remove_change_observer(cb, k)
    k = k or true
-   o = self.change_events[k]
-   self:a(o, "invalid k", k, self)
-   o:remove_observer(cb)
-   if mst.table_is_empty(o.observers)
-   then
-      o:done()
-      self.change_events[k] = nil
-   end
+   self.change_events:remove(k, cb)
 end
 
 function skv:change_occured(k, v)
    assert(k and k ~= true)
 
-   local o = self.change_events[k]
-   if o
-   then
+   for i, o in ipairs(self.change_events[k] or {})
+   do
       o(k, v)
    end
 
-   o = self.change_events[true]
-   if o
-   then
+   for i, o in ipairs(self.change_events[true] or {})
+   do
       o(k, v)
    end
 end
