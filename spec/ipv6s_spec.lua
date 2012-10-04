@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 22:04:20 2012 mstenber
--- Last modified: Wed Oct  3 13:22:44 2012 mstenber
--- Edit time:     16 min
+-- Last modified: Thu Oct  4 23:31:40 2012 mstenber
+-- Edit time:     25 min
 --
 
 require 'ipv6s'
@@ -85,6 +85,22 @@ describe("prefix_to_bin", function ()
                    end)
                           end)
 
---function prefix_to_bin(p)
+describe("prefix_hwaddr_to_eui64", function ()
+            it("works", function ()
+                  -- note: /64, but last short's zeros
+                  local prefix = 'fdb2:2c26:f4e4::/64'
+                  local hwaddr = '00:1c:42:a7:f1:d9'
+                  local exp = 'fdb2:2c26:f4e4::21c:42ff:fea7:f1d9/64'
+                  local got = ipv6s.prefix_hwaddr_to_eui64(prefix, hwaddr)
+                  mst.a(got == exp, got, exp)
+
+                  local gprefix = ipv6s.eui64_to_prefix(exp)
+                  mst.a(gprefix == prefix, gprefix, prefix)
+                  
+                        end)
+             end)
+
+-- todo
+
 --function prefix_contains(p1, p2)
 --function binary_prefix_next_from_usp(up, p)

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Tue Oct  2 13:42:35 2012 mstenber
--- Edit time:     16 min
+-- Last modified: Fri Oct  5 00:52:45 2012 mstenber
+-- Edit time:     39 min
 --
 
 require 'mst'
@@ -137,6 +137,12 @@ function prefix_to_bin(p)
    return string.sub(b, 1, l[2] / 8)
 end
 
+-- assume that everything within is actually relevant
+function bin_to_prefix(bin)
+   local bits = #bin * 8
+   return string.format('%s/%d', binary_to_ascii(bin), bits)
+end
+
 function prefix_contains(p1, p2)
    mst.a(p1 and p2, 'invalid arguments to prefix_contains', p1, p2)
    local b1 = prefix_to_bin(p1)
@@ -176,3 +182,38 @@ function binary_prefix_next_from_usp(up, p)
    return up .. string.rep(string.char(0), 8 - #up)
 end
 
+-- given the hwaddr (in normal aa:bb:cc:dd:ee:ff:aa format) and
+-- prefix, generate eui64 masked address (e.g. addr/64)
+function prefix_hwaddr_to_eui64(prefix, hwaddr)
+   -- start is easy - prefix as binary
+   local bp = prefix_to_bin(prefix)
+   mst.a(#bp == 8, 'invalid base prefix')
+   -- then, generat binary representation of hw hwaddr.. which is bit depressing
+   local t = mst.string_split(hwaddr, ':')
+   mst.a(#t == 6, 'invalid hwaddr', #t, hwaddr)
+   local hwa = t:map(function (x) return mst.strtol(x, 16) end)
+
+   -- xor the globally unique bit
+   hwa[1] = mst.bitv_xor_bit(hwa[1], 2)
+   
+   -- then insert the first 3 characters
+   local hwn = hwa:slice(1, 3)
+   -- then ff, fe
+   hwn:extend({0xff, 0xfe})
+   -- and then last 3 characters from hw address
+   hwn:extend(hwa:slice(4, 6))
+   local hwb = string.char(unpack(hwn))
+   local b = bp .. hwb
+   return binary_to_ascii(b) .. '/64'
+end
+
+function eui64_to_prefix(addr)
+   -- must have /64 within
+   local a = mst.string_split(addr, '/')
+   mst.a(#a == 2)
+   mst.a(a[2] == '64')
+
+   local bprefix = prefix_to_bin(addr)
+   local prefix = ipv6s.bin_to_prefix(bprefix)
+   return prefix
+end
