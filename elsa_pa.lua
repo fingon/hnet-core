@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Oct  4 12:34:51 2012 mstenber
--- Edit time:     53 min
+-- Last modified: Thu Oct  4 13:05:59 2012 mstenber
+-- Edit time:     58 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -82,21 +82,28 @@ function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
    self:iterate_ac_lsa(inner_f)
 end
 
---  iterate_rid(f) => callback with rid
-function elsa_pa:iterate_rid(f)
+--  iterate_rid(rid, f) => callback with rid
+function elsa_pa:iterate_rid(rid, f)
+   -- we're always reachable (duh)
+   f(rid)
+
+   -- the rest, we look at LSADB 
    self:iterate_ac_lsa(function (lsa) f(lsa.rid) end)
 end
 
---  iterate_asp(f) => callback with prefix, iid, rid
-function elsa_pa:iterate_asp(f)
+--  iterate_asp(rid, f) => callback with prefix, iid, rid
+function elsa_pa:iterate_asp(rid, f)
    self:iterate_ac_lsa_tlv(function (asp, lsa) 
                               self:a(lsa and asp)
                               f(asp.prefix, asp.iid, lsa.rid)
                            end, {type=codec.AC_TLV_ASP})
 end
 
---  iterate_usp(f) => callback with prefix, rid
-function elsa_pa:iterate_usp(f)
+--  iterate_usp(rid, f) => callback with prefix, rid
+function elsa_pa:iterate_usp(rid, f)
+   self:iterate_skv_prefix(function (prefix)
+                              f(prefix, rid)
+                           end)
    self:iterate_ac_lsa_tlv(function (usp, lsa)
                               self:a(lsa and usp)
                               f(usp.prefix, lsa.rid)
@@ -111,10 +118,7 @@ function elsa_pa:iterate_if(rid, f)
                         end)
 end
 
-function elsa_pa:generate_ac_lsa()
-   local a = mst.array:new()
-
-   -- generate USP-based TLVs
+function elsa_pa:iterate_skv_prefix(f)
    for i, ifname in ipairs(self.skv:get('iflist') or {})
    do
       local o = self.skv:get(string.format('pd.%s', ifname) )
@@ -123,10 +127,19 @@ function elsa_pa:generate_ac_lsa()
          local prefix, valid = unpack(o)
          if not valid or valid >= os.time()
          then
-            a:insert(codec.usp_ac_tlv:encode{prefix=prefix})
+            f(prefix)
          end
       end
    end
+end
+
+function elsa_pa:generate_ac_lsa()
+   local a = mst.array:new()
+
+   -- generate local USP-based TLVs
+   self:iterate_skv_prefix(function (prefix)
+                              a:insert(codec.usp_ac_tlv:encode{prefix=prefix})
+                           end)
 
    -- generate (local) ASP-based TLVs
    for i, asp in ipairs(self.pa:get_local_asp_values())

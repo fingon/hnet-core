@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Thu Oct  4 11:40:34 2012 mstenber
--- Edit time:     115 min
+-- Last modified: Thu Oct  4 13:00:21 2012 mstenber
+-- Edit time:     116 min
 --
 
 require "busted"
@@ -45,7 +45,7 @@ function ospf:init()
    self.pas = self.pas or {}
 end
 
-function ospf:iterate_asp(f)
+function ospf:iterate_asp(rid, f)
    for i, v in ipairs(self.asp)
    do
       f(unpack(v))
@@ -66,7 +66,7 @@ function ospf:iterate_asp(f)
    end
 end
 
-function ospf:iterate_usp(f)
+function ospf:iterate_usp(rid, f)
    for i, v in ipairs(self.usp)
    do
       f(unpack(v))
@@ -80,7 +80,7 @@ function ospf:iterate_if(rid, f)
    end
 end
 
-function ospf:iterate_rid(f)
+function ospf:iterate_rid(rid, f)
    for i, v in ipairs(self.ridr)
    do
       f(unpack(v))

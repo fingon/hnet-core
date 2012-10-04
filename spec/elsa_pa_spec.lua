@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Thu Oct  4 11:23:04 2012 mstenber
--- Edit time:     58 min
+-- Last modified: Thu Oct  4 12:58:25 2012 mstenber
+-- Edit time:     70 min
 --
 
 require 'mst'
@@ -40,50 +40,97 @@ function delsa:originate_lsa(lsa)
    self.lsas[lsa.rid] = lsa.body
 end
 
-describe("elsa_pa", function ()
-            it("can be created", function ()
-                  local base_lsas = {r1=codec.usp_ac_tlv:encode{prefix='dead::/16'}}
-                  local e = delsa:new{iid={mypid={{index=42, 
-                                                   name='eth0'},
-                                                  {index=123,
-                                                   name='eth1'}}}, 
-                                      lsas=base_lsas}
-                  local skv = skv.skv:new{long_lived=true, port=31337}
-                  local ep = elsa_pa.elsa_pa:new{elsa=e, skv=skv, rid='mypid'}
+local usp_dead_tlv = codec.usp_ac_tlv:encode{prefix='dead::/16'}
+
+describe("elsa_pa [one node]", function ()
+            local e, s, ep, usp_added, asp_added
+            before_each(function ()
+                           e = delsa:new{iid={mypid={{index=42, 
+                                                            name='eth0'},
+                                                           {index=123,
+                                                            name='eth1'}}}, 
+                                         lsas={}}
+                           s = skv.skv:new{long_lived=true, port=31337}
+                           ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='mypid'}
 
                   -- run once, and make sure we get to pa.add_or_update_usp
-                  local usp_added = false
-                  local asp_added = false
-                  ssloop.inject_snitch(ep.pa, 'add_or_update_usp', function ()
-                                          usp_added = true
-                                                                end)
+                           usp_added = false
+                           asp_added = false
+                           ssloop.inject_snitch(ep.pa, 'add_or_update_usp', function ()
+                                                   usp_added = true
+                                                                            end)
                   ssloop.inject_snitch(ep.pa, 'add_or_update_asp', function ()
                                           asp_added = true
                                                                 end)
-                  ep:run()
-                  mst.a(usp_added)
-                  mst.a(not asp_added)
 
-                  asp_added = false
-                  usp_added = false
-                  ep:run(ep)
-                  mst.a(asp_added)
-                  mst.a(usp_added)
-
+                        end)
+            after_each(function ()
                   -- cleanup
                   ep:done()
-                  skv:done()
+                  s:done()
                   e:done()
 
                   -- make sure cleanup really was clean
                   local r = ssloop.loop():clear()
                   mst.a(not r, 'event loop not clear')
 
-                                 end)
-            it("2 sync state ok", function ()
-                  mst.d_xpcall(function ()
+                       end)
+            it("works minimally", function ()
+                  -- in the beginning, should only get nothing
+                  ep:run()
+                  mst.a(not usp_added)
+                  mst.a(not asp_added)
 
-                  local base_lsas = {r1=codec.usp_ac_tlv:encode{prefix='dead::/16'}}
+                  -- then, we add the usp (from someone else than us)
+                  e.lsas = {r1=usp_dead_tlv}
+
+                  ep:run()
+                  mst.a(usp_added)
+                  mst.a(not asp_added)
+
+                  -- and then we should get our own asp back too
+                  asp_added = false
+                  usp_added = false
+                  ep:run(ep)
+                  mst.a(asp_added)
+                  mst.a(usp_added)
+
+                   end)
+
+            it("also works via skv configuration #skv", function ()
+                  -- in the beginning, should only get nothing
+                  ep:run()
+                  mst.a(not usp_added)
+                  mst.a(not asp_added)
+
+                  -- now we fake it that we got prefix from pd
+                  -- (skv changes - both interface list, and pd info)
+                  s:set('iflist', {'eth0', 'eth1'})
+                  s:set('pd.eth0', 
+                             -- prefix[,valid]
+                          {'dead::/16'}
+                         )
+                  
+                  -- make sure it's recognized as usp
+                  ep:run()
+                  mst.a(usp_added)
+                  mst.a(not asp_added)
+
+                  -- and then we should get our own asp back too
+                  asp_added = false
+                  usp_added = false
+                  ep:run(ep)
+                  mst.a(asp_added)
+                  mst.a(usp_added)
+
+                                                   end)
+                               end)
+
+describe("elsa_pa multinode", function ()
+            it("2 sync state ok", function ()
+                  --mst.d_xpcall(function ()
+
+                  local base_lsas = {r1=usp_dead_tlv}
                   local e = delsa:new{iid={ep1={{index=42, name='eth0'},
                                                 {index=123, name='eth1'}}, 
                                            ep2={{index=43,name='eth0'},
@@ -125,5 +172,5 @@ describe("elsa_pa", function ()
                   mst.a(not r, 'event loop not clear')
 
                                  end)
-                    end)
+--                    end)
                     end)

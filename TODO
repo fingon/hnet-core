@@ -2,17 +2,15 @@
 
 * Things to do
 
-** Document architecture better
+** PA alg features
 
-- at least what moves, where
+*** detect RID changes
 
-- which modules exist
-
-- ...
+if OSPF changes RID, we should update it in elsa_pa (and pa)
 
 ** Comprehensively test PA alg
 
-** Integrate PA alg, OSPF-ELSA codec, SKV, and rest [1/3]
+** Integrate PA alg, OSPF-ELSA codec, SKV, and rest [2/3]
 
 *** wrapper around elsa_pa for elsa.lua
 
@@ -35,6 +33,32 @@
 
 'ospf-usp' key will contain stuff for ip rule table
  {{prefix=usp-prefix, ifname=ifname, nh=next-hop}, ...}
+
+* Things to do if I have time (hah)
+
+** Optimize PA alg
+
+*** Make sure computational complexity of all ops is minimal
+
+I'm looking at you, self.asp[rid]
+
+*** PA alg - enable incremential mode 
+
+LSAs changed, IFs changed
+
+*** PA alg - enable even more incremential mode 
+
+just get provided with LSA updates
+
+
+** Document architecture better
+
+- at least what moves, where
+
+- which modules exist
+
+- ...
+
 
 ** Naming support?
 

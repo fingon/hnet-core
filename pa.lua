@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Thu Oct  4 11:32:12 2012 mstenber
--- Edit time:     327 min
+-- Last modified: Thu Oct  4 13:01:54 2012 mstenber
+-- Edit time:     334 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -19,9 +19,9 @@
 -- whenever it's state changes.
 
 -- client expected to provide:
---  iterate_rid(f) => callback with rid
---  iterate_asp(f) => callback with prefix, iid, rid
---  iterate_usp(f) => callback with prefix, rid
+--  iterate_rid(rid, f) => callback with rid
+--  iterate_asp(rid, f) => callback with prefix, iid, rid
+--  iterate_usp(rid, f) => callback with prefix, rid
 --  iterate_if(rid, f) => callback with if-object, highest_rid
 --  rid (or given to constructor)
 
@@ -516,15 +516,16 @@ function pa:run()
 
    self:d('run called')
 
-   client = self.client
+   local client = self.client
+   local rid = self.rid
+
    mst.a(client, 'no client')
 
    -- store the index => if-object (and less material index => highest-rid)
    self.ifs = mst.map:new()
    self.highest = mst.map:new()
 
-   client:iterate_if(self.rid, 
-                     function (ifo, highest_rid)
+   client:iterate_if(rid, function (ifo, highest_rid)
                         self.ifs[ifo.index] = ifo
                         self.highest[ifo.index] = highest_rid
                      end
@@ -538,13 +539,13 @@ function pa:run()
    self.ridr:keys():map(function (k) self.ridr[k]=false end)
 
    -- get the rid reachability
-   client:iterate_rid(function (rid)
+   client:iterate_rid(rid, function (rid)
                          self:d('got rid', rid)
                          self.ridr[rid] = true
                       end)
 
    -- get the usable prefixes from the 'client' [prefix => rid]
-   client:iterate_usp(function (prefix, rid)
+   client:iterate_usp(rid, function (prefix, rid)
                          self:d('got usp', prefix, rid)
                          self:add_or_update_usp(prefix, rid)
                       end)
@@ -554,7 +555,7 @@ function pa:run()
                              function (usp) return not usp.valid end)
    
    -- get the (remotely) assigned prefixes
-   client:iterate_asp(function (prefix, iid, rid)
+   client:iterate_asp(rid, function (prefix, iid, rid)
                          self:d('got asp', prefix, iid, rid)
                          self:add_or_update_asp(prefix, iid, rid)
                       end)
