@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 13:18:34 2012 mstenber
--- Last modified: Thu Oct  4 16:34:52 2012 mstenber
--- Edit time:     38 min
+-- Last modified: Thu Oct  4 18:12:03 2012 mstenber
+-- Edit time:     39 min
 --
 
 -- minimalist tool for playing with SKV
@@ -104,9 +104,10 @@ do
    then
       local k = string.sub(str, 1, i-1)
       local v = string.sub(str, i+1, #str)
-      local f, err = loadstring('return ' .. v)
-      mst.a(f, 'unable to loadstring', err)
-      rv, err = f()
+      --local f, err = loadstring('return ' .. v)
+      --mst.a(f, 'unable to loadstring', err)
+      --rv, err = f()
+      rv = v
       mst.a(rv, 'invalid value', v, rv, err)
       mst.d('.. setting', k, v)
       s:set(k, v)
@@ -128,6 +129,7 @@ do
       end
    end
 end
+
 if setted
 then
    mst.d('.. waiting for sync')

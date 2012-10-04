@@ -109,10 +109,6 @@ SKV content:
 'ospf-lap' key will contain state local hosts should care about
  {{ifname=ifname, prefix=prefix}, ...} for every non-depracated prefix
 
-'ospf-usp' key will contain usable prefixes in the network
- (we make sure the system interfaces won't have ip addrs that are in
- ospf-usp prefixes, but not in ospf-lap)
-
 ** Figure why enabling debug breaks tests
 
 ** Write PA alg prototype in Lua

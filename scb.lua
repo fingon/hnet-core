@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Wed Oct  3 16:06:21 2012 mstenber
--- Edit time:     154 min
+-- Last modified: Thu Oct  4 19:03:59 2012 mstenber
+-- Edit time:     156 min
 --
 
 -- convenience stuff on top of LuaSocket
@@ -161,6 +161,13 @@ function ScbIO:handle_io_write()
       self:d("handle_io_write - send done", r, err)
 
       -- todo - handle writing errors here
+
+      if not r and err == 'closed'
+      then
+         self:call_callback_once('close_callback')
+         self:done()
+         return
+      end
 
       -- fallback
       self:a(r, err)

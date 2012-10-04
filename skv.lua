@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Thu Oct  4 16:28:22 2012 mstenber
--- Edit time:     351 min
+-- Last modified: Thu Oct  4 19:33:19 2012 mstenber
+-- Edit time:     356 min
 --
 
 require 'mst'
@@ -316,7 +316,14 @@ function skv:set(k, v)
       self:d(' .. redundant, local state already matches')
       return
    end
+   
+   -- let sm have it (either store it, or store+forward)
    self.fsm:HaveUpdate(k, v)
+
+   -- local changes should also trigger change notifications
+   -- (may be multiple users on this skv object)
+   self:change_occured(k, v)
+
    return true
 end
 
@@ -346,7 +353,9 @@ function skv:client_remote_update(json, k, v)
    local lv = self.local_state[k]
    if lv and not mst.repr_equal(lv, v)
    then
+      -- local just overrides remote provided value
       self:send_update{[k]=lv}
+      return
    end
    if not mst.repr_equal(ov, v)
    then

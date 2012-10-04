@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Thu Oct  4 16:41:31 2012 mstenber
--- Edit time:     74 min
+-- Last modified: Thu Oct  4 19:35:20 2012 mstenber
+-- Edit time:     83 min
 --
 
 require 'mst'
@@ -46,36 +46,36 @@ describe("elsa_pa [one node]", function ()
             local e, s, ep, usp_added, asp_added
             before_each(function ()
                            e = delsa:new{iid={mypid={{index=42, 
-                                                            name='eth0'},
-                                                           {index=123,
-                                                            name='eth1'}}}, 
+                                                      name='eth0'},
+                                                     {index=123,
+                                                      name='eth1'}}}, 
                                          lsas={}}
                            s = skv.skv:new{long_lived=true, port=31337}
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='mypid'}
 
-                  -- run once, and make sure we get to pa.add_or_update_usp
+                           -- run once, and make sure we get to pa.add_or_update_usp
                            usp_added = false
                            asp_added = false
                            ssloop.inject_snitch(ep.pa, 'add_or_update_usp', function ()
                                                    usp_added = true
                                                                             end)
-                  ssloop.inject_snitch(ep.pa, 'add_or_update_asp', function ()
-                                          asp_added = true
-                                                                end)
+                           ssloop.inject_snitch(ep.pa, 'add_or_update_asp', function ()
+                                                   asp_added = true
+                                                                            end)
 
                         end)
             after_each(function ()
-                  -- cleanup
-                  ep:done()
-                  s:done()
-                  e:done()
+                          -- cleanup
+                          ep:done()
+                          s:done()
+                          e:done()
 
-                  -- make sure cleanup really was clean
-                  local r = ssloop.loop():clear()
-                  mst.a(not r, 'event loop not clear')
+                          -- make sure cleanup really was clean
+                          local r = ssloop.loop():clear()
+                          mst.a(not r, 'event loop not clear')
 
                        end)
-            it("works minimally", function ()
+            it("works minimally #base", function ()
                   -- in the beginning, should only get nothing
                   ep:run()
                   mst.a(not usp_added)
@@ -95,7 +95,30 @@ describe("elsa_pa [one node]", function ()
                   mst.a(asp_added)
                   mst.a(usp_added)
 
-                   end)
+                  -- make sure that the ospf-usp looks sane
+                  local uspl = s:get(elsa_pa.OSPF_USP_KEY)
+                  mst.a(#uspl)
+                  for i, usp in ipairs(uspl)
+                  do
+                     mst.a(type(usp) == 'table')
+                     mst.a(type(usp.prefix) == 'string')
+                     -- XXX - add other checks once multihoming implemented
+                  end
+                  local lapl = s:get(elsa_pa.OSPF_LAP_KEY)
+                  mst.a(#lapl)
+                  for i, lap in ipairs(lapl)
+                  do
+                     mst.a(type(lap) == 'table')
+                     mst.a(type(lap.ifname) == 'string')
+                     mst.a(type(lap.prefix) == 'string')
+                  end
+                  local ifl = s:get(elsa_pa.OSPF_IFLIST_KEY)
+                  mst.a(#ifl)
+                  for i, v in ipairs(ifl)
+                  do
+                     mst.a(type(v) == 'string')
+                  end
+                                  end)
 
             it("also works via skv configuration #skv", function ()
                   -- in the beginning, should only get nothing
@@ -105,11 +128,15 @@ describe("elsa_pa [one node]", function ()
 
                   -- now we fake it that we got prefix from pd
                   -- (skv changes - both interface list, and pd info)
-                  s:set('pd-iflist', {'eth0', 'eth1'})
-                  s:set('pd-prefix.eth0', 
-                             -- prefix[,valid]
-                          {'dead::/16'}
-                         )
+                  s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth1'})
+                  s:set(elsa_pa.PD_PREFIX_KEY .. '.eth0', 
+                        -- prefix[,valid]
+                        {'dead::/16'}
+                       )
+                  s:set(elsa_pa.PD_PREFIX_KEY .. '.eth1', 
+                        -- just the string should also work
+                        'beef::/16'
+                       )
                   
                   -- make sure it's recognized as usp
                   ep:run()
@@ -123,7 +150,7 @@ describe("elsa_pa [one node]", function ()
                   mst.a(asp_added)
                   mst.a(usp_added)
 
-                                                   end)
+                                                        end)
                                end)
 
 describe("elsa_pa multinode", function ()
@@ -171,6 +198,6 @@ describe("elsa_pa multinode", function ()
                   local r = ssloop.loop():clear()
                   mst.a(not r, 'event loop not clear')
 
-                                 end)
---                    end)
-                    end)
+                                  end)
+            --                    end)
+                              end)

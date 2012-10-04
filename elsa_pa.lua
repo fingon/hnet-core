@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Oct  4 16:41:35 2012 mstenber
--- Edit time:     70 min
+-- Last modified: Thu Oct  4 19:34:45 2012 mstenber
+-- Edit time:     80 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -19,6 +19,14 @@
 -- it's way. 
 
 AC_TYPE=0xBFF0
+
+PD_IFLIST_KEY='pd-iflist'
+PD_PREFIX_KEY='pd-prefix'
+
+OSPF_LAP_KEY='ospf-lap'
+OSPF_USP_KEY='ospf-usp'
+OSPF_IFLIST_KEY='ospf-iflist'
+
 -- #define LSA_T_AC        0xBFF0 /* Auto-Configuration LSA */
 --  /* function code 8176(0x1FF0): experimental, U-bit=1, Area Scope */
 
@@ -53,19 +61,19 @@ function elsa_pa:run()
                               rid=self.pa.rid,
                               body=self:generate_ac_lsa()}
 
-      -- set up the locally affixed prefix field
-      local t = mst.set:new()
+      -- set up the locally assigned prefix field
+      local t = mst.array:new()
       for i, lap in ipairs(self.pa.lap:values())
       do
          local ifname = self.pa.ifs[lap.iid]
          if ifname
          then
-            t:insert({ifname=ifname, prefix=lap.prefix})
+            t:insert({ifname=ifname.name, prefix=lap.prefix})
          else
             self:d('zombie interface', lap)
          end
       end
-      self.skv:set('ospf-lap', t)
+      self.skv:set(OSPF_LAP_KEY, t)
 
       -- set up the interface list
       local t = mst.array:new{}
@@ -73,7 +81,15 @@ function elsa_pa:run()
       do
          t:insert(ifo.name)
       end
-      self.skv:set('ospf-iflist', t)
+      self.skv:set(OSPF_IFLIST_KEY, t)
+
+      -- toss in the usp's too
+      local t = mst.array:new{}
+      for i, v in ipairs(self.pa.usp:values())
+      do
+         t:insert({prefix=v.prefix})
+      end
+      self.skv:set(OSPF_USP_KEY, t)
    end
    self.first = false
 end
@@ -139,14 +155,21 @@ function elsa_pa:iterate_if(rid, f)
 end
 
 function elsa_pa:iterate_skv_prefix(f)
-   for i, ifname in ipairs(self.skv:get('pd-iflist') or 
-                           self.skv:get('ospf-iflist') or 
+   for i, ifname in ipairs(self.skv:get(PD_IFLIST_KEY) or 
+                           self.skv:get(OSPF_IFLIST_KEY) or 
                            {})
    do
       local o = self.skv:get(string.format('pd-prefix.%s', ifname) )
       if o
       then
-         local prefix, valid = unpack(o)
+         local prefix, valid
+         if type(o) == 'string'
+         then
+            prefix = o
+            valid = nil
+         else
+            prefix, valid = unpack(o)
+         end
          if not valid or valid >= os.time()
          then
             f(prefix)
