@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Oct  4 13:05:59 2012 mstenber
--- Edit time:     58 min
+-- Last modified: Thu Oct  4 16:41:35 2012 mstenber
+-- Edit time:     70 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -18,7 +18,9 @@
 -- elsa_pa is given skv instance, elsa instance, and should roll on
 -- it's way. 
 
-AC_TYPE=0x1234
+AC_TYPE=0xBFF0
+-- #define LSA_T_AC        0xBFF0 /* Auto-Configuration LSA */
+--  /* function code 8176(0x1FF0): experimental, U-bit=1, Area Scope */
 
 require 'mst'
 require 'codec'
@@ -31,6 +33,7 @@ elsa_pa = mst.create_class{class='elsa_pa', mandatory={'skv', 'elsa'}}
 
 function elsa_pa:init()
    local rid = self.rid
+   self.first = true
    self.pa = pa.pa:new{rid=rid, client=self}
 end
 
@@ -43,19 +46,36 @@ end
 
 function elsa_pa:run()
    local r = self.pa:run()
-   if r
+   if r or self.first
    then
+      -- originate LSA (or try to, there's duplicate prevention, or should be)
       self.elsa:originate_lsa{type=AC_TYPE, 
                               rid=self.pa.rid,
                               body=self:generate_ac_lsa()}
+
+      -- set up the locally affixed prefix field
       local t = mst.set:new()
       for i, lap in ipairs(self.pa.lap:values())
       do
-         -- XXX - map iid => ifname
-         t:insert({ifname=lap.iid, prefix=lap.prefix})
+         local ifname = self.pa.ifs[lap.iid]
+         if ifname
+         then
+            t:insert({ifname=ifname, prefix=lap.prefix})
+         else
+            self:d('zombie interface', lap)
+         end
       end
       self.skv:set('ospf-lap', t)
+
+      -- set up the interface list
+      local t = mst.array:new{}
+      for iid, ifo in pairs(self.pa.ifs)
+      do
+         t:insert(ifo.name)
+      end
+      self.skv:set('ospf-iflist', t)
    end
+   self.first = false
 end
 
 function elsa_pa:iterate_ac_lsa(f, criteria)
@@ -119,9 +139,11 @@ function elsa_pa:iterate_if(rid, f)
 end
 
 function elsa_pa:iterate_skv_prefix(f)
-   for i, ifname in ipairs(self.skv:get('iflist') or {})
+   for i, ifname in ipairs(self.skv:get('pd-iflist') or 
+                           self.skv:get('ospf-iflist') or 
+                           {})
    do
-      local o = self.skv:get(string.format('pd.%s', ifname) )
+      local o = self.skv:get(string.format('pd-prefix.%s', ifname) )
       if o
       then
          local prefix, valid = unpack(o)

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Thu Oct  4 12:58:25 2012 mstenber
--- Edit time:     70 min
+-- Last modified: Thu Oct  4 16:41:31 2012 mstenber
+-- Edit time:     74 min
 --
 
 require 'mst'
@@ -105,8 +105,8 @@ describe("elsa_pa [one node]", function ()
 
                   -- now we fake it that we got prefix from pd
                   -- (skv changes - both interface list, and pd info)
-                  s:set('iflist', {'eth0', 'eth1'})
-                  s:set('pd.eth0', 
+                  s:set('pd-iflist', {'eth0', 'eth1'})
+                  s:set('pd-prefix.eth0', 
                              -- prefix[,valid]
                           {'dead::/16'}
                          )

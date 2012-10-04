@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Wed Oct  3 17:19:21 2012 mstenber
--- Edit time:     119 min
+-- Last modified: Thu Oct  4 16:01:58 2012 mstenber
+-- Edit time:     126 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -282,6 +282,31 @@ function ssloop:loop()
                             end)
 end
 
+-- loop while cond is not true, or timeout hasn't expired. return t if
+-- cond changed, and nil if timeout expired.
+function ssloop:loop_until(cond, timeout)
+   local timeouted = false
+   local t
+   if timeout
+   then
+      t = self:new_timeout_delta(timeout, function () timedout = true end)
+      t:start()
+   end
+   while not timeouted
+   do
+      self:poll()
+      if cond()
+      then
+         break
+      end
+   end
+   if t 
+   then
+      t:done()
+   end
+   return not timeouted
+end
+
 function ssloop:unloop()
    self.stopping = true
 end
@@ -357,19 +382,14 @@ function run_loop_awhile(timeout)
    t:done()
 end
 
+-- convenience API (used by older code) 
 function run_loop_until(stmt, timeout)
    local l = loop()
-   timeout = timeout or TEST_TIMEOUT_INVALID
-   local t = l:new_timeout_delta(timeout,
-                                 function ()
-                                    error("timeout expired")
-                                 end, timeout)
-   t:start()
-   while not stmt()
-   do
-      l:poll()
+   local r = l:loop_until(stmt, timeout or TEST_TIMEOUT_INVALID)
+   if not r
+   then
+      error("timeout expired")
    end
-   t:done()
 end
 
 function inject_snitch(o, n, sf)

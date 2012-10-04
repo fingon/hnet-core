@@ -84,18 +84,32 @@ function Client.Init:Entry (fsm)
 end
 
 function Client.Init:Initialized (fsm)
+    local ctxt = fsm.owner
     if fsm.debugFlag then
         fsm.debugStream:write("LEAVING STATE   : Client.Init\n")
     end
-    fsm:getState():Exit(fsm)
-    if fsm.debugFlag then
-        fsm.debugStream:write("ENTER TRANSITION: Client.Init:Initialized()\n")
+    if ctxt:is_server()  then
+        fsm:getState():Exit(fsm)
+        if fsm.debugFlag then
+            fsm.debugStream:write("ENTER TRANSITION: Client.Init:Initialized()\n")
+        end
+        -- No actions.
+        if fsm.debugFlag then
+            fsm.debugStream:write("EXIT TRANSITION : Client.Init:Initialized()\n")
+        end
+        fsm:setState(Server.Init)
+        fsm:getState():Entry(fsm)
+    else
+        fsm:getState():Exit(fsm)
+        if fsm.debugFlag then
+            fsm.debugStream:write("ENTER TRANSITION: Client.Init:Initialized()\n")
+        end
+        if fsm.debugFlag then
+            fsm.debugStream:write("EXIT TRANSITION : Client.Init:Initialized()\n")
+        end
+        fsm:setState(Client.Connecting)
+        fsm:getState():Entry(fsm)
     end
-    if fsm.debugFlag then
-        fsm.debugStream:write("EXIT TRANSITION : Client.Init:Initialized()\n")
-    end
-    fsm:setState(Client.Connecting)
-    fsm:getState():Entry(fsm)
 end
 
 Client.Connecting = Client.Default:new('Client.Connecting', 1)
@@ -103,7 +117,7 @@ Client.Connecting = Client.Default:new('Client.Connecting', 1)
 function Client.Connecting:Entry (fsm)
     local ctxt = fsm.owner
     ctxt:start_retry_timer(CONNECT_TIMEOUT)
-    ctxt:connect()
+    ctxt:socket_connect()
 end
 
 function Client.Connecting:Exit (fsm)
@@ -336,7 +350,7 @@ function Client.WaitUpdates:HaveUpdate (fsm, k, v)
     local r, msg = pcall(
         function ()
             ctxt:store_local_update(k, v)
-            ctxt:send_update(k, v)
+            ctxt:send_update_kv(k, v)
         end
     )
     if fsm.debugFlag then
@@ -447,18 +461,32 @@ function Server.Binding:Entry (fsm)
 end
 
 function Server.Binding:BindFailed (fsm)
+    local ctxt = fsm.owner
     if fsm.debugFlag then
         fsm.debugStream:write("LEAVING STATE   : Server.Binding\n")
     end
-    fsm:getState():Exit(fsm)
-    if fsm.debugFlag then
-        fsm.debugStream:write("ENTER TRANSITION: Server.Binding:BindFailed()\n")
+    if ctxt:is_server() then
+        fsm:getState():Exit(fsm)
+        if fsm.debugFlag then
+            fsm.debugStream:write("ENTER TRANSITION: Server.Binding:BindFailed()\n")
+        end
+        -- No actions.
+        if fsm.debugFlag then
+            fsm.debugStream:write("EXIT TRANSITION : Server.Binding:BindFailed()\n")
+        end
+        fsm:setState(Terminal.ServerBindFailed)
+        fsm:getState():Entry(fsm)
+    else
+        fsm:getState():Exit(fsm)
+        if fsm.debugFlag then
+            fsm.debugStream:write("ENTER TRANSITION: Server.Binding:BindFailed()\n")
+        end
+        if fsm.debugFlag then
+            fsm.debugStream:write("EXIT TRANSITION : Server.Binding:BindFailed()\n")
+        end
+        fsm:setState(Server.InitWait)
+        fsm:getState():Entry(fsm)
     end
-    if fsm.debugFlag then
-        fsm.debugStream:write("EXIT TRANSITION : Server.Binding:BindFailed()\n")
-    end
-    fsm:setState(Server.InitWait)
-    fsm:getState():Entry(fsm)
 end
 
 function Server.Binding:Bound (fsm)
@@ -556,6 +584,13 @@ Terminal.ClientFailConnect = Terminal.Default:new('Terminal.ClientFailConnect', 
 function Terminal.ClientFailConnect:Entry (fsm)
     local ctxt = fsm.owner
     ctxt:fail("unable to connect to SKV")
+end
+
+Terminal.ServerBindFailed = Terminal.Default:new('Terminal.ServerBindFailed', 1)
+
+function Terminal.ServerBindFailed:Entry (fsm)
+    local ctxt = fsm.owner
+    ctxt:fail("unable to listen on selected port")
 end
 
 local skvContext = statemap.FSMContext.class()

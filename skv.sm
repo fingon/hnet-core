@@ -13,6 +13,7 @@
 Init 
 Entry { init_client(INITIAL_LISTEN_TIMEOUT); }
 {
+  Initialized [ctxt:is_server() ] Server::Init { }
   Initialized Connecting { }
 }
 
@@ -23,7 +24,7 @@ Default
 }
 
 Connecting 
-Entry { start_retry_timer(CONNECT_TIMEOUT); connect(); }
+Entry { start_retry_timer(CONNECT_TIMEOUT); socket_connect(); }
 Exit { clear_timeout_maybe(); }
 {
   Connected WaitVersion { }
@@ -55,7 +56,7 @@ Entry  { send_local_state();
 }
 Exit { clear_json(); }
 {
-  HaveUpdate(k: Key, v:Value) nil { store_local_update(k, v); send_update(k, v); }
+  HaveUpdate(k: Key, v:Value) nil { store_local_update(k, v); send_update_kv(k, v); }
 //  AddListener(k: String, cb:Callback) nil { l = add_listener(k, cb); send_add_listener(l); }
 //  RemoveListener(l: Listener) nil { send_remove_listener(l); delete_listener(l); }
   ConnectionClosed Connecting { }
@@ -91,6 +92,7 @@ Binding
 Entry { bind(); }
 {
   Bound WaitConnections { }
+  BindFailed [ctxt:is_server()] Terminal::ServerBindFailed { }
   BindFailed InitWait { }  
 }
 
@@ -116,6 +118,12 @@ Entry { }
 ClientFailConnect
 Entry { fail("unable to connect to SKV"); }
 {
+}
+
+ServerBindFailed
+Entry { fail("unable to listen on selected port"); }
+{
+
 }
 
 %%

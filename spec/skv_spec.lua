@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Wed Oct  3 16:30:32 2012 mstenber
--- Edit time:     159 min
+-- Last modified: Thu Oct  4 16:01:30 2012 mstenber
+-- Edit time:     168 min
 --
 
 require "busted"
@@ -303,3 +303,39 @@ describe("class working (post setup) #clear", function()
                   s:done()
                end)
          end)
+
+describe("skv-client", function ()
+            it("connect-fail", function ()
+                  local port = get_available_port()
+                  -- try to connect to non local port -> should fail
+                  -- (and not with timeout)
+                  local skv = skv:new{long_lived=false, port=port}
+                  local r, err = skv:connect(12345)
+                  mst.a(not r)
+                  mst.a(err)
+                  skv:done()
+                   end)
+            it("connect-ok #conn", function ()
+                  local port = get_available_port()
+                  -- try to connect to non local port -> should fail
+                  -- (and not with timeout)
+                  local skv2 = skv:new{long_lived=true, server=true, port=port}
+                  skv2:set('foo', 'bar')
+                  local skv = skv:new{long_lived=false, port=port}
+                  local r, err = skv:connect(12345)
+                  mst.a(r, 'hrm, even valid connect failed', r, err)
+                  local r = skv:get('foo')
+                  mst.d('got', r)
+                  mst.a(r == 'bar')
+
+
+                  -- make sure the synchronous set also works
+                  skv:set('bar', 'baz')
+                  local r = skv:wait_in_sync()
+                  mst.a(r, 'wait_in_sync timed out')
+                  mst.a(skv2:get('bar') == 'baz')
+
+                  skv:done()
+                  skv2:done()
+                   end)
+             end)

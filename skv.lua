@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Wed Oct  3 16:41:49 2012 mstenber
--- Edit time:     320 min
+-- Last modified: Thu Oct  4 16:28:22 2012 mstenber
+-- Edit time:     351 min
 --
 
 require 'mst'
@@ -32,7 +32,7 @@ pcall = orig_pcall
 module(..., package.seeall)
 
 skv = mst.create_class{mandatory={"long_lived"}, class="skv"}
-skvclient = mst.create_class{mandatory={"s", "parent"}, class="skvclient"}
+skvconnection = mst.create_class{mandatory={"s", "parent"}, class="skvconnection"}
 
 -- first, skv
 
@@ -41,7 +41,9 @@ skv.__index = skv
 local HOST = '127.0.0.1'
 local PORT = 12345
 local MSG_VERSION = 'version'
+local MSG_ID = 'id'
 local MSG_UPDATE = 'update'
+local MSG_ACK = 'id-ack'
 local SKV_VERSION = '1.0'
 
 function skv:init()
@@ -56,9 +58,10 @@ function skv:init()
    self.fsm.debugStream = {write=function (f, s)
                               self:d(mst.string_strip(s))
                                  end}
+   self.sent_update_id = 0
+   self.acked_id = 0
    self.fsm:enterStartState()
    self:d('init done')
-
 end
 
 function skv:uninit()
@@ -159,41 +162,45 @@ function skv:is_long_lived()
    return self.long_lived
 end
 
+function skv:is_server()
+   return self.server
+end
+
 function skv:should_auto_retry()
    return not self:is_long_lived() and self.auto_retry
 end
 
-function skv:connect()
+function skv:socket_connect()
    self.client = true
    self.connected = false
-   self:d('skv:connect')
+   self:d('skv:socket_connect')
    self:a(not self.s)
    self.s = scb.new_connect{p=self,
                             host=self.host, port=self.port,
                             debug=self.debug,
-                             callback=function (c) 
-                                self:d('connect callback')
-                                if c
-                                then
-                                   self.connected = true
-                                   -- get rid of old (it may not even exist)
-                                   -- (if connect happened synchronously)
-                                   self:a(self.s ~= c)
-                                   if self.s
-                                   then
-                                      self.s:detach()
-                                      self:clear_socket()
-                                   end
-                                   self:d('set new socket [connect]')
-                                   self.s = c 
-                                   c.close_callback = function (s)
-                                      self.fsm:ConnectionClosed()
-                                   end
-                                   self.fsm:Connected()
-                                else
-                                   self.fsm:ConnectFailed()
-                                end
-                             end}
+                            callback=function (c) 
+                               self:d('connect callback')
+                               if c
+                               then
+                                  self.connected = true
+                                  -- get rid of old (it may not even exist)
+                                  -- (if connect happened synchronously)
+                                  self:a(self.s ~= c)
+                                  if self.s
+                                  then
+                                     self.s:detach()
+                                     self:clear_socket()
+                                  end
+                                  self:d('set new socket [connect]')
+                                  self.s = c 
+                                  c.close_callback = function (s)
+                                     self.fsm:ConnectionClosed()
+                                  end
+                                  self.fsm:Connected()
+                               else
+                                  self.fsm:ConnectFailed()
+                               end
+                            end}
    self:d('leaving connect', self.s)
 
 end
@@ -243,11 +250,16 @@ function skv:get_combined_state()
    return state
 end
 
+function skv:send_update(d)
+   self.sent_update_id = self.sent_update_id + 1
+   self.json:write{[MSG_UPDATE] = d, [MSG_ID]=self.sent_update_id}
+end
+
 function skv:send_local_state()
    -- send contents of 'local' to given socket
    if not mst.table_is_empty(self.local_state)
    then
-      self.json:write{[MSG_UPDATE] = self.local_state}
+      self:send_update(self.local_state)
    end
 end
 
@@ -280,16 +292,21 @@ function skv:handle_received_json(d)
          self.fsm:ReceiveUpdate(self.json, k, v)
       end
    end
+   local id = d[MSG_ID]
+   if id
+   then
+      self.json:write{[MSG_ACK]=id}
+   end
+   local id = d[MSG_ACK]
+   if id
+   then
+      self.acked_id = id
+   end
 end
 
 function skv:get(k)
    -- local state overrides remote state
-   local v = self.local_state[k]
-   if v
-   then
-      return v
-   end
-   return self.remote_state[k]
+   return self.local_state[k] or self.remote_state[k]
 end
 
 function skv:set(k, v)
@@ -300,6 +317,7 @@ function skv:set(k, v)
       return
    end
    self.fsm:HaveUpdate(k, v)
+   return true
 end
 
 function skv:store_local_update(k, v)
@@ -307,9 +325,9 @@ function skv:store_local_update(k, v)
    self.local_state[k] = v
 end
 
-function skv:send_update(k, v)
+function skv:send_update_kv(k, v)
    self:d('send_update', k, v)
-   self.json:write{[MSG_UPDATE] = {[k] = v}}
+   self:send_update{[k]=v}
 end
 
 function skv:send_update_to_clients(k, v)
@@ -328,7 +346,7 @@ function skv:client_remote_update(json, k, v)
    local lv = self.local_state[k]
    if lv and not mst.repr_equal(lv, v)
    then
-      json:write{[MSG_UPDATE] = {[k] = lv}}
+      self:send_update{[k]=lv}
    end
    if not mst.repr_equal(ov, v)
    then
@@ -406,6 +424,45 @@ function skv:get_jsoncodecs()
    return rl
 end
 
+
+--- synchronously connect to another skv instance
+-- return once we've received state from there
+-- optionally use the timeout to fail..
+-- return value is 'true' if connection succeeds; non-true
+-- (timeout/error in the second parameter)
+function skv:connect(timeout)
+   self:a(not self.long_lived)
+   local l = ssloop.loop()
+   local r, err
+   local tr = l:loop_until(function ()
+                              local st = self.fsm:getState().name
+                              if st == 'Client.WaitUpdates'
+                              then
+                                 r = true
+                                 return true
+                              elseif st == 'Terminal.ClientFailConnect'
+                              then
+                                 err = 'unable to connect'
+                                 return true
+                              end
+                           end, timeout)
+   if not tr
+   then
+      err = 'timeout'
+   end
+   return r, err
+end
+
+function skv:wait_in_sync(timeout)
+   self:a(not self.long_lived)
+   local l = ssloop.loop()
+   local tr = l:loop_until(function ()
+                              return self.acked_id == self.sent_update_id
+                           end, timeout)
+   if not tr then return nil, 'timeout' end
+   return tr
+end
+
 -- Server code
 
 function skv:init_server()
@@ -428,12 +485,12 @@ function skv:bind()
       self.fsm:Bound()
       return
    else
-      self.fsm:BindFailed()
+         self.fsm:BindFailed()
    end
 end
 
 function skv:new_client(s)
-   skvclient:new{s=s, parent=self, debug=self.debug}
+   skvconnection:new{s=s, parent=self, debug=self.debug}
 end
 
 function skv:increase_retry_timer()
@@ -446,14 +503,14 @@ function skv:start_retry_timer(timeout)
    local l = ssloop.loop()
    self:a(not self.timeout, 'previous timeout around')
    self.timeout = l:new_timeout_delta(timeout,
-                                  function ()
-                                     self.fsm:Timeout()
-                                  end):start()
+                                      function ()
+                                         self.fsm:Timeout()
+                                      end):start()
 end
 
 -- Server's single client side connection handling
 
-function skvclient:init()
+function skvconnection:init()
    assert(self)
    self.parent.connections[self] = true
    self:a(not self.json)
@@ -469,23 +526,20 @@ function skvclient:init()
    self.s = nil
 
    -- send version
-   self.json:write{[MSG_VERSION] = SKV_VERSION}
    -- and the local+remote state if any
    local state = self.parent:get_combined_state()
 
-   if not mst.table_is_empty(state)
-   then
-      self.json:write{[MSG_UPDATE] = state}
-   end
+   self.json:write{[MSG_VERSION] = SKV_VERSION,
+                   [MSG_UPDATE] = state}
 end
 
-function skvclient:uninit()
+function skvconnection:uninit()
    self:a(self.parent.connections[self] ~= nil, ":done - not in parent table")
    self.parent.connections[self] = nil
    self.json:done()
 end
 
-function skvclient:handle_received_json(d)
+function skvconnection:handle_received_json(d)
    self:d('handle_received_json', d)
 
    local uh = d[MSG_UPDATE]
@@ -497,13 +551,20 @@ function skvclient:handle_received_json(d)
          self.parent.fsm:ReceiveUpdate(self.json, k, v)
       end
    end
+   
+   local id = d[MSG_ID]
+   if id
+   then
+      -- ack client id's
+      self.json:write{[MSG_ACK]=id}
+   end
 end
 
-function skvclient:handle_close()
+function skvconnection:handle_close()
    self:d('handle_close')
    self:done()
 end
 
-function skvclient:repr_data()
+function skvconnection:repr_data()
    return '?'
 end
