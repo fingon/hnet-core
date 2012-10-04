@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Oct  3 23:27:11 2012 mstenber
--- Edit time:     50 min
+-- Last modified: Thu Oct  4 12:34:51 2012 mstenber
+-- Edit time:     53 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -84,7 +84,7 @@ end
 
 --  iterate_rid(f) => callback with rid
 function elsa_pa:iterate_rid(f)
-   self.elsa:iterate_lsa(function (lsa) f(lsa.rid) end)
+   self:iterate_ac_lsa(function (lsa) f(lsa.rid) end)
 end
 
 --  iterate_asp(f) => callback with prefix, iid, rid
