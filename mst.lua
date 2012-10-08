@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Oct  8 13:56:07 2012 mstenber
--- Edit time:     417 min
+-- Last modified: Mon Oct  8 16:27:58 2012 mstenber
+-- Edit time:     421 min
 --
 
 -- data structure abstractions provided:
@@ -492,27 +492,41 @@ function string_rstrip(s)
   return (s:gsub("^(.-)%s*$", "%1"))
 end
 
-local _my_printable_table = false
+local _my_varok_table = false
 
-function string_is_printable(s)
-   local t = _my_printable_table
+function string_is_varok(s)
+   local t = _my_varok_table
    if not t
    then
       t = string_to_table("1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
-      _my_printable_table= t
+      _my_varok_table = t
    end
    
-   mst.a(type(s) == 'string', 'string_is_printable with non-string', s)
-   mst.a(t ~= nil, '_my_printable_table not set')
+   mst.a(type(s) == 'string', 'string_is_varok with non-string', s)
+   mst.a(t ~= nil, '_my_varok_table not set')
    for i, c in string_ipairs(s)
    do
       if not t[c]
       then
-         --mst.d('non-printable', i, c, s)
+         --mst.d('non-varok', i, c, s)
          return false
       end
    end
-   --mst.d('printable', s)
+   --mst.d('varok', s)
+   return true
+end
+
+local _my_ascii_table = false
+
+function string_is_ascii(s)
+   for i, c in string_ipairs(s)
+   do
+      local b = string.byte(c)
+      if b < 32 or b >= 128
+      then
+         return false
+      end
+   end
    return true
 end
 
@@ -720,7 +734,7 @@ function table_repr(t, shown)
    for k, v in table_sorted_pairs(t)
    do
       if not first then table.insert(s, ", ") end
-      if type(k) == 'string' and string_is_printable(k)
+      if type(k) == 'string' and string_is_varok(k)
       then
          ks = k
       else
@@ -899,9 +913,9 @@ function repr(o, shown)
       return table_repr(o, shown)
    elseif t == 'string'
    then
-      -- if it's printable string, we do string.format.
-      -- string.format results aren't really printable, though
-      if string_is_printable(o) then
+      -- if it's ascii string, we do string.format.
+      -- string.format results aren't really ascii, though
+      if string_is_ascii(o) then
          return string.format('%q', o)
       else
          local t = array:new()
@@ -909,7 +923,7 @@ function repr(o, shown)
          for i=1,#o
          do
             local c = string.sub(o, i, i)
-            if string_is_printable(c)
+            if string_is_ascii(c)
             then
                t:insert(c)
             else
