@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Wed Oct  3 22:04:34 2012 mstenber
--- Edit time:     130 min
+-- Last modified: Mon Oct  8 12:46:42 2012 mstenber
+-- Edit time:     145 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -33,6 +33,9 @@ module(..., package.seeall)
 AC_TLV_RHF=1
 AC_TLV_USP=2
 AC_TLV_ASP=3
+
+MINIMUM_AC_TLV_RHF_LENGTH=32
+
 
 --mst.enable_debug = true
 
@@ -133,8 +136,19 @@ end
 
 ac_tlv = abstract_data:new_subclass{class='ac_tlv',
                                     format='type:u2 length:u2',
-                                    tlv_type=false,
-                                    header_default={type=0, length=0}}
+                                    mandatory={'tlv_type'},
+                                   }
+
+function ac_tlv:init()
+   -- look at header_default - if type not set, child hasn't bothered..
+   if not self.header_default
+   then
+      self.header_default = {type=self.tlv_type, length=0}
+   end
+
+   -- call superclass init
+   abstract_data.init(self)
+end
 
 function ac_tlv:try_decode(cur)
    local o, err = abstract_data.try_decode(self, cur)
@@ -154,7 +168,6 @@ end
 function ac_tlv:do_encode(o)
    -- must be a subclass which has tlv_type set!
    self:a(self.tlv_type, 'self.tlv_type not set')
-   o.type = o.type or self.tlv_type
    o.length = #o.body
    return abstract_data.do_encode(self, o) .. o.body
 end
@@ -191,7 +204,7 @@ end
 -- prefix_ac_tlv
 
 prefix_ac_tlv = ac_tlv:new_subclass{class='prefix_ac_tlv',
-                                 tlv_type=AC_TLV_USP}
+                                    tlv_type=AC_TLV_USP}
 
 function prefix_ac_tlv:try_decode(cur)
    local o, err = ac_tlv.try_decode(self, cur)
@@ -229,9 +242,12 @@ rhf_ac_tlv = ac_tlv:new{class='rhf_ac_tlv', tlv_type=AC_TLV_RHF}
 function rhf_ac_tlv:try_decode(cur)
    local o, err = ac_tlv.try_decode(self, cur)
    if not o then return o, err end
-   -- only constraint we have is that the length > 32 (according 
+   -- only constraint we have is that the length >= 32 (according 
    -- to draft-acee-ospf-ospfv3-autoconfig-03)
-   if o.length <= 32 then return nil, 'too short RHF payload' end
+   if o.length < MINIMUM_AC_TLV_RHF_LENGTH
+   then 
+      return nil, 'too short RHF payload' 
+   end
    return o
 end
 
@@ -246,7 +262,8 @@ usp_ac_tlv = prefix_ac_tlv:new{class='usp_ac_tlv',
 asp_ac_tlv = prefix_ac_tlv:new{class='asp_ac_tlv',
                                format='type:u2 length:u2 iid:u4',
                                tlv_type=AC_TLV_ASP,
-                               header_default={type=0, length=0, iid=0}}
+                               header_default={type=AC_TLV_ASP, 
+                                               length=0, iid=0}}
 
 -- tlv list decoding
 
@@ -269,16 +286,21 @@ function decode_ac_tlvs(s)
    local t = {}
    while has_left(cur, minimum_size)
    do
+      local found = false
       for i, v in ipairs(_tlv_decoders)
       do
+         mst.d('looping decoder', i)
+
          local o, err = v:decode(cur)
          if o
          then
             table.insert(t, o)
             mst.d('decoded', o)
+            found = true
             break
          end
       end
+      mst.a(found, 'unable to decode', cur)
    end
    return t, cur.pos
 end

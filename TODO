@@ -4,14 +4,6 @@
 
 * Things to do
 
-** PA alg features
-
-*** HW addr stuff, duplicate router detection
-
-*** detect RID changes
-
-if OSPF changes RID, we should update it in elsa_pa (and pa)
-
 ** Comprehensively test PA alg
 
 ** DHCPv6 PD integration
@@ -126,6 +118,17 @@ or
 
 - send updates via 0-timeout in event loop in single big packets [requires
   bit smarter handling code]
+
+* Done (8.10.+)
+
+** PA alg features
+
+*** HW addr stuff, duplicate router detection
+
+*** detect RID changes
+
+if OSPF changes RID, we should update it in elsa_pa (and pa)
+
 
 * Done (1.10.+)
 

@@ -9,14 +9,17 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Oct  4 19:34:45 2012 mstenber
--- Edit time:     80 min
+-- Last modified: Mon Oct  8 12:47:48 2012 mstenber
+-- Edit time:     99 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
 -- 
 -- elsa_pa is given skv instance, elsa instance, and should roll on
--- it's way. 
+-- it's way.
+--
+-- the main difference is that this code assumes that there are LSAs;
+-- pa code just deals with rid, asp, usp, if abstractions
 
 AC_TYPE=0xBFF0
 
@@ -40,9 +43,8 @@ module(..., package.seeall)
 elsa_pa = mst.create_class{class='elsa_pa', mandatory={'skv', 'elsa'}}
 
 function elsa_pa:init()
-   local rid = self.rid
    self.first = true
-   self.pa = pa.pa:new{rid=rid, client=self}
+   self.pa = pa.pa:new{rid=self.rid, client=self}
 end
 
 function elsa_pa:uninit()
@@ -52,7 +54,66 @@ function elsa_pa:uninit()
    self.pa:done()
 end
 
+function elsa_pa:get_hwf()
+   local hwf = self.elsa:get_hwf(self.rid)
+   
+   mst.a(hwf, 'unable to get hwf')
+   local d = codec.MINIMUM_AC_TLV_RHF_LENGTH
+   if #hwf < d
+   then
+      hwf = hwf .. string.rep('1', d - #hwf)
+   end
+   mst.a(#hwf >= d)
+   return hwf
+end
+
+function elsa_pa:check_conflict()
+   local my_hwf = self:get_hwf()
+   local other_hwf = nil
+   self:iterate_ac_lsa(function (lsa)
+                          if lsa.rid == self.rid
+                          then
+                             local found = nil
+                             for i, tlv in ipairs(codec.decode_ac_tlvs(lsa.body))
+                             do
+                                if tlv.type == codec.AC_TLV_RHF
+                                then
+                                   found = tlv.body
+                                end
+                             end
+                             if found and found ~= my_hwf
+                             then
+                                other_hwf = found
+                             end
+                          end
+                       end)
+   if not other_hwf then return end
+   -- we have conflict; depending on what the hwf looks like,
+   -- we either have to change our rid.. or not.
+
+   -- if our hwf is greater, we don't need to change, but the other does
+   if my_hwf > other_hwf
+   then
+      return
+   end
+
+   -- uh oh, our hwf < other hwf -> have to change
+   self.elsa:change_rid(self.rid)
+
+   return true
+end
+
 function elsa_pa:run()
+   -- let's check first that there is no conflict; that is,
+   -- nobody else with different hw fingerprint, but same rid
+   --
+   -- if someone like that exists, either we (or they) have to change
+   -- their router id..
+   if self:check_conflict() then return end
+
+   -- our rid may have changed -> change that of the pa too, just in case
+   self.pa.rid = self.rid
+
    local r = self.pa:run()
    if r or self.first
    then
@@ -180,6 +241,10 @@ end
 
 function elsa_pa:generate_ac_lsa()
    local a = mst.array:new()
+
+   -- generate RHF
+   local hwf = self:get_hwf(self.rid)
+   a:insert(codec.rhf_ac_tlv:encode{body=hwf})
 
    -- generate local USP-based TLVs
    self:iterate_skv_prefix(function (prefix)

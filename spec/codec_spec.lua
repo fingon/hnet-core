@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 18:34:49 2012 mstenber
--- Last modified: Tue Oct  2 13:10:19 2012 mstenber
--- Edit time:     8 min
+-- Last modified: Mon Oct  8 12:35:23 2012 mstenber
+-- Edit time:     10 min
 --
 
 require "busted"
@@ -35,7 +35,9 @@ describe("test the ac endecode",
                      mst.d('decode', o2, err)
                      mst.a(orig)
                      mst.a(o2, 'decode result empty', err)
-
+                     local l2 = codec.decode_ac_tlvs(b)
+                     mst.a(#l2 == 1)
+                     mst.a(mst.repr_equal(l2[1], o2))
                      mst.a(mst.table_contains(o2, orig), "something missing", cl.class, o2, orig)
                   end
                                           end)

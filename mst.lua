@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Oct  8 11:39:45 2012 mstenber
--- Edit time:     404 min
+-- Last modified: Mon Oct  8 13:56:07 2012 mstenber
+-- Edit time:     417 min
 --
 
 -- data structure abstractions provided:
@@ -413,6 +413,7 @@ array = create_class{class='array',
                      to_table=array_to_table,
                      repr=array_repr,
                      join=table.concat,
+                     sort=table.sort,
                     }
 
 function array:count()
@@ -898,7 +899,26 @@ function repr(o, shown)
       return table_repr(o, shown)
    elseif t == 'string'
    then
-      return string.format('%q', o)
+      -- if it's printable string, we do string.format.
+      -- string.format results aren't really printable, though
+      if string_is_printable(o) then
+         return string.format('%q', o)
+      else
+         local t = array:new()
+         t:insert('"')
+         for i=1,#o
+         do
+            local c = string.sub(o, i, i)
+            if string_is_printable(c)
+            then
+               t:insert(c)
+            else
+               t:insert(string.format('\\%03o', string.byte(c)))
+            end
+         end
+         t:insert('"')
+         return t:join()
+      end
    elseif t == 'nil'
    then
       return 'nil'

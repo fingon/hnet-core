@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Fri Oct  5 01:19:24 2012 mstenber
--- Edit time:     27 min
+-- Last modified: Mon Oct  8 13:46:09 2012 mstenber
+-- Edit time:     29 min
 --
 
 -- testsuite for the pm_core
@@ -49,7 +49,8 @@ describe("pm", function ()
             before_each(function ()
                            s = skv.skv:new{long_lived=true, port=42424}
                            e = delsa:new{iid={myrid={{index=42, name='eth2'}}},
-                                         lsas={rid1=usp_dead_tlv}}
+                                         lsas={rid1=usp_dead_tlv},
+                                         hwf={myrid='foo'}}
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='myrid'}
 
                            s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth1'})
@@ -83,7 +84,7 @@ describe("pm", function ()
 
                          }
                   ep:run()
-                  mst.a(arri == #arr)
+                  mst.a(arri == #arr, 'did not consume all?', arri, #arr)
                         end)
                end)
 

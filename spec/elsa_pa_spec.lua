@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Fri Oct  5 00:10:00 2012 mstenber
--- Edit time:     86 min
+-- Last modified: Mon Oct  8 12:55:05 2012 mstenber
+-- Edit time:     94 min
 --
 
 require 'mst'
@@ -22,6 +22,8 @@ local _delsa = require 'delsa'
 delsa = _delsa.delsa
 
 local usp_dead_tlv = codec.usp_ac_tlv:encode{prefix='dead::/16'}
+local rhf_low_tlv = codec.rhf_ac_tlv:encode{body=string.rep("a", 32)}
+local rhf_high_tlv = codec.rhf_ac_tlv:encode{body=string.rep("z", 32)}
 
 describe("elsa_pa [one node]", function ()
             local e, s, ep, usp_added, asp_added
@@ -30,6 +32,7 @@ describe("elsa_pa [one node]", function ()
                                                       name='eth0'},
                                                      {index=123,
                                                       name='eth1'}}}, 
+                                         hwf={mypid='foo'},
                                          lsas={}}
                            s = skv.skv:new{long_lived=true, port=31337}
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='mypid'}
@@ -132,6 +135,24 @@ describe("elsa_pa [one node]", function ()
                   mst.a(usp_added)
 
                                                         end)
+            it("duplicate detection works - smaller", function ()
+                  e.lsas={mypid=rhf_low_tlv,
+                          r1=usp_dead_tlv}
+                  ep:run()
+                  mst.a(usp_added)
+                  mst.a(not asp_added)
+                  mst.a(not e.rid_changed)
+
+                   end)
+
+            it("duplicate detection works - greater", function ()
+                  e.lsas={mypid=rhf_high_tlv,
+                          r1=usp_dead_tlv}
+                  ep:run()
+                  mst.a(not usp_added)
+                  mst.a(not asp_added)
+                  mst.a(e.rid_changed)
+                   end)
                                end)
 
 describe("elsa_pa multinode", function ()
@@ -143,6 +164,8 @@ describe("elsa_pa multinode", function ()
                                                 {index=123, name='eth1'}}, 
                                            ep2={{index=43,name='eth0'},
                                                 {index=123, name='eth1'}}},
+                                      hwf={ep1='foo',
+                                           ep2='bar'},
                                       lsas=base_lsas}
                   local skv1 = skv.skv:new{long_lived=true, port=31338}
                   local skv2 = skv.skv:new{long_lived=true, port=31339}

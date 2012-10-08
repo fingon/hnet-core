@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Fri Oct  5 01:21:21 2012 mstenber
--- Edit time:     63 min
+-- Last modified: Mon Oct  8 13:50:46 2012 mstenber
+-- Edit time:     73 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -27,19 +27,20 @@
 require 'mst'
 require 'skv'
 require 'elsa_pa'
+require 'linux_if'
 
 module(..., package.seeall)
 
 pm = mst.create_class{class='pm', mandatory={'skv', 'shell'}}
 
 function pm:init()
-   self.if2hwaddr = {}
    self.f_lap = function (k, v) self:lap_changed(v) end
    self.f_iflist = function (k, v) self:ifs_changed(v) end
    self.f_usp = function (k, v) self:usp_changed(v) end
    self.skv:add_change_observer(self.f_lap, elsa_pa.OSPF_LAP_KEY)
    self.skv:add_change_observer(self.f_iflist, elsa_pa.OSPF_IFLIST_KEY)
    self.skv:add_change_observer(self.f_usp, elsa_pa.OSPF_USP_KEY)
+   self.if_table = linux_if.if_table:new{shell=self.shell} 
 end
 
 function pm:uninit()
@@ -50,39 +51,19 @@ function pm:uninit()
 end
 
 function pm:get_real_lap()
-   local s = self.shell("ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary")
-   mst.a(s)
-   local ifname = nil
    local r = mst.array:new{}
 
-   local lines = mst.string_split(s, '\n')
-   -- filter empty lines
-   lines = lines:filter(function (line) return #mst.string_strip(line)>0 end)
+   local m = self.if_table:read_ip_ipv6()
 
-   for i, line in ipairs(lines)
+   for _, ifo in ipairs(m:values())
    do
-      -- either it starts with #: ifname: 
-      -- OR space + inet6 ip/64 scope global ...
-      local st = string.sub(line, 1, 1)
-      if st ~= ' '
-      then
-         local l = mst.string_split(line, ':')
-         mst.a(#l == 3, 'parse error', line)
-         ifname = mst.string_strip(l[2])
-      else
-         -- address
-         mst.a(ifname, 'ifname not set')
-         line = mst.string_strip(line)
-         local l = mst.string_split(line, ' ')
-         mst.a(#l >= 4)
-         mst.a(l[1] == 'inet6')
-         addr = l[2]
-         prefix = ipv6s.eui64_to_prefix(addr)
+      for _, addr in ipairs(ifo.ipv6 or {})
+      do
+         local prefix = ipv6s.eui64_to_prefix(addr)
          mst.a(not r[prefix])
-
          -- consider if we should even care about this prefix
          local found = nil
-         for i, v in ipairs(self.ospf_usp or {})
+         for _, v in ipairs(self.ospf_usp or {})
          do
             self:d('considering', v.prefix, prefix)
             if ipv6s.prefix_contains(v.prefix, prefix)
@@ -95,7 +76,7 @@ function pm:get_real_lap()
          then
             self:d('ignoring prefix', prefix)
          else
-            local o = {ifname=ifname, prefix=prefix, addr=addr}
+            local o = {ifname=ifo.name, prefix=prefix, addr=addr}
             self:d('found', o)
             r:insert(o)
          end
@@ -160,26 +141,8 @@ function pm:check_ospf_vs_real()
    end
 end
 
-function pm:get_hwaddr(ifname)
-   mst.a(ifname)
-   local r = self.if2hwaddr[ifname]
-   if r then return r end
-   local s = self.shell(string.format('ifconfig %s | grep HWaddr', ifname))
-   if not s
-   then
-      r = false
-   else
-      s = mst.string_strip(s)
-      local l = mst.string_split(s)
-      -- take the last one
-      r = l:slice(-1)[1]
-      self.if2hwaddr[ifname] = r
-   end
-   return r
-end
-
 function pm:handle_ospf_prefix(prefix, po)
-   local hwaddr = self:get_hwaddr(po.ifname)
+   local hwaddr = self.if_table:get_if(po.ifname):get_hwaddr()
    local addr = ipv6s.prefix_hwaddr_to_eui64(prefix, hwaddr)
    self:d('handle_ospf_prefix', po)
    self:a(addr)

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Fri Oct  5 00:09:17 2012 mstenber
--- Last modified: Fri Oct  5 00:09:38 2012 mstenber
--- Edit time:     0 min
+-- Last modified: Mon Oct  8 12:54:50 2012 mstenber
+-- Edit time:     1 min
 --
 
 require 'mst'
@@ -18,7 +18,11 @@ require 'elsa_pa'
 
 module(..., package.seeall)
 
-delsa = mst.create_class{class='delsa'}
+delsa = mst.create_class{class='delsa', mandatory={'hwf'}}
+
+function delsa:get_hwf(rid)
+   return self.hwf[rid]
+end
 
 function delsa:iterate_lsa(f, criteria)
    for rid, body in pairs(self.lsas)
@@ -39,3 +43,6 @@ function delsa:originate_lsa(lsa)
    self.lsas[lsa.rid] = lsa.body
 end
 
+function delsa:change_rid()
+   self.rid_changed = true
+end

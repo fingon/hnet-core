@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Fri Oct  5 00:46:36 2012 mstenber
--- Edit time:     335 min
+-- Last modified: Mon Oct  8 12:07:47 2012 mstenber
+-- Edit time:     338 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
