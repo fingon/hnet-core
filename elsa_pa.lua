@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Mon Oct  8 15:52:45 2012 mstenber
--- Edit time:     102 min
+-- Last modified: Mon Oct  8 16:52:51 2012 mstenber
+-- Edit time:     113 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -210,11 +210,26 @@ function elsa_pa:iterate_usp(rid, f)
                            end, {type=codec.AC_TLV_USP})
 end
 
---  iterate_if(rid, f) => callback with iid, highest_rid
+--  iterate_if(rid, f) => callback with ifo, highest_rid
 function elsa_pa:iterate_if(rid, f)
-   self.elsa:iterate_if(rid, function (iid, highest_rid)
-                           self:a(iid)
-                           f(iid, highest_rid)
+   local inuse_ifnames = mst.set:new{}
+
+   -- determine the interfaces for which we don't want to provide
+   -- interface callback (if we're using local interface-sourced
+   -- delegated prefix, we don't want to offer anything there)
+   self:iterate_skv_prefix(function (prefix, ifname)
+                              mst.d('in use ifname', ifname)
+                              inuse_ifnames:insert(ifname)
+                           end)
+
+   self.elsa:iterate_if(rid, function (ifo, highest_rid)
+                           self:a(ifo)
+                           if not inuse_ifnames[ifo.name]
+                           then
+                              f(ifo, highest_rid)
+                           else
+                              mst.d('skipping in use', ifo, 'delegated prefix source')
+                           end
                         end)
 end
 
@@ -236,7 +251,7 @@ function elsa_pa:iterate_skv_prefix(f)
          end
          if not valid or valid >= os.time()
          then
-            f(prefix)
+            f(prefix, ifname)
          end
       end
    end

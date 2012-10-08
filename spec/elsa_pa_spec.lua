@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Mon Oct  8 16:38:25 2012 mstenber
--- Edit time:     98 min
+-- Last modified: Mon Oct  8 17:00:20 2012 mstenber
+-- Edit time:     105 min
 --
 
 require 'mst'
@@ -51,7 +51,7 @@ describe("elsa_pa [one node]", function ()
             after_each(function ()
                           -- make sure that the ospf-usp looks sane
                           local uspl = s:get(elsa_pa.OSPF_USP_KEY) or {}
-                          mst.a(not usp_added or #uspl>0)
+                          mst.a(not usp_added or #uspl>0, 'invalid uspl - nothing?', uspl)
                           for i, usp in ipairs(uspl)
                           do
                              mst.a(type(usp) == 'table')
@@ -107,7 +107,7 @@ describe("elsa_pa [one node]", function ()
 
                                         end)
 
-            it("also works via skv configuration #skv", function ()
+            it("also works via skv configuration - but no ifs!", function ()
                   -- in the beginning, should only get nothing
                   ep:run()
                   mst.a(not usp_added)
@@ -130,6 +130,35 @@ describe("elsa_pa [one node]", function ()
                   mst.a(usp_added)
                   mst.a(not asp_added)
 
+                  -- but without ifs, no asp assignment
+                  ep:run()
+                  mst.a(not asp_added)
+
+                                                        end)
+
+            it("also works via skv configuration #skv", function ()
+                  -- in the beginning, should only get nothing
+                  ep:run()
+                  mst.a(not usp_added)
+                  mst.a(not asp_added)
+
+                  -- now we fake it that we got prefix from pd
+                  -- (skv changes - both interface list, and pd info)
+                  s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth2'})
+                  s:set(elsa_pa.PD_PREFIX_KEY .. '.eth0', 
+                        -- prefix[,valid]
+                        {'dead::/16'}
+                       )
+                  s:set(elsa_pa.PD_PREFIX_KEY .. '.eth2', 
+                        -- just the string should also work
+                        'beef::/16'
+                       )
+                  
+                  -- make sure it's recognized as usp
+                  ep:run()
+                  mst.a(usp_added)
+                  mst.a(not asp_added)
+
                   -- and then we should get our own asp back too
                   asp_added = false
                   usp_added = false
@@ -138,6 +167,7 @@ describe("elsa_pa [one node]", function ()
                   mst.a(usp_added)
 
                                                         end)
+
             it("duplicate detection works - smaller", function ()
                   e.lsas={mypid=rhf_low_tlv,
                           r1=usp_dead_tlv}

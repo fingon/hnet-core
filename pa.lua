@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Mon Oct  8 16:35:18 2012 mstenber
--- Edit time:     339 min
+-- Last modified: Mon Oct  8 17:02:18 2012 mstenber
+-- Edit time:     342 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -527,6 +527,7 @@ function pa:run()
    self.highest = mst.map:new()
 
    client:iterate_if(rid, function (ifo, highest_rid)
+                        self:d('got', ifo)
                         self.ifs[ifo.index] = ifo
                         self.highest[ifo.index] = highest_rid
                      end
@@ -610,6 +611,7 @@ function pa:add_or_update_usp(prefix, rid)
    end
    self:d(' adding new usp')
    usp:new{prefix=prefix, rid=rid, parent=self, valid=true}
+   self.changes = self.changes + 1
 end
 
 function pa:get_asp(prefix, iid, rid)
@@ -647,4 +649,5 @@ function pa:add_or_update_asp(prefix, iid, rid)
    end
    self:d(' adding new asp')
    asp:new{prefix=prefix, iid=iid, rid=rid, parent=self, valid=true}
+   self.changes = self.changes + 1
 end
