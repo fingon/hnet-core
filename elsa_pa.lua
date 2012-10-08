@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Mon Oct  8 12:47:48 2012 mstenber
--- Edit time:     99 min
+-- Last modified: Mon Oct  8 15:52:45 2012 mstenber
+-- Edit time:     102 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -118,9 +118,12 @@ function elsa_pa:run()
    if r or self.first
    then
       -- originate LSA (or try to, there's duplicate prevention, or should be)
+      local body = self:generate_ac_lsa()
+      mst.a(body and #body, 'empty generated LSA?!?')
+
       self.elsa:originate_lsa{type=AC_TYPE, 
                               rid=self.pa.rid,
-                              body=self:generate_ac_lsa()}
+                              body=body}
 
       -- set up the locally assigned prefix field
       local t = mst.array:new()
