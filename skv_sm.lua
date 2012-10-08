@@ -10,10 +10,7 @@ local strformat = require 'string'.format
 
 local statemap = require 'statemap'
 
-        -- these timeouts have to be ~orders of magnitude more than
-        -- the dispatch timeout of our loop, or we may spin forever
-        local CONNECT_TIMEOUT = 3
-        local INITIAL_LISTEN_TIMEOUT = 5
+        require 'skv_const'
 
 
 
@@ -82,7 +79,7 @@ Client.Init = Client.Default:new('Client.Init', 0)
 
 function Client.Init:Entry (fsm)
     local ctxt = fsm.owner
-    ctxt:init_client(INITIAL_LISTEN_TIMEOUT)
+    ctxt:init_client(skv_const.INITIAL_LISTEN_TIMEOUT)
 end
 
 function Client.Init:Initialized (fsm)
@@ -118,7 +115,7 @@ Client.Connecting = Client.Default:new('Client.Connecting', 1)
 
 function Client.Connecting:Entry (fsm)
     local ctxt = fsm.owner
-    ctxt:start_retry_timer(CONNECT_TIMEOUT)
+    ctxt:start_retry_timer(skv_const.CONNECT_TIMEOUT)
     ctxt:socket_connect()
 end
 

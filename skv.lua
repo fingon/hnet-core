@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Thu Oct  4 20:47:58 2012 mstenber
+-- Last modified: Mon Oct  8 11:08:32 2012 mstenber
 -- Edit time:     362 min
 --
 
@@ -17,6 +17,8 @@ require 'mst'
 require 'ssloop'
 require 'scb'
 require 'jsoncodec'
+
+module(..., package.seeall)
 
 -- SMC-generated state machine
 -- fix braindeath of using pcall in a state machine in general..
@@ -26,10 +28,9 @@ function pcall(f)
    -- errors, huh?
    f()
 end
-local sm = require 'skv_sm'
+sm = require 'skv_sm'
 pcall = orig_pcall
 
-module(..., package.seeall)
 
 skv = mst.create_class{mandatory={"long_lived"}, class="skv"}
 skvconnection = mst.create_class{mandatory={"s", "parent"}, class="skvconnection"}

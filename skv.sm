@@ -1,8 +1,5 @@
 %{
-        -- these timeouts have to be ~orders of magnitude more than
-        -- the dispatch timeout of our loop, or we may spin forever
-        local CONNECT_TIMEOUT = 3
-        local INITIAL_LISTEN_TIMEOUT = 5
+        require 'skv_const'
 %}
 
 %start Client::Init
@@ -13,7 +10,7 @@
 
 // State Transition End State Action(s)
 Init 
-Entry { init_client(INITIAL_LISTEN_TIMEOUT); }
+Entry { init_client(skv_const.INITIAL_LISTEN_TIMEOUT); }
 {
   Initialized [ctxt:is_server() ] Server::Init { }
   Initialized Connecting { }
@@ -26,7 +23,7 @@ Default
 }
 
 Connecting 
-Entry { start_retry_timer(CONNECT_TIMEOUT); socket_connect(); }
+Entry { start_retry_timer(skv_const.CONNECT_TIMEOUT); socket_connect(); }
 Exit { clear_timeout_maybe(); }
 {
   Connected WaitVersion { }

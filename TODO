@@ -2,21 +2,45 @@
 
 * Bugs to fix
 
-** Fix timeouting tests
-
-- nothing should, probably, or we should tune timeouts for test running to 'low' values
-
 ** Make pm look for return codes (fix mst.system call somehow?)
 
 * Things to do
 
 ** PA alg features
 
+*** HW addr stuff, duplicate router detection
+
 *** detect RID changes
 
 if OSPF changes RID, we should update it in elsa_pa (and pa)
 
 ** Comprehensively test PA alg
+
+** DHCPv6 PD integration
+
+Somehow keep probing that DHCPv6 server is present on link.. that may
+require luasocket w/ v6?
+
+!!! fairly broken that we have to use SLAAC to get default route on
+    interface; also making sure it stays valid is awkward.. and should make
+    sure it's not one of the OSPF talking nodes somehow (...)
+
+I suppose we can play with ND to make sure it stays there (and therefore
+DHCPv6 solicit flooding isn't really neccessary?)
+
+*** Which DHCPv6 PD to use?
+
+- ISC has huge dependencies and is big
+
+- dnsmasq too integrated with dnsmasq
+
+ <2k LoC
+
+- udhcp in busybox seems bit broken
+
+ <2k LoC
+
+.. just implement the state machine in SMC, make it a public reference, 
 
 ** Multihoming support
 
@@ -40,9 +64,13 @@ I'm looking at you, self.asp[rid]
 
 *** PA alg - enable incremential mode 
 
-LSAs changed, IFs changed
+step 1: LSAs changed, IFs changed
 
 *** PA alg - enable even more incremential mode 
+
+step 2: individual LSA change notifications
+
+(IF changes are hopefully rare enough..)
 
 just get provided with LSA updates
 
@@ -56,10 +84,50 @@ just get provided with LSA updates
 - ...
 
 
+** IPv4 support
+
+What does it _mean_? RFC 1918 space allocation, pick _one_ random prefix,
+NAT outbound stuff.
+
+Just use 10.Y.X.0
+
+Y = random number picked by whoever provides the route (v4-USP message)
+
+X = assigned subnet # (if someone has more than 255 networks in their home
+running v4, oh well; we can alternatively use Y space also for X if that's
+better model, but this one works with CGN that uses 10.* space, with 1/256
+chance of failure .. )
+
+How we detect upstream connectivity?
+
+Simple - run DHCPv4 client _on each interface_, listen for anything that's
+NOT 10.Y.* that is available.
+
+=> what's needed:
+
+- DHCPv4 client per interface on box, which publishes results to skv pd-v4.IF
+- slightly modified variant of PA alg
+- PM needs to configure
+ - NAT rule 
+ - DHCPv4 server per non-pd-v4.IF 
+
 ** Naming support?
 
 - should provide stateless DHCPv6 with DNS info at least (gathered from all
   providers?)
+
+
+* Improvements that affect only performance
+
+** Aggregate the updates somehow
+
+- either glob things to bigger blobs (e.g. 'ospf-pa' key) [possibly
+  inefficient in terms of transmitted data]
+
+or
+
+- send updates via 0-timeout in event loop in single big packets [requires
+  bit smarter handling code]
 
 * Done (1.10.+)
 
