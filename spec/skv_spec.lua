@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Mon Oct  8 11:17:10 2012 mstenber
--- Edit time:     173 min
+-- Last modified: Mon Oct  8 11:42:57 2012 mstenber
+-- Edit time:     176 min
 --
 
 require "busted"
@@ -71,10 +71,10 @@ describe("class init",
             it("can be created [long lived]", 
                function()
                   local o = skv:new{long_lived=true, port=get_available_port()}
-                  add_eventloop_terminator(o, 'start_wait_connections')
-                  run_loop_awhile()
-                  assert.are.same(o.fsm:getState().name, 
-                                  "Server.WaitConnections")
+                  loop:loop_until(function ()
+                                     return o.fsm:getState().name == 
+                                        "Server.WaitConnections"
+                                  end)
                end)
             it("cannot be created [non-long lived]", 
                function()

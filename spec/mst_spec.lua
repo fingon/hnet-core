@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Thu Oct  4 23:20:45 2012 mstenber
--- Edit time:     73 min
+-- Last modified: Mon Oct  8 11:38:16 2012 mstenber
+-- Edit time:     79 min
 --
 
 require "busted"
@@ -237,4 +237,30 @@ describe("bits", function ()
                   local t7 = mst.bitv_xor_bit(t5, 9)
                   mst.d(t7 == 129+256)
                         end)
+end)
+
+describe("execute_to_string", function ()
+            it("successful cmd works", function ()
+                  local s, err = mst.execute_to_string('ls -1 /')
+                  mst.a(s)
+                  mst.a(#mst.string_split(s, '\n') > 3)
+                                       end)
+
+            -- this one annoyingly enough shows the 'command not
+            -- found' even if stderr->stdin redirection is in
+            -- place. ugh
+            it("erroneous command returns nil", function ()
+                  --local s, err = mst.execute_to_string('asfwrherhbdfjv', true)
+                  --mst.a(not s)
+                  --mst.a(err)
+                                                end)
+            it("false returns nil", function ()
+                  local s, err = mst.execute_to_string('false')
+                  mst.a(not s)
+                  mst.a(err)
+                                    end)
+            it("true returns non-nil", function ()
+                  local s, err = mst.execute_to_string('true')
+                  mst.a(s)
+                                       end)
 end)

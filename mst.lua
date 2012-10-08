@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Fri Oct  5 01:18:47 2012 mstenber
--- Edit time:     397 min
+-- Last modified: Mon Oct  8 11:39:45 2012 mstenber
+-- Edit time:     404 min
 --
 
 -- data structure abstractions provided:
@@ -1007,13 +1007,31 @@ function bitv_highest_bit(v)
    return r
 end
 
--- python system command equivalent
-function system(cmd)
+-- os.execute, which stores results in string
+-- return value is the string, or nil + description about the error
+-- stderr is NOT redirected by default
+function execute_to_string(cmd, redirect_stderr)
    mst.d('system', cmd)
-   local f = io.popen(cmd)
+
+   if redirect_stderr
+   then
+      cmd = cmd .. " 2>&1"
+   end
+
+   local n = os.tmpname()
+   cmd = cmd .. " > " .. n
+   local r = os.execute(cmd)
+   if r ~= 0
+   then
+      return nil, 'os.execute returned ' .. repr(r)
+   end
+   local f = io.open(n)
    local d = f:read('*a')
    f:close()
    mst.d('got', d)
+
+   os.remove(n)
+
    return d
 end
 

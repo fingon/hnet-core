@@ -2,8 +2,6 @@
 
 * Bugs to fix
 
-** Make pm look for return codes (fix mst.system call somehow?)
-
 * Things to do
 
 ** PA alg features

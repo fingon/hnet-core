@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Fri Oct  5 01:07:51 2012 mstenber
+-- Last modified: Mon Oct  8 11:29:31 2012 mstenber
 -- Edit time:     4 min
 --
 
@@ -33,6 +33,6 @@ require 'ssloop'
 mst.d('initializing skv')
 local s = skv.skv:new{long_lived=true}
 mst.d('initializing pm')
-local pm = pm_core.pm:new{shell=mst.system, skv=s}
+local pm = pm_core.pm:new{shell=mst.execute_to_string, skv=s}
 mst.d('entering event loop')
 ssloop.loop():loop()
