@@ -6,31 +6,13 @@
 
 ** Comprehensively test PA alg
 
-** DHCPv6 PD integration
+- corner cases (sigh)
+ - running out of addrs
+ - different conflict situations?
 
-Somehow keep probing that DHCPv6 server is present on link.. that may
-require luasocket w/ v6?
+** DHCPv6 PD integration (static WAN)
 
-!!! fairly broken that we have to use SLAAC to get default route on
-    interface; also making sure it stays valid is awkward.. and should make
-    sure it's not one of the OSPF talking nodes somehow (...)
-
-I suppose we can play with ND to make sure it stays there (and therefore
-DHCPv6 solicit flooding isn't really neccessary?)
-
-*** Which DHCPv6 PD to use?
-
-- ISC has huge dependencies and is big
-
-- dnsmasq too integrated with dnsmasq
-
- <2k LoC
-
-- udhcp in busybox seems bit broken
-
- <2k LoC
-
-.. just implement the state machine in SMC, make it a public reference, 
+- just set up the variable using skvtool.lua, and we're golden?
 
 ** Multihoming support
 
@@ -105,6 +87,32 @@ NOT 10.Y.* that is available.
 
 - should provide stateless DHCPv6 with DNS info at least (gathered from all
   providers?)
+
+** DHCPv6 PD integration (border detection stuff, ick)
+
+Somehow keep probing that DHCPv6 server is present on link.. that may
+require luasocket w/ v6?
+
+!!! fairly broken that we have to use SLAAC to get default route on
+    interface; also making sure it stays valid is awkward.. and should make
+    sure it's not one of the OSPF talking nodes somehow (...)
+
+I suppose we can play with ND to make sure it stays there (and therefore
+DHCPv6 solicit flooding isn't really neccessary?)
+
+*** Which DHCPv6 PD to use?
+
+- ISC has huge dependencies and is big
+
+- dnsmasq too integrated with dnsmasq
+
+ <2k LoC
+
+- udhcp in busybox seems bit broken
+
+ <2k LoC
+
+.. just implement the state machine in SMC, make it a public reference, 
 
 
 * Improvements that affect only performance

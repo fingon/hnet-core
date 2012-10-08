@@ -9,12 +9,13 @@
 * LUA requirements
 ------------------
 - lua 5.1+ with C dev header
-- busted (http://olivinelabs.com/busted/)
-- luasocket (http://w3.impa.br/~diego/software/luasocket/)
-(- lua-ev (https://github.com/brimworks/lua-ev))
-((- struct (http://www.inf.puc-rio.br/~roberto/struct/))
-- vstruct (https://github.com/ToxicFrog/vstruct)
 - md5
+- luasocket (http://w3.impa.br/~diego/software/luasocket/)
+- vstruct (https://github.com/ToxicFrog/vstruct)
+
+if unittests should be runnable
+- busted (http://olivinelabs.com/busted/)
+
 
 * Installation
 --------------
