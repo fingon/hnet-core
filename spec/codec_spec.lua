@@ -9,15 +9,19 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 18:34:49 2012 mstenber
--- Last modified: Mon Oct  8 12:35:23 2012 mstenber
--- Edit time:     10 min
+-- Last modified: Mon Oct  8 16:15:07 2012 mstenber
+-- Edit time:     11 min
 --
 
 require "busted"
 require "codec"
 
 local tests = {
+   -- check that different paddings work
    {codec.rhf_ac_tlv, {body=string.rep('1', 40)}},
+   {codec.rhf_ac_tlv, {body=string.rep('1', 41)}},
+   {codec.rhf_ac_tlv, {body=string.rep('1', 42)}},
+   {codec.rhf_ac_tlv, {body=string.rep('1', 43)}},
    {codec.usp_ac_tlv, {prefix='dead::/16'}},
    {codec.asp_ac_tlv, {iid=3, prefix='dead::/16'}},
 }

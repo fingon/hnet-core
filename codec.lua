@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Mon Oct  8 12:46:42 2012 mstenber
--- Edit time:     145 min
+-- Last modified: Mon Oct  8 16:18:41 2012 mstenber
+-- Edit time:     151 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -162,6 +162,22 @@ function ac_tlv:try_decode(cur)
    end
    o.body = cur:read(o.length)
    self:a(#o.body == o.length)
+   -- process also padding
+   if o.length % 4 ~= 0
+   then
+      local npad = 4 - o.length % 4
+      local padding, err = cur:read(npad)
+      if not padding
+      then
+         return nil, string.format('error reading padding: %s', mst.repr(err))
+      end
+      mst.a(padding, 'unable to read padding', npad)
+      if #padding ~= npad
+      then
+         return nil, string.format('eof while reading padding')
+      end
+      mst.a(#padding == npad)
+   end
    return o
 end
 
@@ -169,7 +185,9 @@ function ac_tlv:do_encode(o)
    -- must be a subclass which has tlv_type set!
    self:a(self.tlv_type, 'self.tlv_type not set')
    o.length = #o.body
-   return abstract_data.do_encode(self, o) .. o.body
+   local npad = 4 - o.length % 4
+   local padding = npad == 4 and "" or string.rep(string.char(0), npad)
+   return abstract_data.do_encode(self, o) .. o.body .. padding
 end
 
 --- prefix_body
