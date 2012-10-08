@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Mon Oct  8 12:55:05 2012 mstenber
--- Edit time:     94 min
+-- Last modified: Mon Oct  8 16:38:25 2012 mstenber
+-- Edit time:     98 min
 --
 
 require 'mst'
@@ -49,6 +49,32 @@ describe("elsa_pa [one node]", function ()
 
                         end)
             after_each(function ()
+                          -- make sure that the ospf-usp looks sane
+                          local uspl = s:get(elsa_pa.OSPF_USP_KEY) or {}
+                          mst.a(not usp_added or #uspl>0)
+                          for i, usp in ipairs(uspl)
+                          do
+                             mst.a(type(usp) == 'table')
+                             mst.a(type(usp.prefix) == 'string')
+                             mst.a(string.find(usp.prefix, '::'), 'invalid prefix', usp)
+                             -- XXX - add other checks once multihoming implemented
+                          end
+                          local lapl = s:get(elsa_pa.OSPF_LAP_KEY) or {}
+                          for i, lap in ipairs(lapl)
+                          do
+                             mst.a(type(lap) == 'table')
+                             mst.a(type(lap.ifname) == 'string')
+                             mst.a(type(lap.prefix) == 'string')
+                             local valid_end='::/64'
+                             mst.a(string.sub(lap.prefix, -#valid_end) == valid_end, 'invalid prefix', lap.prefix)
+
+                          end
+                          local ifl = s:get(elsa_pa.OSPF_IFLIST_KEY) or {}
+                          for i, v in ipairs(ifl)
+                          do
+                             mst.a(type(v) == 'string')
+                          end
+
                           -- cleanup
                           ep:done()
                           s:done()
@@ -79,30 +105,7 @@ describe("elsa_pa [one node]", function ()
                   mst.a(asp_added)
                   mst.a(usp_added)
 
-                  -- make sure that the ospf-usp looks sane
-                  local uspl = s:get(elsa_pa.OSPF_USP_KEY)
-                  mst.a(#uspl)
-                  for i, usp in ipairs(uspl)
-                  do
-                     mst.a(type(usp) == 'table')
-                     mst.a(type(usp.prefix) == 'string')
-                     -- XXX - add other checks once multihoming implemented
-                  end
-                  local lapl = s:get(elsa_pa.OSPF_LAP_KEY)
-                  mst.a(#lapl)
-                  for i, lap in ipairs(lapl)
-                  do
-                     mst.a(type(lap) == 'table')
-                     mst.a(type(lap.ifname) == 'string')
-                     mst.a(type(lap.prefix) == 'string')
-                  end
-                  local ifl = s:get(elsa_pa.OSPF_IFLIST_KEY)
-                  mst.a(#ifl)
-                  for i, v in ipairs(ifl)
-                  do
-                     mst.a(type(v) == 'string')
-                  end
-                                  end)
+                                        end)
 
             it("also works via skv configuration #skv", function ()
                   -- in the beginning, should only get nothing
@@ -143,7 +146,7 @@ describe("elsa_pa [one node]", function ()
                   mst.a(not asp_added)
                   mst.a(not e.rid_changed)
 
-                   end)
+                                                      end)
 
             it("duplicate detection works - greater", function ()
                   e.lsas={mypid=rhf_high_tlv,
@@ -152,7 +155,7 @@ describe("elsa_pa [one node]", function ()
                   mst.a(not usp_added)
                   mst.a(not asp_added)
                   mst.a(e.rid_changed)
-                   end)
+                                                      end)
                                end)
 
 describe("elsa_pa multinode", function ()

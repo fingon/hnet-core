@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Mon Oct  8 12:07:47 2012 mstenber
--- Edit time:     338 min
+-- Last modified: Mon Oct  8 16:35:18 2012 mstenber
+-- Edit time:     339 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -441,7 +441,7 @@ end
 function pa:find_new_from(iid, usp, assigned)
    local b = ipv6s.prefix_to_bin(usp.prefix)
    local p
-
+   local ipv6prefix_suffix = '::/64'
    self:a(assigned, 'assigned missing')
    mst.a(b)
 
@@ -456,7 +456,7 @@ function pa:find_new_from(iid, usp, assigned)
       mst.a(#p == 8)
       if not assigned[p]
       then
-         return ipv6s.binary_to_ascii(p) .. '/64'
+         return ipv6s.binary_to_ascii(p) .. ipv6prefix_suffix
       end
    end
 
@@ -469,7 +469,7 @@ function pa:find_new_from(iid, usp, assigned)
 
       if not assigned[p]
       then
-         return ipv6s.binary_to_ascii(p) .. '/64'
+         return ipv6s.binary_to_ascii(p) .. ipv6prefix_suffix
       end
 
       -- prefix is full if we're back at start
