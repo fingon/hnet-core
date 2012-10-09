@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Oct  9 14:02:47 2012 mstenber
--- Edit time:     111 min
+-- Last modified: Tue Oct  9 14:06:48 2012 mstenber
+-- Edit time:     113 min
 --
 
 require 'mst'
@@ -117,7 +117,9 @@ describe("elsa_pa [one node]", function ()
                                               asp_added = false
                                               usp_added = false
                                               ep:run()
-                                              return ep.pa.lap:count() == 0
+                                              local done = ep.pa.lap:count() == 0
+                                              mst.a(#s:get(elsa_pa.OSPF_USP_KEY) > 0 == not done)
+                                              return done
                                            end)
                   
                   -- now locally assigned prefixes should be gone too
