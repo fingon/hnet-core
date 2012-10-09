@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Oct  9 14:53:54 2012 mstenber
--- Edit time:     116 min
+-- Last modified: Tue Oct  9 14:56:54 2012 mstenber
+-- Edit time:     119 min
 --
 
 require 'mst'
@@ -115,7 +115,8 @@ describe("elsa_pa [one node]", function ()
                   -- interface report is shaky)
                   e.iid = {}
                   ep:run()
-                  mst.a(ep.pa.lap:count() > 0)
+                  local lapkey = s:get(elsa_pa.OSPF_LAP_KEY)
+                  mst.a(#lapkey > 0)
                   
                   -- now, get rid of the usp => eventually, the lap
                   -- should disappear
