@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Mon Oct  8 13:46:09 2012 mstenber
+-- Last modified: Tue Oct  9 11:21:30 2012 mstenber
 -- Edit time:     29 min
 --
 
@@ -74,7 +74,8 @@ describe("pm", function ()
 2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
   inet6 fdb2:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic 
   inet6 dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic
-
+6: 6rd: <NOARP,UP,LOWER_UP> mtu 1480 
+  inet6 ::192.168.100.100/128 scope global 
 ]]},
                             {'ifconfig eth2 | grep HWaddr',
                              'eth2      Link encap:Ethernet  HWaddr 00:1c:42:a7:f1:d9  '},

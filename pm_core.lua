@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Mon Oct  8 13:50:46 2012 mstenber
--- Edit time:     73 min
+-- Last modified: Tue Oct  9 11:32:13 2012 mstenber
+-- Edit time:     75 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -47,7 +47,6 @@ function pm:uninit()
    self.skv:remove_change_observer(self.f_lap, elsa_pa.OSPF_LAP_KEY)
    self.skv:remove_change_observer(self.f_iflist, elsa_pa.OSPF_IFLIST_KEY)
    self.skv:remove_change_observer(self.f_usp, elsa_pa.OSPF_USP_KEY)
-
 end
 
 function pm:get_real_lap()
@@ -59,26 +58,31 @@ function pm:get_real_lap()
    do
       for _, addr in ipairs(ifo.ipv6 or {})
       do
-         local prefix = ipv6s.eui64_to_prefix(addr)
-         mst.a(not r[prefix])
-         -- consider if we should even care about this prefix
-         local found = nil
-         for _, v in ipairs(self.ospf_usp or {})
-         do
-            self:d('considering', v.prefix, prefix)
-            if ipv6s.prefix_contains(v.prefix, prefix)
-            then
-               found = v
-               break
-            end
-         end
-         if not found
+         local bits = ipv6s.prefix_bits(addr)
+         if bits == 64
          then
-            self:d('ignoring prefix', prefix)
-         else
-            local o = {ifname=ifo.name, prefix=prefix, addr=addr}
-            self:d('found', o)
-            r:insert(o)
+            -- non-64 bit prefixes can't be eui64 either
+            local prefix = ipv6s.eui64_to_prefix(addr)
+            mst.a(not r[prefix])
+            -- consider if we should even care about this prefix
+            local found = nil
+            for _, v in ipairs(self.ospf_usp or {})
+            do
+               self:d('considering', v.prefix, prefix)
+               if ipv6s.prefix_contains(v.prefix, prefix)
+               then
+                  found = v
+                  break
+               end
+            end
+            if not found
+            then
+               self:d('ignoring prefix', prefix)
+            else
+               local o = {ifname=ifo.name, prefix=prefix, addr=addr}
+               self:d('found', o)
+               r:insert(o)
+            end
          end
       end
    end

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Tue Oct  9 11:10:45 2012 mstenber
--- Edit time:     42 min
+-- Last modified: Tue Oct  9 11:30:58 2012 mstenber
+-- Edit time:     48 min
 --
 
 require 'mst'
@@ -218,11 +218,19 @@ function prefix_hwaddr_to_eui64(prefix, hwaddr)
    return binary_to_ascii(b) .. '/64'
 end
 
+function prefix_bits(addr)
+   local a = mst.string_split(addr, '/')
+   mst.a(#a == 2)
+   local bits = mst.strtol(a[2], 10)
+   mst.a(bits >= 0 and bits <= 128)
+   return bits
+end
+
 function eui64_to_prefix(addr)
    -- must have /64 within
    local a = mst.string_split(addr, '/')
-   mst.a(#a == 2)
-   mst.a(a[2] == '64')
+   local bits = prefix_bits(addr)
+   mst.a(bits == 64, 'non-64 bit eui64 address?', addr)
 
    local bprefix = prefix_to_bin(addr)
    local prefix = ipv6s.bin_to_prefix(bprefix)
