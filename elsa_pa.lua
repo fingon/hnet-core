@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Oct  9 13:55:26 2012 mstenber
--- Edit time:     131 min
+-- Last modified: Tue Oct  9 14:04:11 2012 mstenber
+-- Edit time:     135 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -20,18 +20,6 @@
 --
 -- the main difference is that this code assumes that there are LSAs;
 -- pa code just deals with rid, asp, usp, if abstractions
-
-AC_TYPE=0xBFF0
-
-PD_IFLIST_KEY='pd-iflist'
-PD_PREFIX_KEY='pd-prefix'
-
-OSPF_LAP_KEY='ospf-lap'
-OSPF_USP_KEY='ospf-usp'
-OSPF_IFLIST_KEY='ospf-iflist'
-
-LAP_DEPRECATE_TIMEOUT=120
-LAP_EXPIRE_TIMEOUT=300
 
 -- #define LSA_T_AC        0xBFF0 /* Auto-Configuration LSA */
 --  /* function code 8176(0x1FF0): experimental, U-bit=1, Area Scope */
@@ -44,11 +32,24 @@ local pa = require 'pa'
 
 module(..., package.seeall)
 
+AC_TYPE=0xBFF0
+
+PD_IFLIST_KEY='pd-iflist'
+PD_PREFIX_KEY='pd-prefix'
+
+OSPF_LAP_KEY='ospf-lap'
+OSPF_USP_KEY='ospf-usp'
+OSPF_IFLIST_KEY='ospf-iflist'
+
+LAP_DEPRACATE_TIMEOUT=120
+LAP_EXPIRE_TIMEOUT=300
+
+
 elsa_lap = pa.lap:new_subclass{class='elsa_lap'}
 
 function elsa_lap:start_depracate_timeout()
    local loop = ssloop.loop()
-   self.timeout = loop:new_timeout_delta(LAP_DEPRECATE_TIMEOUT,
+   self.timeout = loop:new_timeout_delta(LAP_DEPRACATE_TIMEOUT,
                                          function ()
                                             self.sm:Timeout()
                                          end)

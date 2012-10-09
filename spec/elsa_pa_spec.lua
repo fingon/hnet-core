@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Oct  9 13:26:19 2012 mstenber
--- Edit time:     107 min
+-- Last modified: Tue Oct  9 14:02:47 2012 mstenber
+-- Edit time:     111 min
 --
 
 require 'mst'
@@ -25,6 +25,10 @@ local usp_dead_tlv = codec.usp_ac_tlv:encode{prefix='dead::/16'}
 local rhf_low_tlv = codec.rhf_ac_tlv:encode{body=string.rep("a", 32)}
 local rhf_high_tlv = codec.rhf_ac_tlv:encode{body=string.rep("z", 32)}
 local valid_end='::/64'
+
+-- override timeouts so that this won't take forever..
+elsa_pa.LAP_DEPRACATE_TIMEOUT=0.01
+elsa_pa.LAP_EXPIRE_TIMEOUT=0.01
 
 describe("elsa_pa [one node]", function ()
             local e, s, ep, usp_added, asp_added
@@ -101,10 +105,23 @@ describe("elsa_pa [one node]", function ()
                   -- and then we should get our own asp back too
                   asp_added = false
                   usp_added = false
-                  ep:run(ep)
+                  ep:run()
                   mst.a(asp_added)
                   mst.a(usp_added)
 
+                  -- now, get rid of the usp => eventually, the lap
+                  -- should disappear
+                  e.lsas = {}
+                  mst.a(ep.pa.lap:count() > 0)
+                  ssloop.loop():loop_until(function ()
+                                              asp_added = false
+                                              usp_added = false
+                                              ep:run()
+                                              return ep.pa.lap:count() == 0
+                                           end)
+                  
+                  -- now locally assigned prefixes should be gone too
+                  mst.a(ep.pa.lap:count() == 0)
                                         end)
 
             it("also works via skv configuration - but no ifs!", function ()
