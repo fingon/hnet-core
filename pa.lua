@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Oct  9 13:54:50 2012 mstenber
--- Edit time:     356 min
+-- Last modified: Tue Oct  9 14:30:07 2012 mstenber
+-- Edit time:     365 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -59,12 +59,14 @@ function lap:init()
    self.sm = lap_sm:new{owner=self}
    self.sm:enterStartState()
    self:assign()
+   self.pa:changed()
 end
 
 function lap:uninit()
    self:d('uninit')
    self:depracate()
    self.pa.lap:remove(self.iid, self)
+   self.pa:changed()
 end
 
 function lap:repr_data()
@@ -105,20 +107,27 @@ function lap:depracate()
    self.sm:Depracate()
 end
 
--- these are subclass responsibility
+-- these are subclass responsibility (optionally - it can also just
+-- use the assigned/depracated flags these set)
 function lap:do_assign()
+   mst.a(not self._is_done, 'called when done')
+   self.pa:changed()
    self.assigned = true
    self.depracated = false
    self.sm:Done()
 end
 
 function lap:do_depracate()
+   mst.a(not self._is_done, 'called when done')
+   self.pa:changed()
    self.assigned = false
    self.depracated = true
    self.sm:Done()
 end
 
 function lap:do_unassign()
+   mst.a(not self._is_done, 'called when done')
+   self.pa:changed()
    self.assigned = false
    self.sm:Done()
 end
@@ -134,7 +143,7 @@ function asp:init()
    local added = self.pa.asp:insert(self.rid, self)
    mst.a(added, "already existed?", self)
    self:d('init')
-
+   self.pa:changed()
 end
 
 function asp:uninit()
@@ -145,7 +154,7 @@ function asp:uninit()
    self:unassign_lap()
 
    self.pa.asp:remove(self.rid, self)
-
+   self.pa:changed()
 end
 
 function asp:repr_data()
@@ -174,6 +183,10 @@ function asp:find_or_create_lap()
    local o = self:find_lap()
    if o then return o end
    self:d(' not found => creating')
+
+   -- mark that something changed so pa knows it too
+   -- (some branches of the logic, e.g. assign_other, won't, otherwise)
+   self.pa:changed()
 
    return self.pa.lap_class:new{prefix=self.prefix, iid=self.iid, 
                                 asp=self,
@@ -211,12 +224,13 @@ usp = mst.create_class{class='usp', mandatory={'prefix', 'rid', 'pa'}}
 function usp:init()
    local added = self.pa.usp:insert(self.rid, self)
    mst.a(added, 'already existed?', self)
+   self.pa:changed()
 end
 
 function usp:uninit()
    self:d('uninit')
-
    self.pa.usp:remove(self.rid, self)
+   self.pa:changed()
 end
 
 function usp:repr_data()
@@ -240,6 +254,9 @@ function pa:init()
    -- all usp data, ordered by prefix
    self.usp = mst.multimap:new()
 
+   -- init changes to 0 here (it's cleared at _end_ of each pa:run,
+   -- but timeouts may cause it to become non-zero before next pa:run)
+   self.changes = 0
 end
 
 function pa:uninit()
@@ -433,8 +450,6 @@ function pa:assign_own(iid, usp)
                      rid=self.rid, 
                      valid=true}
    o:assign_lap()
-
-   self.changes = self.changes + 1
 end
 
 -- child responsibility - return old assignment multimap, with
@@ -509,7 +524,6 @@ function pa:check_asp_conflicts(asp)
       then
          -- as described in 6.3.3
          asp:depracate()
-         self.changes = self.changes + 1
          return
       end
    end
@@ -532,8 +546,6 @@ function pa:assign_other(asp)
 end
 
 function pa:run()
-   self.changes = 0
-
    self:d('run called')
 
    local client = self.client
@@ -605,7 +617,6 @@ function pa:run()
       if not asp.valid
       then
          asp:done()
-         self.changes = self.changes + 1
       end
    end
 
@@ -613,7 +624,9 @@ function pa:run()
 
    if self.changes > 0
    then
-      return self.changes
+      local r = self.changes
+      self.changes = 0
+      return r
    end
 end
 
@@ -630,7 +643,6 @@ function pa:add_or_update_usp(prefix, rid)
    end
    self:d(' adding new usp')
    usp:new{prefix=prefix, rid=rid, pa=self, valid=true}
-   self.changes = self.changes + 1
 end
 
 function pa:get_asp(prefix, iid, rid)
@@ -668,5 +680,9 @@ function pa:add_or_update_asp(prefix, iid, rid)
    end
    self:d(' adding new asp')
    asp:new{prefix=prefix, iid=iid, rid=rid, pa=self, valid=true}
+   self.changes = self.changes + 1
+end
+
+function pa:changed()
    self.changes = self.changes + 1
 end

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Oct  9 14:04:11 2012 mstenber
--- Edit time:     135 min
+-- Last modified: Tue Oct  9 14:28:10 2012 mstenber
+-- Edit time:     137 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -197,11 +197,14 @@ function elsa_pa:run()
       local t = mst.array:new{}
       local dumped = mst.set:new{}
 
+      self:d('creating usp list')
+
       for i, v in ipairs(self.pa.usp:values())
       do
          local p = v.prefix
          if not dumped[p]
          then
+            self:d('got from pa.usp', p)
             dumped:insert(p)
             t:insert({prefix=p})
          end
@@ -213,6 +216,7 @@ function elsa_pa:run()
          local p = lap.asp.usp.prefix
          if not dumped[p]
          then
+            self:d('got from pa.lap', p)
             dumped:insert(p)
             t:insert({prefix=p})
          end

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Oct  9 14:06:48 2012 mstenber
--- Edit time:     113 min
+-- Last modified: Tue Oct  9 14:23:43 2012 mstenber
+-- Edit time:     114 min
 --
 
 require 'mst'
@@ -118,7 +118,8 @@ describe("elsa_pa [one node]", function ()
                                               usp_added = false
                                               ep:run()
                                               local done = ep.pa.lap:count() == 0
-                                              mst.a(#s:get(elsa_pa.OSPF_USP_KEY) > 0 == not done)
+                                              local uspkeys = s:get(elsa_pa.OSPF_USP_KEY)
+                                              mst.a(#uspkeys > 0 == not done, 'done not matching #uspkeys==0', done, uspkeys)
                                               return done
                                            end)
                   
