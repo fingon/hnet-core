@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Oct  9 14:56:54 2012 mstenber
--- Edit time:     119 min
+-- Last modified: Tue Oct  9 16:14:43 2012 mstenber
+-- Edit time:     122 min
 --
 
 require 'mst'
@@ -213,6 +213,13 @@ describe("elsa_pa [one node]", function ()
                   ep:run()
                   mst.a(not usp_added)
                   mst.a(not asp_added)
+                  mst.a(e.rid_changed)
+                                                      end)
+
+            it("duplicate detection works - greater, oob lsa", function ()
+                  local dupe = {rid='mypid',
+                                body=rhf_high_tlv}
+                  ep:check_conflict(dupe)
                   mst.a(e.rid_changed)
                                                       end)
 

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Oct  9 15:15:23 2012 mstenber
--- Edit time:     148 min
+-- Last modified: Tue Oct  9 16:12:54 2012 mstenber
+-- Edit time:     157 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -109,35 +109,51 @@ function elsa_pa:get_hwf()
    return hwf
 end
 
-function elsa_pa:check_conflict()
+function elsa_pa:check_conflict(bonus_lsa)
    local my_hwf = self:get_hwf()
    local other_hwf = nil
-   self:iterate_ac_lsa(function (lsa)
-                          if lsa.rid == self.rid
-                          then
-                             local found = nil
-                             for i, tlv in ipairs(codec.decode_ac_tlvs(lsa.body))
-                             do
-                                if tlv.type == codec.AC_TLV_RHF
-                                then
-                                   found = tlv.body
-                                end
-                             end
-                             if found and found ~= my_hwf
-                             then
-                                other_hwf = found
-                             end
-                          end
-                       end)
+   local lsas = 0
+   local tlvs = 0
+   function consider_lsa(lsa)
+      lsas = lsas + 1
+      if lsa.rid == self.rid
+      then
+         local found = nil
+         for i, tlv in ipairs(codec.decode_ac_tlvs(lsa.body))
+         do
+            tlvs = tlvs + 1
+            if tlv.type == codec.AC_TLV_RHF
+            then
+               found = tlv.body
+            end
+         end
+         if found and found ~= my_hwf
+         then
+            other_hwf = found
+         end
+      end
+   end
+
+   if bonus_lsa then consider_lsa(bonus_lsa) end
+   self:iterate_ac_lsa(consider_lsa)
+
+   self:d('check_conflict considered', lsas, tlvs)
    if not other_hwf then return end
+   self:d('found conflict', my_hwf, other_hwf)
+
    -- we have conflict; depending on what the hwf looks like,
    -- we either have to change our rid.. or not.
 
    -- if our hwf is greater, we don't need to change, but the other does
    if my_hwf > other_hwf
    then
+      self:d('we have precedence, wait for other to renumber')
+
       return
    end
+
+   self:d('trying to change local rid, as we lack precedence')
+
 
    -- uh oh, our hwf < other hwf -> have to change
    self.elsa:change_rid(self.rid)
@@ -146,14 +162,14 @@ function elsa_pa:check_conflict()
 end
 
 function elsa_pa:run()
+   self:d('run starting')
+
    -- let's check first that there is no conflict; that is,
    -- nobody else with different hw fingerprint, but same rid
    --
    -- if someone like that exists, either we (or they) have to change
    -- their router id..
    if self:check_conflict() then return end
-
-   self:d('run starting')
 
    -- our rid may have changed -> change that of the pa too, just in case
    self.pa.rid = self.rid
