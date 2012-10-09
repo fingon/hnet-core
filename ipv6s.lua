@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Fri Oct  5 00:52:45 2012 mstenber
--- Edit time:     39 min
+-- Last modified: Tue Oct  9 11:10:45 2012 mstenber
+-- Edit time:     42 min
 --
 
 require 'mst'
@@ -127,6 +127,16 @@ function ascii_to_binary(b)
    return table.concat(t)
 end
 
+-- convert binary prefix to binary address (=add trailing 0's)
+function prefixbin_to_addrbin(b)
+   if #b < 16
+   then
+      return b .. string.rep(string.char(0), 16-#b)
+   end
+   mst.a(#b == 16)
+   return b
+end
+
 
 -- convert prefix to binary address blob with only relevant bits included
 function prefix_to_bin(p)
@@ -140,6 +150,7 @@ end
 -- assume that everything within is actually relevant
 function bin_to_prefix(bin)
    local bits = #bin * 8
+   local bin = prefixbin_to_addrbin(bin)
    return string.format('%s/%d', binary_to_ascii(bin), bits)
 end
 

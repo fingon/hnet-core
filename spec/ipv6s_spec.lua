@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 22:04:20 2012 mstenber
--- Last modified: Thu Oct  4 23:31:40 2012 mstenber
--- Edit time:     25 min
+-- Last modified: Tue Oct  9 11:08:04 2012 mstenber
+-- Edit time:     26 min
 --
 
 require 'ipv6s'
@@ -96,7 +96,16 @@ describe("prefix_hwaddr_to_eui64", function ()
 
                   local gprefix = ipv6s.eui64_to_prefix(exp)
                   mst.a(gprefix == prefix, gprefix, prefix)
-                  
+                        end)
+            it("works2 [full 64 bits of prefix]", function ()
+                  local prefix = 'fdb2:2c26:f4e4:dead::/64'
+                  local hwaddr = '00:1c:42:a7:f1:d9'
+                  local exp = 'fdb2:2c26:f4e4:dead:21c:42ff:fea7:f1d9/64'
+                  local got = ipv6s.prefix_hwaddr_to_eui64(prefix, hwaddr)
+                  mst.a(got == exp, got, exp)
+
+                  local gprefix = ipv6s.eui64_to_prefix(exp)
+                  mst.a(gprefix == prefix, gprefix, prefix)
                         end)
              end)
 
