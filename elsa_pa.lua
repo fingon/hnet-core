@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Oct  9 14:50:02 2012 mstenber
--- Edit time:     139 min
+-- Last modified: Tue Oct  9 15:15:23 2012 mstenber
+-- Edit time:     148 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -82,6 +82,7 @@ elsa_pa = mst.create_class{class='elsa_pa', mandatory={'skv', 'elsa'}}
 function elsa_pa:init()
    self.first = true
    self.pa = pa.pa:new{rid=self.rid, client=self, lap_class=elsa_lap}
+   self.all_seen_if_names = mst.set:new{}
 end
 
 function elsa_pa:uninit()
@@ -291,6 +292,7 @@ function elsa_pa:iterate_if(rid, f)
                            end)
 
    self.elsa:iterate_if(rid, function (ifo, highest_rid)
+                           self.all_seen_if_names:insert(ifo.name)
                            self:a(ifo)
                            if not inuse_ifnames[ifo.name]
                            then
@@ -302,10 +304,16 @@ function elsa_pa:iterate_if(rid, f)
 end
 
 function elsa_pa:iterate_skv_prefix(f)
-   for i, ifname in ipairs(self.skv:get(PD_IFLIST_KEY) or 
-                           self.skv:get(OSPF_IFLIST_KEY) or 
-                           {})
+   local pdlist = self.skv:get(PD_IFLIST_KEY)
+   for i, ifname in ipairs(pdlist or self.all_seen_if_names:keys())
    do
+      if pdlist
+      then
+         -- enter to the fallback lottery - the stuff returned by this
+         -- should NOT decrease in size
+         self.all_seen_if_names:insert(ifname)
+      end
+
       local o = self.skv:get(string.format('pd-prefix.%s', ifname) )
       if o
       then

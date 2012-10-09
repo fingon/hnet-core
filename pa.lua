@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Oct  9 14:52:04 2012 mstenber
--- Edit time:     370 min
+-- Last modified: Tue Oct  9 15:03:48 2012 mstenber
+-- Edit time:     371 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -561,7 +561,7 @@ function pa:run()
    self.highest = mst.map:new()
 
    client:iterate_if(rid, function (ifo, highest_rid)
-                        self:d('got', ifo)
+                        self:d('got if', ifo)
                         self.ifs[ifo.index] = ifo
                         self.highest[ifo.index] = highest_rid
                      end
