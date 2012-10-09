@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Mon Oct  8 16:52:51 2012 mstenber
--- Edit time:     113 min
+-- Last modified: Tue Oct  9 13:55:26 2012 mstenber
+-- Edit time:     131 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -30,21 +30,57 @@ OSPF_LAP_KEY='ospf-lap'
 OSPF_USP_KEY='ospf-usp'
 OSPF_IFLIST_KEY='ospf-iflist'
 
+LAP_DEPRECATE_TIMEOUT=120
+LAP_EXPIRE_TIMEOUT=300
+
 -- #define LSA_T_AC        0xBFF0 /* Auto-Configuration LSA */
 --  /* function code 8176(0x1FF0): experimental, U-bit=1, Area Scope */
 
 require 'mst'
 require 'codec'
+require 'ssloop'
 
 local pa = require 'pa'
 
 module(..., package.seeall)
 
+elsa_lap = pa.lap:new_subclass{class='elsa_lap'}
+
+function elsa_lap:start_depracate_timeout()
+   local loop = ssloop.loop()
+   self.timeout = loop:new_timeout_delta(LAP_DEPRECATE_TIMEOUT,
+                                         function ()
+                                            self.sm:Timeout()
+                                         end)
+   self.timeout:start()
+end
+
+function elsa_lap:stop_depracate_timeout()
+   mst.a(self.timeout, 'stop_depracate_timeout without timeout?!?')
+   self.timeout:stop()
+end
+
+function elsa_lap:start_expire_timeout()
+   local loop = ssloop.loop()
+   self.timeout = loop:new_timeout_delta(LAP_EXPIRE_TIMEOUT,
+                                         function ()
+                                            self.sm:Timeout()
+                                         end)
+   self.timeout:start()
+end
+
+function elsa_lap:stop_expire_timeout()
+   mst.a(self.timeout, 'stop_depracate_timeout without timeout?!?')
+   self.timeout:stop()
+end
+
+
+
 elsa_pa = mst.create_class{class='elsa_pa', mandatory={'skv', 'elsa'}}
 
 function elsa_pa:init()
    self.first = true
-   self.pa = pa.pa:new{rid=self.rid, client=self}
+   self.pa = pa.pa:new{rid=self.rid, client=self, lap_class=elsa_lap}
 end
 
 function elsa_pa:uninit()
@@ -52,6 +88,10 @@ function elsa_pa:uninit()
    -- except clean up our own state
 
    self.pa:done()
+end
+
+function elsa_pa:repr_data()
+   return '-'
 end
 
 function elsa_pa:get_hwf()
@@ -111,12 +151,17 @@ function elsa_pa:run()
    -- their router id..
    if self:check_conflict() then return end
 
+   self:d('run starting')
+
    -- our rid may have changed -> change that of the pa too, just in case
    self.pa.rid = self.rid
 
    local r = self.pa:run()
+
+   self:d('pa.run result', r, self.first)
    if r or self.first
    then
+
       -- originate LSA (or try to, there's duplicate prevention, or should be)
       local body = self:generate_ac_lsa()
       mst.a(body and #body, 'empty generated LSA?!?')
@@ -149,10 +194,29 @@ function elsa_pa:run()
 
       -- toss in the usp's too
       local t = mst.array:new{}
+      local dumped = mst.set:new{}
+
       for i, v in ipairs(self.pa.usp:values())
       do
-         t:insert({prefix=v.prefix})
+         local p = v.prefix
+         if not dumped[p]
+         then
+            dumped:insert(p)
+            t:insert({prefix=p})
+         end
       end
+
+      -- toss also usp's from the LAP, which still live
+      for i, lap in ipairs(self.pa.lap:values())
+      do
+         local p = lap.asp.usp.prefix
+         if not dumped[p]
+         then
+            dumped:insert(p)
+            t:insert({prefix=p})
+         end
+      end
+
       self.skv:set(OSPF_USP_KEY, t)
    end
    self.first = false

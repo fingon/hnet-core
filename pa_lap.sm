@@ -31,7 +31,7 @@ Default
 
 Init
 {
-  Assign() Assigning {}
+  Assign Assigning {}
 }
 
 Assigning
@@ -81,8 +81,11 @@ Exit { stop_depracate_timeout(); }
 }
 
 Zombie
+Entry { start_expire_timeout(); }
+Exit { stop_expire_timeout(); }
 {
-  Assign() Assigning {}
+  Assign Assigning {}
+  Timeout Finish {}
 }
 
 Error
@@ -90,5 +93,10 @@ Entry { done(); }
 {
 }
 
+Finish
+Entry { done(); }
+{
+
+}
 
 %%

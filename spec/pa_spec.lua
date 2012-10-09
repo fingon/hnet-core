@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Thu Oct  4 13:00:21 2012 mstenber
--- Edit time:     116 min
+-- Last modified: Tue Oct  9 13:57:18 2012 mstenber
+-- Edit time:     123 min
 --
 
 require "busted"
@@ -146,7 +146,7 @@ describe("pa", function ()
                         check_sanity()
                         -- and kill it explicitly
                         pa:done()
-                        mst.a(timeouts:is_empty())
+                        mst.a(timeouts:is_empty(), timeouts)
                      end)
             it("can be created", function ()
                                  end)
@@ -176,6 +176,33 @@ describe("pa", function ()
                   -- 3 USP
                   mst.a(pa.usp:count() == 3, "usp mismatch")
 
+                  -- make sure that if we get rid of usp+asp (from net),
+                  -- local asp disappear, but lap won't
+                  o.usp = {}
+                  o.asp = {}
+                  pa:run()
+                  mst.a(pa.lap:count() == 4, "lap mismatch")
+                  mst.a(pa.asp:count() == 0, "asp mismatch")
+                  mst.a(pa.usp:count() == 0, "usp mismatch")
+
+                  -- do fake timeout calls => go to zombie mode
+                  local laps = pa.lap:values()
+                  for i, lap in ipairs(laps)
+                  do
+                     lap.sm:Timeout()
+                  end
+
+                  -- second timeout should do zombie -> done
+                  local laps = pa.lap:values()
+                  for i, lap in ipairs(laps)
+                  do
+                     local sn = lap.sm:getState().name
+                     mst.a(sn == 'LAP.Zombie', sn)
+                     lap.sm:Timeout()
+                  end
+
+                  mst.a(pa.lap:count() == 0, "lap mismatch")
+                  
                                     end)
             
                end)

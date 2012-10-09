@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Oct  9 12:14:07 2012 mstenber
+-- Last modified: Tue Oct  9 13:26:19 2012 mstenber
 -- Edit time:     107 min
 --
 
@@ -186,6 +186,7 @@ describe("elsa_pa [one node]", function ()
                   mst.a(not asp_added)
                   mst.a(e.rid_changed)
                                                       end)
+
                                end)
 
 describe("elsa_pa multinode", function ()

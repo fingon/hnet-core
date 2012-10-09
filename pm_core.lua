@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Tue Oct  9 11:48:40 2012 mstenber
--- Edit time:     77 min
+-- Last modified: Tue Oct  9 12:35:36 2012 mstenber
+-- Edit time:     81 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -97,6 +97,10 @@ end
 function pm:usp_changed(usp)
    self.ospf_usp = usp
    self:check_ospf_vs_real()
+end
+
+function pm:repr_data()
+   return mst.repr{ospf_lap=self.ospf_lap and #self.ospf_lap or 0}
 end
 
 function pm:check_ospf_vs_real()

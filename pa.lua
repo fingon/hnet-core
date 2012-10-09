@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Mon Oct  8 17:02:18 2012 mstenber
--- Edit time:     342 min
+-- Last modified: Tue Oct  9 13:54:50 2012 mstenber
+-- Edit time:     356 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -52,10 +52,10 @@ module('pa', package.seeall)
 
 -- local assigned prefix
 
-lap = mst.create_class{class='lap', mandatory={'prefix', 'iid', 'parent'}}
+lap = mst.create_class{class='lap', mandatory={'prefix', 'iid', 'pa'}}
 
 function lap:init()
-   self.parent.lap:insert(self.iid, self)
+   self.pa.lap:insert(self.iid, self)
    self.sm = lap_sm:new{owner=self}
    self.sm:enterStartState()
    self:assign()
@@ -64,7 +64,7 @@ end
 function lap:uninit()
    self:d('uninit')
    self:depracate()
-   self.parent.lap:remove(self.iid, self)
+   self.pa.lap:remove(self.iid, self)
 end
 
 function lap:repr_data()
@@ -76,6 +76,14 @@ function lap:start_depracate_timeout()
 end
 
 function lap:stop_depracate_timeout()
+
+end
+
+function lap:start_expire_timeout()
+   -- child responsibility - should someday result in a Timeout()
+end
+
+function lap:stop_expire_timeout()
 
 end
 
@@ -99,14 +107,19 @@ end
 
 -- these are subclass responsibility
 function lap:do_assign()
+   self.assigned = true
+   self.depracated = false
    self.sm:Done()
 end
 
 function lap:do_depracate()
+   self.assigned = false
+   self.depracated = true
    self.sm:Done()
 end
 
 function lap:do_unassign()
+   self.assigned = false
    self.sm:Done()
 end
 
@@ -115,10 +128,10 @@ end
 asp = mst.create_class{class='asp', mandatory={'prefix', 
                                                'iid', 
                                                'rid', 
-                                               'parent'}}
+                                               'pa'}}
 
 function asp:init()
-   local added = self.parent.asp:insert(self.rid, self)
+   local added = self.pa.asp:insert(self.rid, self)
    mst.a(added, "already existed?", self)
    self:d('init')
 
@@ -131,7 +144,7 @@ function asp:uninit()
    -- (depracate = instantly offline)
    self:unassign_lap()
 
-   self.parent.asp:remove(self.rid, self)
+   self.pa.asp:remove(self.rid, self)
 
 end
 
@@ -142,13 +155,15 @@ end
 function asp:find_lap()
    self:d('find_lap')
    mst.a(self.class)
-   mst.a(self.parent, 'no parent?!?')
-   local t = self.parent.lap[self.iid]
+   mst.a(self.pa, 'no pa?!?')
+   local t = self.pa.lap[self.iid]
    for i, v in ipairs(t or {})
    do
       self:d(' considering', v)
       if v.prefix == self.prefix
       then
+         -- update the asp object, just in case..
+         v.asp = self
          return v
       end
    end
@@ -160,7 +175,9 @@ function asp:find_or_create_lap()
    if o then return o end
    self:d(' not found => creating')
 
-   return self.parent.lap_class:new{prefix=self.prefix, iid=self.iid, parent=self.parent}
+   return self.pa.lap_class:new{prefix=self.prefix, iid=self.iid, 
+                                asp=self,
+                                pa=self.pa}
 end
 
 function asp:assign_lap()
@@ -184,22 +201,22 @@ function asp:unassign_lap()
 end
 
 function asp:is_remote()
-   return self.rid ~= self.parent.rid
+   return self.rid ~= self.pa.rid
 end
 
 -- usable prefix, can be either local or remote (no behavioral
 -- difference though?)
-usp = mst.create_class{class='usp', mandatory={'prefix', 'rid', 'parent'}}
+usp = mst.create_class{class='usp', mandatory={'prefix', 'rid', 'pa'}}
 
 function usp:init()
-   local added = self.parent.usp:insert(self.rid, self)
+   local added = self.pa.usp:insert(self.rid, self)
    mst.a(added, 'already existed?', self)
 end
 
 function usp:uninit()
    self:d('uninit')
 
-   self.parent.usp:remove(self.rid, self)
+   self.pa.usp:remove(self.rid, self)
 end
 
 function usp:repr_data()
@@ -321,12 +338,14 @@ function pa:run_if_usp(iid, highest_rid, usp)
    -- (i) - router made assignment, highest router id
    if own and own == highest
    then
+      own.usp = usp
       self:check_asp_conflicts(own)
       return
    end
    -- (ii) - assignment by neighbor
    if highest
    then
+      highest.usp = usp
       self:assign_other(highest)
       return
    end
@@ -395,7 +414,6 @@ function pa:assign_own(iid, usp)
    if not p
    then
       p = self:find_new_from(iid, usp, assigned)
-      local o
    end
    
    -- 4. hysteresis (sigh)
@@ -408,11 +426,12 @@ function pa:assign_own(iid, usp)
    end
 
    -- 6. if assigned, mark as valid + send AC LSA
-   o = asp:new{prefix=p,
-               parent=self,
-               iid=iid,
-               rid=self.rid, 
-               valid=true}
+   local o = asp:new{prefix=p,
+                     usp=usp,
+                     pa=self,
+                     iid=iid,
+                     rid=self.rid, 
+                     valid=true}
    o:assign_lap()
 
    self.changes = self.changes + 1
@@ -610,7 +629,7 @@ function pa:add_or_update_usp(prefix, rid)
       end
    end
    self:d(' adding new usp')
-   usp:new{prefix=prefix, rid=rid, parent=self, valid=true}
+   usp:new{prefix=prefix, rid=rid, pa=self, valid=true}
    self.changes = self.changes + 1
 end
 
@@ -648,6 +667,6 @@ function pa:add_or_update_asp(prefix, iid, rid)
       return
    end
    self:d(' adding new asp')
-   asp:new{prefix=prefix, iid=iid, rid=rid, parent=self, valid=true}
+   asp:new{prefix=prefix, iid=iid, rid=rid, pa=self, valid=true}
    self.changes = self.changes + 1
 end
