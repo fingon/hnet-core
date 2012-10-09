@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Tue Oct  9 11:32:13 2012 mstenber
--- Edit time:     75 min
+-- Last modified: Tue Oct  9 11:48:40 2012 mstenber
+-- Edit time:     77 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -125,22 +125,30 @@ function pm:check_ospf_vs_real()
    local ospf_keys = ospf_lap:keys():to_set()
    local real_keys = real_lap:keys():to_set()
 
+   local valid_end='::/64'
+
    -- 3 cases to consider
    -- only in ospf_lap
    for prefix, _ in pairs(ospf_keys:difference(real_keys))
    do
+      mst.a(string.sub(prefix, -#valid_end) == valid_end, 
+            'invalid prefix', prefix)
       self:handle_ospf_prefix(prefix, ospf_lap[prefix])
    end
    
    -- only in real_lap
    for prefix, _ in pairs(real_keys:difference(ospf_keys))
    do
+      mst.a(string.sub(prefix, -#valid_end) == valid_end, 
+            'invalid prefix', prefix)
       self:handle_real_prefix(prefix, real_lap[prefix])
    end
    
    -- in both
    for prefix, _ in pairs(real_keys:intersection(ospf_keys))
    do
+      mst.a(string.sub(prefix, -#valid_end) == valid_end, 
+            'invalid prefix', prefix)
       self:handle_both_prefix(prefix, ospf_lap[prefix], real_lap[prefix])
    end
 end

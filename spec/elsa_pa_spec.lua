@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Mon Oct  8 17:00:20 2012 mstenber
--- Edit time:     105 min
+-- Last modified: Tue Oct  9 12:14:07 2012 mstenber
+-- Edit time:     107 min
 --
 
 require 'mst'
@@ -24,6 +24,7 @@ delsa = _delsa.delsa
 local usp_dead_tlv = codec.usp_ac_tlv:encode{prefix='dead::/16'}
 local rhf_low_tlv = codec.rhf_ac_tlv:encode{body=string.rep("a", 32)}
 local rhf_high_tlv = codec.rhf_ac_tlv:encode{body=string.rep("z", 32)}
+local valid_end='::/64'
 
 describe("elsa_pa [one node]", function ()
             local e, s, ep, usp_added, asp_added
@@ -65,7 +66,6 @@ describe("elsa_pa [one node]", function ()
                              mst.a(type(lap) == 'table')
                              mst.a(type(lap.ifname) == 'string')
                              mst.a(type(lap.prefix) == 'string')
-                             local valid_end='::/64'
                              mst.a(string.sub(lap.prefix, -#valid_end) == valid_end, 'invalid prefix', lap.prefix)
 
                           end
@@ -219,6 +219,11 @@ describe("elsa_pa multinode", function ()
                   -- (2 ifs per box)
                   for i, ep in ipairs({ep1, ep2})
                   do
+                     for i, asp in ipairs(ep.pa.asp:values())
+                     do
+                        mst.a(string.sub(asp.prefix, -#valid_end) == valid_end, 'invalid prefix', asp.prefix)
+
+                     end
                      mst.a(ep.pa.asp:count() == 3)
                      mst.a(ep.pa.lap:count() == 2)
                   end

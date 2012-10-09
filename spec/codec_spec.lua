@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 18:34:49 2012 mstenber
--- Last modified: Mon Oct  8 16:15:07 2012 mstenber
--- Edit time:     11 min
+-- Last modified: Tue Oct  9 12:14:47 2012 mstenber
+-- Edit time:     12 min
 --
 
 require "busted"
@@ -24,6 +24,7 @@ local tests = {
    {codec.rhf_ac_tlv, {body=string.rep('1', 43)}},
    {codec.usp_ac_tlv, {prefix='dead::/16'}},
    {codec.asp_ac_tlv, {iid=3, prefix='dead::/16'}},
+   {codec.asp_ac_tlv, {iid=3, prefix='dead:feed:dead:feed::/64'}},
 }
 
 describe("test the ac endecode",

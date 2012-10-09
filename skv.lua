@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Mon Oct  8 11:08:32 2012 mstenber
--- Edit time:     362 min
+-- Last modified: Tue Oct  9 11:41:59 2012 mstenber
+-- Edit time:     363 min
 --
 
 require 'mst'
@@ -339,6 +339,7 @@ function skv:client_remote_update(json, k, v)
    local lv = self.local_state[k]
    if lv and not mst.repr_equal(lv, v)
    then
+      mst.d('remote attempted to update with old value - sending back', k)
       -- local just overrides remote provided value
       self:send_update{[k]=lv}
       return

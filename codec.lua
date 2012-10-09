@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Mon Oct  8 16:18:41 2012 mstenber
--- Edit time:     151 min
+-- Last modified: Tue Oct  9 12:18:29 2012 mstenber
+-- Edit time:     155 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -202,7 +202,9 @@ function prefix_body:try_decode(cur)
    s = s * 4
    if not has_left(cur, s) then return nil, 'not enough for prefix' end
    r = cur:read(s)
-   o.prefix = ipv6s.binary_to_ascii(r)
+   --o.prefix = ipv6s.binary_to_ascii(r)
+   local nonpaddedr = string.sub(r, 1, o.prefix_length / 8)
+   o.prefix = ipv6s.bin_to_prefix(nonpaddedr)
    return o
 end
 
@@ -231,7 +233,8 @@ function prefix_ac_tlv:try_decode(cur)
    if not r then return r, err end
    -- clear out body
    o.body = nil
-   o.prefix = r.prefix .. '/' .. tostring(r.prefix_length)
+   --o.prefix = r.prefix .. '/' .. tostring(r.prefix_length)
+   o.prefix = r.prefix
    --o.prefix_length = r.prefix_length
    return o
 end
