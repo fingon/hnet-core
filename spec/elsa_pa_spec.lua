@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Oct  9 14:23:43 2012 mstenber
--- Edit time:     114 min
+-- Last modified: Tue Oct  9 14:53:54 2012 mstenber
+-- Edit time:     116 min
 --
 
 require 'mst'
@@ -109,6 +109,14 @@ describe("elsa_pa [one node]", function ()
                   mst.a(asp_added)
                   mst.a(usp_added)
 
+                  -- test that if we remove interfaces, it should not
+                  -- remove lap's from skv (otherwise there is a
+                  -- problem, if and when OSPF implementation's
+                  -- interface report is shaky)
+                  e.iid = {}
+                  ep:run()
+                  mst.a(ep.pa.lap:count() > 0)
+                  
                   -- now, get rid of the usp => eventually, the lap
                   -- should disappear
                   e.lsas = {}

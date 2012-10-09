@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Oct  9 14:28:10 2012 mstenber
--- Edit time:     137 min
+-- Last modified: Tue Oct  9 14:50:02 2012 mstenber
+-- Edit time:     139 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -175,13 +175,12 @@ function elsa_pa:run()
       local t = mst.array:new()
       for i, lap in ipairs(self.pa.lap:values())
       do
-         local ifname = self.pa.ifs[lap.iid]
-         if ifname
+         local ifo = self.pa.ifs[lap.iid]
+         if not ifo
          then
-            t:insert({ifname=ifname.name, prefix=lap.prefix})
-         else
             self:d('zombie interface', lap)
          end
+         t:insert({ifname=lap.ifname, prefix=lap.prefix})
       end
       self.skv:set(OSPF_LAP_KEY, t)
 

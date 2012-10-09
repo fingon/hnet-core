@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  8 13:11:02 2012 mstenber
--- Last modified: Mon Oct  8 13:51:06 2012 mstenber
+-- Last modified: Tue Oct  9 14:41:23 2012 mstenber
 -- Edit time:     23 min
 --
 
@@ -82,8 +82,8 @@ function if_table:read_ip_ipv6()
       v.valid = false
    end
 
-   local s = self.shell("ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary")
-   mst.a(s)
+   local s, err = self.shell("ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary")
+   mst.a(s, 'unable to execute ip -6 addr', err)
    local ifo = nil
    local r = mst.array:new{}
 

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Oct  9 14:30:07 2012 mstenber
--- Edit time:     365 min
+-- Last modified: Tue Oct  9 14:52:04 2012 mstenber
+-- Edit time:     370 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -55,6 +55,9 @@ module('pa', package.seeall)
 lap = mst.create_class{class='lap', mandatory={'prefix', 'iid', 'pa'}}
 
 function lap:init()
+   local ifo = self.pa.ifs[self.iid]
+   mst.a(ifo, 'non-existent interface iid', self.iid)
+   self.ifname = ifo.name
    self.pa.lap:insert(self.iid, self)
    self.sm = lap_sm:new{owner=self}
    self.sm:enterStartState()
