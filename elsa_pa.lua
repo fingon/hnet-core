@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Oct  9 16:12:54 2012 mstenber
--- Edit time:     157 min
+-- Last modified: Wed Oct 10 09:39:08 2012 mstenber
+-- Edit time:     167 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -41,8 +41,18 @@ OSPF_LAP_KEY='ospf-lap'
 OSPF_USP_KEY='ospf-usp'
 OSPF_IFLIST_KEY='ospf-iflist'
 
-LAP_DEPRACATE_TIMEOUT=120
+-- from the draft; time from boot to wait iff no other routers around
+-- before starting new assignments
+NEW_PREFIX_ASSIGNMENT=20
+
+-- =~ TERMINATE_PREFIX_ASSIGNMENT in the draft
+LAP_DEPRACATE_TIMEOUT=240
+
+-- not in the draft; the amount we keep deprecated prefixes around (to
+-- e.g. advertise via radvd with zero prefix lifetime, and to reuse
+-- first if need be)
 LAP_EXPIRE_TIMEOUT=300
+
 
 
 elsa_lap = pa.lap:new_subclass{class='elsa_lap'}
@@ -77,11 +87,13 @@ end
 
 
 
-elsa_pa = mst.create_class{class='elsa_pa', mandatory={'skv', 'elsa'}}
+elsa_pa = mst.create_class{class='elsa_pa', mandatory={'skv', 'elsa'},
+                          new_prefix_assignment_timeout=NEW_PREFIX_ASSIGNMENT}
 
 function elsa_pa:init()
    self.first = true
-   self.pa = pa.pa:new{rid=self.rid, client=self, lap_class=elsa_lap}
+   self.pa = pa.pa:new{rid=self.rid, client=self, lap_class=elsa_lap,
+                       new_prefix_assignment_timeout=self.new_prefix_assignment_timeout}
    self.all_seen_if_names = mst.set:new{}
 end
 

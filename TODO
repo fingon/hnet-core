@@ -83,6 +83,9 @@ NOT 10.Y.* that is available.
  - NAT rule 
  - DHCPv4 server per non-pd-v4.IF 
 
+==> ULA-like algorithm
+
+
 ** Naming support?
 
 - should provide stateless DHCPv6 with DNS info at least (gathered from all

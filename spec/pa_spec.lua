@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Tue Oct  9 13:57:18 2012 mstenber
--- Edit time:     123 min
+-- Last modified: Wed Oct 10 09:37:15 2012 mstenber
+-- Edit time:     128 min
 --
 
 require "busted"
@@ -150,6 +150,41 @@ describe("pa", function ()
                      end)
             it("can be created", function ()
                                  end)
+            it("obeys hysteresis 1 - no routers", function ()
+                  -- just local e.g. PD prefix
+                  o.usp = {{'dead::/16', 'myrid'}}
+                  o.asp = {}
+                  o.ridr = {{'myrid'},}
+                  pa.new_prefix_assignment_timeout = 123
+                  pa:run()
+                  mst.a(pa.lap:count() == 0, "lap mismatch")
+                  mst.a(pa.asp:count() == 0, "asp mismatch")
+                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                                                  end)
+            it("obeys hysteresis 2 - time long gone", function ()
+                  -- just local e.g. PD prefix
+                  o.usp = {{'dead::/16', 'myrid'}}
+                  o.asp = {}
+                  o.ridr = {{'myrid'},}
+                  pa.new_prefix_assignment_timeout = 123
+                  pa.start_time = pa.start_time - pa.new_prefix_assignment_timeout - 10
+                  pa:run()
+                  mst.a(pa.lap:count() > 0, "lap mismatch")
+                  mst.a(pa.asp:count() > 0, "asp mismatch")
+                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                                                  end)
+            it("obeys hysteresis 3 - other rid present", function ()
+                  -- just local e.g. PD prefix
+                  o.usp = {{'dead::/16', 'myrid'}}
+                  o.asp = {}
+                  o.ridr = {{'myrid', 'rid1'},}
+                  pa.new_prefix_assignment_timeout = 123
+                  pa.start_time = pa.start_time - pa.new_prefix_assignment_timeout - 10
+                  pa:run()
+                  mst.a(pa.lap:count() > 0, "lap mismatch")
+                  mst.a(pa.asp:count() > 0, "asp mismatch")
+                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                                                  end)
             it("works [small rid]", function ()
                   pa:run()
 

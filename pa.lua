@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Oct  9 15:03:48 2012 mstenber
--- Edit time:     371 min
+-- Last modified: Wed Oct 10 09:31:37 2012 mstenber
+-- Edit time:     376 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -240,7 +240,8 @@ function usp:repr_data()
    return mst.repr{prefix=self.prefix, rid=self.rid}
 end
 
-pa = mst.create_class{class='pa', lap_class=lap, mandatory={'rid'}}
+pa = mst.create_class{class='pa', lap_class=lap, mandatory={'rid'},
+                      new_prefix_assignment_timeout=0}
 
 -- main prefix assignment class
 
@@ -260,6 +261,9 @@ function pa:init()
    -- init changes to 0 here (it's cleared at _end_ of each pa:run,
    -- but timeouts may cause it to become non-zero before next pa:run)
    self.changes = 0
+
+   -- store when we started, for hysteresis calculations
+   self.start_time = os.time()
 end
 
 function pa:uninit()
@@ -437,7 +441,17 @@ function pa:assign_own(iid, usp)
    end
    
    -- 4. hysteresis (sigh)
-   -- XXX
+   -- first off, apply it only if within 'short enough' period of time from the start of the router
+   if self.new_prefix_assignment_timeout > 0 and self:time_since_start() < self.new_prefix_assignment_timeout
+   then
+      -- look at number of rids we know; if it's 1, don't do anything
+      -- for now
+      if self.ridr:count() == 1
+      then
+         self:d('hysteresis criteria filled - not assigning anything yet')
+         return
+      end
+   end
    
    -- 5. if none available, skip
    if not p
@@ -453,6 +467,10 @@ function pa:assign_own(iid, usp)
                      rid=self.rid, 
                      valid=true}
    o:assign_lap()
+end
+
+function pa:time_since_start()
+   return os.time() - self.start_time
 end
 
 -- child responsibility - return old assignment multimap, with
