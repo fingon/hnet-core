@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Tue Oct  9 11:30:58 2012 mstenber
--- Edit time:     48 min
+-- Last modified: Wed Oct 10 10:47:58 2012 mstenber
+-- Edit time:     53 min
 --
 
 require 'mst'
@@ -154,10 +154,8 @@ function bin_to_prefix(bin)
    return string.format('%s/%d', binary_to_ascii(bin), bits)
 end
 
-function prefix_contains(p1, p2)
-   mst.a(p1 and p2, 'invalid arguments to prefix_contains', p1, p2)
-   local b1 = prefix_to_bin(p1)
-   local b2 = prefix_to_bin(p2)
+function binary_prefix_contains(b1, b2)
+   mst.a(b1 and b2, 'invalid arguments to binary_prefix_contains', b1, b2)
    if #b1 > #b2
    then
       return false
@@ -166,7 +164,14 @@ function prefix_contains(p1, p2)
    return string.sub(b2, 1, #b1) == b1
 end
 
-function binary_prefix_next_from_usp(up, p)
+function prefix_contains(p1, p2)
+   mst.a(p1 and p2, 'invalid arguments to prefix_contains', p1, p2)
+   local b1 = prefix_to_bin(p1)
+   local b2 = prefix_to_bin(p2)
+   return binary_prefix_contains(b1, b2)
+end
+
+function binary_prefix_next_from_usp(b, p)
    mst.a(#p == 8)
    mst.a(#b <= 8)
    if #b == 8
@@ -186,11 +191,11 @@ function binary_prefix_next_from_usp(up, p)
       end
    end
    local p2 = string.char(unpack(pb))
-   if string.sub(p2, 1, #up) == up
+   if string.sub(p2, 1, #b) == b
    then
       return p2
    end
-   return up .. string.rep(string.char(0), 8 - #up)
+   return b .. string.rep(string.char(0), 8 - #b)
 end
 
 -- given the hwaddr (in normal aa:bb:cc:dd:ee:ff:aa format) and

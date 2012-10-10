@@ -4,12 +4,6 @@
 
 * Things to do
 
-** Comprehensively test PA alg
-
-- corner cases (sigh)
- - running out of addrs
- - different conflict situations?
-
 ** DHCPv6 PD integration (static WAN)
 
 - just set up the variable using skvtool.lua, and we're golden?
@@ -26,9 +20,15 @@
 'ospf-usp' key will contain stuff for ip rule table
  {{prefix=usp-prefix, ifname=ifname, nh=next-hop}, ...}
 
+** Comprehensively test PA alg (2/2)
+
+- think more corner cases to test
+
 * Things to do if I have time (hah)
 
 ** Optimize PA alg
+
+*** Profile it (no premature optimizations)
 
 *** Make sure computational complexity of all ops is minimal
 
@@ -118,6 +118,17 @@ DHCPv6 solicit flooding isn't really neccessary?)
 .. just implement the state machine in SMC, make it a public reference, 
 
 
+** Write ~Pythonic key handling to mst. data structures
+
+- requires ~Pythonia equality function
+
+
+- API-wise, should look like current one
+
+- except, accept tables and other arbitrary structures as keys and compare
+  them 'correctly' (now, has to be same table instance for it to work,
+  which is unfortunate)
+
 * Improvements that affect only performance
 
 ** Aggregate the updates somehow
@@ -131,6 +142,12 @@ or
   bit smarter handling code]
 
 * Done (8.10.+)
+
+** Comprehensively test PA alg
+
+- corner cases (sigh)
+ - running out of addrs
+ - different conflict situations?
 
 ** PA alg features
 

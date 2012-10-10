@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Wed Oct 10 09:37:15 2012 mstenber
--- Edit time:     128 min
+-- Last modified: Wed Oct 10 10:45:28 2012 mstenber
+-- Edit time:     140 min
 --
 
 require "busted"
@@ -239,6 +239,28 @@ describe("pa", function ()
                   mst.a(pa.lap:count() == 0, "lap mismatch")
                   
                                     end)
+            it("survives prefix exhaustion #many", function ()
+                  --require 'profiler'
+                  --profiler.start()
+
+                  -- /56 usp, 300 interfaces -> should get 256 LAP/ASP
+                  o.usp={{'abcd:dead:beef:cafe::/56', 'rid1'}}
+                  o.asp = {}
+                  local t = mst.array:new()
+                  for i=1,300
+                  do
+                     -- {index=42, name='if1'}
+                     t:insert({index=i, name=string.format('if%d', i)})
+                  end
+                  o.iif={myrid=t}
+                  
+                  pa:run()
+                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                  mst.a(pa.lap:count() == 256, "lap mismatch")
+                  mst.a(pa.asp:count() == 256, "asp mismatch")
+
+                  --profiler.stop()
+                   end)
             
                end)
 

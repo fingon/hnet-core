@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Oct  8 16:27:58 2012 mstenber
--- Edit time:     421 min
+-- Last modified: Wed Oct 10 10:35:57 2012 mstenber
+-- Edit time:     431 min
 --
 
 -- data structure abstractions provided:
@@ -407,6 +407,7 @@ end
 array = create_class{class='array',
                      insert=table.insert,
                      remove=array_remove,
+                     remove_index=table.remove,
                      map=array_map,
                      filter=array_filter,
                      find=array_find,
@@ -1067,6 +1068,38 @@ function execute_to_string(cmd, redirect_stderr)
    os.remove(n)
 
    return d
+end
+
+-- python-like randint - return random integer in range [a,b],
+-- including both endpoints
+function randint(a, b)
+   mst.a(a <= b)
+   local range = b-a
+   local v = math.floor(math.random() * (range + 1))
+   if v > range
+   then
+      v = range
+   end
+   return a + v
+end
+
+function array_randindex(t)
+   -- pick random item from t, or nil if it's empty
+   if #t == 0
+   then
+      return
+   end
+   local idx = randint(1, #t)
+   mst.a(idx >= 1 and idx <= #t)
+   return idx
+end
+
+function array_randitem(t)
+   local idx = array_randindex(t)
+   if idx
+   then
+      return t[idx]
+   end
 end
 
 -- event class (used within the baseclass)
