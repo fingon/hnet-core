@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Oct 10 10:35:57 2012 mstenber
--- Edit time:     431 min
+-- Last modified: Wed Oct 10 12:58:19 2012 mstenber
+-- Edit time:     434 min
 --
 
 -- data structure abstractions provided:
@@ -382,6 +382,14 @@ function array_to_table(a, default, dest)
       t[v] = default or true
    end
    return t
+end
+
+-- array foreach
+function array_foreach(a, fun)
+   for _, v in ipairs(a)
+   do
+      fun(v)
+   end
 end
 
 -- array map 
@@ -973,16 +981,29 @@ end
 
 -- min
 function min(...)
-   local smallest = false
+   local smallest = nil
    local l = {...}
-   for i, v in ipairs(l)
-   do
-      if not smallest or v < smallest
-      then
-         smallest = v
-      end
-   end
+   array_foreach(l, function (v)
+                    if not smallest or v < smallest
+                    then
+                       smallest = v
+                    end
+                    end)
    return smallest
+end
+
+
+-- max
+function max(...)
+   local largest = nil
+   local l = {...}
+   array_foreach(l, function (v)
+                    if not largest or v > largest
+                    then
+                       largest = v
+                    end
+                    end)
+   return largest
 end
 
 function d_xpcall(fun)

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Wed Oct 10 10:45:28 2012 mstenber
--- Edit time:     140 min
+-- Last modified: Wed Oct 10 13:40:54 2012 mstenber
+-- Edit time:     147 min
 --
 
 require "busted"
@@ -43,6 +43,10 @@ function ospf:init()
    self.iif = self.iif or {}
    self.ridr = self.ridr or {}
    self.pas = self.pas or {}
+end
+
+function ospf:get_hwf(rid)
+   return rid
 end
 
 function ospf:iterate_asp(rid, f)
@@ -150,41 +154,6 @@ describe("pa", function ()
                      end)
             it("can be created", function ()
                                  end)
-            it("obeys hysteresis 1 - no routers", function ()
-                  -- just local e.g. PD prefix
-                  o.usp = {{'dead::/16', 'myrid'}}
-                  o.asp = {}
-                  o.ridr = {{'myrid'},}
-                  pa.new_prefix_assignment_timeout = 123
-                  pa:run()
-                  mst.a(pa.lap:count() == 0, "lap mismatch")
-                  mst.a(pa.asp:count() == 0, "asp mismatch")
-                  mst.a(pa.usp:count() == 1, "usp mismatch")
-                                                  end)
-            it("obeys hysteresis 2 - time long gone", function ()
-                  -- just local e.g. PD prefix
-                  o.usp = {{'dead::/16', 'myrid'}}
-                  o.asp = {}
-                  o.ridr = {{'myrid'},}
-                  pa.new_prefix_assignment_timeout = 123
-                  pa.start_time = pa.start_time - pa.new_prefix_assignment_timeout - 10
-                  pa:run()
-                  mst.a(pa.lap:count() > 0, "lap mismatch")
-                  mst.a(pa.asp:count() > 0, "asp mismatch")
-                  mst.a(pa.usp:count() == 1, "usp mismatch")
-                                                  end)
-            it("obeys hysteresis 3 - other rid present", function ()
-                  -- just local e.g. PD prefix
-                  o.usp = {{'dead::/16', 'myrid'}}
-                  o.asp = {}
-                  o.ridr = {{'myrid', 'rid1'},}
-                  pa.new_prefix_assignment_timeout = 123
-                  pa.start_time = pa.start_time - pa.new_prefix_assignment_timeout - 10
-                  pa:run()
-                  mst.a(pa.lap:count() > 0, "lap mismatch")
-                  mst.a(pa.asp:count() > 0, "asp mismatch")
-                  mst.a(pa.usp:count() == 1, "usp mismatch")
-                                                  end)
             it("works [small rid]", function ()
                   pa:run()
 
@@ -262,10 +231,6 @@ describe("pa", function ()
                   --profiler.stop()
                    end)
             
-               end)
-
-
-describe("pa-old", function ()
             it("make sure old assignments show up by default", function ()
                   o = ospf:new{usp={{'dead::/16', 'rid1'},
                                     {'dead:beef::/32', 'rid2'},
@@ -292,7 +257,83 @@ describe("pa-old", function ()
                   mst.a(find_lap('dead:bee1::/64'))
                   pa:done()
                                                                end)
+
                    end)
+
+describe("pa-nobody-else", function ()
+
+            before_each(function ()
+                     o = ospf:new{usp={},
+                                  asp={},
+                                  iif={myrid={{index=42,name='if1'},
+                                              {index=43,name='if2'}}},
+                                  ridr={{'myrid'}},
+                                 }
+                     pa = _pa.pa:new{client=o, lap_class=dummy_lap,
+                                     rid='myrid'}
+
+                        end)
+
+            it("obeys hysteresis 1 - no routers", function ()
+                  -- just local e.g. PD prefix
+                  o.usp = {{'dead::/16', 'myrid'}}
+                  pa.new_prefix_assignment = 123
+                  pa:run()
+                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                  mst.a(pa.asp:count() == 0, "asp mismatch")
+                  mst.a(pa.lap:count() == 0, "lap mismatch")
+                                                  end)
+            it("obeys hysteresis 2 - time long gone", function ()
+                  -- just local e.g. PD prefix
+                  o.usp = {{'dead::/16', 'myrid'}}
+                  pa.new_prefix_assignment = 123
+                  pa.start_time = pa.start_time - pa.new_prefix_assignment - 10
+                  pa:run()
+                  mst.a(pa.lap:count() > 0, "lap mismatch")
+                  mst.a(pa.asp:count() > 0, "asp mismatch")
+                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                                                  end)
+            it("obeys hysteresis 3 - other rid present", function ()
+                  -- just local e.g. PD prefix
+                  o.usp = {{'dead::/16', 'myrid'}}
+                  o.ridr = {{'myrid'}, {'rid1'},}
+                  pa.new_prefix_assignment = 123
+                  pa.start_time = pa.start_time - pa.new_prefix_assignment - 10
+                  pa:run()
+                  mst.a(pa.lap:count() > 0, "lap mismatch")
+                  mst.a(pa.asp:count() > 0, "asp mismatch")
+                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                                                  end)
+
+            it("ula generation 1 - higher rid exists", function ()
+                  o.ridr = {{'myrid'}, {'rid1'},}
+                  pa:run()
+                  mst.a(pa.lap:count() == 0, "lap mismatch")
+                  mst.a(pa.asp:count() == 0, "asp mismatch")
+                  mst.a(pa.usp:count() == 0, "usp mismatch")
+                   end)
+
+            it("ula generation 2 - time long gone", function ()
+                  pa:run()
+                  pa.new_ula_prefix = 123
+                  pa.start_time = pa.start_time - pa.new_ula_prefix - 10
+                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                  mst.a(pa.asp:count() > 0, "asp mismatch")
+                  mst.a(pa.lap:count() > 0, "lap mismatch")
+                  pa:run()
+                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                  mst.a(pa.asp:count() > 0, "asp mismatch")
+                  mst.a(pa.lap:count() > 0, "lap mismatch")
+                   end)
+
+            after_each(function ()
+                        -- make sure pa seems sane
+                        check_sanity()
+                        -- and kill it explicitly
+                        pa:done()
+                        mst.a(timeouts:is_empty(), timeouts)
+                       end)
+             end)
 
 describe("pa-net", function ()
             it("simple 3 pa", function ()

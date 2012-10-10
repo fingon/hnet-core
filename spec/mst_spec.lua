@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Mon Oct  8 11:38:16 2012 mstenber
--- Edit time:     79 min
+-- Last modified: Wed Oct 10 13:12:01 2012 mstenber
+-- Edit time:     81 min
 --
 
 require "busted"
@@ -216,6 +216,9 @@ describe("map", function ()
                   m.foo = 'bar'
                   mst.a(not m:is_empty())
                   mst.a(m.foo == 'bar')
+                  mst.a(mst.repr_equal(m:keys(), {"foo"}))
+                  mst.a(mst.repr_equal(m:values(), {"bar"}))
+
                                  end)
                 end)
 
@@ -263,4 +266,19 @@ describe("execute_to_string", function ()
                   local s, err = mst.execute_to_string('true')
                   mst.a(s)
                                        end)
+end)
+
+describe("min/max", function ()
+            it("min", function ()
+                  mst.a(mst.min(1,2,3) == 1)
+                  mst.a(mst.min(5,2,3) == 2)
+                  mst.a(mst.min(4) == 4)
+                  mst.a(mst.min() == nil)
+                   end)
+            it("max", function ()
+                  mst.a(mst.max(1,2,3) == 3)
+                  mst.a(mst.max(1,5,3) == 5)
+                  mst.a(mst.max(4) == 4)
+                  mst.a(mst.max() == nil)
+                   end)
 end)

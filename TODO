@@ -15,6 +15,11 @@
   advertising router ids - we should do something similar, router id if the
   USP => calculate next hop for that)
 
+ - add API to ELSA to get routes to specific router id's => win(?)
+   (could also include it in the rid callbacks, _if_ it's cheap to produce;
+    however, I doubt it's free, and as number of egress routers is less
+   than number of home routers, doing them all is inefficient)
+   
 - PM should configure skv-published USP+if+nexthop pairs to 'ip rule' table
 
 'ospf-usp' key will contain stuff for ip rule table
@@ -32,7 +37,24 @@
 
 *** Make sure computational complexity of all ops is minimal
 
-I'm looking at you, self.asp[rid]
+pa.asp lookups - now use rid as key
+
+- iid natural index - used in prefix assignment algorithm (run_if_usp)
+
+- prefix should be also index (binary prefix, probably) => conflict resolution
+  constant time (check_asp_conflicts)
+
+- rid only relevant for finding own ASPs - we could store them separately
+  anyway? (get_local_asp_values)
+
+- usp => asp needed - or some other way (find_assigned)
+  given #usp small, not necessary?
+
+pa.usp lookups - now use rid as key
+
+- containing prefix lookup cannot be optimized (or probably not worth it,
+  #usp is small)
+
 
 *** PA alg - enable incremential mode 
 
@@ -150,6 +172,8 @@ or
  - different conflict situations?
 
 ** PA alg features
+
+*** ULA generation
 
 *** HW addr stuff, duplicate router detection
 

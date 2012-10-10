@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Oct 10 09:39:32 2012 mstenber
+-- Last modified: Wed Oct 10 13:14:04 2012 mstenber
 -- Edit time:     123 min
 --
 
@@ -41,7 +41,7 @@ describe("elsa_pa [one node]", function ()
                                          lsas={}}
                            s = skv.skv:new{long_lived=true, port=31337}
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='mypid',
-                                                    new_prefix_assignment_timeout=0}
+                                                    new_prefix_assignment=0}
 
                            -- run once, and make sure we get to pa.add_or_update_usp
                            usp_added = false
@@ -158,7 +158,7 @@ describe("elsa_pa [one node]", function ()
                   -- make sure it's recognized as usp
                   ep:run()
                   mst.a(usp_added)
-                  mst.a(not asp_added)
+                  mst.a(not asp_added, 'asp was added?!?')
 
                   -- but without ifs, no asp assignment
                   ep:run()

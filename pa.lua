@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Wed Oct 10 10:55:57 2012 mstenber
--- Edit time:     412 min
+-- Last modified: Wed Oct 10 13:15:50 2012 mstenber
+-- Edit time:     447 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -19,6 +19,7 @@
 -- whenever it's state changes.
 
 -- client expected to provide:
+--  get_hwf(rid) => hardware fingerprint in string
 --  iterate_rid(rid, f) => callback with rid
 --  iterate_asp(rid, f) => callback with prefix, iid, rid
 --  iterate_usp(rid, f) => callback with prefix, rid
@@ -44,6 +45,9 @@ function pcall(f)
 end
 local lap_sm = require 'pa_lap_sm'
 pcall = orig_pcall
+
+local ula_prefix = string.char(0xFC)
+local ipv6prefix_suffix = '::/64'
 
 
 --mst.enable_debug = true
@@ -233,6 +237,7 @@ function usp:init()
    local b = ipv6s.prefix_to_bin(self.prefix)
    mst.a(b)
    self.binary_prefix = b
+   self.is_ula = string.sub(b, 1, 1) == ula_prefix
 
    local added = self.pa.usp:insert(self.rid, self)
    mst.a(added, 'already existed?', self)
@@ -251,7 +256,8 @@ function usp:repr_data()
 end
 
 pa = mst.create_class{class='pa', lap_class=lap, mandatory={'rid'},
-                      new_prefix_assignment_timeout=0,
+                      new_prefix_assignment=0,
+                      new_ula_prefix=0,
                       random_prefix_tries=5}
 
 -- main prefix assignment class
@@ -451,7 +457,7 @@ function pa:assign_own(iid, usp)
    
    -- 4. hysteresis (sigh)
    -- first off, apply it only if within 'short enough' period of time from the start of the router
-   if self.new_prefix_assignment_timeout > 0 and self:time_since_start() < self.new_prefix_assignment_timeout
+   if self.new_prefix_assignment > 0 and self:time_since_start() < self.new_prefix_assignment
    then
       -- look at number of rids we know; if it's 1, don't do anything
       -- for now
@@ -509,8 +515,6 @@ function pa:get_prefix_freelist(p)
    local t = self.prefix_freelist and self.prefix_freelist[p] or nil
    return t
 end
-
-local ipv6prefix_suffix = '::/64'
 
 function pa:create_prefix_freelist(p, b, assigned)
    local op = p
@@ -581,13 +585,15 @@ function pa:find_new_from(iid, usp, assigned)
             return np
          end
       end
-   end
-
-   -- look at freelist
-   if not t
-   then
+      
+      -- ok, lookup failed; create freelist
       t = self:create_prefix_freelist(usp.prefix, usp.binary_prefix, assigned)
    end
+
+   -- Now handle freelist; pick random item from there. We _could_
+   -- try some sort of md5-seeded logic here too; however, I'm not
+   -- convinced the freelist looks same in exhaustion cases anyway, so
+   -- random choice is as good as any?
    mst.a(t)
    local idx = mst.array_randindex(t)
    if not idx
@@ -632,6 +638,81 @@ function pa:assign_other(asp)
    asp:assign_lap()
 end
 
+function pa:non_own_ula_prefix_exists()
+   for i, v in ipairs(self.usp:values())
+   do
+      -- advertised by someone else?
+      if v.rid ~= self.rid
+      then
+         return true
+      end
+
+      -- if it's our own, and non-ula, it's fine too
+      if not v.is_ula
+      then
+         return true
+      end
+   end
+end
+
+function pa:generate_ula()
+   -- i) first off, if we _do_ have usable prefixes, use them
+   if self:non_own_ula_prefix_exists()
+   then
+      mst.d('usp exists, generate_ula skipped')
+      return
+   end
+
+   local rids = self.ridr:keys()
+
+   -- ii) do we have highest rid? if not, generation isn't our job
+   local highest_rid = mst.max(unpack(rids))
+   --mst.d('got rids', rids, highest_rid)
+
+   local my_rid = self.rid
+   if my_rid < highest_rid
+   then
+      return
+   end
+
+   -- iii) 'assignments'.. vague. skipped. XXX
+
+   -- we should either create or maintain ULA-USP
+
+   -- first off, see if we already have one
+   local ownusps = self.usp[self.rid] or {}
+   if #ownusps > 0
+   then
+      mst.a(#ownusps == 1)
+      local usp = ownusps[1]
+      mst.a(usp.is_ula)
+      usp.valid = true
+      return
+
+   end
+
+   -- we don't
+
+   -- handle hysteresis - if we have booted up recently, skip
+   if #rids == 1
+   then
+      if self.new_ula_prefix > 0 and self:time_since_start() < self.new_ula_prefix
+      then
+         return
+      end
+   end
+
+   -- generate usp
+   local hwf = self.client:get_hwf(self.rid)
+   local bits = md5.sum(hwf)
+   -- create binary prefix - first one 0xFC, 5 bytes from bits
+   local bp = ula_prefix .. string.sub(bits, 1, 5)
+   local p = ipv6s.bin_to_prefix(bp)
+   usp:new{prefix=p, rid=my_rid, pa=self, valid=true}
+
+   -- XXX store it on disk
+end
+
 function pa:run()
    self:d('run called')
 
@@ -668,6 +749,7 @@ function pa:run()
    -- get the rid reachability
    client:iterate_rid(rid, function (rid)
                          self:d('got rid', rid)
+                         mst.a(type(rid) == 'string' or type(rid) == 'number', rid)
                          self.ridr[rid] = true
                            end)
 
@@ -676,6 +758,9 @@ function pa:run()
                          self:d('got usp', prefix, rid)
                          self:add_or_update_usp(prefix, rid)
                            end)
+
+   -- generate ULA prefix if necessary
+   self:generate_ula()
 
    -- drop those that are not valid immediately
    self:filtered_values_done(self.usp,
@@ -693,6 +778,7 @@ function pa:run()
                                 mst.a(asp.class == 'asp', asp, asp.class)
                                 return asp:is_remote() and not asp.valid 
                              end)
+
 
    -- run the prefix assignment
    for iid, ifo in pairs(self.ifs)

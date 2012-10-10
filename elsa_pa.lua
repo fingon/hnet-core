@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Oct 10 09:39:08 2012 mstenber
--- Edit time:     167 min
+-- Last modified: Wed Oct 10 13:43:42 2012 mstenber
+-- Edit time:     174 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -45,6 +45,10 @@ OSPF_IFLIST_KEY='ospf-iflist'
 -- before starting new assignments
 NEW_PREFIX_ASSIGNMENT=20
 
+-- from the draft; time from boot to wait iff no other routers around
+-- before generating ULA
+NEW_ULA_PREFIX=20
+
 -- =~ TERMINATE_PREFIX_ASSIGNMENT in the draft
 LAP_DEPRACATE_TIMEOUT=240
 
@@ -53,7 +57,10 @@ LAP_DEPRACATE_TIMEOUT=240
 -- first if need be)
 LAP_EXPIRE_TIMEOUT=300
 
-
+-- XXX - TERMINATE_ULA_PREFIX timeout is a 'SHOULD', but we ignore it
+-- for simplicity's sake; getting rid of floating prefixes ASAP is
+-- probably good thing (and the individual interface-assigned prefixes
+-- will be depracated => will disappear soon anyway)
 
 elsa_lap = pa.lap:new_subclass{class='elsa_lap'}
 
@@ -88,12 +95,14 @@ end
 
 
 elsa_pa = mst.create_class{class='elsa_pa', mandatory={'skv', 'elsa'},
-                          new_prefix_assignment_timeout=NEW_PREFIX_ASSIGNMENT}
+                          new_prefix_assignment=NEW_PREFIX_ASSIGNMENT,
+                          new_ula_prefix=NEW_ULA_PREFIX}
 
 function elsa_pa:init()
    self.first = true
    self.pa = pa.pa:new{rid=self.rid, client=self, lap_class=elsa_lap,
-                       new_prefix_assignment_timeout=self.new_prefix_assignment_timeout}
+                       new_prefix_assignment=self.new_prefix_assignment,
+                       new_ula_prefix=self.new_ula_prefix}
    self.all_seen_if_names = mst.set:new{}
 end
 
@@ -108,9 +117,15 @@ function elsa_pa:repr_data()
    return '-'
 end
 
-function elsa_pa:get_hwf()
-   local hwf = self.elsa:get_hwf(self.rid)
-   
+function elsa_pa:get_hwf(rid)
+   rid = rid or self.rid
+   local hwf = self.elsa:get_hwf(rid)
+   mst.a(hwf)
+   return hwf
+end
+
+function elsa_pa:get_padded_hwf(rid)
+   local hwf = self:get_hwf(rid)
    mst.a(hwf, 'unable to get hwf')
    local d = codec.MINIMUM_AC_TLV_RHF_LENGTH
    if #hwf < d
@@ -122,7 +137,7 @@ function elsa_pa:get_hwf()
 end
 
 function elsa_pa:check_conflict(bonus_lsa)
-   local my_hwf = self:get_hwf()
+   local my_hwf = self:get_padded_hwf()
    local other_hwf = nil
    local lsas = 0
    local tlvs = 0
@@ -365,7 +380,7 @@ function elsa_pa:generate_ac_lsa()
    local a = mst.array:new()
 
    -- generate RHF
-   local hwf = self:get_hwf(self.rid)
+   local hwf = self:get_padded_hwf(self.rid)
    a:insert(codec.rhf_ac_tlv:encode{body=hwf})
 
    -- generate local USP-based TLVs
