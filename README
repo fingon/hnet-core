@@ -3,18 +3,24 @@
 * Non-LUA required software
 ---------------------------
 - smc (http://smc.sourceforge.net)
+
 - graphviz
+
 (- ev-dev)
+
 
 * LUA requirements
 ------------------
 - lua 5.1+ with C dev header
-- md5
-- luasocket (http://w3.impa.br/~diego/software/luasocket/)
+
+- luasocket (http://w3.impa.br/~diego/software/luasocket/) (only C hard
+  dependency)
+
 - vstruct (https://github.com/ToxicFrog/vstruct)
 
 if unittests should be runnable
 - busted (http://olivinelabs.com/busted/)
+(- md5 - needed for 'speed' / 'fun' development)
 
 
 * Installation
