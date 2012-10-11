@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Tue Oct  9 11:21:30 2012 mstenber
--- Edit time:     29 min
+-- Last modified: Thu Oct 11 11:54:52 2012 mstenber
+-- Edit time:     34 min
 --
 
 -- testsuite for the pm_core
@@ -21,6 +21,9 @@ require 'elsa_pa'
 require 'pm_core'
 require 'skv'
 require 'codec'
+require 'pa'
+
+module("pm_core_spec", package.seeall)
 
 local _delsa = require 'delsa'
 delsa = _delsa.delsa
@@ -32,7 +35,7 @@ function fakeshell(s)
    arri = arri + 1
    mst.a(arri <= #arr, 'tried to consume with array empty', s)
    local t, v = unpack(arr[arri])
-   mst.a(t == s)
+   mst.a(t == s, 'mismatch - expected', t, 'got', s)
    return v
 end
 
@@ -68,6 +71,13 @@ describe("pm", function ()
                           s:done()
                        end)
             it("works", function ()
+                  mst.d('cht', pa.create_hash_type)
+                  local x = 
+                     pa.create_hash_type == 'md5' and
+                     {'ip -6 addr add dead:1399:9def:f860:21c:42ff:fea7:f1d9/64 dev eth2', ''} -- md5
+                     or
+                     {'ip -6 addr add dead:e9d2:a21b:5888:21c:42ff:fea7:f1d9/64 dev eth2', ''} -- sha1
+                     
                   setup_fakeshell{
                             {"ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary",
                              [[1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 
@@ -79,7 +89,7 @@ describe("pm", function ()
 ]]},
                             {'ifconfig eth2 | grep HWaddr',
                              'eth2      Link encap:Ethernet  HWaddr 00:1c:42:a7:f1:d9  '},
-                            {'ip -6 addr add dead:1399:9def:f860:21c:42ff:fea7:f1d9/64 dev eth2', ''},
+                            x,
                             {'ip -6 addr del dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 dev eth2', ''},
 
 

@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Oct 10 13:14:04 2012 mstenber
+-- Last modified: Thu Oct 11 11:54:15 2012 mstenber
 -- Edit time:     123 min
 --
 
@@ -18,6 +18,9 @@ require 'busted'
 require 'elsa_pa'
 require 'skv'
 require 'ssloop'
+
+module("elsa_pa_spec", package.seeall)
+
 local _delsa = require 'delsa'
 delsa = _delsa.delsa
 

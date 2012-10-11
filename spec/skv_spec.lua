@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Mon Oct  8 11:42:57 2012 mstenber
--- Edit time:     176 min
+-- Last modified: Thu Oct 11 11:55:12 2012 mstenber
+-- Edit time:     177 min
 --
 
 require "busted"
@@ -26,6 +26,8 @@ local _skv = require 'skv'
 local skv = _skv.skv
 local loop = ssloop.loop()
 require 'skv_const'
+
+module("skv_spec", package.seeall)
 
 -- as this stuff uses the skv fsm in somewhat abusive fashion, we tune
 -- the timeouts to 'low' values (by default, starting up two instances

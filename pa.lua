@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Wed Oct 10 13:15:50 2012 mstenber
--- Edit time:     447 min
+-- Last modified: Thu Oct 11 11:55:36 2012 mstenber
+-- Edit time:     456 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -33,7 +33,6 @@
 
 require 'mst'
 require 'ipv6s'
-local md5 = require 'md5'
 
 -- SMC-generated state machine
 -- fix braindeath of using pcall in a state machine in general..
@@ -49,10 +48,26 @@ pcall = orig_pcall
 local ula_prefix = string.char(0xFC)
 local ipv6prefix_suffix = '::/64'
 
-
---mst.enable_debug = true
-
 module('pa', package.seeall)
+
+-- wrapper we can override
+create_hash=nil
+create_hash_type=nil
+
+pcall(function ()
+         local md5 = require 'md5'
+         create_hash=md5.sum
+         create_hash_type='md5'
+      end)
+
+if not create_hash
+then
+   print('using sha1')
+   require 'sha1'
+   create_hash = sha1_binary
+   create_hash_type='sha1'
+   print('using sha1')
+end
 
 -- local assigned prefix
 
@@ -574,7 +589,7 @@ function pa:find_new_from(iid, usp, assigned)
       do
          -- get the rest of the bytes from md5
          local s = string.format("%s-%s-%s-%d", self.rid, iid, usp.prefix, i)
-         local sb = md5.sum(s)
+         local sb = create_hash(s)
          p = b .. string.sub(sb, #b+1, 8)
          mst.a(#p == 8)
          if not assigned[p]
@@ -704,7 +719,7 @@ function pa:generate_ula()
 
    -- generate usp
    local hwf = self.client:get_hwf(self.rid)
-   local bits = md5.sum(hwf)
+   local bits = create_hash(hwf)
    -- create binary prefix - first one 0xFC, 5 bytes from bits
    local bp = ula_prefix .. string.sub(bits, 1, 5)
    local p = ipv6s.bin_to_prefix(bp)

@@ -9,12 +9,14 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 18:34:49 2012 mstenber
--- Last modified: Tue Oct  9 12:14:47 2012 mstenber
+-- Last modified: Thu Oct 11 11:54:04 2012 mstenber
 -- Edit time:     12 min
 --
 
 require "busted"
 require "codec"
+
+module("codec_spec", package.seeall)
 
 local tests = {
    -- check that different paddings work

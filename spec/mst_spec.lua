@@ -9,12 +9,14 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Oct 10 13:12:01 2012 mstenber
+-- Last modified: Thu Oct 11 11:54:36 2012 mstenber
 -- Edit time:     81 min
 --
 
 require "busted"
 require "mst"
+
+module("mst_spec", package.seeall)
 
 describe("check_parameters", function ()
             it("blows if omitted parameters", function ()

@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Wed Oct  3 17:33:27 2012 mstenber
+-- Last modified: Thu Oct 11 11:55:25 2012 mstenber
 -- Edit time:     104 min
 --
 
@@ -17,6 +17,8 @@ require "busted"
 require "scb"
 require "mst"
 require 'ssloop'
+
+module("ssloop_spec", package.seeall)
 
 local loop = ssloop.loop()
 

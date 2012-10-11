@@ -9,13 +9,16 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 22:04:20 2012 mstenber
--- Last modified: Tue Oct  9 11:08:04 2012 mstenber
+-- Last modified: Thu Oct 11 11:54:24 2012 mstenber
 -- Edit time:     26 min
 --
 
 require 'ipv6s'
 require 'busted'
 require 'mst'
+
+module("ipv6s_spec", package.seeall)
+
 
 describe("ascii_cleanup", function ()
             it("should work",

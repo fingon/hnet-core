@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Wed Oct 10 13:40:54 2012 mstenber
+-- Last modified: Thu Oct 11 11:53:36 2012 mstenber
 -- Edit time:     147 min
 --
 
@@ -17,6 +17,7 @@ require "busted"
 local _pa = require "pa"
 require 'mst'
 
+module("pa_spec", package.seeall)
 
 -- 3 globals used to keep track of stuff
 o = nil
