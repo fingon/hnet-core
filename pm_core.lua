@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Fri Oct 12 11:12:39 2012 mstenber
--- Edit time:     101 min
+-- Last modified: Fri Oct 12 12:18:33 2012 mstenber
+-- Edit time:     103 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -201,8 +201,10 @@ function pm:write_radvd_conf()
             t:insert('  prefix ' .. lap.prefix .. ' {')
             t:insert('    AdvOnLink on;')
             t:insert('    AdvAutonomous on;')
-            self:a(lap.depracate) -- has to be 0 or 1, not nil
-            if lap.depracate == 1
+            local dep = lap.depracate
+            self:a(dep) -- has to be 0 or 1, not nil
+            mst.a(dep == 0 or dep == 1)
+            if dep == 1
             then
                t:insert('    AdvValidLifetime 7200;')
                t:insert('    AdvPreferredLifetime 0;')
