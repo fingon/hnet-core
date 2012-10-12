@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Fri Oct 12 12:18:33 2012 mstenber
--- Edit time:     103 min
+-- Last modified: Fri Oct 12 15:12:26 2012 mstenber
+-- Edit time:     104 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -216,7 +216,7 @@ function pm:write_radvd_conf()
             t:insert('  };')
          end
       end
-      t:insert('}')
+      t:insert('};')
    end
    for i, v in ipairs(self.ospf_lap)
    do
