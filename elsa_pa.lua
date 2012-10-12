@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Oct 10 13:43:42 2012 mstenber
--- Edit time:     174 min
+-- Last modified: Fri Oct 12 11:05:13 2012 mstenber
+-- Edit time:     175 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -224,7 +224,8 @@ function elsa_pa:run()
          then
             self:d('zombie interface', lap)
          end
-         t:insert({ifname=lap.ifname, prefix=lap.prefix})
+         t:insert({ifname=lap.ifname, prefix=lap.prefix,
+                   depracate=lap.depracated and 1 or 0})
       end
       self.skv:set(OSPF_LAP_KEY, t)
 

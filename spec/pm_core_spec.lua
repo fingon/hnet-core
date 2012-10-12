@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Thu Oct 11 11:54:52 2012 mstenber
+-- Last modified: Fri Oct 12 10:56:26 2012 mstenber
 -- Edit time:     34 min
 --
 
@@ -24,6 +24,8 @@ require 'codec'
 require 'pa'
 
 module("pm_core_spec", package.seeall)
+
+local TEMP_RADVD_CONF='/tmp/radvd.conf'
 
 local _delsa = require 'delsa'
 delsa = _delsa.delsa
@@ -62,7 +64,8 @@ describe("pm", function ()
                                  {'dead::/16'}
                                 )
 
-                           pm = pm_core.pm:new{skv=s, shell=fakeshell}
+                           pm = pm_core.pm:new{skv=s, shell=fakeshell,
+                                               radvd_conf_filename=TEMP_RADVD_CONF}
                         end)
             after_each(function ()
                           pm:done()

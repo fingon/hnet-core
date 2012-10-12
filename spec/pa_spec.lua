@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Thu Oct 11 11:53:36 2012 mstenber
--- Edit time:     147 min
+-- Last modified: Fri Oct 12 11:50:03 2012 mstenber
+-- Edit time:     166 min
 --
 
 require "busted"
@@ -126,6 +126,20 @@ function find_lap(prefix)
    return find_pa_lap(pa, {prefix=prefix})
 end
 
+function timeout_laps(pa, f)
+   local laps = pa.lap:values()
+   local c = 0
+   for i, lap in ipairs(laps)
+   do
+      if not f or f(lap)
+      then
+         lap.sm:Timeout()
+         c = c + 1
+      end
+   end
+   return c
+end
+
 describe("pa", function ()
             before_each(function ()
                      o = ospf:new{usp={{'dead::/16', 'rid1'},
@@ -191,20 +205,14 @@ describe("pa", function ()
                   mst.a(pa.usp:count() == 0, "usp mismatch")
 
                   -- do fake timeout calls => go to zombie mode
-                  local laps = pa.lap:values()
-                  for i, lap in ipairs(laps)
-                  do
-                     lap.sm:Timeout()
-                  end
+                  timeout_laps(pa)
 
                   -- second timeout should do zombie -> done
-                  local laps = pa.lap:values()
-                  for i, lap in ipairs(laps)
-                  do
-                     local sn = lap.sm:getState().name
-                     mst.a(sn == 'LAP.Zombie', sn)
-                     lap.sm:Timeout()
-                  end
+                  timeout_laps(pa, function (lap)
+                                  local sn = lap.sm:getState().name
+                                  mst.a(sn == 'LAP.Zombie', sn)
+                                  return true
+                                   end)
 
                   mst.a(pa.lap:count() == 0, "lap mismatch")
                   
@@ -274,6 +282,37 @@ describe("pa-nobody-else", function ()
                                      rid='myrid'}
 
                         end)
+            it("changes prefix if there is sudden conflict #conflict", function ()
+                  o.usp = {{'dead::/16', 'rid1'}}
+                  o.ridr = {{'myrid'}, {'rid1'},}
+                  pa:run()
+                  pa:run()
+                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                  mst.a(pa.asp:count() == 2, "asp mismatch", pa.asp)
+                  mst.a(pa.lap:count() == 2, "lap mismatch", pa.lap)
+
+                  -- ok, now we grab one prefix and pretend it's
+                  -- assigned elsewhere too (cruel but oh well)
+                  local first_lap = pa.lap:values()[1]
+                  table.insert(o.asp, {first_lap.prefix, 44, 'rid1'})
+                  pa:run()
+                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                  mst.a(pa.asp:count() == 2, "asp mismatch", pa.asp)
+                  -- should have one depracated one
+                  mst.a(pa.lap:count() == 2, "lap mismatch", pa.lap)
+
+                  -- due how to alg is specified in arkko-02, there's
+                  -- one tick after which there is no assignment on
+                  -- the interface, but next tick new one's created
+
+                  -- should have new ASP to replace old one 
+                  pa:run()
+                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                  mst.a(pa.asp:count() == 3, "asp mismatch", pa.asp)
+                  mst.a(pa.lap:count() == 3, "lap mismatch", pa.lap)
+
+                   end)
+
 
             it("obeys hysteresis 1 - no routers", function ()
                   -- just local e.g. PD prefix
@@ -314,7 +353,7 @@ describe("pa-nobody-else", function ()
                   mst.a(pa.usp:count() == 0, "usp mismatch")
                    end)
 
-            it("ula generation 2 - time long gone", function ()
+            it("ula generation works - time long gone #ula", function ()
                   pa:run()
                   pa.new_ula_prefix = 123
                   pa.start_time = pa.start_time - pa.new_ula_prefix - 10
@@ -325,6 +364,34 @@ describe("pa-nobody-else", function ()
                   mst.a(pa.usp:count() == 1, "usp mismatch")
                   mst.a(pa.asp:count() > 0, "asp mismatch")
                   mst.a(pa.lap:count() > 0, "lap mismatch")
+
+                  -- however, if we add real USP, the ULA should disappear
+                  table.insert(o.usp, {'dead::/16', 'rid1'})
+                  o.ridr = {{'myrid'}, {'rid1'},}
+                  pa:run()
+                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                  mst.a(pa.asp:count() == 2, "asp mismatch")
+                  mst.a(pa.lap:count() == 4, "lap mismatch")
+
+                  -- initially they will go unassigned once ULA is gone
+                  local c = timeout_laps(pa, function (lap)
+                                            return lap.assigned==false
+                                             end)
+                  mst.a(c == 2)
+
+                  -- then depracate
+                  local c = timeout_laps(pa, function (lap)
+                                            return lap.depracated==true
+                                             end)
+                  mst.a(c == 2)
+                   
+
+                  pa:run()
+                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                  mst.a(pa.asp:count() == 2, "asp mismatch", pa.asp)
+                  mst.a(pa.lap:count() == 2, "lap mismatch", pa.lap)
+
+
                    end)
 
             after_each(function ()

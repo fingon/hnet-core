@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Thu Oct 11 11:55:36 2012 mstenber
--- Edit time:     456 min
+-- Last modified: Fri Oct 12 11:50:41 2012 mstenber
+-- Edit time:     471 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -71,7 +71,9 @@ end
 
 -- local assigned prefix
 
-lap = mst.create_class{class='lap', mandatory={'prefix', 'iid', 'pa'}}
+lap = mst.create_class{class='lap', mandatory={'prefix', 'iid', 'pa'},
+                      assigned=false,
+                      depracated=false}
 
 function lap:init()
    local ifo = self.pa.ifs[self.iid]
@@ -92,7 +94,10 @@ function lap:uninit()
 end
 
 function lap:repr_data()
-   return mst.repr{prefix=self.prefix, iid=self.iid}
+   return mst.repr{prefix=self.prefix, iid=self.iid, 
+                   za=self.assigned,
+                   zd=self.depracated,
+                  }
 end
 
 function lap:start_depracate_timeout()
@@ -118,6 +123,19 @@ end
 -- external API (which is just forwarded to the state machine)
 
 function lap:assign()
+   if not self.assigned
+   then
+      -- depracate immediately any other prefix that is on this iid,
+      -- with same USP as us (self->asp->usp.prefix)
+      local usp = self.asp.usp
+      for i, lap2 in ipairs(self.pa.ifs[self.iid])
+      do
+         if lap ~= lap2 and ipv6s.prefix_contains(usp.prefix, lap2.prefix)
+         then
+            lap2:depracate()
+         end
+      end
+   end
    self.sm:Assign()
 end
 
@@ -631,10 +649,11 @@ function pa:check_asp_conflicts(asp)
       if asp2.prefix == asp.prefix and asp2.rid > asp.rid
       then
          -- as described in 6.3.3
-         asp:depracate()
+         asp:depracate_lap()
          return
       end
    end
+
    -- otherise mark it as valid
    asp.valid = true
 end

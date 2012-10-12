@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Tue Oct  9 12:35:36 2012 mstenber
--- Edit time:     81 min
+-- Last modified: Fri Oct 12 11:12:39 2012 mstenber
+-- Edit time:     101 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -28,10 +28,12 @@ require 'mst'
 require 'skv'
 require 'elsa_pa'
 require 'linux_if'
+require 'os'
 
 module(..., package.seeall)
 
-pm = mst.create_class{class='pm', mandatory={'skv', 'shell'}}
+pm = mst.create_class{class='pm', mandatory={'skv', 'shell', 
+                                             'radvd_conf_filename'}}
 
 function pm:init()
    self.f_lap = function (k, v) self:lap_changed(v) end
@@ -130,6 +132,7 @@ function pm:check_ospf_vs_real()
    local real_keys = real_lap:keys():to_set()
 
    local valid_end='::/64'
+   local changes = 0
 
    -- 3 cases to consider
    -- only in ospf_lap
@@ -138,6 +141,7 @@ function pm:check_ospf_vs_real()
       mst.a(string.sub(prefix, -#valid_end) == valid_end, 
             'invalid prefix', prefix)
       self:handle_ospf_prefix(prefix, ospf_lap[prefix])
+      changes = changes + 1
    end
    
    -- only in real_lap
@@ -146,6 +150,7 @@ function pm:check_ospf_vs_real()
       mst.a(string.sub(prefix, -#valid_end) == valid_end, 
             'invalid prefix', prefix)
       self:handle_real_prefix(prefix, real_lap[prefix])
+      changes = changes + 1
    end
    
    -- in both
@@ -153,8 +158,72 @@ function pm:check_ospf_vs_real()
    do
       mst.a(string.sub(prefix, -#valid_end) == valid_end, 
             'invalid prefix', prefix)
-      self:handle_both_prefix(prefix, ospf_lap[prefix], real_lap[prefix])
+      local c = 
+         self:handle_both_prefix(prefix, ospf_lap[prefix], real_lap[prefix])
+      if c then changes = changes + 1 end
    end
+
+   -- rewrite the radvd configuration
+   if changes > 0
+   then
+      self:write_radvd_conf()
+      os.execute('killall -9 radvd 2>/dev/null')
+      os.execute('sh -c "radvd -C ' .. self.radvd_conf_filename .. '" 2>/dev/null ')
+   end
+end
+
+function pm:write_radvd_conf()
+   -- write configuration on per-interface basis.. 
+   local fpath = self.radvd_conf_filename
+   local f, err = io.open(fpath, 'w')
+   self:a(f, 'unable to open for writing', fpath, err)
+
+   local seen = {}
+   local t = mst.array:new{}
+
+   -- this is O(n^2). oh well, number of local assignments should not
+   -- be insane
+   function rec(ifname)
+      if seen[ifname]
+      then
+         return
+      end
+      seen[ifname] = true
+      t:insert('interface ' .. ifname .. ' {')
+      t:insert('  AdvSendAdvert on;')
+      t:insert('  AdvManagedFlag off;')
+      t:insert('  AdvOtherConfigFlag off;')
+      t:insert('  AdvDefaultLifetime 600;')
+      for i, lap in ipairs(self.ospf_lap)
+      do
+         if lap.ifname == ifname
+         then
+            t:insert('  prefix ' .. lap.prefix .. ' {')
+            t:insert('    AdvOnLink on;')
+            t:insert('    AdvAutonomous on;')
+            self:a(lap.depracate) -- has to be 0 or 1, not nil
+            if lap.depracate == 1
+            then
+               t:insert('    AdvValidLifetime 7200;')
+               t:insert('    AdvPreferredLifetime 0;')
+            else
+               -- how much we want to advertise? let's stick to defaults for now
+               --t:insert('    AdvValidLifetime 86400;')
+               --t:insert('    AdvPreferredLifetime 14400;')
+            end
+            t:insert('  };')
+         end
+      end
+      t:insert('}')
+   end
+   for i, v in ipairs(self.ospf_lap)
+   do
+      rec(v.ifname)
+   end
+   f:write(t:join('\n'))
+   f:write('\n')
+   -- close the file
+   io.close(f)
 end
 
 function pm:handle_ospf_prefix(prefix, po)
@@ -191,6 +260,7 @@ function pm:handle_both_prefix(prefix, po1, po2)
    -- pretend it's only on OSPF interface (=add)
    self:handle_real_prefix(prefix, po2)
    self:handle_ospf_prefix(prefix, po1)
+   return true
 end
 
 function pm:ifs_changed()
