@@ -9,16 +9,17 @@
 --       All rights reserved
 --
 -- Created:       Fri Oct  5 00:09:17 2012 mstenber
--- Last modified: Fri Oct 12 13:28:53 2012 mstenber
--- Edit time:     3 min
+-- Last modified: Fri Oct 12 14:57:55 2012 mstenber
+-- Edit time:     4 min
 --
 
 require 'mst'
 require 'elsa_pa'
+require 'dneigh'
 
 module(..., package.seeall)
 
-delsa = mst.create_class{class='delsa', mandatory={'hwf'}}
+delsa = dneigh.dneigh:new_subclass{class='delsa', mandatory={'hwf'}}
 
 function delsa:get_hwf(rid)
    return self.hwf[rid]
@@ -35,15 +36,6 @@ function delsa:iterate_if(rid, f)
    for i, v in ipairs(self.iid[rid] or {})
    do
       f(v)
-   end
-end
-
-function delsa:iterate_ifo_neigh(rid, ifo, f)
-   local all_neigh = self.neigh[rid] or {}
-   local if_neigh = all_neigh[ifo.index] or {}
-   for rid, iid in pairs(if_neigh)
-   do
-      f(iid, rid)
    end
 end
 

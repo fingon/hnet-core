@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Thu Oct 11 11:54:15 2012 mstenber
--- Edit time:     123 min
+-- Last modified: Fri Oct 12 14:59:02 2012 mstenber
+-- Edit time:     124 min
 --
 
 require 'mst'
@@ -237,10 +237,11 @@ describe("elsa_pa multinode", function ()
                   local e = delsa:new{iid={ep1={{index=42, name='eth0'},
                                                 {index=123, name='eth1'}}, 
                                            ep2={{index=43,name='eth0'},
-                                                {index=123, name='eth1'}}},
+                                                {index=124, name='eth1'}}},
                                       hwf={ep1='foo',
                                            ep2='bar'},
                                       lsas=base_lsas}
+                  e:connect_neigh('ep1', 123, 'ep2', 124)
                   local skv1 = skv.skv:new{long_lived=true, port=31338}
                   local skv2 = skv.skv:new{long_lived=true, port=31339}
                   local ep1 = elsa_pa.elsa_pa:new{elsa=e, skv=skv1, rid='ep1'}

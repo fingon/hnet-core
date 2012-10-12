@@ -9,13 +9,14 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Fri Oct 12 14:51:30 2012 mstenber
--- Edit time:     214 min
+-- Last modified: Fri Oct 12 14:56:48 2012 mstenber
+-- Edit time:     215 min
 --
 
 require "busted"
 local _pa = require "pa"
 require 'mst'
+require 'dneigh'
 
 module("pa_spec", package.seeall)
 
@@ -36,7 +37,7 @@ function dummy_lap:stop_depracate_timeout()
    timeouts:remove(self)
 end
 
-ospf = mst.create_class{class='ospf'}
+ospf = dneigh.dneigh:new_subclass{class='ospf'}
 
 function ospf:init()
    self.asp = self.asp or {}
@@ -45,6 +46,7 @@ function ospf:init()
    self.ridr = self.ridr or {}
    self.nodes = self.nodes or {}
    self.neigh = self.neigh or {}
+   -- no need to call dneigh.init
 end
 
 function ospf:get_hwf(rid)
@@ -84,32 +86,6 @@ function ospf:iterate_if(rid, f)
    do
       f(v)
    end
-end
-
-function ospf:iterate_ifo_neigh(rid, ifo, f)
-   local all_neigh = self.neigh[rid] or {}
-   local if_neigh = all_neigh[ifo.index] or {}
-   for rid, iid in pairs(if_neigh)
-   do
-      f(iid, rid)
-   end
-end
-
-
-function ospf:connect_neigh(r1, i1, r2, i2)
-   function _goe(h, k)
-      if not h[k]
-      then
-         h[k] = {}
-      end
-      return h[k]
-   end
-
-   function _conn(r1, i1, r2, i2)
-      _goe(_goe(self.neigh, r1), i1)[r2] = i2
-   end
-   _conn(r1, i1, r2, i2)
-   _conn(r2, i2, r1, i1)
 end
 
 function ospf:iterate_rid(rid, f)

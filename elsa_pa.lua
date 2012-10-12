@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Fri Oct 12 14:33:03 2012 mstenber
--- Edit time:     176 min
+-- Last modified: Fri Oct 12 14:54:22 2012 mstenber
+-- Edit time:     177 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -323,7 +323,7 @@ function elsa_pa:iterate_usp(rid, f)
                            end, {type=codec.AC_TLV_USP})
 end
 
---  iterate_if(rid, f) => callback with ifo, highest_rid
+--  iterate_if(rid, f) => callback with ifo
 function elsa_pa:iterate_if(rid, f)
    local inuse_ifnames = mst.set:new{}
 
@@ -335,17 +335,24 @@ function elsa_pa:iterate_if(rid, f)
                               inuse_ifnames:insert(ifname)
                            end)
 
-   self.elsa:iterate_if(rid, function (ifo, highest_rid)
+   self.elsa:iterate_if(rid, function (ifo)
                            self.all_seen_if_names:insert(ifo.name)
                            self:a(ifo)
                            if not inuse_ifnames[ifo.name]
                            then
-                              f(ifo, highest_rid)
+                              f(ifo)
                            else
                               self:d('skipping in use', ifo, 'delegated prefix source')
                            end
                         end)
 end
+
+--   iterate_ifo_neigh(rid, if-object, f) => callback with iid, rid
+function elsa_pa:iterate_ifo_neigh(rid, ifo, f)
+   -- just forward for the time being
+   self.elsa:iterate_ifo_neigh(rid, ifo, f)
+end
+
 
 function elsa_pa:iterate_skv_prefix(f)
    local pdlist = self.skv:get(PD_IFLIST_KEY)
