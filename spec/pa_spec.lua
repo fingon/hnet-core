@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Fri Oct 12 11:50:03 2012 mstenber
--- Edit time:     166 min
+-- Last modified: Fri Oct 12 14:51:30 2012 mstenber
+-- Edit time:     214 min
 --
 
 require "busted"
@@ -43,7 +43,8 @@ function ospf:init()
    self.usp = self.usp or {}
    self.iif = self.iif or {}
    self.ridr = self.ridr or {}
-   self.pas = self.pas or {}
+   self.nodes = self.nodes or {}
+   self.neigh = self.neigh or {}
 end
 
 function ospf:get_hwf(rid)
@@ -55,9 +56,9 @@ function ospf:iterate_asp(rid, f)
    do
       f(unpack(v))
    end
-   mst.d('iterating pas')
+   mst.d('iterating nodes')
 
-   for i, t in ipairs(self.pas)
+   for i, t in ipairs(self.nodes)
    do
       mst.d('dumping pa', i)
 
@@ -85,12 +86,38 @@ function ospf:iterate_if(rid, f)
    end
 end
 
+function ospf:iterate_ifo_neigh(rid, ifo, f)
+   local all_neigh = self.neigh[rid] or {}
+   local if_neigh = all_neigh[ifo.index] or {}
+   for rid, iid in pairs(if_neigh)
+   do
+      f(iid, rid)
+   end
+end
+
+
+function ospf:connect_neigh(r1, i1, r2, i2)
+   function _goe(h, k)
+      if not h[k]
+      then
+         h[k] = {}
+      end
+      return h[k]
+   end
+
+   function _conn(r1, i1, r2, i2)
+      _goe(_goe(self.neigh, r1), i1)[r2] = i2
+   end
+   _conn(r1, i1, r2, i2)
+   _conn(r2, i2, r1, i1)
+end
+
 function ospf:iterate_rid(rid, f)
    for i, v in ipairs(self.ridr)
    do
       f(unpack(v))
    end
-   for i, pa in ipairs(self.pas)
+   for i, pa in ipairs(self.nodes)
    do
       f(pa.rid)
    end
@@ -148,7 +175,7 @@ describe("pa", function ()
 
                                   -- in practise, 2 usp
                                   asp={{'dead:bee0::/64', 
-                                        42, -- #if1
+                                        256,  
                                         'rid1'}},
                                   iif={myrid={{index=42,name='if1'},
                                               {index=43,name='if2'}}},
@@ -157,6 +184,8 @@ describe("pa", function ()
                                         {'rid3'},
                                   },
                                  }
+                     -- connect the asp-equipped rid1 if + myrid if1
+                     o:connect_neigh('myrid', 42, 'rid1', 256)
                      pa = _pa.pa:new{client=o, lap_class=dummy_lap,
                                      rid='myrid'}
                   end)
@@ -169,14 +198,15 @@ describe("pa", function ()
                      end)
             it("can be created", function ()
                                  end)
-            it("works [small rid]", function ()
+            it("works [small rid] #srid", function ()
                   pa:run()
 
                   -- make sure there's certain # of assignments
-                  -- 2 USP, 2 if => 3 local assignments + 1 remote
-                  mst.a(pa.lap:count() == 4, "lap mismatch")
-                  -- 1 original ASP + 3 from us => 4
-                  mst.a(pa.asp:count() == 4, "asp mismatch")
+                  -- 2 USP, 2 if => 2 local assignments + 1 remote
+                  -- (one not supplied by rid1, and it has higher rid on link)
+                  mst.a(pa.lap:count() == 3, "lap mismatch", 4, pa.lap:count())
+                  -- 1 original ASP + 2 from us => 3
+                  mst.a(pa.asp:count() == 3, "asp mismatch")
                   -- 3 USP
                   mst.a(pa.usp:count() == 3, "usp mismatch")
 
@@ -186,13 +216,8 @@ describe("pa", function ()
 
 
                   -- second run shouldn't change anything
-
-                  -- make sure there's certain # of assignments
-                  -- 2 USP, 2 if => 3 local assignments + 1 remote
-                  mst.a(pa.lap:count() == 4, "lap mismatch")
-                  -- 1 original ASP + 3 from us => 4
-                  mst.a(pa.asp:count() == 4, "asp mismatch")
-                  -- 3 USP
+                  mst.a(pa.lap:count() == 3, "lap mismatch")
+                  mst.a(pa.asp:count() == 3, "asp mismatch")
                   mst.a(pa.usp:count() == 3, "usp mismatch")
 
                   -- make sure that if we get rid of usp+asp (from net),
@@ -200,7 +225,7 @@ describe("pa", function ()
                   o.usp = {}
                   o.asp = {}
                   pa:run()
-                  mst.a(pa.lap:count() == 4, "lap mismatch")
+                  mst.a(pa.lap:count() == 3, "lap mismatch")
                   mst.a(pa.asp:count() == 0, "asp mismatch")
                   mst.a(pa.usp:count() == 0, "usp mismatch")
 
@@ -246,7 +271,7 @@ describe("pa", function ()
                                     {'cafe::/16', 'rid3'}},
                                -- in practise, 2 usp
                                asp={{'dead:bee0::/64', 
-                                     'if1',
+                                     30,
                                      'rid1'}},
                                iif={myrid={{index=42,name='if1'},
                                            {index=43,name='if2'}}},
@@ -254,7 +279,9 @@ describe("pa", function ()
                                      {'rid2'},
                                      {'rid3'},
                                },
+                               neigh={myrid={[42]={rid1=30}}},
                               }
+                  o:connect_neigh('myrid', 42, 'rid1', 30)
                   pa = _pa.pa:new{client=o, 
                                   rid='myrid',
                                   lap_class=dummy_lap,
@@ -404,33 +431,82 @@ describe("pa-nobody-else", function ()
              end)
 
 describe("pa-net", function ()
-            it("simple 3 pa", function ()
+            it("simple 3 pa #net", function ()
 
-                  -- two different variants of the same test case 3
-                  -- routers, but they are connected to each other
-                  -- either at the start (j=1), or after they've been
-                  -- running a bit (j=2)
 
-                  for j=1,2
+                  -- few different variants
+                  -- bit1 = connect the routers after awhile
+                  -- bit2 = connect the LSAdbs after awhile
+                  -- bit3 = use conflicting if #'s
+
+                  -- bit1 implies bit2 as well
+
+                  for j=0,7
                   do
+                     mst.d('net-iter', j)
+                     
+                     local _n
+                     if mst.bitv_is_set_bit(j, 3)
+                     then
+                        function _n(ni, pi)
+                           return 40 + pi
+                        end
+                     else
+                        function _n(ni, pi)
+                           return 30 + pi + ni * 10
+                        end
+                     end
+
+                     local connect_lsadbs_slowly = false
+                     local connect_routers_slowly = false
+
+                     if mst.bitv_is_set_bit(j, 2)
+                     then
+                        connect_lsadbs_slowly = true
+                     end
+
+                     if mst.bitv_is_set_bit(j, 1)
+                     then
+                        connect_routers_slowly = true
+                     end
+
+                     if connect_routers_slowly
+                     then
+                        connect_lsadbs_slowly = true
+                     end
+
+                     -- XXX - add same/different ifindex variants
+                     -- to bit 2
                      o = ospf:new{usp={{'dead::/16', 'rid1'},
                                        --{'cafe::/16', 'rid3'},
                                       },
-                                  iif={n1={{index=42,name='if1'}, 
-                                           {index=43,name='if2'}, 
-                                           {index=41,name='if0'}},
-                                       n2={{index=43,name='if2'}, 
-                                           {index=44,name='if3'}, 
-                                           {index=41,name='if0'}},
-                                       n3={{index=44,name='if3'}, 
-                                           {index=45,name='if4'}, 
-                                           {index=41,name='if0'}},
+                                  iif={n1={{index=_n(1, 2),name='if1'}, 
+                                           {index=_n(1, 3),name='if2'}, 
+                                           {index=_n(1, 1),name='if0'}},
+                                       n2={{index=_n(2, 3),name='if2'}, 
+                                           {index=_n(2, 4),name='if3'}, 
+                                           {index=_n(2, 1),name='if0'}},
+                                       n3={{index=_n(3, 4),name='if3'}, 
+                                           {index=_n(3, 5),name='if4'}, 
+                                           {index=_n(3, 1),name='if0'}},
                                   },
                                   ridr={{'rid1'},
                                         {'rid2'},
                                         {'rid3'},
                                   },
                                  }
+                     local neighs = o.neigh
+
+                     -- individual toy nets 
+                     o:connect_neigh('n1', _n(1, 3), 'n2', _n(2, 3))
+                     o:connect_neigh('n2', _n(2, 4), 'n3', _n(3, 4))
+
+                     -- nets 2, 5 have zero connectivity (2 == n1, 5 == n3)
+
+                     -- mgmt net - connect all
+                     o:connect_neigh('n1', _n(1, 1), 'n2', _n(2, 1))
+                     o:connect_neigh('n1', _n(1, 1), 'n3', _n(3, 1))
+                     o:connect_neigh('n2', _n(2, 1), 'n3', _n(3, 1))
                      
 
                      mst.d('simple 3 pa iter', j)
@@ -449,10 +525,15 @@ describe("pa-net", function ()
                                           }
                      local nl = mst.array:new{n1, n2, n3}
 
-                     if j == 1
+                     if connect_routers_slowly
+                     then
+                        o.neigh = {}
+                     end
+
+                     if not connect_lsadbs_slowly
                      then
                         -- connect the pa's
-                        o.pas = nl
+                        o.nodes = nl
                      end
 
                      for i=1,2
@@ -464,11 +545,16 @@ describe("pa-net", function ()
                         end
                      end
 
+                     if connect_routers_slowly
+                     then
+                        o.neigh = neighs
+                     end
 
-                     if j == 2
+
+                     if connect_lsadbs_slowly
                      then
                         -- connect the pa's
-                        o.pas = nl
+                        o.nodes = nl
                      end
 
                      for i=1,5
@@ -481,23 +567,23 @@ describe("pa-net", function ()
                      end
 
                      -- make sure there's local assignments
-                     mst.a(find_pa_lap(n1, {iid=42}))
-                     mst.a(find_pa_lap(n1, {iid=43}))
-                     mst.a(not find_pa_lap(n1, {iid=44}))
+                     mst.a(find_pa_lap(n1, {iid=_n(1, 2)}))
+                     mst.a(find_pa_lap(n1, {iid=_n(1, 3)}))
+                     mst.a(not find_pa_lap(n1, {iid=_n(1, 4)}))
 
-                     mst.a(not find_pa_lap(n2, {iid=42}))
-                     mst.a(find_pa_lap(n2, {iid=43}))
-                     mst.a(find_pa_lap(n2, {iid=44}))
+                     mst.a(not find_pa_lap(n2, {iid=_n(2, 2)}))
+                     mst.a(find_pa_lap(n2, {iid=_n(2, 3)}))
+                     mst.a(find_pa_lap(n2, {iid=_n(2, 4)}))
 
-                     mst.a(not find_pa_lap(n3, {iid=42}))
-                     mst.a(not find_pa_lap(n3, {iid=43}))
-                     mst.a(find_pa_lap(n3, {iid=44}))
-                     mst.a(find_pa_lap(n3, {iid=45}))
+                     mst.a(not find_pa_lap(n3, {iid=_n(3, 2)}))
+                     mst.a(not find_pa_lap(n3, {iid=_n(3, 3)}))
+                     mst.a(find_pa_lap(n3, {iid=_n(3, 4)}))
+                     mst.a(find_pa_lap(n3, {iid=_n(3, 5)}))
 
                      -- make sure mgmt if is everywhere
-                     mst.a(find_pa_lap(n1, {iid=41}))
-                     mst.a(find_pa_lap(n2, {iid=41}))
-                     mst.a(find_pa_lap(n3, {iid=41}))
+                     mst.a(find_pa_lap(n1, {iid=_n(1, 1)}))
+                     mst.a(find_pa_lap(n2, {iid=_n(2, 1)}))
+                     mst.a(find_pa_lap(n3, {iid=_n(3, 1)}))
 
                      local ls = mst.array_map(nl, 
                                               function (n)
@@ -511,22 +597,18 @@ describe("pa-net", function ()
 
                      mst.d('got', #ls[1], #ls[2], #ls[3])
 
-                     if j == 1
-                     then
-                        mst.a(#ls[1] == 3)
-                        mst.a(#ls[2] == 1)
-                        mst.a(#ls[3] == 1)
-                     else
-                        mst.a(#ls[1] == 1)
-                        mst.a(#ls[2] == 1)
-                        mst.a(#ls[3] == 3)
-                     end
+                     -- regardless of the configuration, 
+                     -- due to how rules work, the n3 should have overriding
+                     -- preference
+                     mst.a(#ls[1] == 1)
+                     mst.a(#ls[2] == 1)
+                     mst.a(#ls[3] == 3)
 
-                  -- finally clear up things
-                  for i, v in ipairs(nl)
-                  do
-                     v:done()
-                  end
+                     -- finally clear up things
+                     for i, v in ipairs(nl)
+                     do
+                        v:done()
+                     end
 
                   end
 

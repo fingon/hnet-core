@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Fri Oct 12 11:50:41 2012 mstenber
--- Edit time:     471 min
+-- Last modified: Fri Oct 12 14:52:15 2012 mstenber
+-- Edit time:     518 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -23,8 +23,9 @@
 --  iterate_rid(rid, f) => callback with rid
 --  iterate_asp(rid, f) => callback with prefix, iid, rid
 --  iterate_usp(rid, f) => callback with prefix, rid
---  iterate_if(rid, f) => callback with if-object, highest_rid
---  rid (or given to constructor)
+--  iterate_if(rid, f) => callback with if-object
+--   iterate_ifo_neigh(rid, if-object, f) => callback with iid, rid
+--  .rid (or given to constructor)
 
 -- client can also override/subclass the lap class here within pa, to
 -- provide the real assign/unassign/deprecation (by providing do_*
@@ -69,6 +70,21 @@ then
    print('using sha1')
 end
 
+-- sanity checking
+function _valid_rid(s)
+   -- we use strings internally for test purposes
+   return type(s) == 'string' or type(s) == 'number'
+end
+
+function _valid_iid(s)
+   return type(s) == 'number'
+end
+
+function _valid_local_iid(pa, s)
+   mst.a(pa and s)
+   return pa.ifs[s]
+end
+
 -- local assigned prefix
 
 lap = mst.create_class{class='lap', mandatory={'prefix', 'iid', 'pa'},
@@ -77,7 +93,7 @@ lap = mst.create_class{class='lap', mandatory={'prefix', 'iid', 'pa'},
 
 function lap:init()
    local ifo = self.pa.ifs[self.iid]
-   mst.a(ifo, 'non-existent interface iid', self.iid)
+   self:a(ifo, 'non-existent interface iid', self.iid)
    self.ifname = ifo.name
    self.pa.lap:insert(self.iid, self)
    self.sm = lap_sm:new{owner=self}
@@ -150,7 +166,7 @@ end
 -- these are subclass responsibility (optionally - it can also just
 -- use the assigned/depracated flags these set)
 function lap:do_assign()
-   mst.a(not self._is_done, 'called when done')
+   self:a(not self._is_done, 'called when done')
    self.pa:changed()
    self.assigned = true
    self.depracated = false
@@ -158,7 +174,7 @@ function lap:do_assign()
 end
 
 function lap:do_depracate()
-   mst.a(not self._is_done, 'called when done')
+   self:a(not self._is_done, 'called when done')
    self.pa:changed()
    self.assigned = false
    self.depracated = true
@@ -166,7 +182,7 @@ function lap:do_depracate()
 end
 
 function lap:do_unassign()
-   mst.a(not self._is_done, 'called when done')
+   self:a(not self._is_done, 'called when done')
    self.pa:changed()
    self.assigned = false
    self.sm:Done()
@@ -181,11 +197,11 @@ asp = mst.create_class{class='asp', mandatory={'prefix',
 
 function asp:init()
    local b = ipv6s.prefix_to_bin(self.prefix)
-   mst.a(b)
+   self:a(b)
    self.binary_prefix = b
 
    local added = self.pa.asp:insert(self.rid, self)
-   mst.a(added, "already existed?", self)
+   self:a(added, "already existed?", self)
 
    self:d('init')
    self.pa:changed()
@@ -206,11 +222,12 @@ function asp:repr_data()
    return mst.repr{prefix=self.prefix, iid=self.iid, rid=self.rid}
 end
 
-function asp:find_lap()
+function asp:find_lap(iid)
    self:d('find_lap')
-   mst.a(self.class)
-   mst.a(self.pa, 'no pa?!?')
-   local t = self.pa.lap[self.iid]
+   self:a(_valid_local_iid(self.pa, iid))
+   self:a(self.class)
+   self:a(self.pa, 'no pa?!?')
+   local t = self.pa.lap[iid]
    for i, v in ipairs(t or {})
    do
       self:d(' considering', v)
@@ -223,9 +240,10 @@ function asp:find_lap()
    end
 end
 
-function asp:find_or_create_lap()
+function asp:find_or_create_lap(iid)
    self:d('find_or_create_lap')
-   local o = self:find_lap()
+   self:a(_valid_local_iid(self.pa, iid))
+   local o = self:find_lap(iid)
    if o then return o end
    self:d(' not found => creating')
 
@@ -233,29 +251,37 @@ function asp:find_or_create_lap()
    -- (some branches of the logic, e.g. assign_other, won't, otherwise)
    self.pa:changed()
 
-   return self.pa.lap_class:new{prefix=self.prefix, iid=self.iid, 
+   return self.pa.lap_class:new{prefix=self.prefix, 
+                                iid=iid,
                                 asp=self,
                                 pa=self.pa}
 end
 
-function asp:assign_lap()
-   mst.a(self.class == 'asp')
-   local lap = self:find_or_create_lap()
+function asp:assign_lap(iid)
+   self:a(_valid_local_iid(self.pa, iid))
+   self:a(self.class == 'asp')
+   local lap = self:find_or_create_lap(iid)
    lap:assign()
 end
 
-function asp:depracate_lap()
+function asp:depracate_lap(iid)
    -- look up locally assigned prefixes (if any)
-   local lap = self:find_lap()
+   local lap = self:find_lap(iid)
    if not lap then return end
    lap:depracate()
 end
 
-function asp:unassign_lap()
+function asp:unassign_lap(iid)
    -- look up locally assigned prefixes (if any)
-   local lap = self:find_lap()
-   if not lap then return end
-   lap:unassign()
+   -- brute-force through the lap - if prefix is same, we're good
+   for _, lap in ipairs(self.pa.lap:values())
+   do
+      if lap.prefix == self.prefix
+      then
+         lap:unassign()
+         return
+      end
+   end
 end
 
 function asp:is_remote()
@@ -268,12 +294,12 @@ usp = mst.create_class{class='usp', mandatory={'prefix', 'rid', 'pa'}}
 
 function usp:init()
    local b = ipv6s.prefix_to_bin(self.prefix)
-   mst.a(b)
+   self:a(b)
    self.binary_prefix = b
    self.is_ula = string.sub(b, 1, 1) == ula_prefix
 
    local added = self.pa.usp:insert(self.rid, self)
-   mst.a(added, 'already existed?', self)
+   self:a(added, 'already existed?', self)
 
    self.pa:changed()
 end
@@ -326,7 +352,7 @@ function pa:uninit()
 end
 
 function pa:filtered_values_done(h, f)
-   mst.a(h.class == 'multimap')
+   self:a(h.class == 'multimap')
    for i, o in ipairs(h:values())
    do
       if f and f(o) 
@@ -338,8 +364,8 @@ function pa:filtered_values_done(h, f)
 end
 
 function pa:get_local_asp_values()
-   mst.a(self)
-   mst.a(self.class=='pa')
+   self:a(self)
+   self:a(self.class=='pa')
 
    return self.asp:values():filter(function (v) return not v:is_remote() end)
 end
@@ -362,13 +388,14 @@ function pa:repr_data()
                         self.ifs and #self.ifs:values() or -1)
 end
 
-function pa:run_if_usp(iid, highest_rid, usp)
+function pa:run_if_usp(iid, neigh, usp)
    local rid = self.rid
+   self:a(_valid_rid(rid))
 
    self:a(rid, 'no rid')
 
 
-   self:d('run_if_usp', iid, usp.prefix)
+   self:d('run_if_usp', iid, usp.prefix, neigh)
 
 
    -- Alg from 6.3.. steps noted 
@@ -394,7 +421,7 @@ function pa:run_if_usp(iid, highest_rid, usp)
    for i, asp in ipairs(self.asp:values())
    do
       self:d(' considering', asp)
-      if asp.iid == iid and ipv6s.prefix_contains(usp.prefix, asp.prefix)
+      if ((asp.rid == rid and iid == asp.iid) or neigh[asp.rid] == asp.iid) and ipv6s.prefix_contains(usp.prefix, asp.prefix)
       then
          self:d(' fitting')
          if not highest or highest.rid < asp.rid
@@ -413,18 +440,22 @@ function pa:run_if_usp(iid, highest_rid, usp)
    if own and own == highest
    then
       own.usp = usp
-      self:check_asp_conflicts(own)
+      self:check_asp_conflicts(iid, own)
       return
    end
    -- (ii) - assignment by neighbor
    if highest
    then
       highest.usp = usp
-      self:assign_other(highest)
+      self:assign_other(iid, highest)
       return
    end
 
-   -- (iii) no assignment by anyone, highest rid
+   -- (iii) no assignment by anyone, highest rid?
+   -- XXX - should we check for AC-enabled neighbors here only?
+   local neigh_rids = neigh:keys()
+   local highest_rid = mst.max(unpack(neigh_rids))
+   self:a(not highest_rid or _valid_rid(highest_rid), 'invalid highest_rid', highest_rid)
    if not highest_rid or highest_rid <= rid 
    then
       self:assign_own(iid, usp)
@@ -433,11 +464,13 @@ function pa:run_if_usp(iid, highest_rid, usp)
 
    -- (iv) no assignment by anyone, not highest rid
    -- nop (do nothing)
+   self:d('no assignments, lower rid than', highest_rid)
 end
 
 -- 6.3.1
 function pa:assign_own(iid, usp)
    self:d('6.3.1 assign_own', iid, usp)
+   self:a(_valid_local_iid(self, iid))
 
    -- 1. find already assigned prefixes
    assigned = self:find_assigned(usp)
@@ -514,7 +547,7 @@ function pa:assign_own(iid, usp)
                      iid=iid,
                      rid=self.rid, 
                      valid=true}
-   o:assign_lap()
+   o:assign_lap(iid)
 end
 
 function pa:time_since_start()
@@ -530,15 +563,15 @@ end
 function pa:find_assigned(usp)
    local t = mst.set:new()
    local b = usp.binary_prefix
-   mst.a(b, 'no usp.binary_prefix')
+   self:a(b, 'no usp.binary_prefix')
    for i, asp in ipairs(self.asp:values())
    do
       local ab = asp.binary_prefix
-      mst.a(ab, 'no asp.binary_prefix')
+      self:a(ab, 'no asp.binary_prefix')
       if ipv6s.binary_prefix_contains(b, ab)
       then
          t:insert(ab)
-         mst.a(#ab == 8, "invalid asp length", #b)
+         self:a(#ab == 8, "invalid asp length", #b)
       end
    end
    return t
@@ -567,19 +600,19 @@ function pa:create_prefix_freelist(p, b, assigned)
    while true
    do
       p = ipv6s.binary_prefix_next_from_usp(b, p)
-      mst.a(#p == 8, "binary_prefix_next_from_usp bugs?")
+      self:a(#p == 8, "binary_prefix_next_from_usp bugs?")
 
       if not assigned[p]
       then
          local np = ipv6s.binary_to_ascii(p) .. ipv6prefix_suffix
-         mst.a(ipv6s.prefix_contains(op, np))
+         self:a(ipv6s.prefix_contains(op, np))
          t:insert(np)
       end
 
       -- we're done once we're back at start
       if sp == p
       then
-         mst.d('created freelist', op, #t)
+         self:d('created freelist', op, #t)
          return t
       end
    end
@@ -589,7 +622,7 @@ function pa:find_new_from(iid, usp, assigned)
    local b = usp.binary_prefix
    local p
    self:a(assigned, 'assigned missing')
-   mst.a(b)
+   self:a(b)
 
    -- if we're in freelist mode, just use it. otherwise, try to
    -- pick randomly first
@@ -609,12 +642,12 @@ function pa:find_new_from(iid, usp, assigned)
          local s = string.format("%s-%s-%s-%d", self.rid, iid, usp.prefix, i)
          local sb = create_hash(s)
          p = b .. string.sub(sb, #b+1, 8)
-         mst.a(#p == 8)
+         self:a(#p == 8)
          if not assigned[p]
          then
-            mst.d('find_new_from random worked iteration', i)
+            self:d('find_new_from random worked iteration', i)
             local np = ipv6s.binary_to_ascii(p) .. ipv6prefix_suffix
-            mst.a(ipv6s.prefix_contains(usp.prefix, np))
+            self:a(ipv6s.prefix_contains(usp.prefix, np))
             return np
          end
       end
@@ -627,21 +660,21 @@ function pa:find_new_from(iid, usp, assigned)
    -- try some sort of md5-seeded logic here too; however, I'm not
    -- convinced the freelist looks same in exhaustion cases anyway, so
    -- random choice is as good as any?
-   mst.a(t)
+   self:a(t)
    local idx = mst.array_randindex(t)
    if not idx
    then
-      mst.d('not found in freelist', usp.prefix, #t)
+      self:d('not found in freelist', usp.prefix, #t)
       return
    end
    local v = t[idx]
    t:remove_index(idx)
-   mst.d('find_new_from picked index', idx, v)
+   self:d('find_new_from picked index', idx, v)
    return v
 end
 
 -- 6.3.2
-function pa:check_asp_conflicts(asp)
+function pa:check_asp_conflicts(iid, asp)
    self:d('6.3.2 check_asp_conflicts', asp)
    for i, asp2 in ipairs(self.asp:values())
    do
@@ -649,7 +682,7 @@ function pa:check_asp_conflicts(asp)
       if asp2.prefix == asp.prefix and asp2.rid > asp.rid
       then
          -- as described in 6.3.3
-         asp:depracate_lap()
+         asp:depracate_lap(iid)
          return
       end
    end
@@ -659,7 +692,7 @@ function pa:check_asp_conflicts(asp)
 end
 
 -- 6.3.4
-function pa:assign_other(asp)
+function pa:assign_other(iid, asp)
    self:d('6.3.4 assign_other', asp)
    -- if we get here, it's valid asp.. just question of what we need
    -- to do with lap
@@ -669,7 +702,7 @@ function pa:assign_other(asp)
 
    -- Note: the verbiage about locally converted interfaces etc seems
    -- excessively strict in the draft.
-   asp:assign_lap()
+   asp:assign_lap(iid)
 end
 
 function pa:non_own_ula_prefix_exists()
@@ -693,7 +726,7 @@ function pa:generate_ula()
    -- i) first off, if we _do_ have usable prefixes, use them
    if self:non_own_ula_prefix_exists()
    then
-      mst.d('usp exists, generate_ula skipped')
+      self:d('usp exists, generate_ula skipped')
       return
    end
 
@@ -701,7 +734,7 @@ function pa:generate_ula()
 
    -- ii) do we have highest rid? if not, generation isn't our job
    local highest_rid = mst.max(unpack(rids))
-   --mst.d('got rids', rids, highest_rid)
+   --self:d('got rids', rids, highest_rid)
 
    local my_rid = self.rid
    if my_rid < highest_rid
@@ -717,9 +750,9 @@ function pa:generate_ula()
    local ownusps = self.usp[self.rid] or {}
    if #ownusps > 0
    then
-      mst.a(#ownusps == 1)
+      self:a(#ownusps == 1)
       local usp = ownusps[1]
-      mst.a(usp.is_ula)
+      self:a(usp.is_ula)
       usp.valid = true
       return
 
@@ -753,11 +786,11 @@ function pa:run()
    local client = self.client
    local rid = self.rid
 
-   mst.a(client, 'no client')
+   self:a(client, 'no client')
 
    -- store the index => if-object (and less material index => highest-rid)
    self.ifs = mst.map:new()
-   self.highest = mst.map:new()
+   self.neigh = mst.map:new()
 
    -- usp-prefix => array of available prefixes generated on demand,
    -- although we shouldn't clean this necessarily every run (only if
@@ -766,10 +799,17 @@ function pa:run()
    -- fails.
    self.prefix_freelist = nil
 
-   client:iterate_if(rid, function (ifo, highest_rid)
+   client:iterate_if(rid, function (ifo)
                         self:d('got if', ifo)
                         self.ifs[ifo.index] = ifo
-                        self.highest[ifo.index] = highest_rid
+                        local t = mst.map:new{}
+                        client:iterate_ifo_neigh(rid, ifo, function (iid, rid)
+                                                    self:d(' got neigh', iid, rid)
+                                                    self:a(_valid_rid(rid))
+                                                    self:a(_valid_iid(iid))
+                                                    t[rid] = iid
+                                                      end)
+                        self.neigh[ifo.index] = t
                           end
                     )
 
@@ -783,13 +823,14 @@ function pa:run()
    -- get the rid reachability
    client:iterate_rid(rid, function (rid)
                          self:d('got rid', rid)
-                         mst.a(type(rid) == 'string' or type(rid) == 'number', rid)
+                         self:a(_valid_rid(rid))
                          self.ridr[rid] = true
                            end)
 
    -- get the usable prefixes from the 'client' [prefix => rid]
    client:iterate_usp(rid, function (prefix, rid)
                          self:d('got usp', prefix, rid)
+                         self:a(_valid_rid(rid))
                          self:add_or_update_usp(prefix, rid)
                            end)
 
@@ -803,25 +844,28 @@ function pa:run()
    -- get the (remotely) assigned prefixes
    client:iterate_asp(rid, function (prefix, iid, rid)
                          self:d('got asp', prefix, iid, rid)
+                         self:a(_valid_rid(rid))
+                         self:a(_valid_iid(iid), 'invalid iid', iid)
                          self:add_or_update_asp(prefix, iid, rid)
                            end)
 
    -- drop expired remote assignments
    self:filtered_values_done(self.asp,
                              function (asp) 
-                                mst.a(asp.class == 'asp', asp, asp.class)
+                                self:a(asp.class == 'asp', asp, asp.class)
                                 return asp:is_remote() and not asp.valid 
                              end)
 
 
    -- run the prefix assignment
-   for iid, ifo in pairs(self.ifs)
+   for iid, _ in pairs(self.ifs)
    do
-      local highest_rid = self.highest[iid]
       for i, usp in ipairs(self.usp:values())
       do
-         mst.a(usp.class == 'usp', usp, usp.class)
-         self:run_if_usp(iid, highest_rid, usp)
+         self:a(usp.class == 'usp', usp, usp.class)
+         local n = self.neigh[iid]
+         self:a(n)
+         self:run_if_usp(iid, n, usp)
       end
    end
 

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Fri Oct 12 11:05:13 2012 mstenber
--- Edit time:     175 min
+-- Last modified: Fri Oct 12 14:33:03 2012 mstenber
+-- Edit time:     176 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -331,7 +331,7 @@ function elsa_pa:iterate_if(rid, f)
    -- interface callback (if we're using local interface-sourced
    -- delegated prefix, we don't want to offer anything there)
    self:iterate_skv_prefix(function (prefix, ifname)
-                              mst.d('in use ifname', ifname)
+                              self:d('in use ifname', ifname)
                               inuse_ifnames:insert(ifname)
                            end)
 
@@ -342,7 +342,7 @@ function elsa_pa:iterate_if(rid, f)
                            then
                               f(ifo, highest_rid)
                            else
-                              mst.d('skipping in use', ifo, 'delegated prefix source')
+                              self:d('skipping in use', ifo, 'delegated prefix source')
                            end
                         end)
 end
