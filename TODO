@@ -2,6 +2,20 @@
 
 * Bugs to fix
 
+** ALGORITHM IS BROKEN (sigh)
+
+!!!
+
+ OSPF IID is router-specific; therefore, only rid+iid combination makes
+ sense
+
+ => have to be able to get list of neighbors on each link, instead, and
+ operate on those.. sigh. I knew the current implementation seemed too
+ painless ;)
+
+ .. damage seems to be mostly in pa.lua / pa_spec.lua; lots of fun time
+ ahead, though
+
 * Things to do
 
 ** DHCPv6 PD integration (static WAN)
