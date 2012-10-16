@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Oct 10 12:58:19 2012 mstenber
--- Edit time:     434 min
+-- Last modified: Tue Oct 16 10:08:34 2012 mstenber
+-- Edit time:     435 min
 --
 
 -- data structure abstractions provided:
@@ -37,6 +37,7 @@ set = nil
 
 -- check parameters to e.g. function
 function check_parameters(fname, o, l, depth)
+   depth = depth or 2
    assert(o and l)
    for i, f in ipairs(l) do
       if o[f] == nil

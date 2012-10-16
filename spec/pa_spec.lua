@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Fri Oct 12 14:56:48 2012 mstenber
--- Edit time:     215 min
+-- Last modified: Tue Oct 16 10:21:35 2012 mstenber
+-- Edit time:     222 min
 --
 
 require "busted"
@@ -56,7 +56,7 @@ end
 function ospf:iterate_asp(rid, f)
    for i, v in ipairs(self.asp)
    do
-      f(unpack(v))
+      f(v)
    end
    mst.d('iterating nodes')
 
@@ -69,7 +69,7 @@ function ospf:iterate_asp(rid, f)
          mst.a(not asp._is_done)
          mst.a(asp.rid)
          mst.a(t.rid == asp.rid)
-         f(asp.prefix, asp.iid, asp.rid)
+         f(asp)
       end
    end
 end
@@ -77,7 +77,7 @@ end
 function ospf:iterate_usp(rid, f)
    for i, v in ipairs(self.usp)
    do
-      f(unpack(v))
+      f(v)
    end
 end
 
@@ -91,11 +91,11 @@ end
 function ospf:iterate_rid(rid, f)
    for i, v in ipairs(self.ridr)
    do
-      f(unpack(v))
+      f(v)
    end
    for i, pa in ipairs(self.nodes)
    do
-      f(pa.rid)
+      f{rid=pa.rid}
    end
 end
 
@@ -145,19 +145,19 @@ end
 
 describe("pa", function ()
             before_each(function ()
-                     o = ospf:new{usp={{'dead::/16', 'rid1'},
-                                       {'dead:beef::/32', 'rid2'},
-                                       {'cafe::/16', 'rid3'}},
+                     o = ospf:new{usp={{prefix='dead::/16', rid='rid1'},
+                                       {prefix='dead:beef::/32', rid='rid2'},
+                                       {prefix='cafe::/16', rid='rid3'}},
 
                                   -- in practise, 2 usp
-                                  asp={{'dead:bee0::/64', 
-                                        256,  
-                                        'rid1'}},
+                                  asp={{prefix='dead:bee0::/64', 
+                                        iid=256,  
+                                        rid='rid1'}},
                                   iif={myrid={{index=42,name='if1'},
                                               {index=43,name='if2'}}},
-                                  ridr={{'rid1'},
-                                        {'rid2'},
-                                        {'rid3'},
+                                  ridr={{rid='rid1'},
+                                        {rid='rid2'},
+                                        {rid='rid3'},
                                   },
                                  }
                      -- connect the asp-equipped rid1 if + myrid if1
@@ -223,7 +223,7 @@ describe("pa", function ()
                   --profiler.start()
 
                   -- /56 usp, 300 interfaces -> should get 256 LAP/ASP
-                  o.usp={{'abcd:dead:beef:cafe::/56', 'rid1'}}
+                  o.usp={{prefix='abcd:dead:beef:cafe::/56', rid='rid1'}}
                   o.asp = {}
                   local t = mst.array:new()
                   for i=1,300
@@ -242,18 +242,18 @@ describe("pa", function ()
                    end)
             
             it("make sure old assignments show up by default", function ()
-                  o = ospf:new{usp={{'dead::/16', 'rid1'},
-                                    {'dead:beef::/32', 'rid2'},
-                                    {'cafe::/16', 'rid3'}},
+                  o = ospf:new{usp={{prefix='dead::/16', rid='rid1'},
+                                    {prefix='dead:beef::/32', rid='rid2'},
+                                    {prefix='cafe::/16', rid='rid3'}},
                                -- in practise, 2 usp
-                               asp={{'dead:bee0::/64', 
-                                     30,
-                                     'rid1'}},
+                               asp={{prefix='dead:bee0::/64', 
+                                     iid=30,
+                                     rid='rid1'}},
                                iif={myrid={{index=42,name='if1'},
                                            {index=43,name='if2'}}},
-                               ridr={{'rid1'},
-                                     {'rid2'},
-                                     {'rid3'},
+                               ridr={{rid='rid1'},
+                                     {rid='rid2'},
+                                     {rid='rid3'},
                                },
                                neigh={myrid={[42]={rid1=30}}},
                               }
@@ -279,15 +279,15 @@ describe("pa-nobody-else", function ()
                                   asp={},
                                   iif={myrid={{index=42,name='if1'},
                                               {index=43,name='if2'}}},
-                                  ridr={{'myrid'}},
+                                  ridr={{rid='myrid'}},
                                  }
                      pa = _pa.pa:new{client=o, lap_class=dummy_lap,
                                      rid='myrid'}
 
                         end)
             it("changes prefix if there is sudden conflict #conflict", function ()
-                  o.usp = {{'dead::/16', 'rid1'}}
-                  o.ridr = {{'myrid'}, {'rid1'},}
+                  o.usp = {{prefix='dead::/16', rid='rid1'}}
+                  o.ridr = {{rid='myrid'}, {rid='rid1'},}
                   pa:run()
                   pa:run()
                   mst.a(pa.usp:count() == 1, "usp mismatch")
@@ -297,7 +297,8 @@ describe("pa-nobody-else", function ()
                   -- ok, now we grab one prefix and pretend it's
                   -- assigned elsewhere too (cruel but oh well)
                   local first_lap = pa.lap:values()[1]
-                  table.insert(o.asp, {first_lap.prefix, 44, 'rid1'})
+                  table.insert(o.asp, {prefix=first_lap.prefix, 
+                                       iid=44, rid='rid1'})
                   pa:run()
                   mst.a(pa.usp:count() == 1, "usp mismatch")
                   mst.a(pa.asp:count() == 2, "asp mismatch", pa.asp)
@@ -319,7 +320,7 @@ describe("pa-nobody-else", function ()
 
             it("obeys hysteresis 1 - no routers", function ()
                   -- just local e.g. PD prefix
-                  o.usp = {{'dead::/16', 'myrid'}}
+                  o.usp = {{prefix='dead::/16', rid='myrid'}}
                   pa.new_prefix_assignment = 123
                   pa:run()
                   mst.a(pa.usp:count() == 1, "usp mismatch")
@@ -328,7 +329,7 @@ describe("pa-nobody-else", function ()
                                                   end)
             it("obeys hysteresis 2 - time long gone", function ()
                   -- just local e.g. PD prefix
-                  o.usp = {{'dead::/16', 'myrid'}}
+                  o.usp = {{prefix='dead::/16', rid='myrid'}}
                   pa.new_prefix_assignment = 123
                   pa.start_time = pa.start_time - pa.new_prefix_assignment - 10
                   pa:run()
@@ -338,8 +339,8 @@ describe("pa-nobody-else", function ()
                                                   end)
             it("obeys hysteresis 3 - other rid present", function ()
                   -- just local e.g. PD prefix
-                  o.usp = {{'dead::/16', 'myrid'}}
-                  o.ridr = {{'myrid'}, {'rid1'},}
+                  o.usp = {{prefix='dead::/16', rid='myrid'}}
+                  o.ridr = {{rid='myrid'}, {rid='rid1'},}
                   pa.new_prefix_assignment = 123
                   pa.start_time = pa.start_time - pa.new_prefix_assignment - 10
                   pa:run()
@@ -349,7 +350,7 @@ describe("pa-nobody-else", function ()
                                                   end)
 
             it("ula generation 1 - higher rid exists", function ()
-                  o.ridr = {{'myrid'}, {'rid1'},}
+                  o.ridr = {{rid='myrid'}, {rid='rid1'},}
                   pa:run()
                   mst.a(pa.lap:count() == 0, "lap mismatch")
                   mst.a(pa.asp:count() == 0, "asp mismatch")
@@ -369,8 +370,8 @@ describe("pa-nobody-else", function ()
                   mst.a(pa.lap:count() > 0, "lap mismatch")
 
                   -- however, if we add real USP, the ULA should disappear
-                  table.insert(o.usp, {'dead::/16', 'rid1'})
-                  o.ridr = {{'myrid'}, {'rid1'},}
+                  table.insert(o.usp, {prefix='dead::/16', rid='rid1'})
+                  o.ridr = {{rid='myrid'}, {rid='rid1'},}
                   pa:run()
                   mst.a(pa.usp:count() == 1, "usp mismatch")
                   mst.a(pa.asp:count() == 2, "asp mismatch")
@@ -453,8 +454,7 @@ describe("pa-net", function ()
 
                      -- XXX - add same/different ifindex variants
                      -- to bit 2
-                     o = ospf:new{usp={{'dead::/16', 'rid1'},
-                                       --{'cafe::/16', 'rid3'},
+                     o = ospf:new{usp={{prefix='dead::/16', rid='rid1'},
                                       },
                                   iif={n1={{index=_n(1, 2),name='if1'}, 
                                            {index=_n(1, 3),name='if2'}, 
@@ -466,9 +466,9 @@ describe("pa-net", function ()
                                            {index=_n(3, 5),name='if4'}, 
                                            {index=_n(3, 1),name='if0'}},
                                   },
-                                  ridr={{'rid1'},
-                                        {'rid2'},
-                                        {'rid3'},
+                                  ridr={{rid='rid1'},
+                                        {rid='rid2'},
+                                        {rid='rid3'},
                                   },
                                  }
                      local neighs = o.neigh

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Fri Oct 12 14:52:15 2012 mstenber
--- Edit time:     518 min
+-- Last modified: Tue Oct 16 10:19:31 2012 mstenber
+-- Edit time:     523 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -20,11 +20,11 @@
 
 -- client expected to provide:
 --  get_hwf(rid) => hardware fingerprint in string
---  iterate_rid(rid, f) => callback with rid
---  iterate_asp(rid, f) => callback with prefix, iid, rid
---  iterate_usp(rid, f) => callback with prefix, rid
+--  iterate_rid(rid, f) => callback with {rid=[, ifname=, nh=]}
+--  iterate_asp(rid, f) => callback with {prefix=, iid=, rid=}
+--  iterate_usp(rid, f) => callback with {prefix=, rid=}
 --  iterate_if(rid, f) => callback with if-object
---   iterate_ifo_neigh(rid, if-object, f) => callback with iid, rid
+--   iterate_ifo_neigh(rid, if-object, f) => callback with {iid=, rid=}
 --  .rid (or given to constructor)
 
 -- client can also override/subclass the lap class here within pa, to
@@ -803,7 +803,9 @@ function pa:run()
                         self:d('got if', ifo)
                         self.ifs[ifo.index] = ifo
                         local t = mst.map:new{}
-                        client:iterate_ifo_neigh(rid, ifo, function (iid, rid)
+                        client:iterate_ifo_neigh(rid, ifo, function (o)
+                                                    local iid = o.iid
+                                                    local rid = o.rid
                                                     self:d(' got neigh', iid, rid)
                                                     self:a(_valid_rid(rid))
                                                     self:a(_valid_iid(iid))
@@ -821,16 +823,20 @@ function pa:run()
    self.ridr:keys():map(function (k) self.ridr[k]=false end)
 
    -- get the rid reachability
-   client:iterate_rid(rid, function (rid)
+   client:iterate_rid(rid, function (o)
+                         local rid = o.rid
                          self:d('got rid', rid)
-                         self:a(_valid_rid(rid))
+                         self:a(_valid_rid(rid), 'invalid rid', o)
                          self.ridr[rid] = true
                            end)
 
    -- get the usable prefixes from the 'client' [prefix => rid]
-   client:iterate_usp(rid, function (prefix, rid)
+   client:iterate_usp(rid, function (o)
+                         local prefix = o.prefix
+                         local rid = o.rid
                          self:d('got usp', prefix, rid)
                          self:a(_valid_rid(rid))
+                         self:a(prefix)
                          self:add_or_update_usp(prefix, rid)
                            end)
 
@@ -842,8 +848,12 @@ function pa:run()
                              function (usp) return not usp.valid end)
    
    -- get the (remotely) assigned prefixes
-   client:iterate_asp(rid, function (prefix, iid, rid)
+   client:iterate_asp(rid, function (o)
+                         local prefix = o.prefix
+                         local iid = o.iid
+                         local rid = o.rid
                          self:d('got asp', prefix, iid, rid)
+                         self:a(prefix)
                          self:a(_valid_rid(rid))
                          self:a(_valid_iid(iid), 'invalid iid', iid)
                          self:add_or_update_asp(prefix, iid, rid)

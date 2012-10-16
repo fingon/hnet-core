@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Fri Oct 12 14:54:48 2012 mstenber
--- Last modified: Fri Oct 12 14:57:17 2012 mstenber
--- Edit time:     1 min
+-- Last modified: Tue Oct 16 10:13:23 2012 mstenber
+-- Edit time:     2 min
 --
 
 
@@ -29,7 +29,7 @@ function dneigh:iterate_ifo_neigh(rid, ifo, f)
    local if_neigh = all_neigh[ifo.index] or {}
    for rid, iid in pairs(if_neigh)
    do
-      f(iid, rid)
+      f{iid=iid, rid=rid}
    end
 end
 

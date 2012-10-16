@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Fri Oct  5 00:09:17 2012 mstenber
--- Last modified: Fri Oct 12 14:57:55 2012 mstenber
--- Edit time:     4 min
+-- Last modified: Tue Oct 16 10:25:56 2012 mstenber
+-- Edit time:     5 min
 --
 
 require 'mst'
@@ -46,4 +46,10 @@ end
 
 function delsa:change_rid()
    self.rid_changed = true
+end
+
+function delsa:route_to_rid(rid)
+   if not self.routes then return end
+   local t = self.routes[rid] 
+   if t then return t end
 end

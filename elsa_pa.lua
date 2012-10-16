@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Fri Oct 12 14:54:22 2012 mstenber
--- Edit time:     177 min
+-- Last modified: Tue Oct 16 10:26:07 2012 mstenber
+-- Edit time:     183 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -297,29 +297,33 @@ end
 
 --  iterate_rid(rid, f) => callback with rid
 function elsa_pa:iterate_rid(rid, f)
-   -- we're always reachable (duh)
-   f(rid)
+   -- we're always reachable (duh), but no next-hop/if
+   f{rid=rid}
 
    -- the rest, we look at LSADB 
-   self:iterate_ac_lsa(function (lsa) f(lsa.rid) end)
+   self:iterate_ac_lsa(function (lsa) 
+                          local rid = lsa.rid
+                          local r = self.elsa:route_to_rid(rid) or {}
+                          f{rid=rid, nh=r.nh, ifname=r.ifname}
+                       end)
 end
 
 --  iterate_asp(rid, f) => callback with prefix, iid, rid
 function elsa_pa:iterate_asp(rid, f)
    self:iterate_ac_lsa_tlv(function (asp, lsa) 
                               self:a(lsa and asp)
-                              f(asp.prefix, asp.iid, lsa.rid)
+                              f{prefix=asp.prefix, iid=asp.iid, rid=lsa.rid}
                            end, {type=codec.AC_TLV_ASP})
 end
 
 --  iterate_usp(rid, f) => callback with prefix, rid
 function elsa_pa:iterate_usp(rid, f)
    self:iterate_skv_prefix(function (prefix)
-                              f(prefix, rid)
+                              f{prefix=prefix, rid=rid}
                            end)
    self:iterate_ac_lsa_tlv(function (usp, lsa)
                               self:a(lsa and usp)
-                              f(usp.prefix, lsa.rid)
+                              f{prefix=usp.prefix, rid=lsa.rid}
                            end, {type=codec.AC_TLV_USP})
 end
 

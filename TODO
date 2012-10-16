@@ -1,18 +1,63 @@
 -*- outline -*-
 
 * Bugs to fix
+
+** figure how to get the default routes into BIRD
+
+import all and and of itself didn't work (or, export filter is lacking?)
+
 * Things to do
+
+** Compile for Buffalo, get it working there
+
+- write scripts (using Python telnetlib) to produce ~desired router config
+  from scratch
+
+
+Plan A: Use vanilla image, do necessary building on top
+
+- install desired packages (at least luasocket)
+
+  http://wiki.openwrt.org/doc/techref/opkg
+
+- cross-compile only BIRD
+
+  => world's your oyster
+
+OR
+
+Plan B: Change OpenWRT installation s.t. luasocket is default, and so is
+patches BIRD
+
+(probably the plan B is actually easier; after that, need to only worry
+about configuration files, the image is plug-n-play out of the box)
 
 ** DHCPv6 PD integration (static WAN)
 
 - just set up the variable using skvtool.lua, and we're golden?
 
+[multiprovider stuff needs some extra action]
+
+** 6RD integration (static WAN)
+
+- just setup the variable using skvtool.lua based on DHCPv6 result
+
+[multiprovider stuff needs some extra action]
+
 ** Multihoming support
 
 - requires next-hop finding (from rt.c / process_prefixes can take some
   hints, as it calculates the IPv6 prefix reachability based on the
-  advertising router ids - we should do something similar, router id if the
+  advertising router ids - we should do something similar, router id of the
   USP => calculate next hop for that)
+
+ rt.c/ri_install_rt probably more relevant
+
+  ip_addr addr = ipa_from_rid(rid);
+  ort *r = (ort *)fib_get(&ospf_area->rtr, &addr, MAX_PREFIX_LENGTH);
+  .. fib_find better - returns NULL if non existent
+  .. look at r->n->nhs
+
 
  - add API to ELSA to get routes to specific router id's => win(?)
    (could also include it in the rid callbacks, _if_ it's cheap to produce;
@@ -29,11 +74,8 @@
 - think more corner cases to test
 
 * Things to do if I have time (hah)
-** Minimize the BIRD changes (now there's still too many leftovers)
-** Refactor callbacks etc. to use tables more
 
-more than one argument => chance to get order wrong
-(with one, well..)
+** Minimize the BIRD changes (now there's still too many leftovers)
 
 ** Optimize PA alg
 
@@ -44,6 +86,10 @@ more than one argument => chance to get order wrong
 pa.asp lookups - now use rid as key
 
 - iid natural index - used in prefix assignment algorithm (run_if_usp)
+
+ ! hmmh. iid nonunique though, and rid IS primary key now that I figured
+ that rid+iid is the unique key (took me a month but .. :-p) perhaps rid is
+ ok?
 
 - prefix should be also index (binary prefix, probably) => conflict resolution
   constant time (check_asp_conflicts)
@@ -73,33 +119,59 @@ step 2: individual LSA change notifications
 just get provided with LSA updates
 
 
-** Document architecture better
-
-- at least what moves, where
-
-- which modules exist
-
-- ...
-
 
 ** IPv4 support
 
 What does it _mean_? RFC 1918 space allocation, pick _one_ random prefix,
-NAT outbound stuff.
+NAT outbound stuff. Try to avoid detectable conflicts.
 
-Just use 10.Y.X.0
+*** Who originates v4-ULA?
 
-Y = random number picked by whoever provides the route (v4-USP message)
+- whoever has highest combination of (configured, rid)
+
+=> configured overrides rid, rid used as tie-breaker
+
+- if not configured, ULA-like behavior
+
+ - try for unique-ish based on v4-upstream's (SHOULD)
+
+**** DIFFERENCE to ULA
+
+- we want to have this setup regardless of existing v4 connectivity
+
+- BUT we want to know about potential conflicts in the DHCP'd addresses
+
+*** What payloads we need?
+
+v4-ULA
+
+- the internal address we use
+
+v4-upstream (SHOULD)
+
+- egress links' assigned addresses
+
+(used to make ULA separate from them, if possible)
+
+v4-ASP
+
+- like v6 ASP
+
+*** USP scheme
+
+Just use 10.Y.X.0, or 192.168.X.0
+
+Y = random number picked by whoever provides the route (v4-ULA message)
 
 X = assigned subnet # (if someone has more than 255 networks in their home
 running v4, oh well; we can alternatively use Y space also for X if that's
 better model, but this one works with CGN that uses 10.* space, with 1/256
 chance of failure .. )
 
-How we detect upstream connectivity?
+*** How we detect upstream connectivity? [if we want it dynamically anyway]
 
 Simple - run DHCPv4 client _on each interface_, listen for anything that's
-NOT 10.Y.* that is available.
+NOT from v4-ULA.
 
 => what's needed:
 
@@ -109,15 +181,21 @@ NOT 10.Y.* that is available.
  - NAT rule 
  - DHCPv4 server per non-pd-v4.IF 
 
-==> ULA-like algorithm
+** Document architecture better
+
+- at least what moves, where
+
+- which modules exist
+
+- ...
 
 
-** Naming support?
+** Plain naming support?
 
 - should provide stateless DHCPv6 with DNS info at least (gathered from all
   providers?)
 
-** DHCPv6 PD integration (border detection stuff, ick)
+** Border detection - DHCPv6 PD integration
 
 Somehow keep probing that DHCPv6 server is present on link.. that may
 require luasocket w/ v6?
@@ -166,6 +244,12 @@ or
 
 - send updates via 0-timeout in event loop in single big packets [requires
   bit smarter handling code]
+
+* Done (15.10.+)
+
+** Refactor callbacks etc. to use tables more
+
+more than one argument => chance to get order wrong (with one, well..)
 
 * Done (8.10.+)
 
