@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Oct 16 11:04:32 2012 mstenber
--- Edit time:     192 min
+-- Last modified: Tue Oct 16 12:26:20 2012 mstenber
+-- Edit time:     198 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -37,6 +37,7 @@ AC_TYPE=0xBFF0
 PD_IFLIST_KEY='pd-iflist'
 PD_PREFIX_KEY='pd-prefix'
 
+OSPF_RID_KEY='ospf-rid'
 OSPF_LAP_KEY='ospf-lap'
 OSPF_USP_KEY='ospf-usp'
 OSPF_IFLIST_KEY='ospf-iflist'
@@ -100,6 +101,8 @@ elsa_pa = mst.create_class{class='elsa_pa', mandatory={'skv', 'elsa'},
 
 function elsa_pa:init()
    self.first = true
+   self.ridr_repr = ''
+
    self.pa = pa.pa:new{rid=self.rid, client=self, lap_class=elsa_lap,
                        new_prefix_assignment=self.new_prefix_assignment,
                        new_ula_prefix=self.new_ula_prefix}
@@ -204,8 +207,16 @@ function elsa_pa:run()
    local r = self.pa:run()
 
    self:d('pa.run result', r, self.first)
-   if r or self.first
+   local ridr_repr = mst.repr(self.pa.ridr)
+   if r or self.first or ridr_repr ~= self.ridr_repr
    then
+      -- raw contents of the interfaces MAY change what we publish,
+      -- even if the PA algorithm is still happy! so therefore we consider the
+      -- ridr_repr too
+      self.ridr_repr = ridr_repr
+
+      -- store the rid to SKV too
+      self.skv:set(OSPF_RID_KEY, self.rid)
 
       -- originate LSA (or try to, there's duplicate prevention, or should be)
       local body = self:generate_ac_lsa()
@@ -253,7 +264,7 @@ function elsa_pa:run()
             local r = self.pa:route_to_rid(rid) or {}
             -- nh/ifname are optional (not applicable in case of e.g. self)
             self:d('got route', r)
-            t:insert({prefix=p, nh=r.nh, ifname=r.ifname})
+            t:insert({prefix=p, rid=rid, nh=r.nh, ifname=r.ifname})
          end
       end
 

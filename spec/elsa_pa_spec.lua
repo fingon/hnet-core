@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Oct 16 11:05:10 2012 mstenber
--- Edit time:     132 min
+-- Last modified: Tue Oct 16 12:24:09 2012 mstenber
+-- Edit time:     138 min
 --
 
 require 'mst'
@@ -32,6 +32,15 @@ local valid_end='::/64'
 -- override timeouts so that this won't take forever..
 elsa_pa.LAP_DEPRACATE_TIMEOUT=0.01
 elsa_pa.LAP_EXPIRE_TIMEOUT=0.01
+
+function ensure_skv_usp_has_nh(s, should)
+   local uspkey = s:get(elsa_pa.OSPF_USP_KEY)
+   mst.a(#uspkey >= 1)
+   -- make sure it has nh+ifname set
+   local uspo = uspkey[1]
+   mst.a(not uspo.nh == not should, 'nh state unexpected - not', should)
+   mst.a(not uspo.ifname == not should, 'ifname state unexpected - not', should)
+end
 
 describe("elsa_pa [one node]", function ()
             local e, s, ep, usp_added, asp_added
@@ -126,12 +135,7 @@ describe("elsa_pa [one node]", function ()
                   
                   -- nonlocal usp, and we have route info -> should
                   -- have nh+ifname set
-                  local uspkey = s:get(elsa_pa.OSPF_USP_KEY)
-                  mst.a(#uspkey == 1)
-                  -- make sure it has nh+ifname set
-                  local uspo = uspkey[1]
-                  mst.a(uspo.nh)
-                  mst.a(uspo.ifname)
+                  ensure_skv_usp_has_nh(s, true)
 
                   -- now, get rid of the usp => eventually, the lap
                   -- should disappear
@@ -150,6 +154,28 @@ describe("elsa_pa [one node]", function ()
                   -- now locally assigned prefixes should be gone too
                   mst.a(ep.pa.lap:count() == 0)
                                         end)
+
+            it("works even if routes become available later", function ()
+                  -- in this case, the route information was not being
+                  -- propagated to USP if route information became
+                  -- available _AFTER_ the usp. let's see if this is still true
+                  local old_routes = e.routes
+                  e.routes = {}
+                  e.lsas = {r1=usp_dead_tlv}
+
+                  -- add
+                  ep:run()
+                  mst.a(usp_added)
+                  mst.a(not asp_added)
+
+                  ensure_skv_usp_has_nh(s, false)
+
+                  -- add route info
+                  e.routes = old_routes
+                  ep:run()
+                  ensure_skv_usp_has_nh(s, true)
+
+                   end)
 
             it("also works via skv configuration - but no ifs!", function ()
                   -- in the beginning, should only get nothing
@@ -211,12 +237,7 @@ describe("elsa_pa [one node]", function ()
                   mst.a(usp_added)
 
                   -- local usp -> should NOT have nh+ifname set
-                  local uspkey = s:get(elsa_pa.OSPF_USP_KEY)
-                  mst.a(#uspkey == 2, #uspkey)
-                  -- make sure it has nh+ifname set
-                  local uspo = uspkey[1]
-                  mst.a(not uspo.nh)
-                  mst.a(not uspo.ifname)
+                  ensure_skv_usp_has_nh(s, false)
 
                                                         end)
 
