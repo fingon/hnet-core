@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Oct 16 10:08:34 2012 mstenber
--- Edit time:     435 min
+-- Last modified: Tue Oct 16 10:52:03 2012 mstenber
+-- Edit time:     436 min
 --
 
 -- data structure abstractions provided:
@@ -978,6 +978,18 @@ function strtol(s, base)
       r = r * base + v
    end
    return r
+end
+
+-- count
+function count(o)
+   if not o
+   then
+      return 0
+   end
+   mst.a(type(o) == 'table')
+   -- array is different from table; however, table result = array result, so
+   -- we just use table_count
+   return table_count(o)
 end
 
 -- min

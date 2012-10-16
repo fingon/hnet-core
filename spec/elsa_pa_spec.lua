@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Fri Oct 12 14:59:02 2012 mstenber
--- Edit time:     124 min
+-- Last modified: Tue Oct 16 11:05:10 2012 mstenber
+-- Edit time:     132 min
 --
 
 require 'mst'
@@ -41,7 +41,9 @@ describe("elsa_pa [one node]", function ()
                                                      {index=123,
                                                       name='eth1'}}}, 
                                          hwf={mypid='foo'},
-                                         lsas={}}
+                                         lsas={},
+                                         routes={r1={nh='foo', ifname='fooif'}},
+                                        }
                            s = skv.skv:new{long_lived=true, port=31337}
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='mypid',
                                                     new_prefix_assignment=0}
@@ -122,6 +124,15 @@ describe("elsa_pa [one node]", function ()
                   local lapkey = s:get(elsa_pa.OSPF_LAP_KEY)
                   mst.a(#lapkey > 0)
                   
+                  -- nonlocal usp, and we have route info -> should
+                  -- have nh+ifname set
+                  local uspkey = s:get(elsa_pa.OSPF_USP_KEY)
+                  mst.a(#uspkey == 1)
+                  -- make sure it has nh+ifname set
+                  local uspo = uspkey[1]
+                  mst.a(uspo.nh)
+                  mst.a(uspo.ifname)
+
                   -- now, get rid of the usp => eventually, the lap
                   -- should disappear
                   e.lsas = {}
@@ -198,6 +209,14 @@ describe("elsa_pa [one node]", function ()
                   ep:run(ep)
                   mst.a(asp_added, 'asp not added?!?')
                   mst.a(usp_added)
+
+                  -- local usp -> should NOT have nh+ifname set
+                  local uspkey = s:get(elsa_pa.OSPF_USP_KEY)
+                  mst.a(#uspkey == 2, #uspkey)
+                  -- make sure it has nh+ifname set
+                  local uspo = uspkey[1]
+                  mst.a(not uspo.nh)
+                  mst.a(not uspo.ifname)
 
                                                         end)
 

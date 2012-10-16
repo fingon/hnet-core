@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Oct 16 10:19:31 2012 mstenber
--- Edit time:     523 min
+-- Last modified: Tue Oct 16 10:54:54 2012 mstenber
+-- Edit time:     526 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -780,6 +780,10 @@ function pa:generate_ula()
    -- XXX store it on disk
 end
 
+function pa:route_to_rid(rid)
+   return self.ridr[rid]
+end
+
 function pa:run()
    self:d('run called')
 
@@ -806,7 +810,7 @@ function pa:run()
                         client:iterate_ifo_neigh(rid, ifo, function (o)
                                                     local iid = o.iid
                                                     local rid = o.rid
-                                                    self:d(' got neigh', iid, rid)
+                                                    self:d(' got neigh', o)
                                                     self:a(_valid_rid(rid))
                                                     self:a(_valid_iid(iid))
                                                     t[rid] = iid
@@ -825,16 +829,16 @@ function pa:run()
    -- get the rid reachability
    client:iterate_rid(rid, function (o)
                          local rid = o.rid
-                         self:d('got rid', rid)
+                         self:d('got rid', o)
                          self:a(_valid_rid(rid), 'invalid rid', o)
-                         self.ridr[rid] = true
+                         self.ridr[rid] = o
                            end)
 
    -- get the usable prefixes from the 'client' [prefix => rid]
    client:iterate_usp(rid, function (o)
                          local prefix = o.prefix
                          local rid = o.rid
-                         self:d('got usp', prefix, rid)
+                         self:d('got usp', o)
                          self:a(_valid_rid(rid))
                          self:a(prefix)
                          self:add_or_update_usp(prefix, rid)
@@ -852,7 +856,7 @@ function pa:run()
                          local prefix = o.prefix
                          local iid = o.iid
                          local rid = o.rid
-                         self:d('got asp', prefix, iid, rid)
+                         self:d('got asp', o)
                          self:a(prefix)
                          self:a(_valid_rid(rid))
                          self:a(_valid_iid(iid), 'invalid iid', iid)

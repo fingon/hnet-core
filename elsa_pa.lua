@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Oct 16 10:26:07 2012 mstenber
--- Edit time:     183 min
+-- Last modified: Tue Oct 16 11:04:32 2012 mstenber
+-- Edit time:     192 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -243,27 +243,30 @@ function elsa_pa:run()
 
       self:d('creating usp list')
 
-      for i, v in ipairs(self.pa.usp:values())
-      do
-         local p = v.prefix
+      function _dump_usp(usp, debug_source)
+         local rid = usp.rid
+         local p = usp.prefix
          if not dumped[p]
          then
-            self:d('got from pa.usp', p)
+            self:d('got from', debug_source, p)
             dumped:insert(p)
-            t:insert({prefix=p})
+            local r = self.pa:route_to_rid(rid) or {}
+            -- nh/ifname are optional (not applicable in case of e.g. self)
+            self:d('got route', r)
+            t:insert({prefix=p, nh=r.nh, ifname=r.ifname})
          end
+      end
+
+      for i, v in ipairs(self.pa.usp:values())
+      do
+         _dump_usp(v, 'pa.usp')
       end
 
       -- toss also usp's from the LAP, which still live
       for i, lap in ipairs(self.pa.lap:values())
       do
-         local p = lap.asp.usp.prefix
-         if not dumped[p]
-         then
-            self:d('got from pa.lap', p)
-            dumped:insert(p)
-            t:insert({prefix=p})
-         end
+         local usp = lap.asp.usp
+         _dump_usp(usp, 'pa.lap')
       end
 
       self.skv:set(OSPF_USP_KEY, t)

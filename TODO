@@ -46,7 +46,7 @@ about configuration files, the image is plug-n-play out of the box)
 
 ** Multihoming support
 
-- requires next-hop finding (from rt.c / process_prefixes can take some
++ requires next-hop finding (from rt.c / process_prefixes can take some
   hints, as it calculates the IPv6 prefix reachability based on the
   advertising router ids - we should do something similar, router id of the
   USP => calculate next hop for that)
@@ -58,11 +58,12 @@ about configuration files, the image is plug-n-play out of the box)
   .. fib_find better - returns NULL if non existent
   .. look at r->n->nhs
 
+ [ using topology.[ch] + the leftover ->nhs from the rt.c SPF calculation;
+ officially supposed not to work, but it seems to ]
 
- - add API to ELSA to get routes to specific router id's => win(?)
-   (could also include it in the rid callbacks, _if_ it's cheap to produce;
-    however, I doubt it's free, and as number of egress routers is less
-   than number of home routers, doing them all is inefficient)
+
+ + add API to elsai to get routes to specific router id's => win(?), and
+ use it to produce next hop + ifname to iterate_rid callbacks
    
 - PM should configure skv-published USP+if+nexthop pairs to 'ip rule' table
 

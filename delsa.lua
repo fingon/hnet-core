@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Fri Oct  5 00:09:17 2012 mstenber
--- Last modified: Tue Oct 16 10:25:56 2012 mstenber
--- Edit time:     5 min
+-- Last modified: Tue Oct 16 10:56:37 2012 mstenber
+-- Edit time:     9 min
 --
 
 require 'mst'
@@ -20,6 +20,16 @@ require 'dneigh'
 module(..., package.seeall)
 
 delsa = dneigh.dneigh:new_subclass{class='delsa', mandatory={'hwf'}}
+
+function delsa:repr_data()
+   return string.format('#hwf=%d #iid=%d #lsas=%d #neigh=%d #routes=%d',
+                        mst.count(self.hwf),
+                        mst.count(self.iid),
+                        mst.count(self.lsas),
+                        mst.count(self.neigh),
+                        mst.count(self.routes))
+
+end
 
 function delsa:get_hwf(rid)
    return self.hwf[rid]
@@ -49,7 +59,9 @@ function delsa:change_rid()
 end
 
 function delsa:route_to_rid(rid)
+   self:d('route lookup', rid)
    if not self.routes then return end
    local t = self.routes[rid] 
+   self:d('lookup got', t)
    if t then return t end
 end
