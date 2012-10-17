@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Oct 17 15:45:27 2012 mstenber
--- Edit time:     449 min
+-- Last modified: Wed Oct 17 21:28:59 2012 mstenber
+-- Edit time:     459 min
 --
 
 -- data structure abstractions provided:
@@ -413,18 +413,47 @@ function array_filter(a, fun)
    return t
 end
 
+function array_slice(a, i1, i2)
+   function convert_real(i)
+      if i < 0
+      then
+         i = 1 + #a + i
+      end
+      return i
+   end
+   i1 = i1 or 1
+   i2 = i2 or #a
+   i1 = convert_real(i1)
+   i2 = convert_real(i2)
+   local t = array:new{}
+   for i=i1,i2
+   do
+      t:insert(a[i])
+   end
+   return t
+end
+
 array = create_class{class='array',
-                     insert=table.insert,
-                     remove=array_remove,
-                     remove_index=table.remove,
-                     map=array_map,
                      filter=array_filter,
                      find=array_find,
-                     to_table=array_to_table,
-                     repr=array_repr,
+                     foreach=array_foreach,
+                     insert=table.insert,
                      join=table.concat,
+                     map=array_map,
+                     remove=array_remove,
+                     remove_index=table.remove,
+                     repr=array_repr,
+                     slice=array_slice,
                      sort=table.sort,
+                     to_table=array_to_table,
                     }
+
+function array:clear()
+   while #self > 0
+   do
+      self[#self] = nil
+   end
+end
 
 function array:count()
    return #self
@@ -443,26 +472,6 @@ function array:extend(l)
    do
       self:insert(v)
    end
-end
-
-function array:slice(i1, i2)
-   function convert_real(i)
-      if i < 0
-      then
-         i = 1 + #self + i
-      end
-      return i
-   end
-   i1 = i1 or 1
-   i2 = i2 or #self
-   i1 = convert_real(i1)
-   i2 = convert_real(i2)
-   local t = array:new{}
-   for i=i1,i2
-   do
-      t:insert(self[i])
-   end
-   return t
 end
 
 --- string utilities
@@ -770,7 +779,16 @@ function table_repr(t, shown)
    return table.concat(s)
 end
 
+function table_clear(t)
+   local kl = t:keys()
+   for i, k in ipairs(kl)
+   do
+      t[k] = nil
+   end
+end
+
 map = create_class{class='map',
+                   clear=table_clear,
                    contains=table_contains,
                    copy=table_copy,
                    count=table_count,
@@ -781,7 +799,8 @@ map = create_class{class='map',
                    repr=table_repr,
                    sorted_keys=table_sorted_keys,
                    sorted_pairs=table_sorted_pairs,
-                   values=table_values}
+                   values=table_values,
+                  }
 
 --- set
 
@@ -1200,6 +1219,10 @@ cache = create_class{class='cache', mandatory={'get_callback'},
                      default_timeout=1}
 
 function cache:init()
+   self:clear()
+end
+
+function cache:clear()
    self.map = map:new{}
 end
 
@@ -1226,8 +1249,35 @@ end
 
 function cache:create(k)
    local v, t = self.get_callback(k)
+   self:set(k, v, t)
+   return v
+end
+
+function cache:set(k, v, t)
+   self.map[k] = nil
    t = t or (v and self.positive_timeout) or self.negative_timeout or self.default_timeout
    local now = self.time_callback()
    self.map[k] = {t + now, v}
-   return v
+end
+
+-- string_find_one
+-- try to string_find among string with multiple pattern + action functions
+-- to run out of functions is fatal error => add nop handler to end if desirable
+function string_find_one(s, ...)
+   local l = {...}
+   for i=1,#l,2
+   do
+      local pat = l[i]
+      local act = l[i+1]
+      local r = {string.find(s, pat)}
+      if #r >= 2
+      then
+         if act
+         then
+            return act(unpack(array_slice(r, 3)))
+         end
+         return
+      end
+   end
+   mst.a(false, 'no match for string', s, l)
 end

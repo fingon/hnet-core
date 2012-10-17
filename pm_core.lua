@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Fri Oct 12 15:12:26 2012 mstenber
--- Edit time:     104 min
+-- Last modified: Wed Oct 17 21:22:31 2012 mstenber
+-- Edit time:     172 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -32,23 +32,188 @@ require 'os'
 
 module(..., package.seeall)
 
+-- rule table related constants
+MAIN_TABLE='main'
+-- we use the (128-length of prefix as preference on top of the base => 128)
+RULE_PREF_MIN=1000
+RULE_PREF_MAX=RULE_PREF_MIN + 128 
+
+
 pm = mst.create_class{class='pm', mandatory={'skv', 'shell', 
                                              'radvd_conf_filename'}}
 
 function pm:init()
-   self.f_lap = function (k, v) self:lap_changed(v) end
-   self.f_iflist = function (k, v) self:ifs_changed(v) end
-   self.f_usp = function (k, v) self:usp_changed(v) end
-   self.skv:add_change_observer(self.f_lap, elsa_pa.OSPF_LAP_KEY)
-   self.skv:add_change_observer(self.f_iflist, elsa_pa.OSPF_IFLIST_KEY)
-   self.skv:add_change_observer(self.f_usp, elsa_pa.OSPF_USP_KEY)
+   self.f = function (k, v) self:kv_changed(k, v) end
+   self.skv:add_change_observer(self.f)
    self.if_table = linux_if.if_table:new{shell=self.shell} 
+   self.rule_table = linux_if.rule_table:new{shell=self.shell}
+   self.applied_usp = {}
 end
 
 function pm:uninit()
-   self.skv:remove_change_observer(self.f_lap, elsa_pa.OSPF_LAP_KEY)
-   self.skv:remove_change_observer(self.f_iflist, elsa_pa.OSPF_IFLIST_KEY)
-   self.skv:remove_change_observer(self.f_usp, elsa_pa.OSPF_USP_KEY)
+   self.skv:remove_change_observer(self.f)
+end
+
+function pm:kv_changed(k, v)
+   self.skv:add_change_observer(self.f_iflist, elsa_pa.OSPF_IFLIST_KEY)
+   self.skv:add_change_observer(self.f_usp, elsa_pa.OSPF_USP_KEY)
+   if k == elsa_pa.OSPF_USP_KEY
+   then
+      self.ospf_usp = v
+      self:check_ospf_vs_real()
+      self:check_rules()
+   elseif k == elsa_pa.OSPF_LAP_KEY
+   then
+      self.ospf_lap = v
+      self:check_ospf_vs_real()
+   else
+      -- if it looks like pd change, we may be also interested
+      --if string.find(k, '^' .. elsa_pa.PD_KEY) then self:check_rules() end
+   end
+end
+
+function pm:invalidate_rules()
+   self:d('invalidating rules')
+   self:a(self.rule_table)
+   self:a(self.rule_table.foreach)
+   self.rule_table:foreach(function (rule) rule.valid = nil end)
+end
+
+function pm:get_rules()
+   return self.rule_table:filter(function (rule)
+                                    self:a(type(rule.pref) == 'number')
+                                    return rule.pref >= RULE_PREF_MIN and rule.pref <= RULE_PREF_MAX
+                                 end)
+end
+
+function pm:delete_invalid_rules()
+   local my_rules = self:get_rules()
+   self:d('considering rules', #my_rules)
+   for i, rule in ipairs(my_rules)
+   do
+      if not rule.valid
+      then
+         rule:del(self.shell)
+      else
+         self:d('keeping valid rule', rule)
+      end
+   end
+end
+
+function pm:check_rules()
+   if not self.ospf_usp
+   then
+      return
+   end
+
+   -- we have the internal rule_table object. we compare that against
+   -- the state we have in skv for OSPF (pd changes should come via
+   -- OSPF process, hopefully, to keep the dataflow consistent)
+
+   -- refresh the state
+   self.rule_table:parse()
+
+   -- mark all rules non-valid 
+   self:invalidate_rules()
+
+   -- different cases for each USP prefix
+   local validc = 0
+   for _, usp in ipairs(self.ospf_usp)
+   do
+      local sel = 'from ' .. usp.prefix
+      local o = self.rule_table:find{sel=sel}
+
+      if usp.nh and usp.ifname then validc = validc + 1 end
+
+      if not o
+      then
+         -- not in rule table => add
+         -- (done in second pass)
+      else
+         local uspi = mst.repr(usp)
+         if self.applied_usp[usp.prefix] == uspi
+         then
+            -- in rule table, not changed => nop
+            o.valid = true
+         else
+            -- in rule table, changed => del + add
+            -- prefix, nh, ifname, .. if any of those changes, it's bad news
+            -- and we better remove + add back
+         end
+      end
+   end
+   
+   -- if we don't have any valid source routes, we can also ignore 
+   -- fixing of destination routes for source routed prefixes
+   if validc > 0
+   then
+      for _, usp in ipairs(self.ospf_usp)
+      do
+         -- to rules just point at main table => no content to care about
+         local sel = 'to ' .. usp.prefix
+         local o = self.rule_table:find{sel=sel}
+         if o
+         then
+            o.valid = true
+         end
+      end
+   else
+      self:d('no valid sources, ignoring destination routes')
+
+   end
+
+   -- in rule table, not in OSPF => del
+   self:delete_invalid_rules()
+
+   for _, usp in ipairs(self.ospf_usp)
+   do
+      local sel = 'from ' .. usp.prefix
+      local i1, i2, s = string.find(usp.prefix, '/(%d+)$')
+      self:a('invalid prefix', usp.prefix)
+      local bits = mst.strtol(s)
+      local pref = RULE_PREF_MIN + 128 - bits
+      
+      -- can't be found. and must have ifname+nh set
+      -- (otherwise we can't craft reasonable default routes)
+      if usp.ifname and usp.nh and not self.rule_table:find{sel=sel, pref=pref}
+      then
+         -- store that it has been added
+         local uspi = mst.repr(usp)
+         self.applied_usp[usp.prefix] = uspi
+
+         -- figure table number
+         local table = self.rule_table:get_free_table()
+
+         -- create new rule
+         local r = self.rule_table:add_rule{sel=sel,
+                                            table=table,
+                                            pref=pref}
+         -- and add it 
+         r:add(self.shell)
+
+         -- and flush the table
+         self.shell('ip -6 route flush table ' .. table)
+         
+         -- and add the default route         
+         nh = usp.nh
+         dev = usp.ifname
+         self.shell(string.format('ip -6 route add default via %s dev %s table %s',
+                                  nh, dev, table))
+      end
+      
+      if validc > 0
+      then
+         -- add the outgoing traffic rule which uses main table if one is
+         -- needed
+         local sel = 'to ' .. usp.prefix
+         local pref = RULE_PREF_MIN
+         if not self.rule_table:find{sel=sel, pref=pref, table=MAIN_TABLE}
+         then
+            local r = self.rule_table:add_rule{sel=sel, pref=pref, table=MAIN_TABLE}
+            r:add(self.shell)
+         end
+      end
+   end
 end
 
 function pm:get_real_lap()
@@ -89,16 +254,6 @@ function pm:get_real_lap()
       end
    end
    return r
-end
-
-function pm:lap_changed(lap)
-   self.ospf_lap = lap
-   self:check_ospf_vs_real()
-end
-
-function pm:usp_changed(usp)
-   self.ospf_usp = usp
-   self:check_ospf_vs_real()
 end
 
 function pm:repr_data()
@@ -265,6 +420,3 @@ function pm:handle_both_prefix(prefix, po1, po2)
    return true
 end
 
-function pm:ifs_changed()
-   -- nop?
-end

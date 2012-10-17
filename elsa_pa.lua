@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Oct 16 12:26:20 2012 mstenber
--- Edit time:     198 min
+-- Last modified: Wed Oct 17 17:47:50 2012 mstenber
+-- Edit time:     208 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -36,6 +36,7 @@ AC_TYPE=0xBFF0
 
 PD_IFLIST_KEY='pd-iflist'
 PD_PREFIX_KEY='pd-prefix'
+PD_NH_KEY='pd-nh'
 
 OSPF_RID_KEY='ospf-rid'
 OSPF_LAP_KEY='ospf-lap'
@@ -102,7 +103,7 @@ elsa_pa = mst.create_class{class='elsa_pa', mandatory={'skv', 'elsa'},
 function elsa_pa:init()
    self.first = true
    self.ridr_repr = ''
-
+   self.skvp_repr = ''
    self.pa = pa.pa:new{rid=self.rid, client=self, lap_class=elsa_lap,
                        new_prefix_assignment=self.new_prefix_assignment,
                        new_ula_prefix=self.new_ula_prefix}
@@ -200,6 +201,11 @@ function elsa_pa:run()
    -- if someone like that exists, either we (or they) have to change
    -- their router id..
    if self:check_conflict() then return end
+   
+   self.skvp = mst.array:new()
+   self:iterate_skv_prefix_real(function (p)
+                                   self.skvp:insert(p)
+                                end)
 
    -- our rid may have changed -> change that of the pa too, just in case
    self.pa.rid = self.rid
@@ -208,6 +214,8 @@ function elsa_pa:run()
 
    self:d('pa.run result', r, self.first)
    local ridr_repr = mst.repr(self.pa.ridr)
+   local skvp_repr = mst.repr(self.skvp)
+
    if r or self.first or ridr_repr ~= self.ridr_repr
    then
       -- raw contents of the interfaces MAY change what we publish,
@@ -332,8 +340,12 @@ end
 
 --  iterate_usp(rid, f) => callback with prefix, rid
 function elsa_pa:iterate_usp(rid, f)
-   self:iterate_skv_prefix(function (prefix)
-                              f{prefix=prefix, rid=rid}
+   self:iterate_skv_prefix(function (o)
+                              f{prefix=o.prefix, 
+                                --ifname=o.ifname,
+                                --nh=o.nh,
+                                rid=rid, 
+                               }
                            end)
    self:iterate_ac_lsa_tlv(function (usp, lsa)
                               self:a(lsa and usp)
@@ -348,7 +360,8 @@ function elsa_pa:iterate_if(rid, f)
    -- determine the interfaces for which we don't want to provide
    -- interface callback (if we're using local interface-sourced
    -- delegated prefix, we don't want to offer anything there)
-   self:iterate_skv_prefix(function (prefix, ifname)
+   self:iterate_skv_prefix(function (o)
+                              local ifname = o.ifname
                               self:d('in use ifname', ifname)
                               inuse_ifnames:insert(ifname)
                            end)
@@ -373,6 +386,13 @@ end
 
 
 function elsa_pa:iterate_skv_prefix(f)
+   for i, v in ipairs(self.skvp)
+   do
+      f(v)
+   end
+end
+
+function elsa_pa:iterate_skv_prefix_real(f)
    local pdlist = self.skv:get(PD_IFLIST_KEY)
    for i, ifname in ipairs(pdlist or self.all_seen_if_names:keys())
    do
@@ -383,7 +403,7 @@ function elsa_pa:iterate_skv_prefix(f)
          self.all_seen_if_names:insert(ifname)
       end
 
-      local o = self.skv:get(string.format('pd-prefix.%s', ifname) )
+      local o = self.skv:get(string.format('%s.%s', PD_PREFIX_KEY, ifname) )
       if o
       then
          local prefix, valid
@@ -394,9 +414,16 @@ function elsa_pa:iterate_skv_prefix(f)
          else
             prefix, valid = unpack(o)
          end
+         local nh
+         local o2 = self.skv:get(string.format('%s.%s', PD_NH_KEY, ifname))
+         if o2
+         then
+            self:a(type(o2) == 'string')
+            nh = o2
+         end
          if not valid or valid >= os.time()
          then
-            f(prefix, ifname)
+            f{prefix=prefix, ifname=ifname, nh=nh}
          end
       end
    end
@@ -410,7 +437,8 @@ function elsa_pa:generate_ac_lsa()
    a:insert(codec.rhf_ac_tlv:encode{body=hwf})
 
    -- generate local USP-based TLVs
-   self:iterate_skv_prefix(function (prefix)
+   self:iterate_skv_prefix(function (o)
+                              local prefix = o.prefix
                               a:insert(codec.usp_ac_tlv:encode{prefix=prefix})
                            end)
 

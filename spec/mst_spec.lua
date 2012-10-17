@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Oct 17 15:44:13 2012 mstenber
--- Edit time:     91 min
+-- Last modified: Wed Oct 17 17:05:01 2012 mstenber
+-- Edit time:     95 min
 --
 
 require "busted"
@@ -205,6 +205,8 @@ describe("array", function ()
                   mst.a(mst.repr_equal(a:slice(1, 1), {1}))
                   mst.a(mst.repr_equal(a:slice(1, -2), {1, 2}))
                   mst.a(mst.repr_equal(a:slice(1, -3), {1}))
+                  a:clear()
+                  mst.a(#a == 0)
                    end)
              end)
 
@@ -220,6 +222,8 @@ describe("map", function ()
                   mst.a(m.foo == 'bar')
                   mst.a(mst.repr_equal(m:keys(), {"foo"}))
                   mst.a(mst.repr_equal(m:values(), {"bar"}))
+                  m:clear()
+                  mst.a(m:count() == 0)
 
                                  end)
                 end)
@@ -350,5 +354,22 @@ describe("cache", function ()
                   
                   
 
+                   end)
+end)
+
+describe("string_find_one", function ()
+            it("t1", function ()
+                  local s = 'foobar'
+                  local p1 = '(o+)'
+                  local p2 = '(z)'
+                  local nop_fn = function ()  end
+                  local fail_fn = function () error("should not match") end
+                  mst.string_find_one(s, 
+                                      p2,
+                                      fail_fn,
+                                      p1,
+                                      function (x)
+                                         mst.a(x == 'oo')
+                                      end)
                    end)
 end)

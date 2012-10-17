@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  8 13:11:02 2012 mstenber
--- Last modified: Tue Oct  9 15:11:22 2012 mstenber
--- Edit time:     25 min
+-- Last modified: Wed Oct 17 21:33:18 2012 mstenber
+-- Edit time:     78 min
 --
 
 
@@ -24,6 +24,8 @@
 local mst = require 'mst'
 
 module(..., package.seeall)
+
+--- if_object
 
 if_object = mst.create_class{class='if_object', mandatory={'name'}}
 
@@ -40,9 +42,11 @@ function if_object:get_hwaddr()
    end
 
    s = mst.string_strip(s)
-   local l = mst.string_split(s)
-   -- take the last one
-   r = l:slice(-1)[1]
+   local i1, i2, r = string.find(s, 'HWaddr ([0-9a-f:]+)%s*$')
+   if not r
+   then
+      return nil, 'unable to parse ' .. s
+   end
    self.hwaddr = r
    return r
 end
@@ -57,6 +61,7 @@ function if_object:del_ipv6(addr)
    return self.parent.shell(string.format('ip -6 addr del %s dev %s', addr, self.name))
 end
 
+--- if_table
 
 if_table = mst.create_class{class='if_table', mandatory={'shell'}}
 
@@ -85,7 +90,6 @@ function if_table:read_ip_ipv6()
    local s, err = self.shell("ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary")
    mst.a(s, 'unable to execute ip -6 addr', err)
    local ifo = nil
-   local r = mst.array:new{}
 
    local lines = mst.string_split(s, '\n')
    -- filter empty lines
@@ -93,27 +97,24 @@ function if_table:read_ip_ipv6()
 
    for i, line in ipairs(lines)
    do
-      -- either it starts with #: ifname: 
-      -- OR space + inet6 ip/64 scope global ...
-      local st = string.sub(line, 1, 1)
-      if st ~= ' '
-      then
-         local l = mst.string_split(line, ':')
-         mst.a(#l == 3, 'parse error', line)
-         ifo = self:get_if(mst.string_strip(l[2]))
-         ifo.ipv6 = mst.array:new{}
-         ifo.ipv6_valid = true
-         ifo.valid = true
-      else
-         -- address
-         mst.a(ifo, 'no interface object')
-         line = mst.string_strip(line)
-         local l = mst.string_split(line, ' ')
-         mst.a(#l >= 4)
-         mst.a(l[1] == 'inet6')
-         addr = l[2]
-         ifo.ipv6:insert(addr)
-      end
+      mst.string_find_one(line,
+                          -- case 1: <num>: <ifname>: 
+                          '^%d+: (%S+): ',
+                          function (ifname)
+                             ifo = self:get_if(ifname)
+                             ifo.ipv6 = mst.array:new{}
+                             ifo.ipv6_valid = true
+                             ifo.valid = true
+                          end,
+                          -- case 2: <spaces> inet6 <addr>/64
+                          '^%s+inet6 (%S+/64)%s',
+                          function (addr)
+                             ifo.ipv6:insert(addr)
+                          end,
+                          -- case 3: other inet6 stuff we ignore
+                          '^%s+inet6',
+                          nil
+                         )
    end
 
    -- remove non-valid interface objects
@@ -130,4 +131,98 @@ function if_table:read_ip_ipv6()
    end
 
    return self.map
+end
+
+
+--- rule
+
+rule = mst.create_class{class='rule', mandatory={'pref', 
+                                                 'sel', 
+                                                 'table'}}
+
+function rule:del(sh)
+   self:apply(sh, 'del')
+end
+
+function rule:add(sh)
+   self:apply(sh, 'add')
+end
+
+function rule:apply(sh, op)
+   sh(string.format('ip -6 rule %s %s table %s %d',
+                    op, self.sel, self.table, self.pref))
+end
+
+--- rule_table
+--- wrapper around the AF-specific ip rules
+--- no real keys, but priority+conditions should be unique (I think)
+
+rule_table = mst.array:new_subclass{class='rule_table', mandatory={'shell'},
+                                    start_table=1000}
+
+function rule_table:find(criteria)
+   for _, o in ipairs(self)
+   do
+      if mst.table_contains(o, criteria) then return o end
+   end
+end
+
+function rule_table:parse()
+   -- start by invalidating current objects
+   for i, v in ipairs(self)
+   do
+      v.valid = false
+   end
+
+   local s, err = self.shell("ip -6 rule")
+   mst.a(s, 'unable to execute ip -6 rule', err)
+
+   local lines = mst.string_split(s, '\n')
+   -- filter empty lines
+   lines = lines:filter(function (line) return #mst.string_strip(line)>0 end)
+   self:d('parsing lines', #lines)
+
+   for i, line in ipairs(lines)
+   do
+      line = mst.string_strip(line)
+      --self:d('line', line)
+      mst.string_find_one(line,
+                          '^(%d+):%s+(from %S+)%s+lookup (%S+)$',
+                          function (pref, sel, table)
+                             self:d('foo')
+                             pref = mst.strtol(pref)
+                             local o = {pref=pref, sel=sel, table=table}
+                             local r = self:find(o)
+                             if not r
+                             then
+                                r = self:add_rule(o)
+                             else
+                                self:d('already had?', r)
+                             end
+                             r.valid = true
+                          end)
+   end
+
+   -- get rid of non-valid entries
+   invalid = self:filter(function (o) return not o.valid end)
+   for i, v in ipairs(invalid)
+   do
+      self:remove(v)
+   end
+end
+
+function rule_table:add_rule(criteria)
+   local r = rule:new(criteria)
+   self:d('adding rule', r)
+   self:insert(r)
+   return r
+end
+
+function rule_table:get_free_table()
+   local t = self.start_table
+   while self:find{table=tostring(t)}
+   do
+      t = t + 1
+   end
+   return tostring(t)
 end

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Fri Oct 12 10:56:26 2012 mstenber
--- Edit time:     34 min
+-- Last modified: Wed Oct 17 21:32:47 2012 mstenber
+-- Edit time:     38 min
 --
 
 -- testsuite for the pm_core
@@ -61,7 +61,11 @@ describe("pm", function ()
                            s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth1'})
                            s:set(elsa_pa.PD_PREFIX_KEY .. '.eth0', 
                                  -- prefix[,valid]
-                                 {'dead::/16'}
+                                 'dead::/16'
+                                )
+                           s:set(elsa_pa.PD_NH_KEY .. '.eth0', 
+                                 -- just address
+                                 'fe80:1234:2345:3456:4567:5678:6789:789a'
                                 )
 
                            pm = pm_core.pm:new{skv=s, shell=fakeshell,
@@ -94,8 +98,13 @@ describe("pm", function ()
                              'eth2      Link encap:Ethernet  HWaddr 00:1c:42:a7:f1:d9  '},
                             x,
                             {'ip -6 addr del dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 dev eth2', ''},
-
-
+                            {'ip -6 rule',
+                             [[
+0:	from all lookup local 
+1112:	from dead::/16 lookup 1000 
+16383:	from all lookup main 
+                              ]]},
+                            {'ip -6 rule del from dead::/16 table 1000 1112', ''},
                          }
                   ep:run()
                   mst.a(arri == #arr, 'did not consume all?', arri, #arr)

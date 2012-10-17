@@ -2,10 +2,6 @@
 
 * Bugs to fix
 
-** figure how to get the default routes into BIRD
-
-import all and and of itself didn't work (or, export filter is lacking?)
-
 * Things to do
 
 ** Compile for Buffalo, get it working there
@@ -32,11 +28,6 @@ patches BIRD
 (probably the plan B is actually easier; after that, need to only worry
 about configuration files, the image is plug-n-play out of the box)
 
-** DHCPv6 PD integration (static WAN)
-
-- just set up the variable using skvtool.lua, and we're golden?
-
-[multiprovider stuff needs some extra action]
 
 ** 6RD integration (static WAN)
 
@@ -69,6 +60,8 @@ about configuration files, the image is plug-n-play out of the box)
 
 'ospf-usp' key will contain stuff for ip rule table
  {{prefix=usp-prefix, ifname=ifname, nh=next-hop}, ...}
+
+ ! track down why it doesn't currently quite work.. yet :p
 
 ** Comprehensively test PA alg (2/2)
 
@@ -253,6 +246,12 @@ or
 more than one argument => chance to get order wrong (with one, well..)
 
 * Done (8.10.+)
+
+** DHCPv6 PD integration (static WAN)
+
+- just set up the variable using skvtool.lua, and we're golden?
+
+[multiprovider stuff needs some extra action]
 
 ** Comprehensively test PA alg
 
