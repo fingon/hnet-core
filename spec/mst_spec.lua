@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Thu Oct 11 11:54:36 2012 mstenber
--- Edit time:     81 min
+-- Last modified: Wed Oct 17 15:44:13 2012 mstenber
+-- Edit time:     91 min
 --
 
 require "busted"
@@ -282,5 +282,73 @@ describe("min/max", function ()
                   mst.a(mst.max(1,5,3) == 5)
                   mst.a(mst.max(4) == 4)
                   mst.a(mst.max() == nil)
+                   end)
+end)
+
+describe("cache", function ()
+            it("works #cache", function ()
+                  local pos_fun = function (k) return k end
+                  local neg_fun = function (k) end
+                  
+                  local c1 = mst.cache:new{get_callback=neg_fun}
+                  local t = {0, 0}
+                  local c2 = mst.cache:new{time_callback=function ()
+                                              return t[1]
+                                                         end,
+                                           get_callback=function (k)
+                                              t[2] = t[2] + 1
+                                              return k and true or nil
+                                              end}
+                  -- test with defaults
+                  mst.d('initial')
+
+                  mst.a(c2:get('x') == true)
+                  mst.a(c2:get('x') == true)
+                  mst.a(t[2] == 1, 'second call should be cached')
+
+                  -- advance time 
+                  t[1] = t[1] + c2.default_timeout + 1
+                  mst.d('advanced time to', t[1])
+                  mst.a(c2:get('x') == true)
+                  mst.a(t[2] == 2, 'expired did not clear cache')
+                  mst.a(c2:get('x') == true)
+                  mst.a(t[2] == 2, 'second call should be cached')
+
+                  -- make sure positive/negative timeouts work if they're different
+                  c2.positive_timeout = 8
+                  c2.negative_timeout = 5
+                  mst.a(c2:get(false) == nil)
+                  mst.a(t[2] == 3)
+                  mst.a(c2:get(false) == nil)
+                  mst.a(t[2] == 3)
+                  mst.a(c2:get(true) == true)
+                  mst.a(t[2] == 4)
+                  mst.a(c2:get(true) == true)
+                  mst.a(t[2] == 4)
+
+                  -- advance => negatives should be gone
+                  t[1] = t[1] + c2.negative_timeout + 1
+                  mst.d('advanced time to', t[1])
+                  mst.a(c2:get(false) == nil)
+                  mst.a(t[2] == 5)
+                  mst.a(c2:get(false) == nil)
+                  mst.a(t[2] == 5)
+                  mst.a(c2:get(true) == true)
+                  mst.a(t[2] == 5)
+
+
+                  -- advance => positive should be gone, negatives
+                  -- should be refreshed
+                  t[1] = t[1] + c2.positive_timeout - c2.negative_timeout 
+                  mst.d('advanced time to', t[1])
+                  mst.a(c2:get(false) == nil)
+                  mst.a(t[2] == 5)
+                  mst.a(c2:get(false) == nil)
+                  mst.a(t[2] == 5)
+                  mst.a(c2:get(true) == true)
+                  mst.a(t[2] == 6)
+                  
+                  
+
                    end)
 end)

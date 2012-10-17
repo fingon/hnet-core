@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Oct 16 10:52:03 2012 mstenber
--- Edit time:     436 min
+-- Last modified: Wed Oct 17 15:45:27 2012 mstenber
+-- Edit time:     449 min
 --
 
 -- data structure abstractions provided:
@@ -680,20 +680,33 @@ function table_values(t)
 end
 
 -- sorted keys of a table
-_not_comparable_type = {userdata=true, table=true}
+_not_comparable_type = {userdata=true, table=true, boolean=true}
+
+function first_before_cmp(x1, x2)
+   local t1 = type(x1)
+   local t2 = type(x2)
+
+   if x1 == x2
+   then
+      return false
+   end
+   if t1 ~= t2
+   then
+      return t1 < t2
+   end
+   if _not_comparable_type[t1]
+   then
+      x1 = repr(x1)
+      x2 = repr(x2)
+   end
+   return x1 < x2
+end
 
 function table_sorted_keys(t)
    -- ugh.. this kinda sucks, if there's userdata keys within :p
    -- ugly workaround
-   local keys = table_keys(t):map(function (x)
-                                     if _not_comparable_type[type(x)]
-                                     then
-                                        return repr(x)
-                                     else
-                                        return x
-                                     end
-                                  end)
-   table.sort(keys)
+   local keys = table_keys(t)
+   table.sort(keys, first_before_cmp)
    return keys
 end
 
@@ -1179,3 +1192,42 @@ end
 -- event instances' __call should map directly to event.update
 getmetatable(event).cmt.__call = event.update
 
+--- cache class (with custom optional lifetime for replies, and
+--- external time source)
+
+cache = create_class{class='cache', mandatory={'get_callback'},
+                     time_callback=os.time,
+                     default_timeout=1}
+
+function cache:init()
+   self.map = map:new{}
+end
+
+function cache:get(k)
+   self:a(k ~= nil, 'no key')
+   local v = self.map[k]
+   if not v
+   then
+      return self:create(k)
+   end
+   -- 'v' is array, with two entries; validity and entry itself
+   local valid = v[1]
+   local value = v[2]
+   local now = self.time_callback()
+
+   self:d('get', now, valid, k, value)
+
+   if now <= valid
+   then
+      return value
+   end
+   return self:create(k)
+end
+
+function cache:create(k)
+   local v, t = self.get_callback(k)
+   t = t or (v and self.positive_timeout) or self.negative_timeout or self.default_timeout
+   local now = self.time_callback()
+   self.map[k] = {t + now, v}
+   return v
+end
