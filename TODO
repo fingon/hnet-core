@@ -2,6 +2,17 @@
 
 * Bugs to fix
 
+** Bird crashes sometimes randomly when reloading (...)
+
+Last messages in log:
+
+18-10-2012 09:19:30 <TRACE> MyOSPF: HELLO packet sent via eth2
+18-10-2012 09:19:30 <TRACE> MyOSPF: State changed to flush
+18-10-2012 09:19:30 <TRACE> MyOSPF: Going to remove LSA Type: 2009, Id: 0.0.0.4, Rt: 97.123.206.230, Age: 3600, Seqno: 0x80000002
+
+.. tried to fix it by making reload occur like it does in rest of the code,
+that is, in root of event loop.
+
 * Things to do
 
 ** Compile for Buffalo, get it working there
@@ -32,6 +43,8 @@ about configuration files, the image is plug-n-play out of the box)
 ** 6RD integration (static WAN)
 
 - just setup the variable using skvtool.lua based on DHCPv6 result
+
+- probably needs gw address 
 
 [multiprovider stuff needs some extra action]
 

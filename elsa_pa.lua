@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Oct 17 17:47:50 2012 mstenber
--- Edit time:     208 min
+-- Last modified: Thu Oct 18 13:08:21 2012 mstenber
+-- Edit time:     239 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -34,9 +34,14 @@ module(..., package.seeall)
 
 AC_TYPE=0xBFF0
 
+PD_SKVPREFIX='pd-'
+SIXRD_SKVPREFIX='6rd-'
+SIXRD_DEV='6rd'
+
+PREFIX_KEY='prefix.'
+NH_KEY='nh.'
+
 PD_IFLIST_KEY='pd-iflist'
-PD_PREFIX_KEY='pd-prefix'
-PD_NH_KEY='pd-nh'
 
 OSPF_RID_KEY='ospf-rid'
 OSPF_LAP_KEY='ospf-lap'
@@ -202,9 +207,9 @@ function elsa_pa:run()
    -- their router id..
    if self:check_conflict() then return end
    
-   self.skvp = mst.array:new()
+   self.skvp = mst.map:new()
    self:iterate_skv_prefix_real(function (p)
-                                   self.skvp:insert(p)
+                                   self.skvp[p.prefix] = p
                                 end)
 
    -- our rid may have changed -> change that of the pa too, just in case
@@ -216,12 +221,20 @@ function elsa_pa:run()
    local ridr_repr = mst.repr(self.pa.ridr)
    local skvp_repr = mst.repr(self.skvp)
 
-   if r or self.first or ridr_repr ~= self.ridr_repr
+   local c1 = ridr_repr ~= self.ridr_repr
+   local c2 = skvp_repr ~= self.skvp_repr
+   if r or self.first or c1 or c2
    then
+      self:d('run doing skv/lsa update',  r, self.first, c1, c2)
+
       -- raw contents of the interfaces MAY change what we publish,
       -- even if the PA algorithm is still happy! so therefore we consider the
       -- ridr_repr too
       self.ridr_repr = ridr_repr
+
+      -- same with SKV - we may have e.g. different next hop from DHCPv6 PD
+      -- that we need to propagate
+      self.skvp_repr = skvp_repr
 
       -- store the rid to SKV too
       self.skv:set(OSPF_RID_KEY, self.rid)
@@ -272,7 +285,13 @@ function elsa_pa:run()
             local r = self.pa:route_to_rid(rid) or {}
             -- nh/ifname are optional (not applicable in case of e.g. self)
             self:d('got route', r)
-            t:insert({prefix=p, rid=rid, nh=r.nh, ifname=r.ifname})
+            
+            -- look up the local SKV prefix if available
+            -- (pa code doesn't pass-through whole objects, intentionally)
+            local n = self.skvp[p] or {}
+            local nh = r.nh or n.nh
+            local ifname = r.ifname or n.ifname
+            t:insert({prefix=p, rid=rid, nh=nh, ifname=ifname})
          end
       end
 
@@ -386,26 +405,22 @@ end
 
 
 function elsa_pa:iterate_skv_prefix(f)
-   for i, v in ipairs(self.skvp)
+   for k, v in pairs(self.skvp)
    do
       f(v)
    end
 end
 
 function elsa_pa:iterate_skv_prefix_real(f)
-   local pdlist = self.skv:get(PD_IFLIST_KEY)
-   for i, ifname in ipairs(pdlist or self.all_seen_if_names:keys())
-   do
-      if pdlist
+   function handle_if(ifname, skvprefix, metric)
+      local o = self.skv:get(string.format('%s%s%s', 
+                                           skvprefix, PREFIX_KEY, ifname))
+      if o
       then
          -- enter to the fallback lottery - the stuff returned by this
          -- should NOT decrease in size
          self.all_seen_if_names:insert(ifname)
-      end
 
-      local o = self.skv:get(string.format('%s.%s', PD_PREFIX_KEY, ifname) )
-      if o
-      then
          local prefix, valid
          if type(o) == 'string'
          then
@@ -415,7 +430,8 @@ function elsa_pa:iterate_skv_prefix_real(f)
             prefix, valid = unpack(o)
          end
          local nh
-         local o2 = self.skv:get(string.format('%s.%s', PD_NH_KEY, ifname))
+         local o2 = self.skv:get(string.format('%s%s%s', 
+                                               skvprefix, NH_KEY, ifname))
          if o2
          then
             self:a(type(o2) == 'string')
@@ -423,10 +439,17 @@ function elsa_pa:iterate_skv_prefix_real(f)
          end
          if not valid or valid >= os.time()
          then
-            f{prefix=prefix, ifname=ifname, nh=nh}
+            f{prefix=prefix, ifname=ifname, nh=nh, metric=metric}
          end
       end
    end
+
+   local pdlist = self.skv:get(PD_IFLIST_KEY)
+   for i, ifname in ipairs(pdlist or self.all_seen_if_names:keys())
+   do
+      handle_if(ifname, PD_SKVPREFIX, 1000)
+   end
+   handle_if(SIXRD_DEV, SIXRD_SKVPREFIX, 2000)
 end
 
 function elsa_pa:generate_ac_lsa()

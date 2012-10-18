@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Wed Oct 17 21:22:31 2012 mstenber
--- Edit time:     172 min
+-- Last modified: Thu Oct 18 11:00:25 2012 mstenber
+-- Edit time:     190 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -93,7 +93,10 @@ function pm:delete_invalid_rules()
    do
       if not rule.valid
       then
+         self:d('not valid', rule)
          rule:del(self.shell)
+         -- remove it from rule table too (happy assumption about no failures)
+         self.rule_table:remove(rule)
       else
          self:d('keeping valid rule', rule)
       end
@@ -118,52 +121,7 @@ function pm:check_rules()
 
    -- different cases for each USP prefix
    local validc = 0
-   for _, usp in ipairs(self.ospf_usp)
-   do
-      local sel = 'from ' .. usp.prefix
-      local o = self.rule_table:find{sel=sel}
-
-      if usp.nh and usp.ifname then validc = validc + 1 end
-
-      if not o
-      then
-         -- not in rule table => add
-         -- (done in second pass)
-      else
-         local uspi = mst.repr(usp)
-         if self.applied_usp[usp.prefix] == uspi
-         then
-            -- in rule table, not changed => nop
-            o.valid = true
-         else
-            -- in rule table, changed => del + add
-            -- prefix, nh, ifname, .. if any of those changes, it's bad news
-            -- and we better remove + add back
-         end
-      end
-   end
-   
-   -- if we don't have any valid source routes, we can also ignore 
-   -- fixing of destination routes for source routed prefixes
-   if validc > 0
-   then
-      for _, usp in ipairs(self.ospf_usp)
-      do
-         -- to rules just point at main table => no content to care about
-         local sel = 'to ' .. usp.prefix
-         local o = self.rule_table:find{sel=sel}
-         if o
-         then
-            o.valid = true
-         end
-      end
-   else
-      self:d('no valid sources, ignoring destination routes')
-
-   end
-
-   -- in rule table, not in OSPF => del
-   self:delete_invalid_rules()
+   local pending1 = mst.array:new()
 
    for _, usp in ipairs(self.ospf_usp)
    do
@@ -172,47 +130,90 @@ function pm:check_rules()
       self:a('invalid prefix', usp.prefix)
       local bits = mst.strtol(s)
       local pref = RULE_PREF_MIN + 128 - bits
-      
-      -- can't be found. and must have ifname+nh set
-      -- (otherwise we can't craft reasonable default routes)
-      if usp.ifname and usp.nh and not self.rule_table:find{sel=sel, pref=pref}
-      then
-         -- store that it has been added
-         local uspi = mst.repr(usp)
-         self.applied_usp[usp.prefix] = uspi
+      local template = {sel=sel, pref=pref}
+      local o = self.rule_table:find(template)
 
-         -- figure table number
-         local table = self.rule_table:get_free_table()
-
-         -- create new rule
-         local r = self.rule_table:add_rule{sel=sel,
-                                            table=table,
-                                            pref=pref}
-         -- and add it 
-         r:add(self.shell)
-
-         -- and flush the table
-         self.shell('ip -6 route flush table ' .. table)
-         
-         -- and add the default route         
-         nh = usp.nh
-         dev = usp.ifname
-         self.shell(string.format('ip -6 route add default via %s dev %s table %s',
-                                  nh, dev, table))
-      end
-      
-      if validc > 0
-      then
-         -- add the outgoing traffic rule which uses main table if one is
-         -- needed
-         local sel = 'to ' .. usp.prefix
-         local pref = RULE_PREF_MIN
-         if not self.rule_table:find{sel=sel, pref=pref, table=MAIN_TABLE}
+      -- in this iteration, we don't care about USP that lack nh/ifname
+      if usp.nh and usp.ifname 
+      then 
+         validc = validc + 1 
+         if not o
          then
-            local r = self.rule_table:add_rule{sel=sel, pref=pref, table=MAIN_TABLE}
-            r:add(self.shell)
+            -- not in rule table => add
+            -- (done in second pass)
+         else
+            local uspi = mst.repr(usp)
+            if self.applied_usp[usp.prefix] == uspi
+            then
+               -- in rule table, not changed => nop
+               o.valid = true
+            else
+               -- in rule table, changed => del + add
+               -- prefix, nh, ifname, .. if any of those changes, it's bad news
+               -- and we better remove + add back
+               o = nil
+            end
+         end
+         if not o
+         then
+            pending1:insert({usp, template})
          end
       end
+   end
+   
+   -- if we don't have any valid source routes, we can also ignore 
+   -- fixing of destination routes for source routed prefixes
+   local pending2 = mst.array:new()
+   for _, usp in ipairs(validc > 0 and self.ospf_usp or {})
+   do
+      -- to rules just point at main table => no content to care about
+      local sel = 'from all to ' .. usp.prefix
+      local pref = RULE_PREF_MIN
+      local template = {sel=sel, pref=pref, table=MAIN_TABLE}
+      local o = self.rule_table:find(template)
+      if o
+      then
+         o.valid = true
+      else
+         pending2:insert(template)
+      end
+   end
+
+   -- in rule table, not in OSPF => del
+   self:delete_invalid_rules()
+
+
+   for i, v in ipairs(pending1)
+   do
+      local usp, template = unpack(v)
+
+      -- store that it has been added
+      local uspi = mst.repr(usp)
+      self.applied_usp[usp.prefix] = uspi
+
+      -- figure table number
+      local table = self.rule_table:get_free_table()
+      template.table = table
+
+      local r = self.rule_table:add_rule(template)
+
+      -- and add it 
+      r:add(self.shell)
+
+      -- and flush the table
+      self.shell('ip -6 route flush table ' .. table)
+      
+      -- and add the default route         
+      nh = usp.nh
+      dev = usp.ifname
+      self.shell(string.format('ip -6 route add default via %s dev %s table %s',
+                               nh, dev, table))
+   end
+
+   for i, template in ipairs(pending2)
+   do
+      local r = self.rule_table:add_rule(template)
+      r:add(self.shell)
    end
 end
 

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Oct 17 21:28:59 2012 mstenber
--- Edit time:     459 min
+-- Last modified: Thu Oct 18 10:43:08 2012 mstenber
+-- Edit time:     460 min
 --
 
 -- data structure abstractions provided:
@@ -433,6 +433,13 @@ function array_slice(a, i1, i2)
    return t
 end
 
+function array_extend(self, l)
+   for i, v in ipairs(l)
+   do
+      table.insert(self, v)
+   end
+end
+
 array = create_class{class='array',
                      filter=array_filter,
                      find=array_find,
@@ -446,6 +453,7 @@ array = create_class{class='array',
                      slice=array_slice,
                      sort=table.sort,
                      to_table=array_to_table,
+                     extend=array_extend,
                     }
 
 function array:clear()
@@ -465,13 +473,6 @@ end
 
 function array:to_set()
    return array_to_table(self, nil, set:new())
-end
-
-function array:extend(l)
-   for i, v in ipairs(l)
-   do
-      self:insert(v)
-   end
 end
 
 --- string utilities

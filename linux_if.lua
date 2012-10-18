@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  8 13:11:02 2012 mstenber
--- Last modified: Wed Oct 17 21:33:18 2012 mstenber
--- Edit time:     78 min
+-- Last modified: Thu Oct 18 12:17:18 2012 mstenber
+-- Edit time:     80 min
 --
 
 
@@ -136,9 +136,7 @@ end
 
 --- rule
 
-rule = mst.create_class{class='rule', mandatory={'pref', 
-                                                 'sel', 
-                                                 'table'}}
+rule = mst.create_class{class='rule', mandatory={'pref', 'sel', 'table'}}
 
 function rule:del(sh)
    self:apply(sh, 'del')
@@ -149,7 +147,7 @@ function rule:add(sh)
 end
 
 function rule:apply(sh, op)
-   sh(string.format('ip -6 rule %s %s table %s %d',
+   sh(string.format('ip -6 rule %s %s table %s pref %d',
                     op, self.sel, self.table, self.pref))
 end
 
@@ -185,22 +183,26 @@ function rule_table:parse()
    for i, line in ipairs(lines)
    do
       line = mst.string_strip(line)
+
+      function handle_line(pref, sel, table)
+         pref = mst.strtol(pref)
+         local o = {pref=pref, sel=sel, table=table}
+         local r = self:find(o)
+         if not r
+         then
+            r = self:add_rule(o)
+         else
+            self:d('already had?', r)
+         end
+         r.valid = true
+      end
+
       --self:d('line', line)
       mst.string_find_one(line,
                           '^(%d+):%s+(from %S+)%s+lookup (%S+)$',
-                          function (pref, sel, table)
-                             self:d('foo')
-                             pref = mst.strtol(pref)
-                             local o = {pref=pref, sel=sel, table=table}
-                             local r = self:find(o)
-                             if not r
-                             then
-                                r = self:add_rule(o)
-                             else
-                                self:d('already had?', r)
-                             end
-                             r.valid = true
-                          end)
+                          handle_line,
+                          '^(%d+):%s+(from all to %S+)%s+lookup (%S+)$',
+                          handle_line)
    end
 
    -- get rid of non-valid entries

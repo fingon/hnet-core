@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Oct 16 12:24:09 2012 mstenber
--- Edit time:     138 min
+-- Last modified: Thu Oct 18 13:10:23 2012 mstenber
+-- Edit time:     145 min
 --
 
 require 'mst'
@@ -33,13 +33,17 @@ local valid_end='::/64'
 elsa_pa.LAP_DEPRACATE_TIMEOUT=0.01
 elsa_pa.LAP_EXPIRE_TIMEOUT=0.01
 
-function ensure_skv_usp_has_nh(s, should)
+local PD_PREFIX_KEY=elsa_pa.PD_SKVPREFIX .. elsa_pa.PREFIX_KEY
+local PD_NH_KEY=elsa_pa.PD_SKVPREFIX .. elsa_pa.NH_KEY
+
+function ensure_skv_usp_has_nh(s, should_nh, should_if)
    local uspkey = s:get(elsa_pa.OSPF_USP_KEY)
    mst.a(#uspkey >= 1)
    -- make sure it has nh+ifname set
    local uspo = uspkey[1]
-   mst.a(not uspo.nh == not should, 'nh state unexpected - not', should)
-   mst.a(not uspo.ifname == not should, 'ifname state unexpected - not', should)
+   should_if = should_if ~= nil and should_if or should_nh
+   mst.a(not uspo.nh == not should_nh, 'nh state unexpected - not', should_nh)
+   mst.a(not uspo.ifname == not should_if, 'ifname state unexpected - not', should_if)
 end
 
 describe("elsa_pa [one node]", function ()
@@ -186,11 +190,11 @@ describe("elsa_pa [one node]", function ()
                   -- now we fake it that we got prefix from pd
                   -- (skv changes - both interface list, and pd info)
                   s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth1'})
-                  s:set(elsa_pa.PD_PREFIX_KEY .. '.eth0', 
+                  s:set(PD_PREFIX_KEY .. 'eth0', 
                         -- prefix[,valid]
                         {'dead::/16'}
                        )
-                  s:set(elsa_pa.PD_PREFIX_KEY .. '.eth1', 
+                  s:set(PD_PREFIX_KEY .. 'eth1', 
                         -- just the string should also work
                         'beef::/16'
                        )
@@ -215,11 +219,11 @@ describe("elsa_pa [one node]", function ()
                   -- now we fake it that we got prefix from pd
                   -- (skv changes - both interface list, and pd info)
                   s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth2'})
-                  s:set(elsa_pa.PD_PREFIX_KEY .. '.eth0', 
+                  s:set(PD_PREFIX_KEY .. 'eth0', 
                         -- prefix[,valid]
                         {'dead::/16'}
                        )
-                  s:set(elsa_pa.PD_PREFIX_KEY .. '.eth2', 
+                  s:set(PD_PREFIX_KEY .. 'eth2', 
                         -- just the string should also work
                         'beef::/16'
                        )
@@ -236,8 +240,18 @@ describe("elsa_pa [one node]", function ()
                   mst.a(asp_added, 'asp not added?!?')
                   mst.a(usp_added)
 
-                  -- local usp -> should NOT have nh+ifname set
-                  ensure_skv_usp_has_nh(s, false)
+                  -- local usp -> should NOT have nh (if not configured to SKV)
+                  ensure_skv_usp_has_nh(s, false, true)
+
+                  -- now, we add the NH info -> it should be available too
+                  s:set(PD_NH_KEY .. 'eth0', 
+                        'fe80:1234:2345:3456:4567:5678:6789:789a')
+                  s:set(PD_NH_KEY .. 'eth2', 
+                        'fe80:1234:2345:3456:4567:5678:6789:789b')
+
+                  ep:run(ep)
+                  ensure_skv_usp_has_nh(s, true, true)
+
 
                                                         end)
 
