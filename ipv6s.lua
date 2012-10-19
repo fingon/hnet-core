@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Wed Oct 10 10:47:58 2012 mstenber
--- Edit time:     53 min
+-- Last modified: Fri Oct 19 12:17:49 2012 mstenber
+-- Edit time:     54 min
 --
 
 require 'mst'
@@ -98,7 +98,7 @@ function ascii_to_binary(b)
    do
       if #v == 0
       then
-         mst.a(not idx or (idx == i-1 and i == #l), "multiple ::s")
+         mst.a(not idx or (idx == i-1 and i == #l), "multiple ::s", b)
          if not idx
          then
             idx = i

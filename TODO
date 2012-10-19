@@ -1,19 +1,18 @@
 -*- outline -*-
 
 * Bugs to fix
-
-** Bird crashes sometimes randomly when reloading (...)
-
-Last messages in log:
-
-18-10-2012 09:19:30 <TRACE> MyOSPF: HELLO packet sent via eth2
-18-10-2012 09:19:30 <TRACE> MyOSPF: State changed to flush
-18-10-2012 09:19:30 <TRACE> MyOSPF: Going to remove LSA Type: 2009, Id: 0.0.0.4, Rt: 97.123.206.230, Age: 3600, Seqno: 0x80000002
-
-.. tried to fix it by making reload occur like it does in rest of the code,
-that is, in root of event loop.
-
 * Things to do
+
+** Fix 'flakiness'
+
+~500 second+X interval when the connectivity goes down
+
+theory: RA refresh interval _is_ 600; based on looking at logs, 
+
+.. probably addressed it. still, something better is desirable?
+
+use old ifname+nh until new one available; don't remove old if new one not
+available!
 
 ** Compile for Buffalo, get it working there
 
@@ -38,43 +37,6 @@ patches BIRD
 
 (probably the plan B is actually easier; after that, need to only worry
 about configuration files, the image is plug-n-play out of the box)
-
-
-** 6RD integration (static WAN)
-
-- just setup the variable using skvtool.lua based on DHCPv6 result
-
-- probably needs gw address 
-
-[multiprovider stuff needs some extra action]
-
-** Multihoming support
-
-+ requires next-hop finding (from rt.c / process_prefixes can take some
-  hints, as it calculates the IPv6 prefix reachability based on the
-  advertising router ids - we should do something similar, router id of the
-  USP => calculate next hop for that)
-
- rt.c/ri_install_rt probably more relevant
-
-  ip_addr addr = ipa_from_rid(rid);
-  ort *r = (ort *)fib_get(&ospf_area->rtr, &addr, MAX_PREFIX_LENGTH);
-  .. fib_find better - returns NULL if non existent
-  .. look at r->n->nhs
-
- [ using topology.[ch] + the leftover ->nhs from the rt.c SPF calculation;
- officially supposed not to work, but it seems to ]
-
-
- + add API to elsai to get routes to specific router id's => win(?), and
- use it to produce next hop + ifname to iterate_rid callbacks
-   
-- PM should configure skv-published USP+if+nexthop pairs to 'ip rule' table
-
-'ospf-usp' key will contain stuff for ip rule table
- {{prefix=usp-prefix, ifname=ifname, nh=next-hop}, ...}
-
- ! track down why it doesn't currently quite work.. yet :p
 
 ** Comprehensively test PA alg (2/2)
 
@@ -115,7 +77,8 @@ pa.usp lookups - now use rid as key
 
 *** PA alg - enable incremential mode 
 
-step 1: LSAs changed, IFs changed
+step 1: LSAs changed, IFs changed (? - mostly LSAs in a network should be
+stable)
 
 *** PA alg - enable even more incremential mode 
 
@@ -174,6 +137,23 @@ X = assigned subnet # (if someone has more than 255 networks in their home
 running v4, oh well; we can alternatively use Y space also for X if that's
 better model, but this one works with CGN that uses 10.* space, with 1/256
 chance of failure .. )
+
+*** Crazy idea 2:
+
+Instead of having dedicated v4 payloads, use v6 ones!
+
+/120 ASP
+/108-114 USP
+
+and ::ffff:ip base
+
+Pro: 
++ same data structure
++ same algorithms (for most part)
+
+Con: 
+- have to deal with variable prefix width
+- 3 types of USPs (now 'only' two, ULA and global-ish)
 
 *** How we detect upstream connectivity? [if we want it dynamically anyway]
 
@@ -240,6 +220,14 @@ DHCPv6 solicit flooding isn't really neccessary?)
   them 'correctly' (now, has to be same table instance for it to work,
   which is unfortunate)
 
+
+** 6rd sunsetting
+
+right now probably won't work correctly; but does anyone care :p
+
+.. to do: write testcase which has 6rd+native with same assigned prefix,
+and make sure result is sane
+
 * Improvements that affect only performance
 
 ** Aggregate the updates somehow
@@ -253,6 +241,53 @@ or
   bit smarter handling code]
 
 * Done (15.10.+)
+
+** Multihoming support
+
++ requires next-hop finding (from rt.c / process_prefixes can take some
+  hints, as it calculates the IPv6 prefix reachability based on the
+  advertising router ids - we should do something similar, router id of the
+  USP => calculate next hop for that)
+
+ rt.c/ri_install_rt probably more relevant
+
+  ip_addr addr = ipa_from_rid(rid);
+  ort *r = (ort *)fib_get(&ospf_area->rtr, &addr, MAX_PREFIX_LENGTH);
+  .. fib_find better - returns NULL if non existent
+  .. look at r->n->nhs
+
+ [ using topology.[ch] + the leftover ->nhs from the rt.c SPF calculation;
+ officially supposed not to work, but it seems to ]
+
+
+ + add API to elsai to get routes to specific router id's => win(?), and
+ use it to produce next hop + ifname to iterate_rid callbacks
+   
++ PM should configure skv-published USP+if+nexthop pairs to 'ip rule' table
+
+'ospf-usp' key will contain stuff for ip rule table
+ {{prefix=usp-prefix, ifname=ifname, nh=next-hop}, ...}
+
+** Bird crashes sometimes randomly when reloading (...)
+
+Last messages in log:
+
+18-10-2012 09:19:30 <TRACE> MyOSPF: HELLO packet sent via eth2
+18-10-2012 09:19:30 <TRACE> MyOSPF: State changed to flush
+18-10-2012 09:19:30 <TRACE> MyOSPF: Going to remove LSA Type: 2009, Id: 0.0.0.4, Rt: 97.123.206.230, Age: 3600, Seqno: 0x80000002
+
+.. tried to fix it by making reload occur like it does in rest of the code,
+that is, in root of event loop.
+
+[fixed?]
+
+** 6RD integration (static WAN)
+
+- just setup the variable using skvtool.lua based on DHCPv6 result
+
+- probably needs gw address 
+
+[multiprovider stuff needs some extra action]
 
 ** Refactor callbacks etc. to use tables more
 

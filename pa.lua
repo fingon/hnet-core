@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Oct 16 10:54:54 2012 mstenber
--- Edit time:     526 min
+-- Last modified: Fri Oct 19 12:31:25 2012 mstenber
+-- Edit time:     546 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -47,7 +47,6 @@ local lap_sm = require 'pa_lap_sm'
 pcall = orig_pcall
 
 local ula_prefix = string.char(0xFC)
-local ipv6prefix_suffix = '::/64'
 
 module('pa', package.seeall)
 
@@ -314,12 +313,65 @@ function usp:repr_data()
    return mst.repr{prefix=self.prefix, rid=self.rid}
 end
 
+
+function usp:get_random_prefix(iid, i)
+   local b = self.binary_prefix
+   i = i or 0
+   -- get the rest of the bytes from md5
+   local s = string.format("%s-%s-%s-%d", self.pa.rid, iid, self.prefix, i)
+   local sb = create_hash(s)
+   p = b .. string.sub(sb, #b+1, 8)
+   self:a(#p == 8)
+   return p
+end
+
+function usp:create_prefix_freelist(assigned)
+   if self.freelist then return self.freelist end
+
+   local p = self.prefix
+   local b = self.binary_prefix
+   local t = mst.array:new()
+   local op = p
+
+   self.freelist = t
+
+   if #b >= 8
+   then
+      return t
+   end
+
+   -- use the last prefix as base, iterate through the whole usable prefix
+   local p = b .. string.rep(string.char(0), 8-#b)
+   local sp = p
+   while true
+   do
+      p = ipv6s.binary_prefix_next_from_usp(b, p)
+      self:a(#p == 8, "binary_prefix_next_from_usp bugs?")
+
+      if not assigned[p]
+      then
+         local np = ipv6s.bin_to_prefix(p)
+         self:a(ipv6s.prefix_contains(op, np))
+         t:insert(np)
+      end
+
+      -- we're done once we're back at start
+      if sp == p
+      then
+         self:d('created freelist', op, #t)
+         return t
+      end
+   end
+   -- never reached
+end
+
+-- main prefix assignment class
+
+
 pa = mst.create_class{class='pa', lap_class=lap, mandatory={'rid'},
                       new_prefix_assignment=0,
                       new_ula_prefix=0,
                       random_prefix_tries=5}
-
--- main prefix assignment class
 
 function pa:init()
    -- locally assigned prefixes - iid => list
@@ -571,62 +623,21 @@ function pa:find_assigned(usp)
       if ipv6s.binary_prefix_contains(b, ab)
       then
          t:insert(ab)
-         self:a(#ab == 8, "invalid asp length", #b)
       end
    end
    return t
-end
-
-function pa:get_prefix_freelist(p)
-   local t = self.prefix_freelist and self.prefix_freelist[p] or nil
-   return t
-end
-
-function pa:create_prefix_freelist(p, b, assigned)
-   local op = p
-   local t = mst.array:new()
-
-   if #b >= 8
-   then
-      return t
-   end
-
-   if not self.prefix_freelist then self.prefix_freelist = {} end
-   self.prefix_freelist[p] = t
-
-   -- use the last prefix as base, iterate through the whole usable prefix
-   local p = b .. string.rep(string.char(0), 8-#b)
-   local sp = p
-   while true
-   do
-      p = ipv6s.binary_prefix_next_from_usp(b, p)
-      self:a(#p == 8, "binary_prefix_next_from_usp bugs?")
-
-      if not assigned[p]
-      then
-         local np = ipv6s.binary_to_ascii(p) .. ipv6prefix_suffix
-         self:a(ipv6s.prefix_contains(op, np))
-         t:insert(np)
-      end
-
-      -- we're done once we're back at start
-      if sp == p
-      then
-         self:d('created freelist', op, #t)
-         return t
-      end
-   end
 end
 
 function pa:find_new_from(iid, usp, assigned)
    local b = usp.binary_prefix
    local p
+
    self:a(assigned, 'assigned missing')
    self:a(b)
 
    -- if we're in freelist mode, just use it. otherwise, try to
    -- pick randomly first
-   local t = self:get_prefix_freelist(usp.prefix)
+   local t = usp.freelist
    if not t
    then
       -- initially, try the specified number times (completely
@@ -638,22 +649,18 @@ function pa:find_new_from(iid, usp, assigned)
       -- expensive)
       for i=1,self.random_prefix_tries
       do
-         -- get the rest of the bytes from md5
-         local s = string.format("%s-%s-%s-%d", self.rid, iid, usp.prefix, i)
-         local sb = create_hash(s)
-         p = b .. string.sub(sb, #b+1, 8)
-         self:a(#p == 8)
+         local p = usp:get_random_prefix(iid, i)
          if not assigned[p]
          then
-            self:d('find_new_from random worked iteration', i)
-            local np = ipv6s.binary_to_ascii(p) .. ipv6prefix_suffix
+            --self:d('find_new_from random worked iteration', i)
+            local np = ipv6s.bin_to_prefix(p)
             self:a(ipv6s.prefix_contains(usp.prefix, np))
             return np
          end
       end
       
       -- ok, lookup failed; create freelist
-      t = self:create_prefix_freelist(usp.prefix, usp.binary_prefix, assigned)
+      t = usp:create_prefix_freelist(assigned)
    end
 
    -- Now handle freelist; pick random item from there. We _could_
@@ -795,13 +802,6 @@ function pa:run()
    -- store the index => if-object (and less material index => highest-rid)
    self.ifs = mst.map:new()
    self.neigh = mst.map:new()
-
-   -- usp-prefix => array of available prefixes generated on demand,
-   -- although we shouldn't clean this necessarily every run (only if
-   -- system state changes; system state being USP, ASP callback
-   -- results). we generate this when the normal random algorithm
-   -- fails.
-   self.prefix_freelist = nil
 
    client:iterate_if(rid, function (ifo)
                         self:d('got if', ifo)
