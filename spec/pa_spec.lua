@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Tue Oct 16 10:21:35 2012 mstenber
--- Edit time:     222 min
+-- Last modified: Fri Oct 19 13:24:54 2012 mstenber
+-- Edit time:     225 min
 --
 
 require "busted"
@@ -114,19 +114,16 @@ function find_pa_lap(pa, criteria)
 
    for i, v in ipairs(pa.lap:values())
    do
-      if not criteria.prefix or criteria.prefix == v.prefix
+      if mst.table_contains(v, criteria)
       then
-         if not criteria.iid or criteria.iid == v.iid
-         then
-            mst.d(' found', v)
-            return v
-         end
+         mst.d(' found', v)
+         return v
       end
    end
 end
 
 function find_lap(prefix)
-   return find_pa_lap(pa, {prefix=prefix})
+   return find_pa_lap(pa, {ascii_prefix=prefix})
 end
 
 function timeout_laps(pa, f)
@@ -241,7 +238,7 @@ describe("pa", function ()
                   --profiler.stop()
                    end)
             
-            it("make sure old assignments show up by default", function ()
+            it("make sure old assignments show up by default #old", function ()
                   o = ospf:new{usp={{prefix='dead::/16', rid='rid1'},
                                     {prefix='dead:beef::/32', rid='rid2'},
                                     {prefix='cafe::/16', rid='rid3'}},

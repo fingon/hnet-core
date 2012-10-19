@@ -9,7 +9,7 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 22:04:20 2012 mstenber
--- Last modified: Thu Oct 11 11:54:24 2012 mstenber
+-- Last modified: Fri Oct 19 12:43:10 2012 mstenber
 -- Edit time:     26 min
 --
 
@@ -20,7 +20,7 @@ require 'mst'
 module("ipv6s_spec", package.seeall)
 
 
-describe("ascii_cleanup", function ()
+describe("address_cleanup", function ()
             it("should work",
                function ()
                   local d = {
@@ -30,13 +30,13 @@ describe("ascii_cleanup", function ()
                   do
                      local src = v[1]
                      local dst = v[2]
-                     local got = ipv6s.ascii_cleanup(src)
+                     local got = ipv6s.address_cleanup(src)
                      mst.a(dst == got, 'unexpected', src, dst, got)
                   end
                end)
                           end)
 
-describe("ascii_to_binary/binary_to_ascii", function ()
+describe("address_to_binary_address/binary_address_to_address", function ()
             it("should be bidirectional",
                function ()
                   local d = {
@@ -44,8 +44,8 @@ describe("ascii_to_binary/binary_to_ascii", function ()
                   }
                   for i, o in ipairs(d)
                   do
-                     local b = ipv6s.ascii_to_binary(o)
-                     local got = ipv6s.binary_to_ascii(b)
+                     local b = ipv6s.address_to_binary_address(o)
+                     local got = ipv6s.binary_address_to_address(b)
                      mst.a(o == got, 'unexpected', o, got)
                   end
                end)
@@ -57,14 +57,14 @@ describe("ascii_to_binary/binary_to_ascii", function ()
                   local as = {a0, a1, a2, a3}
                   for i, v in ipairs(as)
                   do
-                     local enc = ipv6s.ascii_to_binary(v)
-                     local s = ipv6s.binary_to_ascii(enc)
+                     local enc = ipv6s.address_to_binary_address(v)
+                     local s = ipv6s.binary_address_to_address(enc)
                      assert.are.same(s, v)
                   end
                         end)
                                             end)
 
-describe("prefix_to_bin", function ()
+describe("prefix_to_binary_prefix", function ()
             it("works", function ()
                   local d = {
                      {"dead::/8", 1, 0xde, 0xde},
@@ -75,7 +75,7 @@ describe("prefix_to_bin", function ()
                   for i, v in ipairs(d)
                   do
                      local px, elen, efirst, elast = unpack(v)
-                     local b = ipv6s.prefix_to_bin(px)
+                     local b = ipv6s.prefix_to_binary_prefix(px)
                      mst.a(b, 'no result')
                      mst.a(#b==elen, px, elen)
 

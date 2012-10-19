@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Oct 18 10:43:08 2012 mstenber
--- Edit time:     460 min
+-- Last modified: Fri Oct 19 13:15:53 2012 mstenber
+-- Edit time:     465 min
 --
 
 -- data structure abstractions provided:
@@ -566,6 +566,7 @@ function string_split_rec(s, delim, ofs, t)
 end
 
 function string_split(s, delim)
+   mst.a(type(s) == 'string', 'non-string to string_split', s)
    delim = delim or ' '
    mst.a(s, 'undefined argument to string_split', s, delim)
 
@@ -595,8 +596,10 @@ function table_contains(t, t1)
    mst.a(t and t1, "missing parameters to table_contains")
    for k, v in pairs(t1)
    do
-      if not repr_equal(t[k], v)
+      local v1 = t[k]
+      if not repr_equal(v1, v)
       then
+         mst.d('differenence in key', k, v1, v)
          return false
       end
    end
@@ -918,10 +921,9 @@ end
 function repr_equal(o1, o2)
    -- first, stronger equality constraint - if objects
    -- are same, they also have same representation (duh)
-   if type(o1) ~= type(o2)
-   then
-      return false
-   end
+
+   -- may not be true, if we pretend to have string repr on table
+   --if type(o1) ~= type(o2) then return false end
 
    if type(o1) ~= 'userdata' and o1 == o2
    then

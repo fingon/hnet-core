@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 18:34:49 2012 mstenber
--- Last modified: Thu Oct 11 11:54:04 2012 mstenber
--- Edit time:     12 min
+-- Last modified: Fri Oct 19 13:00:26 2012 mstenber
+-- Edit time:     15 min
 --
 
 require "busted"
@@ -31,7 +31,7 @@ local tests = {
 
 describe("test the ac endecode",
          function ()
-            it("basic en-decode ~= same", function ()
+            it("basic en-decode ~= same #base", function ()
                   for i, v in ipairs(tests)
                   do
                      local cl, orig = unpack(v)
@@ -44,7 +44,9 @@ describe("test the ac endecode",
                      mst.a(o2, 'decode result empty', err)
                      local l2 = codec.decode_ac_tlvs(b)
                      mst.a(#l2 == 1)
-                     mst.a(mst.repr_equal(l2[1], o2))
+                     local r1 = mst.repr(l2[1])
+                     local r2 = mst.repr(o2)
+                     mst.a(r1 == r2, 'changed', r1, r2)
                      mst.a(mst.table_contains(o2, orig), "something missing", cl.class, o2, orig)
                   end
                                           end)

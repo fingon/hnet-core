@@ -26,6 +26,7 @@
 Default
 {
   Error (s: String) Error { error(s); }
+  UnInit FinishedNoState {}
   Default nil {}
 }
 
@@ -97,6 +98,11 @@ Finish
 Entry { done(); }
 {
 
+}
+
+FinishedNoState
+{
+        
 }
 
 %%

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Fri Oct 19 12:31:25 2012 mstenber
--- Edit time:     546 min
+-- Last modified: Fri Oct 19 13:47:31 2012 mstenber
+-- Edit time:     573 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -84,18 +84,39 @@ function _valid_local_iid(pa, s)
    return pa.ifs[s]
 end
 
+-- prefix handler base (used in lap, asp, usp)
+ph = mst.create_class{class='ph'}
+
+function ph:init()
+   self:a(self.prefix)
+   if type(self.prefix) == 'string' 
+   then 
+      self.prefix=ipv6s.new_prefix_from_ascii(self.prefix)
+   end
+
+   self.ascii_prefix = self.prefix:get_ascii()
+   self.binary_prefix = self.prefix:get_binary()
+end
+
 -- local assigned prefix
 
-lap = mst.create_class{class='lap', mandatory={'prefix', 'iid', 'pa'},
+lap = ph:new_subclass{class='lap', mandatory={'prefix', 'iid', 'pa'},
                       assigned=false,
                       depracated=false}
 
 function lap:init()
+   -- superclass init
+   ph.init(self)
+
    local ifo = self.pa.ifs[self.iid]
    self:a(ifo, 'non-existent interface iid', self.iid)
    self.ifname = ifo.name
    self.pa.lap:insert(self.iid, self)
    self.sm = lap_sm:new{owner=self}
+   self.sm.debugFlag = true
+   self.sm.debugStream = {write=function (f, s)
+                             self:d(mst.string_strip(s))
+                                end}
    self.sm:enterStartState()
    self:assign()
    self.pa:changed()
@@ -103,13 +124,20 @@ end
 
 function lap:uninit()
    self:d('uninit')
-   self:depracate()
+
+   -- get rid of timeouts, if any
+   self.sm:UnInit()
+
+   -- (calling timeout would be probably futile)
+   self.pa:changed()
+
    self.pa.lap:remove(self.iid, self)
    self.pa:changed()
 end
 
 function lap:repr_data()
-   return mst.repr{prefix=self.prefix, iid=self.iid, 
+   return mst.repr{prefix=self.ascii_prefix, 
+                   iid=self.iid, 
                    za=self.assigned,
                    zd=self.depracated,
                   }
@@ -145,7 +173,7 @@ function lap:assign()
       local usp = self.asp.usp
       for i, lap2 in ipairs(self.pa.ifs[self.iid])
       do
-         if lap ~= lap2 and ipv6s.prefix_contains(usp.prefix, lap2.prefix)
+         if lap ~= lap2 and usp.prefix:contains(lap2.prefix)
          then
             lap2:depracate()
          end
@@ -195,9 +223,8 @@ asp = mst.create_class{class='asp', mandatory={'prefix',
                                                'pa'}}
 
 function asp:init()
-   local b = ipv6s.prefix_to_bin(self.prefix)
-   self:a(b)
-   self.binary_prefix = b
+   -- superclass init
+   ph.init(self)
 
    local added = self.pa.asp:insert(self.rid, self)
    self:a(added, "already existed?", self)
@@ -218,7 +245,7 @@ function asp:uninit()
 end
 
 function asp:repr_data()
-   return mst.repr{prefix=self.prefix, iid=self.iid, rid=self.rid}
+   return mst.repr{prefix=self.ascii_prefix, iid=self.iid, rid=self.rid}
 end
 
 function asp:find_lap(iid)
@@ -230,7 +257,7 @@ function asp:find_lap(iid)
    for i, v in ipairs(t or {})
    do
       self:d(' considering', v)
-      if v.prefix == self.prefix
+      if v.ascii_prefix == self.ascii_prefix
       then
          -- update the asp object, just in case..
          v.asp = self
@@ -275,7 +302,7 @@ function asp:unassign_lap(iid)
    -- brute-force through the lap - if prefix is same, we're good
    for _, lap in ipairs(self.pa.lap:values())
    do
-      if lap.prefix == self.prefix
+      if lap.ascii_prefix == self.ascii_prefix
       then
          lap:unassign()
          return
@@ -292,10 +319,10 @@ end
 usp = mst.create_class{class='usp', mandatory={'prefix', 'rid', 'pa'}}
 
 function usp:init()
-   local b = ipv6s.prefix_to_bin(self.prefix)
-   self:a(b)
-   self.binary_prefix = b
-   self.is_ula = string.sub(b, 1, 1) == ula_prefix
+   -- superclass init
+   ph.init(self)
+
+   self.is_ula = string.sub(self.binary_prefix, 1, 1) == ula_prefix
 
    local added = self.pa.usp:insert(self.rid, self)
    self:a(added, 'already existed?', self)
@@ -310,15 +337,16 @@ function usp:uninit()
 end
 
 function usp:repr_data()
-   return mst.repr{prefix=self.prefix, rid=self.rid}
+   return mst.repr{prefix=self.ascii_prefix, rid=self.rid}
 end
 
 
-function usp:get_random_prefix(iid, i)
+function usp:get_random_binary_prefix(iid, i)
    local b = self.binary_prefix
    i = i or 0
    -- get the rest of the bytes from md5
-   local s = string.format("%s-%s-%s-%d", self.pa.rid, iid, self.prefix, i)
+   local s = string.format("%s-%s-%s-%d", 
+                           self.pa.rid, iid, self.ascii_prefix, i)
    local sb = create_hash(s)
    p = b .. string.sub(sb, #b+1, 8)
    self:a(#p == 8)
@@ -328,10 +356,8 @@ end
 function usp:create_prefix_freelist(assigned)
    if self.freelist then return self.freelist end
 
-   local p = self.prefix
    local b = self.binary_prefix
    local t = mst.array:new()
-   local op = p
 
    self.freelist = t
 
@@ -350,15 +376,15 @@ function usp:create_prefix_freelist(assigned)
 
       if not assigned[p]
       then
-         local np = ipv6s.bin_to_prefix(p)
-         self:a(ipv6s.prefix_contains(op, np))
+         local np = ipv6s.new_prefix_from_binary(p)
+         self:a(self.prefix:contains(np))
          t:insert(np)
       end
 
       -- we're done once we're back at start
       if sp == p
       then
-         self:d('created freelist', op, #t)
+         self:d('created freelist', #t)
          return t
       end
    end
@@ -398,16 +424,16 @@ function pa:uninit()
    self:d('uninit')
 
    -- just kill the contents of all datastructures
-   self:filtered_values_done(self.usp)
-   self:filtered_values_done(self.asp)
    self:filtered_values_done(self.lap)
+   self:filtered_values_done(self.asp)
+   self:filtered_values_done(self.usp)
 end
 
 function pa:filtered_values_done(h, f)
    self:a(h.class == 'multimap')
    for i, o in ipairs(h:values())
    do
-      if f and f(o) 
+      if not f or f(o) 
       then 
          self:d('done with', o)
          o:done() 
@@ -457,7 +483,7 @@ function pa:run_if_usp(iid, neigh, usp)
    do
       -- XXX - complain that this seems broken
       -- (BCP38 stuff might make it not-so-working?)
-      if v.prefix ~= usp.prefix and ipv6s.prefix_contains(v.prefix, usp.prefix)
+      if v.ascii_prefix ~= usp.ascii_prefix and v.prefix:contains(usp.prefix)
       then
          self:d('skipped, containing prefix found')
          return
@@ -473,7 +499,7 @@ function pa:run_if_usp(iid, neigh, usp)
    for i, asp in ipairs(self.asp:values())
    do
       self:d(' considering', asp)
-      if ((asp.rid == rid and iid == asp.iid) or neigh[asp.rid] == asp.iid) and ipv6s.prefix_contains(usp.prefix, asp.prefix)
+      if ((asp.rid == rid and iid == asp.iid) or neigh[asp.rid] == asp.iid) and usp.prefix:contains(asp.prefix)
       then
          self:d(' fitting')
          if not highest or highest.rid < asp.rid
@@ -531,9 +557,9 @@ function pa:assign_own(iid, usp)
    local p
    for i, v in ipairs(self.lap:values())
    do
-      if v.iid == iid and v.deprecated and ipv6s.prefix_contains(usp.prefix, v.prefix)
+      if v.iid == iid and v.depracated and usp.prefix:contains(v.prefix)
       then
-         if not assigned[v.prefix]
+         if not assigned[v.binary_prefix]
          then
             p = v.prefix
          end
@@ -547,7 +573,7 @@ function pa:assign_own(iid, usp)
       then
          self:d('considering old assignments', usp.prefix)
 
-         for i, v in ipairs(old[usp.prefix] or {})
+         for i, v in ipairs(old[usp.ascii_prefix] or {})
          do
             --self:d('got', v)
             local oiid, oprefix = unpack(v)
@@ -649,12 +675,12 @@ function pa:find_new_from(iid, usp, assigned)
       -- expensive)
       for i=1,self.random_prefix_tries
       do
-         local p = usp:get_random_prefix(iid, i)
+         local p = usp:get_random_binary_prefix(iid, i)
          if not assigned[p]
          then
             --self:d('find_new_from random worked iteration', i)
-            local np = ipv6s.bin_to_prefix(p)
-            self:a(ipv6s.prefix_contains(usp.prefix, np))
+            local np = ipv6s.new_prefix_from_binary(p)
+            self:a(usp.prefix:contains(np))
             return np
          end
       end
@@ -686,7 +712,7 @@ function pa:check_asp_conflicts(iid, asp)
    for i, asp2 in ipairs(self.asp:values())
    do
       -- if conflict, with overriding rid is found, depracate prefix
-      if asp2.prefix == asp.prefix and asp2.rid > asp.rid
+      if asp2.ascii_prefix == asp.ascii_prefix and asp2.rid > asp.rid
       then
          -- as described in 6.3.3
          asp:depracate_lap(iid)
@@ -781,7 +807,7 @@ function pa:generate_ula()
    local bits = create_hash(hwf)
    -- create binary prefix - first one 0xFC, 5 bytes from bits
    local bp = ula_prefix .. string.sub(bits, 1, 5)
-   local p = ipv6s.bin_to_prefix(bp)
+   local p = ipv6s.new_prefix_from_binary(bp)
    usp:new{prefix=p, rid=my_rid, pa=self, valid=true}
 
    -- XXX store it on disk
@@ -906,7 +932,7 @@ function pa:add_or_update_usp(prefix, rid)
    self:a(self.ridr[rid], 'sanity-check failed - rid not reachable', rid)
    for i, o in ipairs(self.usp[rid] or {})
    do
-      if o.prefix == prefix
+      if o.ascii_prefix == prefix
       then
          self:d(' updated old usp')
          o.valid = true
@@ -920,7 +946,7 @@ end
 function pa:get_asp(prefix, iid, rid)
    for i, o in ipairs(self.asp[rid] or {})
    do
-      if o.prefix == prefix and o.iid == iid
+      if o.ascii_prefix == prefix and o.iid == iid
       -- and o.rid == rid (implicit from the hash by rid)
       then
          return o

@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Oct 18 13:08:21 2012 mstenber
--- Edit time:     239 min
+-- Last modified: Fri Oct 19 13:53:12 2012 mstenber
+-- Edit time:     245 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -69,10 +69,13 @@ LAP_EXPIRE_TIMEOUT=300
 -- probably good thing (and the individual interface-assigned prefixes
 -- will be depracated => will disappear soon anyway)
 
+-- elsa specific lap subclass
+
 elsa_lap = pa.lap:new_subclass{class='elsa_lap'}
 
 function elsa_lap:start_depracate_timeout()
    local loop = ssloop.loop()
+   self:d('start_depracate_timeout')
    self.timeout = loop:new_timeout_delta(LAP_DEPRACATE_TIMEOUT,
                                          function ()
                                             self.sm:Timeout()
@@ -81,12 +84,17 @@ function elsa_lap:start_depracate_timeout()
 end
 
 function elsa_lap:stop_depracate_timeout()
+   self:d('stop_depracate_timeout')
+
    mst.a(self.timeout, 'stop_depracate_timeout without timeout?!?')
-   self.timeout:stop()
+   self.timeout:done()
+   self.timeout = nil
 end
 
 function elsa_lap:start_expire_timeout()
    local loop = ssloop.loop()
+
+   self:d('start_expire_timeout')
    self.timeout = loop:new_timeout_delta(LAP_EXPIRE_TIMEOUT,
                                          function ()
                                             self.sm:Timeout()
@@ -95,12 +103,15 @@ function elsa_lap:start_expire_timeout()
 end
 
 function elsa_lap:stop_expire_timeout()
+   self:d('stop_expire_timeout')
    mst.a(self.timeout, 'stop_depracate_timeout without timeout?!?')
-   self.timeout:stop()
+   self.timeout:done()
+   self.timeout = nil
 end
 
 
-
+-- actual elsa_pa itself, which controls pa (and interfaces with
+-- skv/elsa-wrapper
 elsa_pa = mst.create_class{class='elsa_pa', mandatory={'skv', 'elsa'},
                           new_prefix_assignment=NEW_PREFIX_ASSIGNMENT,
                           new_ula_prefix=NEW_ULA_PREFIX}
@@ -256,7 +267,7 @@ function elsa_pa:run()
          then
             self:d('zombie interface', lap)
          end
-         t:insert({ifname=lap.ifname, prefix=lap.prefix,
+         t:insert({ifname=lap.ifname, prefix=lap.ascii_prefix,
                    depracate=lap.depracated and 1 or 0})
       end
       self.skv:set(OSPF_LAP_KEY, t)
@@ -277,7 +288,7 @@ function elsa_pa:run()
 
       function _dump_usp(usp, debug_source)
          local rid = usp.rid
-         local p = usp.prefix
+         local p = usp.ascii_prefix or usp.prefix
          if not dumped[p]
          then
             self:d('got from', debug_source, p)

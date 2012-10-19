@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Tue Oct  9 12:18:29 2012 mstenber
--- Edit time:     155 min
+-- Last modified: Fri Oct 19 12:56:21 2012 mstenber
+-- Edit time:     163 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -204,7 +204,7 @@ function prefix_body:try_decode(cur)
    r = cur:read(s)
    --o.prefix = ipv6s.binary_to_ascii(r)
    local nonpaddedr = string.sub(r, 1, o.prefix_length / 8)
-   o.prefix = ipv6s.bin_to_prefix(nonpaddedr)
+   o.prefix = ipv6s.new_prefix_from_binary(nonpaddedr, o.prefix_length)
    return o
 end
 
@@ -212,10 +212,13 @@ local _null = string.char(0)
 
 function prefix_body:do_encode(o)
    mst.a(o.prefix, 'prefix missing', o)
-   mst.a(o.prefix_length, 'prefix_length missing', o)
 
-   b = ipv6s.ascii_to_binary(o.prefix)
-   s = math.floor((o.prefix_length + 31) / 32)
+   -- assume it's ipv6s.ipv6_prefix object
+   local p = o.prefix
+   b = p:get_binary()
+   local bl = p:get_binary_bits()
+   o.prefix_length = bl
+   s = math.floor((bl + 31) / 32)
    s = s * 4
    pad = string.rep(_null, s-#b)
    return abstract_data.do_encode(self, o) .. b .. pad
@@ -240,17 +243,14 @@ function prefix_ac_tlv:try_decode(cur)
 end
 
 function prefix_ac_tlv:do_encode(o)
-   local l = mst.string_split(o.prefix, '/')
-   if not o.prefix_length
+   local p
+   if type(o.prefix) == 'string'
    then
-      -- figure prefix length frmo the prefix
-      self:a(#l == 2, "invalid prefix", l)
-      o.prefix_length = l[2]
+      p = ipv6s.new_prefix_from_ascii(o.prefix)
    else
-      self:a(#l <= 2, "invalid prefix", l)
+      p = o.prefix
    end
-   o.prefix = l[1]
-   local r = { prefix=o.prefix, prefix_length=o.prefix_length }
+   local r = { prefix=p }
    local body = prefix_body:do_encode(r)
    o.body = body
    return ac_tlv.do_encode(self, o)

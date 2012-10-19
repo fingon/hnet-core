@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Thu Oct 18 13:14:09 2012 mstenber
--- Edit time:     146 min
+-- Last modified: Fri Oct 19 13:37:55 2012 mstenber
+-- Edit time:     150 min
 --
 
 require 'mst'
@@ -304,7 +304,7 @@ describe("elsa_pa [one node]", function ()
                                end)
 
 describe("elsa_pa multinode", function ()
-            it("2 sync state ok", function ()
+            it("2 sync state ok #mn", function ()
                   --mst.d_xpcall(function ()
 
                   local base_lsas = {r1=usp_dead_tlv}
@@ -337,7 +337,7 @@ describe("elsa_pa multinode", function ()
                   do
                      for i, asp in ipairs(ep.pa.asp:values())
                      do
-                        mst.a(string.sub(asp.prefix, -#valid_end) == valid_end, 'invalid prefix', asp.prefix)
+                        mst.a(string.sub(asp.ascii_prefix, -#valid_end) == valid_end, 'invalid prefix', asp)
 
                      end
                      mst.a(ep.pa.asp:count() == 3)

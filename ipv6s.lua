@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Fri Oct 19 12:17:49 2012 mstenber
--- Edit time:     54 min
+-- Last modified: Fri Oct 19 13:14:19 2012 mstenber
+-- Edit time:     69 min
 --
 
 require 'mst'
@@ -18,14 +18,14 @@ require 'mst'
 module(..., package.seeall)
 
 -- ipv6 handling stuff
-function ascii_cleanup_sub(nl, si, ei, r)
+function address_cleanup_sub(nl, si, ei, r)
    for i=si,ei
    do
       table.insert(r, string.format("%x", nl[i]))
    end
 end
 
-function ascii_cleanup(s)
+function address_cleanup(s)
    local sl = mst.string_split(s, ':')
    local nl = mst.array_map(sl, function (x) return mst.strtol(x, 16) end)
    local best = false
@@ -52,22 +52,22 @@ function ascii_cleanup(s)
    local r = {}
    if best
    then
-      ascii_cleanup_sub(nl, 1, best[2]-1, r)
+      address_cleanup_sub(nl, 1, best[2]-1, r)
       table.insert(r, '')
       if best[1]+best[2] >  #nl
       then
          table.insert(r, '')
       else
-         ascii_cleanup_sub(nl, best[1]+best[2], #nl, r)
+         address_cleanup_sub(nl, best[1]+best[2], #nl, r)
       end
    else
-      ascii_cleanup_sub(nl, 1, #nl, r)
+      address_cleanup_sub(nl, 1, #nl, r)
    end
    return table.concat(r, ":")
 end
 
-function binary_to_ascii(b)
-   mst.a(type(b) == 'string', 'non-string input to binary_to_ascii', b)
+function binary_address_to_address(b)
+   mst.a(type(b) == 'string', 'non-string input to binary_address_to_address', b)
    --assert(#b % 4 == 0, 'non-int size')
    local t = {}
    -- let's assume we're given ipv6 address in binary. convert it to ascii
@@ -80,17 +80,17 @@ function binary_to_ascii(b)
       end
       table.insert(t, string.format('%02x', b))
    end
-   return ascii_cleanup(table.concat(t))
+   return address_cleanup(table.concat(t))
 end
 
 local _null = string.char(0)
 
-function ascii_to_binary(b)
-   mst.a(type(b) == 'string', 'non-string input to ascii_to_binary', b)
+function address_to_binary_address(b)
+   mst.a(type(b) == 'string', 'non-string input to address_to_binary', b)
    -- let us assume it is in standard XXXX:YYYY:ZZZZ: format, with
    -- potentially one ::
    local l = mst.string_split(b, ":")
-   --mst.d('ascii_to_binary', l)
+   --mst.d('address_to_binary', l)
 
    mst.a(#l <= 8) 
    local idx = false
@@ -128,7 +128,7 @@ function ascii_to_binary(b)
 end
 
 -- convert binary prefix to binary address (=add trailing 0's)
-function prefixbin_to_addrbin(b)
+function binary_prefix_to_binary_address(b)
    if #b < 16
    then
       return b .. string.rep(string.char(0), 16-#b)
@@ -139,19 +139,19 @@ end
 
 
 -- convert prefix to binary address blob with only relevant bits included
-function prefix_to_bin(p)
+function prefix_to_binary_prefix(p)
    local l = mst.string_split(p, '/')
-   mst.a(#l == 2, 'invalid prefix', p)
+   mst.a(#l == 2, 'invalid prefix (no prefix length)', p)
    mst.a(l[2] % 8 == 0, 'bit-based prefix length handling not supported yet')
-   local b = ascii_to_binary(l[1])
+   local b = address_to_binary_address(l[1])
    return string.sub(b, 1, l[2] / 8)
 end
 
 -- assume that everything within is actually relevant
-function bin_to_prefix(bin)
+function binary_prefix_to_prefix(bin)
    local bits = #bin * 8
-   local bin = prefixbin_to_addrbin(bin)
-   return string.format('%s/%d', binary_to_ascii(bin), bits)
+   local bin = binary_prefix_to_binary_address(bin)
+   return string.format('%s/%d', binary_address_to_address(bin), bits)
 end
 
 function binary_prefix_contains(b1, b2)
@@ -166,8 +166,8 @@ end
 
 function prefix_contains(p1, p2)
    mst.a(p1 and p2, 'invalid arguments to prefix_contains', p1, p2)
-   local b1 = prefix_to_bin(p1)
-   local b2 = prefix_to_bin(p2)
+   local b1 = prefix_to_binary_prefix(p1)
+   local b2 = prefix_to_binary_prefix(p2)
    return binary_prefix_contains(b1, b2)
 end
 
@@ -202,7 +202,7 @@ end
 -- prefix, generate eui64 masked address (e.g. addr/64)
 function prefix_hwaddr_to_eui64(prefix, hwaddr)
    -- start is easy - prefix as binary
-   local bp = prefix_to_bin(prefix)
+   local bp = prefix_to_binary_prefix(prefix)
    mst.a(#bp == 8, 'invalid base prefix')
    -- then, generat binary representation of hw hwaddr.. which is bit depressing
    local t = mst.string_split(hwaddr, ':')
@@ -220,7 +220,7 @@ function prefix_hwaddr_to_eui64(prefix, hwaddr)
    hwn:extend(hwa:slice(4, 6))
    local hwb = string.char(unpack(hwn))
    local b = bp .. hwb
-   return binary_to_ascii(b) .. '/64'
+   return binary_address_to_address(b) .. '/64'
 end
 
 function prefix_bits(addr)
@@ -237,7 +237,57 @@ function eui64_to_prefix(addr)
    local bits = prefix_bits(addr)
    mst.a(bits == 64, 'non-64 bit eui64 address?', addr)
 
-   local bprefix = prefix_to_bin(addr)
-   local prefix = ipv6s.bin_to_prefix(bprefix)
+   local bprefix = prefix_to_binary_prefix(addr)
+   local prefix = ipv6s.binary_prefix_to_prefix(bprefix)
    return prefix
 end
+
+-- OO approach - object
+
+ipv6_prefix = mst.create_class{class='ipv6_prefix'}
+
+function ipv6_prefix:init()
+   -- must have EITHER ascii or binary representation to start with!
+   self:a(self.ascii or self.binary)
+end
+
+function ipv6_prefix:get_ascii()
+   if not self.ascii
+   then
+      self:a(self.binary)
+      self.ascii = binary_prefix_to_prefix(self.binary)
+   end
+   return self.ascii
+end
+
+function ipv6_prefix:get_binary()
+   if not self.binary
+   then
+      self:a(self.ascii)
+      self.binary = prefix_to_binary_prefix(self.ascii)
+   end
+   return self.binary
+end
+
+function ipv6_prefix:get_binary_bits()
+   if self.binary_bits then return self.binary_bits end
+   return #self:get_binary() * 8
+end
+
+function ipv6_prefix:repr()
+   return mst.repr(self:get_ascii())
+end
+
+
+function ipv6_prefix:contains(p2)
+   return prefix_contains(self:get_ascii(), p2:get_ascii())
+end
+
+function new_prefix_from_ascii(s)
+   return ipv6_prefix:new{ascii=s}
+end
+
+function new_prefix_from_binary(b, binary_bits)
+   return ipv6_prefix:new{binary=b, binary_bits=binary_bits}
+end
+

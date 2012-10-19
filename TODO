@@ -230,6 +230,11 @@ and make sure result is sane
 
 * Improvements that affect only performance
 
+data point 2012/10/19: 4 Birds up, ~10 min of CPU each in 2 hours
+
+.. but ~600MB of log each => should do same test without enabled debugging
+and see how much that takes
+
 ** Aggregate the updates somehow
 
 - either glob things to bigger blobs (e.g. 'ospf-pa' key) [possibly
