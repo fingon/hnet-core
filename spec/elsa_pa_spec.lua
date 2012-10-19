@@ -9,8 +9,8 @@
 --       All rights reserved
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Thu Oct 18 13:10:23 2012 mstenber
--- Edit time:     145 min
+-- Last modified: Thu Oct 18 13:14:09 2012 mstenber
+-- Edit time:     146 min
 --
 
 require 'mst'
@@ -254,6 +254,26 @@ describe("elsa_pa [one node]", function ()
 
 
                                                         end)
+
+            it("6rd also works via skv configuration #skv2", function ()
+                  -- in the beginning, should only get nothing
+                  ep:run()
+                  mst.a(not usp_added)
+                  mst.a(not asp_added)
+
+                  -- now we fake it that we got prefix from pd
+                  -- (skv changes - both interface list, and pd info)
+                  s:set(elsa_pa.SIXRD_SKVPREFIX .. elsa_pa.PREFIX_KEY .. 
+                        elsa_pa.SIXRD_DEV,
+                        -- prefix[,valid]
+                        {'dead::/16'}
+                       )
+                  
+                  -- make sure it's recognized as usp
+                  ep:run()
+                  mst.a(usp_added)
+                  mst.a(not asp_added)
+                                                             end)
 
             it("duplicate detection works - smaller", function ()
                   e.lsas={mypid=rhf_low_tlv,
