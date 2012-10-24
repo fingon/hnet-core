@@ -5,7 +5,7 @@
 --
 -- Author: Markus Stenberg <fingon@iki.fi>
 --
---  Copyright (c) 2012 Markus Stenberg
+--  Copyright (c) 2012 cisco Systems, Inc.
 --       All rights reserved
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber

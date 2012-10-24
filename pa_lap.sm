@@ -1,3 +1,10 @@
+//
+// Author: Markus Stenberg <fingon@iki.fi>
+//
+//  Copyright (c) 2012 cisco Systems, Inc.
+//       All rights reserved
+//
+
 // This is 'locally assigned prefix' state machine.
 // It receives 3 types of events:
 

@@ -1,3 +1,10 @@
+#
+# Author: Markus Stenberg <fingon@iki.fi>
+#
+#  Copyright (c) 2012 cisco Systems, Inc.
+#       All rights reserved
+#
+
 LUA_SMS=skv_sm.lua pa_lap_sm.lua
 TESTS=$(wildcard spec/*.lua)
 SMC=../smc/bin/smc.jar

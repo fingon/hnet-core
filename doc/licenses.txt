@@ -1,0 +1,21 @@
+Included source code
+--------------------
+thirdparty/strict.lua
+part of Lua - MIT license - http://www.lua.org/copyright.html
+
+thirdparty/statemap.lua
+part of SMC - MPL 1.1 - http://smc.sourceforge.net/SmcFaq.htm
+
+thirdparty/sha1.lua
+public domain - http://regex.info/blog/lua/sha1
+
+Referred libraries
+------------------
+luasocket
+MIT license - http://w3.impa.br/~diego/software/luasocket/
+
+vstruct
+public domain - https://github.com/ToxicFrog/vstruct
+
+busted - unit testing framework
+MIT license - http://olivinelabs.com/busted/
