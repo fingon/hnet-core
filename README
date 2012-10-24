@@ -26,6 +26,8 @@ if unittests should be runnable
 * Installation
 --------------
 
+(This is work in progress, *sigh*)
+
 # XXX - how to get SMC easily
 
 # apt-get install luarocks graphviz liblua5.1-dev
