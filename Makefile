@@ -1,8 +1,7 @@
 #
 # Author: Markus Stenberg <fingon@iki.fi>
 #
-#  Copyright (c) 2012 cisco Systems, Inc.
-#       All rights reserved
+# Copyright (c) 2012 cisco Systems, Inc.
 #
 
 LUA_SMS=skv_sm.lua pa_lap_sm.lua

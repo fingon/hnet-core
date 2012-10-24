@@ -15,7 +15,6 @@
 --
 -- Port to Lua by Francois Perrad, francois.perrad@gadz.org
 -- Copyright 2007, Francois Perrad.
--- All Rights Reserved.
 --
 -- Contributor(s):
 --
