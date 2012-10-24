@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Thu Oct 18 11:00:25 2012 mstenber
--- Edit time:     190 min
+-- Last modified: Thu Oct 25 00:30:18 2012 mstenber
+-- Edit time:     195 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -65,6 +65,10 @@ function pm:kv_changed(k, v)
    then
       self.ospf_lap = v
       self:check_ospf_vs_real()
+   elseif k == elsa_pa.OSPF_DNS_KEY
+   then
+      self.ospf_dns = v
+      self:check_ospf_vs_real(1)
    else
       -- if it looks like pd change, we may be also interested
       --if string.find(k, '^' .. elsa_pa.PD_KEY) then self:check_rules() end
@@ -260,7 +264,8 @@ function pm:repr_data()
    return mst.repr{ospf_lap=self.ospf_lap and #self.ospf_lap or 0}
 end
 
-function pm:check_ospf_vs_real()
+function pm:check_ospf_vs_real(changes)
+   changes = changes or 0
    if not self.ospf_lap or not self.ospf_usp
    then
       return
@@ -287,7 +292,6 @@ function pm:check_ospf_vs_real()
    local real_keys = real_lap:keys():to_set()
 
    local valid_end='::/64'
-   local changes = 0
 
    -- 3 cases to consider
    -- only in ospf_lap
@@ -349,6 +353,10 @@ function pm:write_radvd_conf()
       t:insert('  AdvManagedFlag off;')
       t:insert('  AdvOtherConfigFlag off;')
       t:insert('  AdvDefaultLifetime 600;')
+      for i, addr in ipairs(self.ospf_dns or {})
+      do
+         t:insert('  RDNSS ' .. addr .. ' {};')
+      end
       for i, lap in ipairs(self.ospf_lap)
       do
          if lap.ifname == ifname

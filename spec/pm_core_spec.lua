@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Thu Oct 18 13:11:20 2012 mstenber
+-- Last modified: Thu Oct 25 00:30:57 2012 mstenber
 -- Edit time:     52 min
 --
 
@@ -113,6 +113,10 @@ describe("pm", function ()
                            s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.PREFIX_KEY .. 'eth0', 
                                  -- prefix[,valid]
                                  'dead::/16'
+                                )
+                           s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.DNS_KEY .. 'eth0', 
+                                 -- dns
+                                 'dead::1'
                                 )
                            s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.NH_KEY .. 'eth0', 
                                  -- just address
