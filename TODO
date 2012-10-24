@@ -3,40 +3,69 @@
 * Bugs to fix
 * Things to do
 
-** Fix 'flakiness'
+** Demo topology?
 
-~500 second+X interval when the connectivity goes down
+[ - IETF v6? (/x?) ]
 
-theory: RA refresh interval _is_ 600; based on looking at logs, 
+ISP-CPE-N
+- HE tunnel (/48)
+- DHCPv6 PD server (delegating /56s from /48)
 
-.. probably addressed it. still, something better is desirable?
+** Demo features?
 
-use old ifname+nh until new one available; don't remove old if new one not
-available!
+- DHCPv6 PD running on all interfaces
+
+ => ~wan if receive something
+
+- ULA all the time?
+
+(MarkT's keen to test it)
+
+- DNS
+
+ - learn from DHCPv6 PD
+
+ - RA, stateless DHCPv6
+
+~secondary - IPv4
+
+ - need to have IPv4 routing protocol (BIRD?)
+
+ - BIRD not necessarily optimal? 
+
+** Make elsa.lua location configuration option
+
+Hardcoding is bad, mmkay - and if not present, disable the whole thing
+
+** Add DNS support
+
+- store them in OSPF?
+
+- provide out with RA (Linux doesn't really use, I suppose) and DHCPv6
+  stateless (trivial config file addition)
 
 ** Compile for Buffalo, get it working there
 
 - write scripts (using Python telnetlib) to produce ~desired router config
   from scratch
 
-
-Plan A: Use vanilla image, do necessary building on top
-
-- install desired packages (at least luasocket)
-
-  http://wiki.openwrt.org/doc/techref/opkg
-
-- cross-compile only BIRD
-
-  => world's your oyster
-
-OR
-
 Plan B: Change OpenWRT installation s.t. luasocket is default, and so is
 patches BIRD
 
-(probably the plan B is actually easier; after that, need to only worry
-about configuration files, the image is plug-n-play out of the box)
+~howto
+
+.. need also iproute2 package ..
++ homenet-feed (feeds.conf add)
++ prefer it (scripts/feeds install -p homenet)
++ install bird6
+
+=> by default included
+
+- scripts 
+ - fire up both bird6 + pm with valid config
+ - fire up ISC DHCPv6 PD client with appropriate script
+
+=> zero-conf(!)
 
 ** Comprehensively test PA alg (2/2)
 
@@ -44,7 +73,11 @@ about configuration files, the image is plug-n-play out of the box)
 
 * Things to do if I have time (hah)
 
-** Minimize the BIRD changes (now there's still too many leftovers)
+** Cleanup BIRD changes
+
+- whitespace?
+- works with, without lua? with ipv6, without ipv6?
+ - should automate these tests
 
 ** Optimize PA alg
 
@@ -223,7 +256,8 @@ DHCPv6 solicit flooding isn't really neccessary?)
 
 ** 6rd sunsetting
 
-right now probably won't work correctly; but does anyone care :p
+right now probably won't work correctly due to ignoring preferences; but
+does anyone care :p
 
 .. to do: write testcase which has 6rd+native with same assigned prefix,
 and make sure result is sane
@@ -245,7 +279,29 @@ or
 - send updates via 0-timeout in event loop in single big packets [requires
   bit smarter handling code]
 
+* Done (22.10.+)
+
+** Cleanup BIRD changes
+
++ works with, without lua? with ipv6, without ipv6?
+
+** Minimize the BIRD changes (now there's still too many leftovers)
+
 * Done (15.10.+)
+
+
+** Fix 'flakiness'
+
+~500 second+X interval when the connectivity goes down
+
+theory: RA refresh interval _is_ 600; based on looking at logs, 
+
+.. probably addressed it. still, something better is desirable?
+
+use old ifname+nh until new one available; don't remove old if new one not
+available!
+
+[approach: don't use kernel RA/default routes => seems to work?]
 
 ** Multihoming support
 
