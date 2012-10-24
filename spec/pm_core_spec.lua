@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Thu Oct 25 00:30:57 2012 mstenber
--- Edit time:     52 min
+-- Last modified: Thu Oct 25 01:32:33 2012 mstenber
+-- Edit time:     57 min
 --
 
 -- testsuite for the pm_core
@@ -118,6 +118,10 @@ describe("pm", function ()
                                  -- dns
                                  'dead::1'
                                 )
+                           s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.DNS_SEARCH_KEY .. 'eth0', 
+                                 -- dns search
+                                 'dummy.local'
+                                )
                            s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.NH_KEY .. 'eth0', 
                                  -- just address
                                  'fe80:1234:2345:3456:4567:5678:6789:789a'
@@ -137,7 +141,13 @@ describe("pm", function ()
                   mst.array_extend(d, rule_base)
                   setup_fakeshell(d)
                   ep:run()
+                  mst.a(pm:run())
+                  mst.a(not pm:run())
                   mst.a(arri == #arr, 'did not consume all?', arri, #arr)
+                  local s = mst.read_filename_to_string(TEMP_RADVD_CONF)
+                  mst.a(string.find(s, 'RDNSS'), 'RDNSS missing')
+                  mst.a(string.find(s, 'DNSSL'), 'DNSSL missing')
+
                         end)
             it("works - but no nh => table should be empty", function ()
                   -- get rid of the nh
@@ -146,6 +156,8 @@ describe("pm", function ()
                   mst.array_extend(d, rule_no_nh)
                   setup_fakeshell(d)
                   ep:run()
+                  mst.a(pm:run())
+                  mst.a(not pm:run())
                   mst.a(arri == #arr, 'did not consume all?', arri, #arr)
                   
                                                              end)

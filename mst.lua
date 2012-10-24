@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Fri Oct 19 13:15:53 2012 mstenber
--- Edit time:     465 min
+-- Last modified: Thu Oct 25 01:09:29 2012 mstenber
+-- Edit time:     468 min
 --
 
 -- data structure abstractions provided:
@@ -1128,13 +1128,16 @@ function execute_to_string(cmd, redirect_stderr)
    then
       return nil, 'os.execute returned ' .. repr(r)
    end
-   local f = io.open(n)
+   local s = read_filename_to_string(n)
+   mst.d('got', s)
+   os.remove(n)
+   return s
+end
+
+function read_filename_to_string(filename)
+   local f = io.open(filename)
    local d = f:read('*a')
    f:close()
-   mst.d('got', d)
-
-   os.remove(n)
-
    return d
 end
 

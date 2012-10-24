@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Oct 24 23:49:19 2012 mstenber
--- Edit time:     265 min
+-- Last modified: Thu Oct 25 01:15:39 2012 mstenber
+-- Edit time:     279 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -39,9 +39,11 @@ SIXRD_DEV='6rd'
 
 PREFIX_KEY='prefix.'
 DNS_KEY='dns.'
+DNS_SEARCH_KEY='dns-search.'
 NH_KEY='nh.'
 
 JSON_DNS_KEY='dns'
+JSON_DNS_SEARCH_KEY='dns-search'
 
 PD_IFLIST_KEY='pd-iflist'
 
@@ -49,6 +51,7 @@ OSPF_RID_KEY='ospf-rid'
 OSPF_LAP_KEY='ospf-lap'
 OSPF_USP_KEY='ospf-usp'
 OSPF_DNS_KEY='ospf-dns'
+OSPF_DNS_SEARCH_KEY='ospf-dns-search'
 OSPF_IFLIST_KEY='ospf-iflist'
 
 -- from the draft; time from boot to wait iff no other routers around
@@ -285,8 +288,10 @@ function elsa_pa:run()
 
       -- set up the 'all visible DNS servers' field (right now, bit
       -- formless, but oh well)
-      local t = self:get_dns_array()
-      self.skv:set(OSPF_DNS_KEY, t)
+      self.skv:set(OSPF_DNS_KEY, self:get_dns_array())
+
+      -- similarly search domains
+      self.skv:set(OSPF_DNS_SEARCH_KEY, self:get_dnssearch_array())
 
       -- toss in the usp's too
       local t = mst.array:new{}
@@ -471,33 +476,18 @@ function elsa_pa:iterate_skv_prefix_real(f)
    handle_if(SIXRD_DEV, SIXRD_SKVPREFIX, 2000)
 end
 
-function elsa_pa:get_local_dns_array()
-   local dns
-   for i, ifname in ipairs(self.all_seen_if_names:keys())
-   do
-      local o = self.skv:get(string.format('%s%s%s', 
-                                           PD_SKVPREFIX, DNS_KEY, ifname))
-      if o
-      then
-         if not dns then dns = mst.array:new{} end
-         dns:insert(o)
-      end
-   end
-   return dns
-end
-
-function elsa_pa:get_dns_array()
+function elsa_pa:get_field_array(locala, jsonfield)
    local s = mst.set:new{}
    
    -- get local ones
-   for i, addr in ipairs(self:get_local_dns_array() or {})
+   for i, addr in ipairs(locala)
    do
       s:insert(addr)
    end
 
    -- get global ones
    self:iterate_ac_lsa_tlv(function (json, lsa)
-                              for i, addr in ipairs(json.table[JSON_DNS_KEY] or {})
+                              for i, addr in ipairs(json.table[jsonfield] or {})
                               do
                                  s:insert(addr)
                               end
@@ -506,7 +496,39 @@ function elsa_pa:get_dns_array()
 
    -- return set as array
    return s:keys()
+end
 
+function elsa_pa:get_local_field_array(pdfield)
+   local t
+   for i, ifname in ipairs(self.all_seen_if_names:keys())
+   do
+      local o = self.skv:get(string.format('%s%s%s', 
+                                           PD_SKVPREFIX, pdfield, ifname))
+      if o
+      then
+         if not t then t = mst.array:new{} end
+         t:insert(o)
+      end
+   end
+   return t
+end
+
+function elsa_pa:get_local_dns_array()
+   return self:get_local_field_array(DNS_KEY) or {}
+end
+
+function elsa_pa:get_dns_array()
+   return self:get_field_array(self:get_local_dns_array(), 
+                               JSON_DNS_KEY)
+end
+
+function elsa_pa:get_local_dnssearch_array()
+   return self:get_local_field_array(DNS_SEARCH_KEY) or {}
+end
+
+function elsa_pa:get_dnssearch_array()
+   return self:get_field_array(self:get_local_dnssearch_array(), 
+                               JSON_DNS_SEARCH_KEY)
 end
 
 function elsa_pa:generate_ac_lsa()
@@ -531,8 +553,9 @@ function elsa_pa:generate_ac_lsa()
    -- generate 'FYI' blob out of local SKV state; right now, just the
    -- interface-specific DNS information, if any
    local t = mst.map:new{}
-   local dns = self:get_local_dns_array()
-   t[JSON_DNS_KEY] = dns
+   t[JSON_DNS_KEY] = self:get_local_dns_array()
+   t[JSON_DNS_SEARCH_KEY] = self:get_local_dnssearch_array()
+
    if t:count() > 0
    then
       a:insert(codec.json_ac_tlv:encode{table=t})

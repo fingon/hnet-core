@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Thu Oct 25 00:30:18 2012 mstenber
--- Edit time:     195 min
+-- Last modified: Thu Oct 25 01:31:32 2012 mstenber
+-- Edit time:     209 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -54,25 +54,62 @@ function pm:uninit()
 end
 
 function pm:kv_changed(k, v)
+   self:d('kv_changed', k, v)
    self.skv:add_change_observer(self.f_iflist, elsa_pa.OSPF_IFLIST_KEY)
    self.skv:add_change_observer(self.f_usp, elsa_pa.OSPF_USP_KEY)
    if k == elsa_pa.OSPF_USP_KEY
    then
       self.ospf_usp = v
-      self:check_ospf_vs_real()
-      self:check_rules()
+      self.pending_routecheck = true
+      self.pending_rulecheck = true
    elseif k == elsa_pa.OSPF_LAP_KEY
    then
       self.ospf_lap = v
-      self:check_ospf_vs_real()
+      self.pending_routecheck = true
    elseif k == elsa_pa.OSPF_DNS_KEY
    then
       self.ospf_dns = v
-      self:check_ospf_vs_real(1)
+      self.pending_rewrite_radvd = true
+   elseif k == elsa_pa.OSPF_DNS_SEARCH_KEY
+   then
+      self.ospf_dns_search = v
+      self.pending_rewrite_radvd = true
    else
       -- if it looks like pd change, we may be also interested
       --if string.find(k, '^' .. elsa_pa.PD_KEY) then self:check_rules() end
    end
+   self:schedule_run()
+end
+
+function pm:schedule_run()
+   -- nop - someone else should e.g. use event loop here with
+   -- 0-callback (to prevent duplicate actions on multiple skv changes
+   -- in short period of time)
+end
+
+function pm:run()
+   local actions = 0
+   if self.pending_routecheck
+   then
+      self:check_ospf_vs_real()
+      self.pending_routecheck = nil
+      actions = actions + 1
+   end
+   if self.pending_rulecheck
+   then
+      self:check_rules()
+      self.pending_rulecheck = nil
+      actions = actions + 1
+   end
+   if self.pending_rewrite_radvd
+   then
+      self:write_radvd_conf()
+      os.execute('killall -9 radvd 2>/dev/null')
+      os.execute('sh -c "radvd -C ' .. self.radvd_conf_filename .. '" 2>/dev/null ')
+      self.pending_rewrite_radvd = nil
+      actions = actions + 1
+   end
+   return actions > 0 and actions
 end
 
 function pm:invalidate_rules()
@@ -264,8 +301,7 @@ function pm:repr_data()
    return mst.repr{ospf_lap=self.ospf_lap and #self.ospf_lap or 0}
 end
 
-function pm:check_ospf_vs_real(changes)
-   changes = changes or 0
+function pm:check_ospf_vs_real()
    if not self.ospf_lap or not self.ospf_usp
    then
       return
@@ -292,6 +328,8 @@ function pm:check_ospf_vs_real(changes)
    local real_keys = real_lap:keys():to_set()
 
    local valid_end='::/64'
+
+   local changes = 0
 
    -- 3 cases to consider
    -- only in ospf_lap
@@ -325,9 +363,7 @@ function pm:check_ospf_vs_real(changes)
    -- rewrite the radvd configuration
    if changes > 0
    then
-      self:write_radvd_conf()
-      os.execute('killall -9 radvd 2>/dev/null')
-      os.execute('sh -c "radvd -C ' .. self.radvd_conf_filename .. '" 2>/dev/null ')
+      self.pending_rewrite_radvd = true
    end
 end
 
@@ -356,6 +392,10 @@ function pm:write_radvd_conf()
       for i, addr in ipairs(self.ospf_dns or {})
       do
          t:insert('  RDNSS ' .. addr .. ' {};')
+      end
+      for i, suffix in ipairs(self.ospf_dns_search or {})
+      do
+         t:insert('  DNSSL ' .. suffix .. ' {};')
       end
       for i, lap in ipairs(self.ospf_lap)
       do

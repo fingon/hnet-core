@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Thu Oct 25 00:08:55 2012 mstenber
--- Edit time:     160 min
+-- Last modified: Thu Oct 25 01:00:31 2012 mstenber
+-- Edit time:     166 min
 --
 
 require 'mst'
@@ -29,6 +29,7 @@ local rhf_high_tlv = codec.rhf_ac_tlv:encode{body=string.rep("z", 32)}
 local valid_end='::/64'
 
 local FAKE_DNS_ADDRESS='dead::1'
+local FAKE_DNS_SEARCH='dummy.local'
 
 -- override timeouts so that this won't take forever..
 elsa_pa.LAP_DEPRACATE_TIMEOUT=0.01
@@ -36,6 +37,7 @@ elsa_pa.LAP_EXPIRE_TIMEOUT=0.01
 
 local PD_PREFIX_KEY=elsa_pa.PD_SKVPREFIX .. elsa_pa.PREFIX_KEY
 local PD_DNS_KEY=elsa_pa.PD_SKVPREFIX .. elsa_pa.DNS_KEY
+local PD_DNS_SEARCH_KEY=elsa_pa.PD_SKVPREFIX .. elsa_pa.DNS_SEARCH_KEY
 local PD_NH_KEY=elsa_pa.PD_SKVPREFIX .. elsa_pa.NH_KEY
 
 function ensure_skv_usp_has_nh(s, should_nh, should_if)
@@ -184,6 +186,9 @@ describe("elsa_pa [one node]", function ()
                   -- make sure no DNS IF we don't have DNS info
                   local v = s:get(elsa_pa.OSPF_DNS_KEY)
                   mst.a(not v or #v == 0, 'DNS set?!?', v)
+
+                  local v = s:get(elsa_pa.OSPF_DNS_SEARCH_KEY)
+                  mst.a(not v or #v == 0, 'DNS search set?!?', v)
                    end)
 
             it("also works via skv configuration - but no ifs!", function ()
@@ -207,6 +212,9 @@ describe("elsa_pa [one node]", function ()
                   s:set(PD_DNS_KEY .. 'eth1',
                         FAKE_DNS_ADDRESS)
                   
+                  s:set(PD_DNS_SEARCH_KEY .. 'eth1',
+                        FAKE_DNS_SEARCH)
+                  
                   -- make sure it's recognized as usp
                   ep:run()
                   mst.a(usp_added)
@@ -218,7 +226,10 @@ describe("elsa_pa [one node]", function ()
 
                   -- make sure DNS gets set IF we have DNS info
                   local v = s:get(elsa_pa.OSPF_DNS_KEY)
-                  mst.a(#v > 0, 'DNS not set?!?', v)
+                  mst.a(mst.repr_equal(v, {FAKE_DNS_ADDRESS}))
+
+                  local v = s:get(elsa_pa.OSPF_DNS_SEARCH_KEY)
+                  mst.a(mst.repr_equal(v, {FAKE_DNS_SEARCH}))
 
                                                         end)
 
@@ -334,8 +345,8 @@ describe("elsa_pa multinode", function ()
                   local ep2 = elsa_pa.elsa_pa:new{elsa=e, skv=skv2, rid='ep2'}
 
                   -- store DNS information
-                  skv1:set(PD_DNS_KEY .. 'eth1', 'dead::1')
-
+                  skv1:set(PD_DNS_KEY .. 'eth1', FAKE_DNS_ADDRESS)
+                  skv1:set(PD_DNS_SEARCH_KEY .. 'eth1', FAKE_DNS_SEARCH)
 
                   -- run once, and make sure we get to pa.add_or_update_usp
 
@@ -363,6 +374,8 @@ describe("elsa_pa multinode", function ()
                   local v = skv2:get(elsa_pa.OSPF_DNS_KEY)
                   mst.a(mst.repr_equal(v, {FAKE_DNS_ADDRESS}))
 
+                  local v = skv2:get(elsa_pa.OSPF_DNS_SEARCH_KEY)
+                  mst.a(mst.repr_equal(v, {FAKE_DNS_SEARCH}))
 
                   -- cleanup
                   ep1:done()

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Fri Oct 12 11:10:45 2012 mstenber
--- Edit time:     5 min
+-- Last modified: Thu Oct 25 01:37:20 2012 mstenber
+-- Edit time:     8 min
 --
 
 -- 'prefix manager' (name still temporary)
@@ -27,6 +27,8 @@ require 'pm_core'
 require 'skv'
 require 'ssloop'
 
+local loop = ssloop.loop()
+
 -- XXX - option processing
 
 mst.d('initializing skv')
@@ -34,5 +36,18 @@ local s = skv.skv:new{long_lived=true}
 mst.d('initializing pm')
 local pm = pm_core.pm:new{shell=mst.execute_to_string, skv=s,
                           radvd_conf_filename='/etc/radvd.conf'}
+function pm:schedule_run()
+   local t
+   t = loop:new_timeout_delta(0,
+                              function ()
+                                 -- call run
+                                 pm:run()
+                                 
+                                 -- get rid of the timeout
+                                 t:done()
+                              end):start()
+   
+end
+
 mst.d('entering event loop')
-ssloop.loop():loop()
+loop:loop()
