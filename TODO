@@ -11,6 +11,16 @@ ISP-CPE-N
 - HE tunnel (/48)
 - DHCPv6 PD server (delegating /56s from /48)
 
+via DHCP, provide Google DNS server address
+
+https://developers.google.com/speed/public-dns/docs/using
+
+8.8.8.8
+8.8.4.4
+
+2001:4860:4860::8888
+2001:4860:4860::8844
+
 ** Demo features?
 
 - DHCPv6 PD running on all interfaces
@@ -210,10 +220,19 @@ NOT from v4-ULA.
 - ...
 
 
-** Plain naming support?
+** Simple DNS support
+
+- provide stateless DHCPv6 and RA DNS server + search domain information
 
 - should provide stateless DHCPv6 with DNS info at least (gathered from all
   providers?)
+
+
+
+** DNS with split horizon based on domains
+
+- multihomed, may want to use e.g. cisco.com server X, and for rest Y
+
 
 ** Border detection - DHCPv6 PD integration
 

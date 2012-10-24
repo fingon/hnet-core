@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Fri Oct 19 12:56:21 2012 mstenber
--- Edit time:     163 min
+-- Last modified: Wed Oct 24 23:24:02 2012 mstenber
+-- Edit time:     174 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -26,12 +26,22 @@
 local mst = require 'mst'
 local vstruct = require 'vstruct'
 local ipv6s = require 'ipv6s'
+local json = require "dkjson"
 
 module(..., package.seeall)
 
+-- from acee autoconfig draft
 AC_TLV_RHF=1
+
+-- from arkko prefix assignment draft
 AC_TLV_USP=2
 AC_TLV_ASP=3
+
+-- own proprietary state synchronization data (there can be 0-1 of
+-- these, and they contain single JSON-encoded table of arbitrary data
+-- I want to share across the homenet; obviously, each router can have
+-- one)
+AC_TLV_JSONBLOB=42
 
 MINIMUM_AC_TLV_RHF_LENGTH=32
 
@@ -285,9 +295,30 @@ asp_ac_tlv = prefix_ac_tlv:new{class='asp_ac_tlv',
                                header_default={type=AC_TLV_ASP, 
                                                length=0, iid=0}}
 
+-- json_ac_tlv
+
+json_ac_tlv = ac_tlv:new{class='json_ac_tlv', tlv_type=AC_TLV_JSONBLOB}
+
+function json_ac_tlv:try_decode(cur)
+   local o, err = ac_tlv.try_decode(self, cur)
+   if not o then return o, err end
+   -- 'body' should be valid json
+   self:a(o.body)
+   local t = json.decode(o.body)
+   o.table = t
+   return o
+end
+
+function json_ac_tlv:do_encode(o)
+   self:a(o.table, 'no table specified for json_ac_tlv')
+   local s = json.encode(o.table)
+   o.body = s
+   return ac_tlv.do_encode(self, o)
+end
+
 -- tlv list decoding
 
-local _tlv_decoders = {rhf_ac_tlv, usp_ac_tlv, asp_ac_tlv}
+local _tlv_decoders = {rhf_ac_tlv, usp_ac_tlv, asp_ac_tlv, json_ac_tlv}
 
 function decode_ac_tlvs(s)
 

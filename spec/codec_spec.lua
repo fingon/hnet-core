@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 18:34:49 2012 mstenber
--- Last modified: Fri Oct 19 13:00:26 2012 mstenber
--- Edit time:     15 min
+-- Last modified: Wed Oct 24 23:24:18 2012 mstenber
+-- Edit time:     16 min
 --
 
 require "busted"
@@ -26,6 +26,9 @@ local tests = {
    {codec.usp_ac_tlv, {prefix='dead::/16'}},
    {codec.asp_ac_tlv, {iid=3, prefix='dead::/16'}},
    {codec.asp_ac_tlv, {iid=3, prefix='dead:feed:dead:feed::/64'}},
+   {codec.json_ac_tlv, {table={foo='bar'}}},
+   {codec.json_ac_tlv, {table={'foo'}}},
+   {codec.json_ac_tlv, {table={'foo'}}},
 }
 
 describe("test the ac endecode",

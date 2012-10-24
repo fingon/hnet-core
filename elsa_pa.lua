@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Fri Oct 19 13:53:12 2012 mstenber
--- Edit time:     245 min
+-- Last modified: Wed Oct 24 23:49:19 2012 mstenber
+-- Edit time:     265 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -38,13 +38,17 @@ SIXRD_SKVPREFIX='6rd-'
 SIXRD_DEV='6rd'
 
 PREFIX_KEY='prefix.'
+DNS_KEY='dns.'
 NH_KEY='nh.'
+
+JSON_DNS_KEY='dns'
 
 PD_IFLIST_KEY='pd-iflist'
 
 OSPF_RID_KEY='ospf-rid'
 OSPF_LAP_KEY='ospf-lap'
 OSPF_USP_KEY='ospf-usp'
+OSPF_DNS_KEY='ospf-dns'
 OSPF_IFLIST_KEY='ospf-iflist'
 
 -- from the draft; time from boot to wait iff no other routers around
@@ -279,6 +283,11 @@ function elsa_pa:run()
       end
       self.skv:set(OSPF_IFLIST_KEY, t)
 
+      -- set up the 'all visible DNS servers' field (right now, bit
+      -- formless, but oh well)
+      local t = self:get_dns_array()
+      self.skv:set(OSPF_DNS_KEY, t)
+
       -- toss in the usp's too
       local t = mst.array:new{}
       local dumped = mst.set:new{}
@@ -462,6 +471,44 @@ function elsa_pa:iterate_skv_prefix_real(f)
    handle_if(SIXRD_DEV, SIXRD_SKVPREFIX, 2000)
 end
 
+function elsa_pa:get_local_dns_array()
+   local dns
+   for i, ifname in ipairs(self.all_seen_if_names:keys())
+   do
+      local o = self.skv:get(string.format('%s%s%s', 
+                                           PD_SKVPREFIX, DNS_KEY, ifname))
+      if o
+      then
+         if not dns then dns = mst.array:new{} end
+         dns:insert(o)
+      end
+   end
+   return dns
+end
+
+function elsa_pa:get_dns_array()
+   local s = mst.set:new{}
+   
+   -- get local ones
+   for i, addr in ipairs(self:get_local_dns_array() or {})
+   do
+      s:insert(addr)
+   end
+
+   -- get global ones
+   self:iterate_ac_lsa_tlv(function (json, lsa)
+                              for i, addr in ipairs(json.table[JSON_DNS_KEY] or {})
+                              do
+                                 s:insert(addr)
+                              end
+                           end, {type=codec.AC_TLV_JSONBLOB})
+
+
+   -- return set as array
+   return s:keys()
+
+end
+
 function elsa_pa:generate_ac_lsa()
    local a = mst.array:new()
 
@@ -480,6 +527,17 @@ function elsa_pa:generate_ac_lsa()
    do
       a:insert(codec.asp_ac_tlv:encode{prefix=asp.prefix, iid=asp.iid})
    end
+
+   -- generate 'FYI' blob out of local SKV state; right now, just the
+   -- interface-specific DNS information, if any
+   local t = mst.map:new{}
+   local dns = self:get_local_dns_array()
+   t[JSON_DNS_KEY] = dns
+   if t:count() > 0
+   then
+      a:insert(codec.json_ac_tlv:encode{table=t})
+   end
+
    if #a
    then
       return table.concat(a)
