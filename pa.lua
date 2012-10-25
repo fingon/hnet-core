@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Thu Oct 25 19:47:02 2012 mstenber
--- Edit time:     608 min
+-- Last modified: Thu Oct 25 23:17:52 2012 mstenber
+-- Edit time:     604 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -285,6 +285,7 @@ function asp:assign_lap(iid)
    self:a(self.class == 'asp')
    local lap = self:find_or_create_lap(iid)
    lap:assign()
+   lap.owner = self.rid == self.pa.rid and true or nil
 end
 
 function asp:depracate_lap(iid)

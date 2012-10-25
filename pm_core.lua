@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Thu Oct 25 16:18:58 2012 mstenber
--- Edit time:     238 min
+-- Last modified: Thu Oct 25 23:35:05 2012 mstenber
+-- Edit time:     252 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -115,9 +115,12 @@ function pm:run()
    end
    if self.pending_rewrite_dhcpd
    then
-      self:write_dhcpd_conf()
+      local owned = self:write_dhcpd_conf()
       os.execute('killall -9 dhcpd 2>/dev/null')
-      os.execute('sh -c "dhcpd -6 -cf ' .. self.radvd_conf_filename .. '" 2>/dev/null ')
+      if owned > 0
+      then
+         os.execute('sh -c "dhcpd -6 -cf ' .. self.dhcpd_conf_filename .. '" 2>/dev/null ')
+      end
       self.pending_rewrite_dhcpd = nil
    end
    self:d('run result', actions)
@@ -391,9 +394,9 @@ function pm:check_ospf_vs_real()
 end
 
 function pm:write_dhcpd_conf()
+   local owned = 0
    self:d('entered write_dhcpd_conf')
 
-   -- write configuration on per-interface basis.. 
    local fpath = self.dhcpd_conf_filename
    local f, err = io.open(fpath, 'w')
    self:a(f, 'unable to open for writing', fpath, err)
@@ -421,15 +424,37 @@ function pm:write_dhcpd_conf()
       
    end
 
-   for _, usp in ipairs(self.ospf_usp or {})
+   -- for each locally assigned prefix, if we're the owner (=publisher
+   -- of asp), run DHCPv6, otherwise not..
+   handled = mst.set:new{}
+   for i, lap in ipairs(self.ospf_lap)
    do
-      t:insert('subnet6 ' .. usp.prefix .. ' {};')
+      local dep = lap.depracate      
+      local own = lap.owner
+      -- this is used to prevent more than one subnet per interface
+      -- (sigh, ISC DHCP limitation #N)
+      local already_done = handled[lap.ifname]
+      if not dep and own and not already_done
+      then
+         handled:insert(lap.ifname)
+         owned = owned + 1
+         local p = ipv6s.ipv6_prefix:new{ascii=lap.prefix}
+         local b = p:get_binary()
+         local stb = b .. string.rep(string.char(0), 7) .. string.char(42)
+         local enb = b .. string.rep(string.char(0), 7) .. string.char(123)
+         local st = ipv6s.binary_address_to_address(stb)
+         local en = ipv6s.binary_address_to_address(enb)
+         t:insert('subnet6 ' .. lap.prefix .. ' {')
+         t:insert('  range6 ' .. st .. ' ' .. en .. ';')
+         t:insert('}')
+      end
    end
    f:write(t:join('\n'))
    f:write('\n')
 
    -- close the file
    io.close(f)
+   return owned
 end
 
 function pm:write_radvd_conf()

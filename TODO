@@ -26,21 +26,9 @@ https://developers.google.com/speed/public-dns/docs/using
 2001:4860:4860::8888
 2001:4860:4860::8844
 
-** Demo features?
 
-- DHCPv6 PD running on all interfaces
 
- => ~wan if receive something
-
-- ULA all the time?
-
-(MarkT's keen to test it)
-
-- DNS
-
- - learn from DHCPv6 PD
-
- - RA, stateless DHCPv6
+** Secondary demo features
 
 ~secondary - IPv4
 
@@ -51,13 +39,6 @@ https://developers.google.com/speed/public-dns/docs/using
 ** Make elsa.lua location configuration option
 
 Hardcoding is bad, mmkay - and if not present, disable the whole thing
-
-** Add DNS support
-
-- store them in OSPF?
-
-- provide out with RA (Linux doesn't really use, I suppose) and DHCPv6
-  stateless (trivial config file addition)
 
 ** Compile for Buffalo, get it working there
 
@@ -215,6 +196,17 @@ NOT from v4-ULA.
  - NAT rule 
  - DHCPv4 server per non-pd-v4.IF 
 
+*** Crazy idea 3
+
+Routers need v4 addresses to function; we can allocate them using the same
+'rid trumps' algorithm, from e.g. first /6 of the block (leaving the rest
+for DHCPv4 - 64 routers, 192 hosts per subnet)
+
+.. 'owner' responsible for running DHCPv4 server
+
+.. could even sync DHCPv4 state across the 'cloud' for redundancy, but why
+bother? DNS discovery?
+
 ** Document architecture better
 
 - at least what moves, where
@@ -224,16 +216,20 @@ NOT from v4-ULA.
 - ...
 
 
-** Simple DNS support
+** Improve DNS support
 
-- provide stateless DHCPv6 and RA DNS server + search domain information
-
-- should provide stateless DHCPv6 with DNS info at least (gathered from all
-  providers?)
+- provide _stateless_ DHCPv6 and RA DNS server + search domain information
 
 ! ISC DHCP P.O.S. does not do stateless stuff at all - needs some state to
   work. Clearly not the option we want to support => at some point have to
   write minimal DHCPv6 server (.. among other things. *sigh*)
+
+.. and stateful stuff is horrible, e.g.
+
+Interface eth1 matches multiple shared networks
+
+(can only have only subnet per interface, it seems)
+
 
 ! rdnssd does not support search domain (even in it's latest
   incarnation). even more stuff I could contirbute to, perhaps..
@@ -241,7 +237,6 @@ NOT from v4-ULA.
 ** DNS with split horizon based on domains
 
 - multihomed, may want to use e.g. cisco.com server X, and for rest Y
-
 
 ** Border detection - DHCPv6 PD integration
 
@@ -290,24 +285,37 @@ does anyone care :p
 .. to do: write testcase which has 6rd+native with same assigned prefix,
 and make sure result is sane
 
-* Improvements that affect only performance
-
-data point 2012/10/19: 4 Birds up, ~10 min of CPU each in 2 hours
-
-.. but ~600MB of log each => should do same test without enabled debugging
-and see how much that takes
-
-** Aggregate the updates somehow
-
-- either glob things to bigger blobs (e.g. 'ospf-pa' key) [possibly
-  inefficient in terms of transmitted data]
-
-or
-
-- send updates via 0-timeout in event loop in single big packets [requires
-  bit smarter handling code]
-
 * Done (22.10.+)
+
+** Demo features?
+
++ DHCPv6 PD running on all interfaces
+
+ => ~wan if receive something
+
++ DNS
+
+ + learn from DHCPv6 PD
+
+ + RA, stateless DHCPv6
+
+- ULA all the time?
+
+(MarkT's keen to test it; I'm still not sure..)
+
+** Aggregate the updates
+
+- _handle_ costly updates via 0-timeout in event loop in single big packets
+  [requires bit smarter handling code]
+
+** Add DNS support
+
++ store them in OSPF?
+
++ provide out with RA (Linux doesn't really use, I suppose) and DHCPv6
+  stateless (trivial config file addition)
+
+
 
 ** PA alg - phase 1 - invoke only if necessary
 

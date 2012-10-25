@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Oct 25 17:40:43 2012 mstenber
--- Edit time:     291 min
+-- Last modified: Thu Oct 25 23:16:59 2012 mstenber
+-- Edit time:     296 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -303,7 +303,8 @@ function elsa_pa:run()
             self:d('zombie interface', lap)
          end
          t:insert({ifname=lap.ifname, prefix=lap.ascii_prefix,
-                   depracate=lap.depracated and 1 or nil})
+                   depracate=lap.depracated and 1 or nil,
+                  owner=lap.owner})
       end
       self.skv:set(OSPF_LAP_KEY, t)
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Thu Oct 25 02:26:01 2012 mstenber
--- Edit time:     59 min
+-- Last modified: Thu Oct 25 23:16:30 2012 mstenber
+-- Edit time:     60 min
 --
 
 -- testsuite for the pm_core
@@ -150,6 +150,8 @@ describe("pm", function ()
                   local s = mst.read_filename_to_string(TEMP_RADVD_CONF)
                   mst.a(string.find(s, 'RDNSS'), 'RDNSS missing')
                   mst.a(string.find(s, 'DNSSL'), 'DNSSL missing')
+                  local s = mst.read_filename_to_string(TEMP_DHCPD_CONF)
+                  mst.a(string.find(s, 'subnet6'), 'subnet6 missing')
 
                         end)
             it("works - but no nh => table should be empty", function ()
