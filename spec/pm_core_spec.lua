@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Thu Oct 25 01:32:33 2012 mstenber
--- Edit time:     57 min
+-- Last modified: Thu Oct 25 02:26:01 2012 mstenber
+-- Edit time:     59 min
 --
 
 -- testsuite for the pm_core
@@ -25,6 +25,7 @@ require 'pa'
 module("pm_core_spec", package.seeall)
 
 local TEMP_RADVD_CONF='/tmp/radvd.conf'
+local TEMP_DHCPD_CONF='/tmp/dhcpd.conf'
 
 local _delsa = require 'delsa'
 delsa = _delsa.delsa
@@ -128,7 +129,9 @@ describe("pm", function ()
                                 )
 
                            pm = pm_core.pm:new{skv=s, shell=fakeshell,
-                                               radvd_conf_filename=TEMP_RADVD_CONF}
+                                               radvd_conf_filename=TEMP_RADVD_CONF,
+                                               dhcpd_conf_filename=TEMP_DHCPD_CONF,
+                                              }
                         end)
             after_each(function ()
                           pm:done()
