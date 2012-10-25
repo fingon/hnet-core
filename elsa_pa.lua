@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Oct 25 01:15:39 2012 mstenber
+-- Last modified: Thu Oct 25 16:17:57 2012 mstenber
 -- Edit time:     279 min
 --
 
@@ -274,7 +274,7 @@ function elsa_pa:run()
             self:d('zombie interface', lap)
          end
          t:insert({ifname=lap.ifname, prefix=lap.ascii_prefix,
-                   depracate=lap.depracated and 1 or 0})
+                   depracate=lap.depracated and 1})
       end
       self.skv:set(OSPF_LAP_KEY, t)
 

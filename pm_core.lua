@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Thu Oct 25 03:02:01 2012 mstenber
--- Edit time:     231 min
+-- Last modified: Thu Oct 25 16:18:58 2012 mstenber
+-- Edit time:     238 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -333,8 +333,15 @@ function pm:check_ospf_vs_real()
       local t = mst.map:new{}
       for i, v in ipairs(l)
       do
-         self:a(not t[v.prefix])
-         t[v.prefix] = v
+         local ov = t[v.prefix]
+         -- if we don't have old value, or old one is 
+         -- depracated, we clearly prefer the new one
+
+         -- XXX - add test cases for this
+         if not ov or ov.depracate
+         then
+            t[v.prefix] = v
+         end
       end
       return t
    end
@@ -464,8 +471,8 @@ function pm:write_radvd_conf()
             t:insert('    AdvOnLink on;')
             t:insert('    AdvAutonomous on;')
             local dep = lap.depracate
-            self:a(dep) -- has to be 0 or 1, not nil
-            mst.a(dep == 0 or dep == 1)
+            -- has to be nil or 1
+            mst.a(not dep or dep == 1)
             if dep == 1
             then
                t:insert('    AdvValidLifetime 7200;')
