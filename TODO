@@ -227,7 +227,12 @@ NOT from v4-ULA.
 - should provide stateless DHCPv6 with DNS info at least (gathered from all
   providers?)
 
+! ISC DHCP P.O.S. does not do stateless stuff at all - needs some state to
+  work. Clearly not the option we want to support => at some point have to
+  write minimal DHCPv6 server (.. among other things. *sigh*)
 
+! rdnssd does not support search domain (even in it's latest
+  incarnation). even more stuff I could contirbute to, perhaps..
 
 ** DNS with split horizon based on domains
 
