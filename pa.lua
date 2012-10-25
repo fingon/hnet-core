@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Thu Oct 25 19:32:25 2012 mstenber
--- Edit time:     603 min
+-- Last modified: Thu Oct 25 19:47:02 2012 mstenber
+-- Edit time:     608 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -604,6 +604,7 @@ function pa:assign_own(iid, usp)
       -- for now
       if self.ridr:count() == 1
       then
+         self:busy_until(self.new_prefix_assignment)
          self:d('hysteresis criteria filled - not assigning anything yet')
          return
       end
@@ -795,6 +796,7 @@ function pa:generate_ula()
    then
       if self.new_ula_prefix > 0 and self:time_since_start() < self.new_ula_prefix
       then
+         self:busy_until(self.new_ula_prefix)
          return
       end
    end
@@ -845,10 +847,24 @@ function pa:get_ifs_neigh_hash()
    return create_hash(mst.repr{self.ifs, self.neigh})
 end
 
+function pa:busy_until(seconds_delta_from_start)
+   -- XXX - add test cases to make sure this works correctly
+   if not self.busy or self.busy > seconds_delta_from_start
+   then
+      self.busy = seconds_delta_from_start
+   end
+end
+
 function pa:should_run()
+   -- XXX - add test cases to make sure we do things 'correctly'
+   -- (empirically, we seem to, but having test cases is better)
    local rid = self.rid
    local h = self:get_ifs_neigh_hash()
-   if h ~= self.last_ifs_neigh_hash
+   if self.busy and self.busy <= self:time_since_start()
+   then
+      self:d('no longer busy - should run')
+      self.busy = nil
+   elseif h ~= self.last_ifs_neigh_hash
    then
       self:d('should run - ifs/neighs changed')
       
