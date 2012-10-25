@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Oct 25 16:17:57 2012 mstenber
--- Edit time:     279 min
+-- Last modified: Thu Oct 25 17:40:43 2012 mstenber
+-- Edit time:     291 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -22,6 +22,11 @@
 
 -- #define LSA_T_AC        0xBFF0 /* Auto-Configuration LSA */
 --  /* function code 8176(0x1FF0): experimental, U-bit=1, Area Scope */
+
+-- XXX - document the API between elsa (wrapper), elsa_pa
+
+-- => ospf_changed()
+-- <= ???
 
 require 'mst'
 require 'codec'
@@ -126,6 +131,7 @@ function elsa_pa:init()
    self.first = true
    self.ridr_repr = ''
    self.skvp_repr = ''
+   self.ospf_changes = 0
    self.pa = pa.pa:new{rid=self.rid, client=self, lap_class=elsa_lap,
                        new_prefix_assignment=self.new_prefix_assignment,
                        new_ula_prefix=self.new_ula_prefix}
@@ -137,6 +143,10 @@ function elsa_pa:uninit()
    -- except clean up our own state
 
    self.pa:done()
+end
+
+function elsa_pa:ospf_changed()
+   self.ospf_changes = self.ospf_changes + 1
 end
 
 function elsa_pa:repr_data()
@@ -211,6 +221,9 @@ function elsa_pa:check_conflict(bonus_lsa)
    -- uh oh, our hwf < other hwf -> have to change
    self.elsa:change_rid(self.rid)
 
+   self.ospf_changes = 0
+   self.had_conflict = true
+
    return true
 end
 
@@ -222,7 +235,16 @@ function elsa_pa:run()
    --
    -- if someone like that exists, either we (or they) have to change
    -- their router id..
-   if self:check_conflict() then return end
+   if self.ospf_changes == 0
+   then
+      if self.had_conflict
+      then
+         self:d('had conflict, no changes => still have conflict')
+         return
+      end
+   else
+      if self:check_conflict() then return end
+   end
    
    self.skvp = mst.map:new()
    self:iterate_skv_prefix_real(function (p)
@@ -232,7 +254,14 @@ function elsa_pa:run()
    -- our rid may have changed -> change that of the pa too, just in case
    self.pa.rid = self.rid
 
-   local r = self.pa:run()
+   -- consider if either ospf change occured (we got callback), pa
+   -- itself is in turbulent state, or the if state changed
+   local r
+   if self.pa:should_run() or self.ospf_changes > 0 
+   then
+      self.ospf_changes = 0
+      r = self.pa:run{checked_should=true}
+   end
 
    self:d('pa.run result', r, self.first)
    local ridr_repr = mst.repr(self.pa.ridr)
@@ -274,7 +303,7 @@ function elsa_pa:run()
             self:d('zombie interface', lap)
          end
          t:insert({ifname=lap.ifname, prefix=lap.ascii_prefix,
-                   depracate=lap.depracated and 1})
+                   depracate=lap.depracated and 1 or nil})
       end
       self.skv:set(OSPF_LAP_KEY, t)
 

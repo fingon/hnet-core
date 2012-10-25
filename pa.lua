@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Fri Oct 19 13:47:31 2012 mstenber
--- Edit time:     573 min
+-- Last modified: Thu Oct 25 19:32:25 2012 mstenber
+-- Edit time:     603 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -127,9 +127,7 @@ function lap:uninit()
    -- get rid of timeouts, if any
    self.sm:UnInit()
 
-   -- (calling timeout would be probably futile)
-   self.pa:changed()
-
+   -- remove from parent, mark that parent changed
    self.pa.lap:remove(self.iid, self)
    self.pa:changed()
 end
@@ -816,9 +814,7 @@ function pa:route_to_rid(rid)
    return self.ridr[rid]
 end
 
-function pa:run()
-   self:d('run called')
-
+function pa:update_ifs_neigh()
    local client = self.client
    local rid = self.rid
 
@@ -827,7 +823,6 @@ function pa:run()
    -- store the index => if-object (and less material index => highest-rid)
    self.ifs = mst.map:new()
    self.neigh = mst.map:new()
-
    client:iterate_if(rid, function (ifo)
                         self:d('got if', ifo)
                         self.ifs[ifo.index] = ifo
@@ -843,7 +838,65 @@ function pa:run()
                         self.neigh[ifo.index] = t
                           end
                     )
+end
 
+function pa:get_ifs_neigh_hash()
+   self:update_ifs_neigh()
+   return create_hash(mst.repr{self.ifs, self.neigh})
+end
+
+function pa:should_run()
+   local rid = self.rid
+   local h = self:get_ifs_neigh_hash()
+   if h ~= self.last_ifs_neigh_hash
+   then
+      self:d('should run - ifs/neighs changed')
+      
+      self.last_ifs_neigh_hash = h
+   elseif self.changes > 0
+   then
+      self:d('should run - changes > 0 (timeouts)')
+   else
+      local should
+      -- check known USP's - if they are missing nh, that's valid
+      -- reason too (should be anomalous, temporary condition)
+      self.usp:foreach(function (ii, o) 
+                          -- we never have nh if it's us (locals
+                          -- handled per-if basis in elsa_pa)
+                          if o.rid == rid then return end
+
+                          -- not us => we should have nh, or
+                          -- routing table is still in flux
+                          local r = self:route_to_rid(o.rid) or {}
+                          if not r.nh
+                          then
+                             self:d('should run - missing rid.nh info', o, r)
+                             should = true
+                          end
+                          end)
+      if not should
+      then
+         return
+      end
+   end
+   -- one of the positive branches
+   return true
+end
+
+function pa:run(d)
+   self:d('run called')
+
+   local client = self.client
+   local rid = self.rid
+
+   self:a(client, 'no client')
+
+   d = d or {}
+   if not d.checked_should
+   then
+      -- run it just in case => counters get reset etc
+      self:should_run()
+   end
 
    -- mark existing data invalid
    -- (laps have their own lifecycle governed via timeouts etc)

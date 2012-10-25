@@ -1,6 +1,11 @@
 -*- outline -*-
 
 * Bugs to fix
+
+** Race condition between DHCPv6 PD request, and RADVD setup for ULA
+
+.. if RADVD is set up, we may get our _own_ address back
+
 * Things to do
 
 ** Demo topology?
@@ -117,13 +122,12 @@ pa.usp lookups - now use rid as key
 - containing prefix lookup cannot be optimized (or probably not worth it,
   #usp is small)
 
-
-*** PA alg - enable incremential mode 
+*** PA alg - phase 2 - enable incremential mode 
 
 step 1: LSAs changed, IFs changed (? - mostly LSAs in a network should be
 stable)
 
-*** PA alg - enable even more incremential mode 
+*** PA alg - phase 3 - enable even more incremential mode 
 
 step 2: individual LSA change notifications
 
@@ -304,6 +308,11 @@ or
   bit smarter handling code]
 
 * Done (22.10.+)
+
+** PA alg - phase 1 - invoke only if necessary
+
+pa:should_run() => call pa:run() only if needed
+=> major CPU savings in the infra ;) (at least with logging enabled)
 
 ** Cleanup BIRD changes
 

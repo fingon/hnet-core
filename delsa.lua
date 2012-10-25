@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Oct  5 00:09:17 2012 mstenber
--- Last modified: Tue Oct 16 10:56:37 2012 mstenber
--- Edit time:     9 min
+-- Last modified: Thu Oct 25 16:57:28 2012 mstenber
+-- Edit time:     13 min
 --
 
 require 'mst'
@@ -19,6 +19,11 @@ require 'dneigh'
 module(..., package.seeall)
 
 delsa = dneigh.dneigh:new_subclass{class='delsa', mandatory={'hwf'}}
+
+function delsa:init()
+   dneigh.dneigh.init(self)
+   self.nodes = {}
+end
 
 function delsa:repr_data()
    return string.format('#hwf=%d #iid=%d #lsas=%d #neigh=%d #routes=%d',
@@ -48,9 +53,35 @@ function delsa:iterate_if(rid, f)
    end
 end
 
+function delsa:add_router(epa, rid)
+   rid = rid or epa.rid
+   self.nodes[rid] = epa
+end
+
+function delsa:notify_ospf_changed(rid)
+   local epa = self.nodes[rid]
+   if epa
+   then
+      epa:ospf_changed()
+   end
+end
+
 function delsa:originate_lsa(lsa)
    self:a(lsa.type == elsa_pa.AC_TYPE)
    self.lsas[lsa.rid] = lsa.body
+
+   -- notify self
+   self:notify_ospf_changed(lsa.rid)
+
+   -- notify self + others that the lsas changed
+   self:iterate_if(lsa.rid, 
+                   function (ifo)
+                      self:iterate_ifo_neigh(lsa.rid, ifo, 
+                                             function (d)
+                                                local rid2 = d.rid
+                                                self:notify_ospf_changed(rid2)
+                                             end)
+                   end)
 end
 
 function delsa:change_rid()

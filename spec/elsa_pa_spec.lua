@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Thu Oct 25 01:00:31 2012 mstenber
--- Edit time:     166 min
+-- Last modified: Thu Oct 25 17:23:12 2012 mstenber
+-- Edit time:     171 min
 --
 
 require 'mst'
@@ -64,6 +64,7 @@ describe("elsa_pa [one node]", function ()
                            s = skv.skv:new{long_lived=true, port=31337}
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='mypid',
                                                     new_prefix_assignment=0}
+                           e:add_router(ep)
 
                            -- run once, and make sure we get to pa.add_or_update_usp
                            usp_added = false
@@ -120,6 +121,7 @@ describe("elsa_pa [one node]", function ()
 
                   -- then, we add the usp (from someone else than us)
                   e.lsas = {r1=usp_dead_tlv}
+                  ep:ospf_changed()
 
                   ep:run()
                   mst.a(usp_added)
@@ -148,6 +150,7 @@ describe("elsa_pa [one node]", function ()
                   -- now, get rid of the usp => eventually, the lap
                   -- should disappear
                   e.lsas = {}
+                  ep:ospf_changed()
                   mst.a(ep.pa.lap:count() > 0)
                   ssloop.loop():loop_until(function ()
                                               asp_added = false
@@ -170,6 +173,7 @@ describe("elsa_pa [one node]", function ()
                   local old_routes = e.routes
                   e.routes = {}
                   e.lsas = {r1=usp_dead_tlv}
+                  ep:ospf_changed()
 
                   -- add
                   ep:run()
@@ -301,6 +305,7 @@ describe("elsa_pa [one node]", function ()
             it("duplicate detection works - smaller", function ()
                   e.lsas={mypid=rhf_low_tlv,
                           r1=usp_dead_tlv}
+                  ep:ospf_changed()
                   ep:run()
                   mst.a(usp_added)
                   mst.a(not asp_added)
@@ -311,6 +316,7 @@ describe("elsa_pa [one node]", function ()
             it("duplicate detection works - greater", function ()
                   e.lsas={mypid=rhf_high_tlv,
                           r1=usp_dead_tlv}
+                  ep:ospf_changed()
                   ep:run()
                   mst.a(not usp_added)
                   mst.a(not asp_added)
@@ -343,6 +349,8 @@ describe("elsa_pa multinode", function ()
                   local skv2 = skv.skv:new{long_lived=true, port=31339}
                   local ep1 = elsa_pa.elsa_pa:new{elsa=e, skv=skv1, rid='ep1'}
                   local ep2 = elsa_pa.elsa_pa:new{elsa=e, skv=skv2, rid='ep2'}
+                  e:add_router(ep1)
+                  e:add_router(ep2)
 
                   -- store DNS information
                   skv1:set(PD_DNS_KEY .. 'eth1', FAKE_DNS_ADDRESS)
