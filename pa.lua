@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Thu Oct 25 23:17:52 2012 mstenber
--- Edit time:     604 min
+-- Last modified: Fri Oct 26 22:02:02 2012 mstenber
+-- Edit time:     615 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -44,8 +44,6 @@ function pcall(f)
 end
 local lap_sm = require 'pa_lap_sm'
 pcall = orig_pcall
-
-local ula_prefix = string.char(0xFC)
 
 module('pa', package.seeall)
 
@@ -319,8 +317,6 @@ usp = mst.create_class{class='usp', mandatory={'prefix', 'rid', 'pa'}}
 function usp:init()
    -- superclass init
    ph.init(self)
-
-   self.is_ula = string.sub(self.binary_prefix, 1, 1) == ula_prefix
 
    local added = self.pa.usp:insert(self.rid, self)
    self:a(added, 'already existed?', self)
@@ -737,28 +733,18 @@ function pa:assign_other(iid, asp)
    asp:assign_lap(iid)
 end
 
-function pa:non_own_ula_prefix_exists()
-   for i, v in ipairs(self.usp:values())
+function pa:matching_prefix_exists(filter)
+   for i, usp in ipairs(self.usp:values())
    do
-      -- advertised by someone else?
-      if v.rid ~= self.rid
-      then
-         return true
-      end
-
-      -- if it's our own, and non-ula, it's fine too
-      if not v.is_ula
-      then
-         return true
-      end
+      if filter(usp) then return true end
    end
 end
 
-function pa:generate_ula()
+function pa:generate_ulaish(filter, filter_own, generate_prefix)
    -- i) first off, if we _do_ have usable prefixes, use them
-   if self:non_own_ula_prefix_exists()
+   if self:matching_prefix_exists(filter)
    then
-      self:d('usp exists, generate_ula skipped')
+      self:d('something exists, generate_ulaish skipped')
       return
    end
 
@@ -782,12 +768,14 @@ function pa:generate_ula()
    local ownusps = self.usp[self.rid] or {}
    if #ownusps > 0
    then
-      self:a(#ownusps == 1)
-      local usp = ownusps[1]
-      self:a(usp.is_ula)
-      usp.valid = true
+      for i, usp in ipairs(ownusps)
+      do
+         if filter_own(usp)
+         then
+            usp.valid = true
+         end
+      end
       return
-
    end
 
    -- we don't
@@ -803,11 +791,7 @@ function pa:generate_ula()
    end
 
    -- generate usp
-   local hwf = self.client:get_hwf(self.rid)
-   local bits = create_hash(hwf)
-   -- create binary prefix - first one 0xFC, 5 bytes from bits
-   local bp = ula_prefix .. string.sub(bits, 1, 5)
-   local p = ipv6s.new_prefix_from_binary(bp)
+   local p = generate_prefix()
    usp:new{prefix=p, rid=my_rid, pa=self, valid=true}
 
    -- XXX store it on disk
@@ -940,7 +924,27 @@ function pa:run(d)
                            end)
 
    -- generate ULA prefix if necessary
-   self:generate_ula()
+   self:generate_ulaish(
+      -- filter others' (without which this is pointless)
+      function (usp)
+         return usp.rid ~= self.rid and not usp.prefix:is_ula()
+      end,
+
+      -- filter own ula prefixes
+      function (usp)
+         return usp.rid == self.rid and usp.prefix:is_ula()
+      end,
+
+      -- produce a new prefix
+      function ()
+         local hwf = self.client:get_hwf(self.rid)
+         local bits = create_hash(hwf)
+         -- create binary prefix - first one 0xFC, 5 bytes from bits => /48
+         local bp = ipv6s.ula_prefix .. string.sub(bits, 1, 5)
+         local p = ipv6s.new_prefix_from_binary(bp)
+         return p
+      end
+                       )
 
    -- drop those that are not valid immediately
    self:filtered_values_done(self.usp,

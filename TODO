@@ -2,10 +2,6 @@
 
 * Bugs to fix
 
-** Race condition between DHCPv6 PD request, and RADVD setup for ULA
-
-.. if RADVD is set up, we may get our _own_ address back
-
 * Things to do
 
 ** Demo topology?
@@ -35,6 +31,56 @@ https://developers.google.com/speed/public-dns/docs/using
  - need to have IPv4 routing protocol (BIRD?)
 
  - BIRD not necessarily optimal? 
+
+** IPv4 setup
+
+pieces:
+
+- dhclient with IPv4 _on interfaces with PD
+  => potentially detect outside edges of the network
+
+  [ started manually by PM ]
+
+  [ or can be manually configured too, e.g. v4-iflist; pd interfaces are
+    just a default ]
+
+  [[ can be also statically configured ]]
+
+- OSPFv3 changes (~pa.lua)
+
+ - v4-ext (external prefixes)
+
+ [ just toss 'em in JSON for the time being ]
+
+ - v4-usp (configured, prefix) combo => chosen from the router with highest
+   (configured, rid) tuple
+
+ [ can be probably normal USP with ~ULA-like behavior, with bit different
+ bit length, and extra constraint of it not being in v4-ext lists if not
+ manually configured? ]
+
+ - v4-asp - assigned from v4-usp
+
+ [ can be probably normal ASP, with different bit length ]
+
+ - v4-asa - assigned addresses on links to routers (rid-based duplicate
+   detection/elimination)
+
+ [ JSON contains list 'v4-asa' for a router ]
+
+  addresses have to be globally unique => which link they're attached on
+  doesn't matter (but usp-asp mechanism should result in the asp being only
+  on single switched network)
+
+- local address assignment on interfaces (IPv4); based on OSPFv3 [ in PM ]
+
+=> changes
+
+- pm* (v4 address assignment, dhclient running)
+- elsa_pa (SKV export, changes to originated LSA)
+- pa (most of the changes)
++ ipv6s (v4-encoding stuff)
+
 
 ** Make elsa.lua location configuration option
 
@@ -67,12 +113,19 @@ patches BIRD
 
 - think more corner cases to test
 
+
 * Things to do if I have time (hah)
+
+** Next-hop management in pm.lua
+
+DHCPv6 case - the next-hop router _may_ change, for various reasons, and
+now the internet connectivity stays down until DHCPv6 PD lease expires
+
 
 ** Cleanup BIRD changes
 
 - whitespace?
-- works with, without lua? with ipv6, without ipv6?
++ works with, without lua? with ipv6, without ipv6?
  - should automate these tests
 
 ** Optimize PA alg
@@ -118,6 +171,7 @@ just get provided with LSA updates
 
 
 
+
 ** IPv4 support
 
 What does it _mean_? RFC 1918 space allocation, pick _one_ random prefix,
@@ -132,6 +186,8 @@ NAT outbound stuff. Try to avoid detectable conflicts.
 - if not configured, ULA-like behavior
 
  - try for unique-ish based on v4-upstream's (SHOULD)
+
+  [ can publish the upstream addresses to make the choice sensible ]
 
 **** DIFFERENCE to ULA
 
@@ -154,6 +210,10 @@ v4-upstream (SHOULD)
 v4-ASP
 
 - like v6 ASP
+
+v4-AA
+
+- assigned addresses (to the routers)
 
 *** USP scheme
 
@@ -286,6 +346,16 @@ does anyone care :p
 and make sure result is sane
 
 * Done (22.10.+)
+
+** Race condition between DHCPv6 PD request, and RADVD setup for ULA
+
+.. if RADVD is set up, we may get our _own_ address back
+
+=> added temporary fix to ip-util, which will use -m option to deal with
+that case, and filters own addresses out
+
+(correct solution would be to do ND periodically, and offload the next hop
+maintenance to pm.lua)
 
 ** Demo features?
 

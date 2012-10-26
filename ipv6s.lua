@@ -8,13 +8,21 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Fri Oct 19 13:14:19 2012 mstenber
--- Edit time:     69 min
+-- Last modified: Fri Oct 26 21:51:34 2012 mstenber
+-- Edit time:     98 min
 --
 
 require 'mst'
 
 module(..., package.seeall)
+
+-- ULA addresses are just fcXX:*
+ula_prefix = string.char(0xFC)
+
+-- 10x 0, 2x ff, 4x IPv4 address
+-- ::ffff:1.2.3.4
+local mapped_ipv4_prefix = string.rep(string.char(0), 10) .. string.rep(string.char(0xFF), 2) 
+
 
 -- ipv6 handling stuff
 function address_cleanup_sub(nl, si, ei, r)
@@ -66,6 +74,19 @@ function address_cleanup(s)
 end
 
 function binary_address_to_address(b)
+   -- magic handling if it's mapped IPv4 address
+   if binary_address_is_ipv4(b) and #b == 16
+   then
+      -- (we don't handle non-full ones here; if it's from prefix, it
+      -- better be padded to full size)
+      local bl = {string.byte(b, 13, 16)}
+      local sl = mst.array_map(bl, tostring)
+      return table.concat(sl, "."), 96
+   end
+
+   mst.d('not v4', mst.string_to_hex(b), #b)
+   
+
    mst.a(type(b) == 'string', 'non-string input to binary_address_to_address', b)
    --assert(#b % 4 == 0, 'non-int size')
    local t = {}
@@ -88,8 +109,23 @@ function address_to_binary_address(b)
    mst.a(type(b) == 'string', 'non-string input to address_to_binary', b)
    -- let us assume it is in standard XXXX:YYYY:ZZZZ: format, with
    -- potentially one ::
+   --mst.d('address_to_binary_address', b)
+
    local l = mst.string_split(b, ":")
    --mst.d('address_to_binary', l)
+
+   if #l == 1 and string.find(b, ".")
+   then
+      -- IPv4 address most likely
+      local l = mst.string_split(b, ".")
+      --mst.d('no : found', l)
+      if #l == 4
+      then
+         local r = mapped_ipv4_prefix .. table.concat(l:map(string.char))
+         --mst.d('ipv4', mst.string_to_hex(r))
+         return r, 96
+      end
+   end
 
    mst.a(#l <= 8) 
    local idx = false
@@ -142,7 +178,8 @@ function prefix_to_binary_prefix(p)
    local l = mst.string_split(p, '/')
    mst.a(#l == 2, 'invalid prefix (no prefix length)', p)
    mst.a(l[2] % 8 == 0, 'bit-based prefix length handling not supported yet')
-   local b = address_to_binary_address(l[1])
+   local b, add_bits = address_to_binary_address(l[1])
+   l[2] = l[2] + (add_bits or 0)
    return string.sub(b, 1, l[2] / 8)
 end
 
@@ -150,7 +187,9 @@ end
 function binary_prefix_to_prefix(bin)
    local bits = #bin * 8
    local bin = binary_prefix_to_binary_address(bin)
-   return string.format('%s/%d', binary_address_to_address(bin), bits)
+   local a, remove_bits = binary_address_to_address(bin)
+   bits = bits - (remove_bits or 0)
+   return string.format('%s/%d', a, bits)
 end
 
 function binary_prefix_contains(b1, b2)
@@ -272,6 +311,24 @@ function ipv6_prefix:get_binary_bits()
    if self.binary_bits then return self.binary_bits end
    return #self:get_binary() * 8
 end
+
+function binary_address_is_ula(b)
+   return string.sub(b, 1, #ula_prefix) == ula_prefix
+
+end
+
+function ipv6_prefix:is_ula()
+   return binary_address_is_ula(self:get_binary())
+end
+
+function binary_address_is_ipv4(b)
+   return string.sub(b, 1, #mapped_ipv4_prefix) == mapped_ipv4_prefix
+end
+
+function ipv6_prefix:is_ipv4()
+   return binary_address_is_ipv4(self:get_binary())
+end
+
 
 function ipv6_prefix:repr()
    return mst.repr(self:get_ascii())

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 22:04:20 2012 mstenber
--- Last modified: Fri Oct 19 12:43:10 2012 mstenber
--- Edit time:     26 min
+-- Last modified: Fri Oct 26 21:50:40 2012 mstenber
+-- Edit time:     31 min
 --
 
 require 'ipv6s'
@@ -109,6 +109,26 @@ describe("prefix_hwaddr_to_eui64", function ()
                   local gprefix = ipv6s.eui64_to_prefix(exp)
                   mst.a(gprefix == prefix, gprefix, prefix)
                         end)
+             end)
+
+
+describe("ipv6_prefix", function ()
+            it("can be initialized in various ways", function ()
+                  local p1 = ipv6s.ipv6_prefix:new{binary=string.char(0xDE)..string.char(0xAD)}
+                  local p2 = ipv6s.ipv6_prefix:new{ascii='dead::/16'}
+                  mst.a(p1:get_ascii() == p2:get_ascii())
+                  mst.a(p1:get_binary() == p2:get_binary())
+                   end)
+
+            it("ipv4 works #v4", function ()
+                  local p1 = ipv6s.ipv6_prefix:new{ascii='1.2.3.0/24'}
+                  local b1 = p1:get_binary()
+                  mst.d('got binary', mst.string_to_hex(b1))
+                  local p2 = ipv6s.ipv6_prefix:new{binary=b1}
+                  local a2 = p2:get_ascii()
+                  mst.a(p1:get_ascii() == a2, 'ascii mismatch', a2)
+
+                   end)
              end)
 
 -- todo
