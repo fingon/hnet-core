@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Sat Oct 27 13:11:25 2012 mstenber
--- Edit time:     82 min
+-- Last modified: Sat Oct 27 14:02:08 2012 mstenber
+-- Edit time:     85 min
 --
 
 -- testsuite for the pm_core
@@ -221,6 +221,9 @@ describe("pm", function ()
                   ep:run()
                   mst.a(pm:run())
                   mst.a(not pm:run())
+
+                  local d = mst.read_filename_to_string(TEMP_RADVD_CONF)
+                  mst.a(not string.find(d, '10.'), 'IPv4 address?!?')
 
                   -- make sure that explicitly clearing the SKV
                   -- results in correct results - that is, commands to

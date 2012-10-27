@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Sat Oct 27 13:09:55 2012 mstenber
--- Edit time:     292 min
+-- Last modified: Sat Oct 27 14:24:40 2012 mstenber
+-- Edit time:     300 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -88,6 +88,11 @@ function pm:kv_changed(k, v)
       self.ospf_lap = v or {}
       self.pending_routecheck = true
       self.pending_addrcheck = true
+      -- depracation can cause addresses to become non-relevant
+      -- => rewrite radvd.conf too (and dhcpd.conf - it may have
+      -- been using address range which is now depracated)
+      self.pending_rewrite_radvd = true
+      self.pending_rewrite_dhcpd = true
    elseif k == elsa_pa.OSPF_DNS_KEY
    then
       self.ospf_dns = v or {}
@@ -565,7 +570,8 @@ function pm:write_radvd_conf()
       t:insert('  AdvSendAdvert on;')
       t:insert('  AdvManagedFlag off;')
       t:insert('  AdvOtherConfigFlag off;')
-      t:insert('  AdvDefaultLifetime 600;')
+      -- 5 minutes is max # we want to stay as default router if gone :p
+      t:insert('  AdvDefaultLifetime 300;')
       for i, addr in ipairs(self.ospf_dns or {})
       do
          t:insert('  RDNSS ' .. addr .. ' {};')
@@ -578,22 +584,28 @@ function pm:write_radvd_conf()
       do
          if lap.ifname == ifname
          then
-            t:insert('  prefix ' .. lap.prefix .. ' {')
-            t:insert('    AdvOnLink on;')
-            t:insert('    AdvAutonomous on;')
-            local dep = lap.depracate
-            -- has to be nil or 1
-            mst.a(not dep or dep == 1)
-            if dep == 1
+            local p = ipv6s.ipv6_prefix:new{ascii=lap.prefix}
+            if not p:is_ipv4()
             then
-               t:insert('    AdvValidLifetime 7200;')
-               t:insert('    AdvPreferredLifetime 0;')
-            else
-               -- how much we want to advertise? let's stick to defaults for now
-               --t:insert('    AdvValidLifetime 86400;')
-               --t:insert('    AdvPreferredLifetime 14400;')
+               t:insert('  prefix ' .. lap.prefix .. ' {')
+               t:insert('    AdvOnLink on;')
+               t:insert('    AdvAutonomous on;')
+               local dep = lap.depracate
+               -- has to be nil or 1
+               mst.a(not dep or dep == 1)
+               if dep 
+               then
+                  t:insert('    AdvValidLifetime 60;')
+                  t:insert('    AdvPreferredLifetime 0;')
+                  self:d(' adding (depracated)', lap.prefix)
+               else
+                  -- wonder what would be good values here..
+                  t:insert('    AdvValidLifetime 3600;')
+                  t:insert('    AdvPreferredLifetime 1800;')
+                  self:d(' adding (alive?)', lap.prefix)
+               end
+               t:insert('  };')
             end
-            t:insert('  };')
          end
       end
       t:insert('};')

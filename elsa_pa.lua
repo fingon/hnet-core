@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Sat Oct 27 12:02:27 2012 mstenber
--- Edit time:     337 min
+-- Last modified: Sat Oct 27 13:48:57 2012 mstenber
+-- Edit time:     347 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -125,8 +125,8 @@ end
 -- actual elsa_pa itself, which controls pa (and interfaces with
 -- skv/elsa-wrapper
 elsa_pa = mst.create_class{class='elsa_pa', mandatory={'skv', 'elsa'},
-                          new_prefix_assignment=NEW_PREFIX_ASSIGNMENT,
-                          new_ula_prefix=NEW_ULA_PREFIX}
+                           new_prefix_assignment=NEW_PREFIX_ASSIGNMENT,
+                           new_ula_prefix=NEW_ULA_PREFIX}
 
 function elsa_pa:init()
    self.first = true
@@ -298,66 +298,71 @@ function elsa_pa:run()
 end
 
 function elsa_pa:run_handle_new_lsa()
-      -- originate LSA (or try to, there's duplicate prevention, or should be)
-      local body = self:generate_ac_lsa()
-      mst.a(body and #body, 'empty generated LSA?!?')
+   -- originate LSA (or try to, there's duplicate prevention, or should be)
+   local body = self:generate_ac_lsa()
+   mst.a(body and #body, 'empty generated LSA?!?')
 
-      self.elsa:originate_lsa{type=AC_TYPE, 
-                              rid=self.pa.rid,
-                              body=body}
+   self.elsa:originate_lsa{type=AC_TYPE, 
+                           rid=self.pa.rid,
+                           body=body}
 
 end
 
 function elsa_pa:run_handle_skv_publish()
-      -- store the rid to SKV too
-      self.skv:set(OSPF_RID_KEY, self.rid)
+   -- store the rid to SKV too
+   self.skv:set(OSPF_RID_KEY, self.rid)
 
-      -- set up the locally assigned prefix field
-      local t = mst.array:new()
-      for i, lap in ipairs(self.pa.lap:values())
-      do
-         local ifo = self.pa.ifs[lap.iid]
-         if not ifo
-         then
-            self:d('zombie interface', lap)
-         end
-         t:insert({ifname=lap.ifname, 
-                   prefix=lap.ascii_prefix,
-                   depracate=lap.depracated and 1 or nil,
-                   owner=lap.owner,
-                   address=lap.address and lap.address:get_ascii() or nil,
-                  })
+   -- set up the locally assigned prefix field
+   local t = mst.array:new()
+   for i, lap in ipairs(self.pa.lap:values())
+   do
+      local ifo = self.pa.ifs[lap.iid]
+      if not ifo
+      then
+         self:d('zombie interface', lap)
       end
-      self.skv:set(OSPF_LAP_KEY, t)
+      t:insert({ifname=lap.ifname, 
+                prefix=lap.ascii_prefix,
+                depracate=lap.depracated and 1 or nil,
+                owner=lap.owner,
+                address=lap.address and lap.address:get_ascii() or nil,
+               })
+   end
+   self.skv:set(OSPF_LAP_KEY, t)
 
-      -- set up the interface list
-      local t = mst.array:new{}
-      for iid, ifo in pairs(self.pa.ifs)
-      do
-         t:insert(ifo.name)
-      end
-      self.skv:set(OSPF_IFLIST_KEY, t)
+   -- set up the interface list
+   local t = mst.array:new{}
+   for iid, ifo in pairs(self.pa.ifs)
+   do
+      t:insert(ifo.name)
+   end
+   self.skv:set(OSPF_IFLIST_KEY, t)
 
-      -- set up the 'all visible DNS servers' field (right now, bit
-      -- formless, but oh well)
-      self.skv:set(OSPF_DNS_KEY, self:get_dns_array())
+   -- set up the 'all visible DNS servers' field (right now, bit
+   -- formless, but oh well)
+   self.skv:set(OSPF_DNS_KEY, self:get_dns_array())
 
-      -- similarly search domains
-      self.skv:set(OSPF_DNS_SEARCH_KEY, self:get_dnssearch_array())
+   -- similarly search domains
+   self.skv:set(OSPF_DNS_SEARCH_KEY, self:get_dnssearch_array())
 
-      -- toss in the usp's too
-      local t = mst.array:new{}
-      local dumped = mst.set:new{}
+   -- toss in the usp's too
+   local t = mst.array:new{}
+   local dumped = mst.set:new{}
 
-      self:d('creating usp list')
-
-      function _dump_usp(usp, debug_source)
-         local rid = usp.rid
-         local p = usp.ascii_prefix or usp.prefix
-         if not dumped[p]
+   self:d('creating usp list')
+   for i, usp in ipairs(self.pa.usp:values())
+   do
+      local rid = usp.rid
+      local p = usp.ascii_prefix
+      if not dumped[p]
+      then
+         self:d(' usp', p)
+         dumped:insert(p)
+         -- no route info for ula/ipv4 prefixes
+         if usp.prefix:is_ula() or usp.prefix:is_ipv4()
          then
-            self:d('got from', debug_source, p)
-            dumped:insert(p)
+            t:insert({prefix=p, rid=rid})
+         else
             local r = self.pa:route_to_rid(rid) or {}
             -- nh/ifname are optional (not applicable in case of e.g. self)
             self:d('got route', r)
@@ -370,20 +375,9 @@ function elsa_pa:run_handle_skv_publish()
             t:insert({prefix=p, rid=rid, nh=nh, ifname=ifname})
          end
       end
+   end
 
-      for i, v in ipairs(self.pa.usp:values())
-      do
-         _dump_usp(v, 'pa.usp')
-      end
-
-      -- toss also usp's from the LAP, which still live
-      for i, lap in ipairs(self.pa.lap:values())
-      do
-         local usp = lap.asp.usp
-         _dump_usp(usp, 'pa.lap')
-      end
-
-      self.skv:set(OSPF_USP_KEY, t)
+   self.skv:set(OSPF_USP_KEY, t)
 end
 
 function elsa_pa:iterate_ac_lsa(f, criteria)
@@ -476,7 +470,7 @@ function elsa_pa:iterate_if(rid, f)
                            else
                               self:d('skipping in use', ifo, 'delegated prefix source')
                            end
-                        end)
+                             end)
 end
 
 --   iterate_ifo_neigh(rid, if-object, f) => callback with iid, rid

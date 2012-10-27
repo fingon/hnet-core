@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Sat Oct 27 12:29:22 2012 mstenber
--- Edit time:     698 min
+-- Last modified: Sat Oct 27 13:28:52 2012 mstenber
+-- Edit time:     703 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -815,6 +815,7 @@ function pa:generate_ulaish(filter, filter_own, generate_prefix, desc)
       do
          if filter_own(usp)
          then
+            self:d(' keeping', usp)
             usp.valid = true
             return
          end
@@ -910,6 +911,12 @@ function pa:should_run()
                           -- we never have nh if it's us (locals
                           -- handled per-if basis in elsa_pa)
                           if o.rid == rid then return end
+
+                          -- if it's ULA or v4, it shouldn't matter
+                          if o.prefix:is_ula() or o.prefix:is_ipv4()
+                          then
+                             return
+                          end
 
                           -- not us => we should have nh, or
                           -- routing table is still in flux

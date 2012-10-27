@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Sat Oct 27 11:15:56 2012 mstenber
--- Edit time:     471 min
+-- Last modified: Sat Oct 27 13:33:46 2012 mstenber
+-- Edit time:     473 min
 --
 
 -- data structure abstractions provided:
@@ -25,6 +25,7 @@ module(..., package.seeall)
 
 -- global debug switch
 enable_debug=os.getenv("ENABLE_MST_DEBUG") or false
+enable_debug_date=true
 
 -- enable own assert
 enable_assert=true
@@ -257,7 +258,12 @@ function debug_print(...)
          table.insert(tl, v)
       end
    end
-   print(...)
+   if enable_debug_date
+   then
+      print(os.date(), ...)
+   else
+      print(...)
+   end
    for i, v in ipairs(tl)
    do
       setmetatable(v, sm[v])

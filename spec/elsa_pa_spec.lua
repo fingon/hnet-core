@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Sat Oct 27 12:13:34 2012 mstenber
--- Edit time:     225 min
+-- Last modified: Sat Oct 27 13:50:07 2012 mstenber
+-- Edit time:     227 min
 --
 
 require 'mst'
@@ -159,13 +159,15 @@ describe("elsa_pa [one node]", function ()
                                               usp_added = false
                                               ep:run()
                                               local done = ep.pa.lap:count() == 0
-                                              local uspkeys = s:get(elsa_pa.OSPF_USP_KEY)
-                                              mst.a(#uspkeys > 0 == not done, 'done not matching #uspkeys==0', done, uspkeys)
                                               return done
                                            end)
                   
                   -- now locally assigned prefixes should be gone too
                   mst.a(ep.pa.lap:count() == 0)
+                  -- and usps should have been gone even before that
+                  mst.a(ep.pa.usp:count() == 0)
+
+
                                         end)
 
             it("works even if routes become available later", function ()

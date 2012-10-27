@@ -2,13 +2,6 @@
 
 * Bugs to fix
 
-** Figure why things don't disappear as rapidly as they should
-
-- ULAs hang around even when they shouldn't?
-
-add_or_update_usp logic may be bit flawed; have to rethink the whole code
-flow through
-
 * Things to do
 
 ** Demo topology?
