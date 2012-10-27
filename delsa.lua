@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Oct  5 00:09:17 2012 mstenber
--- Last modified: Thu Oct 25 16:57:28 2012 mstenber
--- Edit time:     13 min
+-- Last modified: Sat Oct 27 10:27:52 2012 mstenber
+-- Edit time:     27 min
 --
 
 require 'mst'
@@ -23,6 +23,14 @@ delsa = dneigh.dneigh:new_subclass{class='delsa', mandatory={'hwf'}}
 function delsa:init()
    dneigh.dneigh.init(self)
    self.nodes = {}
+   self.connected = {}
+end
+
+function delsa:connect_neigh(r1, i1, r2, i2)
+   -- call parent
+   dneigh.dneigh.connect_neigh(self, r1, i1, r2, i2)
+   -- reset connected cache
+   self.connected = {}
 end
 
 function delsa:repr_data()
@@ -35,14 +43,39 @@ function delsa:repr_data()
 
 end
 
+function delsa:get_connected(rid)
+   local v = self.connected[rid]
+   if v then return v end
+   local t = mst.set:new{}
+   self:iterate_all_connected_rid(rid, 
+                                  function (rid2)
+                                     t:insert(rid2)
+                                  end)
+
+   -- obviously all nodes that were traversible using this start rid,
+   -- share the same connected set (this makes simulation of N nodes
+   -- muuch faster)
+   for i, rid in ipairs(t:keys())
+   do
+      self.connected[rid] = t
+   end
+   self:a(t)
+   return t
+end
+
 function delsa:get_hwf(rid)
    return self.hwf[rid]
 end
 
-function delsa:iterate_lsa(f, criteria)
+function delsa:iterate_lsa(rid, f, criteria)
+   local c = self:get_connected(rid)
+   self:a(c)
    for rid, body in pairs(self.lsas)
    do
-      f{rid=rid, body=body}
+      if c[rid] or self.assume_connected
+      then
+         f{rid=rid, body=body}
+      end
    end
 end
 
@@ -68,6 +101,12 @@ end
 
 function delsa:originate_lsa(lsa)
    self:a(lsa.type == elsa_pa.AC_TYPE)
+   local old = self.lsas[lsa.rid]
+   if old == lsa.body
+   then
+      return
+   end
+
    self.lsas[lsa.rid] = lsa.body
 
    -- notify self
