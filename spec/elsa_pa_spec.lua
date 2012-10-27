@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Sat Oct 27 10:26:05 2012 mstenber
--- Edit time:     176 min
+-- Last modified: Sat Oct 27 11:13:22 2012 mstenber
+-- Edit time:     196 min
 --
 
 require 'mst'
@@ -340,12 +340,12 @@ describe("elsa_pa 2-node", function ()
                   local base_lsas = {r1=usp_dead_tlv}
                   e = delsa:new{iid={ep1={{index=42, name='eth0'},
                                                 {index=123, name='eth1'}}, 
-                                           ep2={{index=43,name='eth0'},
-                                                {index=124, name='eth1'}}},
-                                      hwf={ep1='foo',
-                                           ep2='bar'},
-                                      assume_connected=true,
-                                      lsas=base_lsas}
+                                     ep2={{index=43,name='eth0'},
+                                          {index=124, name='eth1'}}},
+                                hwf={ep1='foo',
+                                     ep2='bar'},
+                                assume_connected=true,
+                                lsas=base_lsas}
                   e:connect_neigh('ep1', 123, 'ep2', 124)
                   skv1 = skv.skv:new{long_lived=true, port=31338}
                   skv2 = skv.skv:new{long_lived=true, port=31339}
@@ -408,11 +408,103 @@ describe("elsa_pa 2-node", function ()
                               end)
 
 describe("elsa_pa bird7-ish", function ()
-            it("simulated bird7", function ()
-                  -- it has 4 real bird nodes;
-                  -- cpe (which gets prefix at some point),
-                  -- bird1-3 
+            local e, skvs, eps, local_time
+            function connect_nodes()
+                  -- wire up the routers like in bird7
+                  -- e.g. HOME = cpe[0], bird1[0], bird2[0]
+                  e:connect_neigh('bird0', 42, 
+                                  'bird1', 42,
+                                  'bird2', 42)
+                  -- BIRD1
+                  e:connect_neigh('bird1', 43, 
+                                  'bird3', 42)
+                  -- BIRD2, 3 aren't connected anywhere
 
+                  -- sanity check - all 4 nodes should be connected
+                  local t = e:get_connected('bird0')
+                  mst.a(t:count() == 4, 'connect_neigh or get_connected not working', t)
+            end
+            before_each(function ()
+                  -- it has 4 real bird nodes;
+                  -- [1] is the one connected to outside world
+                  -- (named bird0 to retain naming consistency)
+                  skvs = mst.array:new{}
+                  eps = mst.array:new{}
+                  iids = {}
+                  hwfs = {}
+                  e = delsa:new{iid=iids, hwf=hwfs}
+                  for i=0,3
+                  do
+                     local name = 'bird' .. tostring(i)
+                     iids[name] = {{index=42, name='eth0'},
+                                   {index=43, name='eth1'}}
+                     hwfs[name] = name
+                     local s = skv.skv:new{long_lived=true, port=42420+i}
+                     local ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid=name}
+                     skvs:insert(s)
+                     eps:insert(ep)
+                     e:add_router(ep)
+                  end
+                        end)
+            after_each(function ()
+                          for i, ep in ipairs(eps)
+                          do
+                             ep:done()
+                          end
+                          for i, s in ipairs(skvs)
+                          do
+                             s:done()
+                          end
+
+                          -- make sure cleanup really was clean
+                          local r = ssloop.loop():clear()
+                          mst.a(not r, 'event loop not clear')
+                       end)
+            it("instant connection #inst", function ()
+                  connect_nodes()
+                  
+                  for i=1,3
+                  do
+                     for i, ep in ipairs(mst.array_randlist(eps))
+                     do
+                        ep:run()
+                     end
+                  end
+
+                  -- make sure none of the nodes really want to run anymore
+                  for i, ep in ipairs(eps)
+                  do
+                     local pa = ep.pa
+                     mst.a(not pa:should_run(), 'still wants to run', ep)
+                     mst.a(pa.usp:count() == 0, 'some usp', pa.usp)
+
+
+                     -- and make sure next we should get ulas AND
+                     -- prefixes assigned out of them
+                     pa.start_time = pa.start_time - ep.new_ula_prefix - ep.new_prefix_assignment - 10
+                  end
+                  
+                  
+                  for i=1,10
+                  do
+                     for i, ep in ipairs(mst.array_randlist(eps))
+                     do
+                        ep:run()
+                     end
+                  end
+                  
+                  -- make sure none of the nodes really want to run anymore
+                  for i, ep in ipairs(eps)
+                  do
+                     local pa = ep.pa
+                     mst.a(not pa:should_run(), 'still wants to run', ep)
+                     mst.a(pa.usp:count() == 2, 'some usp', pa.usp)
+                     -- 4 nodes * 2 interfaces * 2 AF IPv4+USP
+                     mst.a(pa.asp:count() == 16, 'wrong asp count', pa.asp, pa.asp:count())
+                     -- 2 if, USP + IPv4
+                     mst.a(pa.lap:count() == 4, 'wrong asp count', pa.usp)
+                  end
+                  
                    end)
 
                            end)

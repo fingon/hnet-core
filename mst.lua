@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Fri Oct 26 23:34:18 2012 mstenber
--- Edit time:     468 min
+-- Last modified: Sat Oct 27 10:53:16 2012 mstenber
+-- Edit time:     470 min
 --
 
 -- data structure abstractions provided:
@@ -1175,6 +1175,19 @@ function array_randitem(t)
    then
       return t[idx]
    end
+end
+
+function array_randlist(t)
+   -- make a copy (we mutate it)
+   t = table_copy(t)
+   local r = mst.array:new{}
+   while #t > 0
+   do
+      local idx = array_randindex(t)
+      r:insert(t[idx])
+      table.remove(t, idx)
+   end
+   return r
 end
 
 -- event class (used within the baseclass)

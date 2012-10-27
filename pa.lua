@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Sat Oct 27 01:37:48 2012 mstenber
+-- Last modified: Sat Oct 27 10:49:13 2012 mstenber
 -- Edit time:     688 min
 --
 
@@ -471,7 +471,8 @@ end
 pa = mst.create_class{class='pa', lap_class=lap, mandatory={'rid'},
                       new_prefix_assignment=0,
                       new_ula_prefix=0,
-                      random_prefix_tries=5}
+                      random_prefix_tries=5,
+                     }
 
 function pa:init()
    -- set the sps subclasses' random prefix #

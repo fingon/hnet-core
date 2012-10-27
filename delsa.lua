@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Oct  5 00:09:17 2012 mstenber
--- Last modified: Sat Oct 27 10:27:52 2012 mstenber
--- Edit time:     27 min
+-- Last modified: Sat Oct 27 11:09:10 2012 mstenber
+-- Edit time:     33 min
 --
 
 require 'mst'
@@ -24,11 +24,12 @@ function delsa:init()
    dneigh.dneigh.init(self)
    self.nodes = {}
    self.connected = {}
+   self.lsas = self.lsas or {}
 end
 
-function delsa:connect_neigh(r1, i1, r2, i2)
+function delsa:connect_neigh(...)
    -- call parent
-   dneigh.dneigh.connect_neigh(self, r1, i1, r2, i2)
+   dneigh.dneigh.connect_neigh(self, ...)
    -- reset connected cache
    self.connected = {}
 end
@@ -55,11 +56,12 @@ function delsa:get_connected(rid)
    -- obviously all nodes that were traversible using this start rid,
    -- share the same connected set (this makes simulation of N nodes
    -- muuch faster)
-   for i, rid in ipairs(t:keys())
+   for rid, _ in pairs(t)
    do
       self.connected[rid] = t
    end
    self:a(t)
+   self:d('get_connected', rid, t)
    return t
 end
 
@@ -109,18 +111,11 @@ function delsa:originate_lsa(lsa)
 
    self.lsas[lsa.rid] = lsa.body
 
-   -- notify self
-   self:notify_ospf_changed(lsa.rid)
-
    -- notify self + others that the lsas changed
-   self:iterate_if(lsa.rid, 
-                   function (ifo)
-                      self:iterate_ifo_neigh(lsa.rid, ifo, 
-                                             function (d)
-                                                local rid2 = d.rid
-                                                self:notify_ospf_changed(rid2)
-                                             end)
-                   end)
+   for rid, _ in pairs(self:get_connected(lsa.rid))
+   do
+      self:notify_ospf_changed(rid)
+   end
 end
 
 function delsa:change_rid()
