@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 18:34:49 2012 mstenber
--- Last modified: Wed Oct 24 23:24:18 2012 mstenber
--- Edit time:     16 min
+-- Last modified: Sat Oct 27 00:29:39 2012 mstenber
+-- Edit time:     17 min
 --
 
 require "busted"
@@ -24,7 +24,9 @@ local tests = {
    {codec.rhf_ac_tlv, {body=string.rep('1', 42)}},
    {codec.rhf_ac_tlv, {body=string.rep('1', 43)}},
    {codec.usp_ac_tlv, {prefix='dead::/16'}},
+   {codec.usp_ac_tlv, {prefix='10.0.0.0/8'}},
    {codec.asp_ac_tlv, {iid=3, prefix='dead::/16'}},
+   {codec.asp_ac_tlv, {iid=3, prefix='1.2.3.0/24'}},
    {codec.asp_ac_tlv, {iid=3, prefix='dead:feed:dead:feed::/64'}},
    {codec.json_ac_tlv, {table={foo='bar'}}},
    {codec.json_ac_tlv, {table={'foo'}}},

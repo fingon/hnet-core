@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Oct 25 23:16:59 2012 mstenber
--- Edit time:     296 min
+-- Last modified: Sat Oct 27 10:21:05 2012 mstenber
+-- Edit time:     328 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -47,6 +47,7 @@ DNS_KEY='dns.'
 DNS_SEARCH_KEY='dns-search.'
 NH_KEY='nh.'
 
+JSON_ASA_KEY='asa'
 JSON_DNS_KEY='dns'
 JSON_DNS_SEARCH_KEY='dns-search'
 
@@ -302,9 +303,12 @@ function elsa_pa:run()
          then
             self:d('zombie interface', lap)
          end
-         t:insert({ifname=lap.ifname, prefix=lap.ascii_prefix,
+         t:insert({ifname=lap.ifname, 
+                   prefix=lap.ascii_prefix,
                    depracate=lap.depracated and 1 or nil,
-                  owner=lap.owner})
+                   owner=lap.owner,
+                   address=lap.address and lap.address:get_ascii() or nil,
+                  })
       end
       self.skv:set(OSPF_LAP_KEY, t)
 
@@ -374,7 +378,7 @@ function elsa_pa:iterate_ac_lsa(f, criteria)
       criteria = {}
    end
    criteria.type = AC_TYPE
-   self.elsa:iterate_lsa(f, criteria)
+   self.elsa:iterate_lsa(self.rid, f, criteria)
 end
 
 function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
@@ -409,6 +413,14 @@ function elsa_pa:iterate_asp(rid, f)
                               self:a(lsa and asp)
                               f{prefix=asp.prefix, iid=asp.iid, rid=lsa.rid}
                            end, {type=codec.AC_TLV_ASP})
+end
+
+--  iterate_asa(rid, f) => callback with {prefix=, rid=}
+function elsa_pa:iterate_asa(rid, f)
+   for i, o in ipairs(self:get_asa_array())
+   do
+      f{rid=o.rid, prefix=ipv6s.new_prefix_from_ascii(o.prefix)}
+   end
 end
 
 --  iterate_usp(rid, f) => callback with prefix, rid
@@ -561,22 +573,63 @@ function elsa_pa:get_dnssearch_array()
                                JSON_DNS_SEARCH_KEY)
 end
 
+function elsa_pa:get_local_asa_array()
+   -- bit different than the rest, as this originates within pa code
+   -- => what we do, is look at what's within the lap, and toss
+   -- non-empty addresses
+   local t = mst.array:new{}
+   local laps = self.pa.lap:values():filter(function (lap) return lap.address end)
+   self:ph_list_sorted(laps)
+
+   for i, lap in ipairs(laps)
+   do
+      t:insert({rid=self.rid, prefix=lap.address:get_ascii()})
+   end
+   return t
+end
+
+function elsa_pa:get_asa_array()
+   return self:get_field_array(self:get_local_asa_array(), 
+                               JSON_ASA_KEY)
+end
+
+function elsa_pa:ph_list_sorted(l)
+   local t = mst.table_copy(l or {})
+   table.sort(t, function (o1, o2)
+                 return o1.prefix:get_binary() < o2.prefix:get_binary()
+                 end)
+   return t
+end
+
 function elsa_pa:generate_ac_lsa()
+
+   -- adding these in deterministic order is mandatory; however, by
+   -- default, the list ISN'T sorted in any sensible way.. so we have
+   -- to do it
+   self:d('generate_ac_lsa')
+
    local a = mst.array:new()
 
    -- generate RHF
    local hwf = self:get_padded_hwf(self.rid)
+   self:d(' hwf', hwf)
+
    a:insert(codec.rhf_ac_tlv:encode{body=hwf})
 
    -- generate local USP-based TLVs
-   self:iterate_skv_prefix(function (o)
-                              local prefix = o.prefix
-                              a:insert(codec.usp_ac_tlv:encode{prefix=prefix})
-                           end)
+
+   local uspl = self:ph_list_sorted(self.pa.usp[self.rid])
+   for i, usp in ipairs(uspl)
+   do
+      self:d(' usp', self.rid, usp.prefix)
+      a:insert(codec.usp_ac_tlv:encode{prefix=usp.prefix})
+   end
 
    -- generate (local) ASP-based TLVs
-   for i, asp in ipairs(self.pa:get_local_asp_values())
+   local aspl = self:ph_list_sorted(self.pa:get_local_asp_values())
+   for i, asp in ipairs(aspl)
    do
+      self:d(' asp', self.rid, asp.iid, asp.prefix)
       a:insert(codec.asp_ac_tlv:encode{prefix=asp.prefix, iid=asp.iid})
    end
 
@@ -585,14 +638,18 @@ function elsa_pa:generate_ac_lsa()
    local t = mst.map:new{}
    t[JSON_DNS_KEY] = self:get_local_dns_array()
    t[JSON_DNS_SEARCH_KEY] = self:get_local_dnssearch_array()
+   t[JSON_ASA_KEY] = self:get_local_asa_array()
 
    if t:count() > 0
    then
+      self:d(' json', t)
       a:insert(codec.json_ac_tlv:encode{table=t})
    end
 
    if #a
    then
-      return table.concat(a)
+      local s = table.concat(a)
+      self:d('generated ac lsa of length', #s)
+      return s
    end
 end

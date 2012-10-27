@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Wed Oct 24 23:24:02 2012 mstenber
+-- Last modified: Sat Oct 27 01:31:06 2012 mstenber
 -- Edit time:     174 min
 --
 
@@ -121,7 +121,7 @@ function abstract_data:do_encode(o)
 end
 
 function abstract_data:encode(o)
-   self:d('encode', o)
+   --self:d('encode', o)
 
    self:a(self.header, 'header missing - using class method instead of instance?')
 
@@ -323,14 +323,14 @@ local _tlv_decoders = {rhf_ac_tlv, usp_ac_tlv, asp_ac_tlv, json_ac_tlv}
 function decode_ac_tlvs(s)
 
    local cur = vstruct.cursor(s)
-   mst.d('decode_ac_tlvs', #s)
+   --mst.d('decode_ac_tlvs', #s)
 
-   mst.d('decoders', #_tlv_decoders)
+   --mst.d('decoders', #_tlv_decoders)
    local hls = mst.array_map(_tlv_decoders,
                              function (t) 
                                 return t.header_length
                              end)
-   mst.d('hls', hls)
+   --mst.d('hls', hls)
    local minimum_size = mst.min(unpack(hls))
    mst.d('minimum_size', minimum_size)
 
@@ -340,13 +340,13 @@ function decode_ac_tlvs(s)
       local found = false
       for i, v in ipairs(_tlv_decoders)
       do
-         mst.d('looping decoder', i)
+         --mst.d('looping decoder', i)
 
          local o, err = v:decode(cur)
          if o
          then
             table.insert(t, o)
-            mst.d('decoded', o)
+            --mst.d('decoded', o)
             found = true
             break
          end

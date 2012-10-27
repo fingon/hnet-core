@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Thu Oct 25 23:35:05 2012 mstenber
--- Edit time:     252 min
+-- Last modified: Sat Oct 27 00:13:56 2012 mstenber
+-- Edit time:     280 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -37,6 +37,8 @@ MAIN_TABLE='main'
 RULE_PREF_MIN=1000
 RULE_PREF_MAX=RULE_PREF_MIN + 128 
 
+local ipv4_end='/24' -- as it's really v4 looking string
+
 
 pm = mst.create_class{class='pm', mandatory={'skv', 'shell', 
                                              'radvd_conf_filename',
@@ -62,12 +64,15 @@ function pm:kv_changed(k, v)
    if k == elsa_pa.OSPF_USP_KEY
    then
       self.ospf_usp = v
+      -- reset cache
+      self.ipv6_ospf_usp = nil
       self.pending_routecheck = true
       self.pending_rulecheck = true
    elseif k == elsa_pa.OSPF_LAP_KEY
    then
       self.ospf_lap = v
       self.pending_routecheck = true
+      self.pending_addrcheck = true
    elseif k == elsa_pa.OSPF_DNS_KEY
    then
       self.ospf_dns = v
@@ -105,6 +110,12 @@ function pm:run()
       self.pending_rulecheck = nil
       actions = actions + 1
    end
+   if self.pending_addrcheck
+   then
+      self:check_addresses()
+      self.pending_addrcheck = nil
+      actions = actions + 1
+   end
    if self.pending_rewrite_radvd
    then
       self:write_radvd_conf()
@@ -125,6 +136,44 @@ function pm:run()
    end
    self:d('run result', actions)
    return actions > 0 and actions
+end
+
+function pm:check_addresses()
+   -- look at all interfaces we _have_
+   -- and the associated lap's - does the address match?
+   if not self.ospf_lap
+   then
+      return
+   end
+
+   local m = self.if_table:read_ip_ipv4()
+   local if2a = {}
+   for i, lap in ipairs(self.ospf_lap)
+   do
+      if lap.address
+      then
+         if2a[lap.ifname] = lap.address
+      end
+   end
+
+
+   for ifname, ifo in pairs(m)
+   do
+      local found = if2a[ifname]
+      if ifo.ipv4 ~= found
+      then
+         if found
+         then
+            -- set address
+            local base = mst.string_split(found, '/')[1]
+            ifo:set_ipv4(base, '255.255.255.0')
+         else
+            -- we don't remove addresses, as that could be
+            -- counterproductive in so many ways
+         end
+      end
+   end
+   
 end
 
 function pm:invalidate_rules()
@@ -158,6 +207,18 @@ function pm:delete_invalid_rules()
    end
 end
 
+function pm:get_ipv6_usp()
+   if not self.ipv6_ospf_usp
+   then
+      self.ipv6_ospf_usp = 
+         mst.array_filter(self.ospf_usp, function (usp)
+                             local p = ipv6s.new_prefix_from_ascii(usp.prefix)
+                             return not p:is_ipv4()
+                                         end)
+   end
+   return self.ipv6_ospf_usp
+end
+
 function pm:check_rules()
    self:d('entering check_rules')
 
@@ -180,7 +241,7 @@ function pm:check_rules()
    local validc = 0
    local pending1 = mst.array:new()
 
-   for _, usp in ipairs(self.ospf_usp)
+   for _, usp in ipairs(self:get_ipv6_usp())
    do
       local sel = 'from ' .. usp.prefix
       local i1, i2, s = string.find(usp.prefix, '/(%d+)$')
@@ -191,7 +252,7 @@ function pm:check_rules()
       local o = self.rule_table:find(template)
 
       -- in this iteration, we don't care about USP that lack nh/ifname
-      if usp.nh and usp.ifname 
+      if usp.nh and usp.ifname
       then 
          validc = validc + 1 
          if not o
@@ -221,7 +282,7 @@ function pm:check_rules()
    -- if we don't have any valid source routes, we can also ignore 
    -- fixing of destination routes for source routed prefixes
    local pending2 = mst.array:new()
-   for _, usp in ipairs(validc > 0 and self.ospf_usp or {})
+   for _, usp in ipairs(validc > 0 and self:get_ipv6_usp() or {})
    do
       -- to rules just point at main table => no content to care about
       local sel = 'from all to ' .. usp.prefix
@@ -291,7 +352,7 @@ function pm:get_real_lap()
             mst.a(not r[prefix])
             -- consider if we should even care about this prefix
             local found = nil
-            for _, v in ipairs(self.ospf_usp or {})
+            for _, v in ipairs(self:get_ipv6_usp())
             do
                self:d('considering', v.prefix, prefix)
                if ipv6s.prefix_contains(v.prefix, prefix)
@@ -319,6 +380,8 @@ function pm:repr_data()
 end
 
 function pm:check_ospf_vs_real()
+   local valid_end='::/64'
+
    self:d('entering check_ospf_vs_real')
 
    if not self.ospf_lap or not self.ospf_usp
@@ -337,13 +400,17 @@ function pm:check_ospf_vs_real()
       for i, v in ipairs(l)
       do
          local ov = t[v.prefix]
-         -- if we don't have old value, or old one is 
-         -- depracated, we clearly prefer the new one
 
-         -- XXX - add test cases for this
-         if not ov or ov.depracate
+         if not mst.string_endswith(v.prefix, ipv4_end)
          then
-            t[v.prefix] = v
+            -- if we don't have old value, or old one is 
+            -- depracated, we clearly prefer the new one
+
+            -- XXX - add test cases for this
+            if not ov or ov.depracate
+            then
+               t[v.prefix] = v
+            end
          end
       end
       return t
@@ -353,15 +420,13 @@ function pm:check_ospf_vs_real()
    local ospf_keys = ospf_lap:keys():to_set()
    local real_keys = real_lap:keys():to_set()
 
-   local valid_end='::/64'
-
    local changes = 0
 
    -- 3 cases to consider
    -- only in ospf_lap
    for prefix, _ in pairs(ospf_keys:difference(real_keys))
    do
-      mst.a(string.sub(prefix, -#valid_end) == valid_end, 
+      mst.a(mst.string_endswith(prefix, valid_end),
             'invalid prefix', prefix)
       self:handle_ospf_prefix(prefix, ospf_lap[prefix])
       changes = changes + 1
@@ -370,7 +435,7 @@ function pm:check_ospf_vs_real()
    -- only in real_lap
    for prefix, _ in pairs(real_keys:difference(ospf_keys))
    do
-      mst.a(string.sub(prefix, -#valid_end) == valid_end, 
+      mst.a(mst.string_endswith(prefix, valid_end),
             'invalid prefix', prefix)
       self:handle_real_prefix(prefix, real_lap[prefix])
       changes = changes + 1
@@ -379,7 +444,7 @@ function pm:check_ospf_vs_real()
    -- in both
    for prefix, _ in pairs(real_keys:intersection(ospf_keys))
    do
-      mst.a(string.sub(prefix, -#valid_end) == valid_end, 
+      mst.a(mst.string_endswith(prefix, valid_end),
             'invalid prefix', prefix)
       local c = 
          self:handle_both_prefix(prefix, ospf_lap[prefix], real_lap[prefix])
@@ -437,16 +502,19 @@ function pm:write_dhcpd_conf()
       if not dep and own and not already_done
       then
          handled:insert(lap.ifname)
-         owned = owned + 1
          local p = ipv6s.ipv6_prefix:new{ascii=lap.prefix}
-         local b = p:get_binary()
-         local stb = b .. string.rep(string.char(0), 7) .. string.char(42)
-         local enb = b .. string.rep(string.char(0), 7) .. string.char(123)
-         local st = ipv6s.binary_address_to_address(stb)
-         local en = ipv6s.binary_address_to_address(enb)
-         t:insert('subnet6 ' .. lap.prefix .. ' {')
-         t:insert('  range6 ' .. st .. ' ' .. en .. ';')
-         t:insert('}')
+         if not p:is_ipv4()
+         then
+            owned = owned + 1
+            local b = p:get_binary()
+            local stb = b .. string.rep(string.char(0), 7) .. string.char(42)
+            local enb = b .. string.rep(string.char(0), 7) .. string.char(123)
+            local st = ipv6s.binary_address_to_address(stb)
+            local en = ipv6s.binary_address_to_address(enb)
+            t:insert('subnet6 ' .. lap.prefix .. ' {')
+            t:insert('  range6 ' .. st .. ' ' .. en .. ';')
+            t:insert('}')
+         end
       end
    end
    f:write(t:join('\n'))

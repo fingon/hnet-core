@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Fri Oct 26 21:51:34 2012 mstenber
--- Edit time:     98 min
+-- Last modified: Fri Oct 26 22:36:38 2012 mstenber
+-- Edit time:     100 min
 --
 
 require 'mst'
@@ -84,7 +84,7 @@ function binary_address_to_address(b)
       return table.concat(sl, "."), 96
    end
 
-   mst.d('not v4', mst.string_to_hex(b), #b)
+   --mst.d('not v4', mst.string_to_hex(b), #b)
    
 
    mst.a(type(b) == 'string', 'non-string input to binary_address_to_address', b)
@@ -209,10 +209,10 @@ function prefix_contains(p1, p2)
    return binary_prefix_contains(b1, b2)
 end
 
-function binary_prefix_next_from_usp(b, p)
-   mst.a(#p == 8)
-   mst.a(#b <= 8)
-   if #b == 8
+function binary_prefix_next_from_usp(b, p, desired_bits)
+   mst.a(#p == desired_bits/8)
+   mst.a(#b <= desired_bits/8)
+   if #b == desired_bits/8
    then
       mst.a(b == p)
       return p
@@ -220,7 +220,7 @@ function binary_prefix_next_from_usp(b, p)
    -- two different cases - either prefix+1 is still within up => ok,
    -- or it's not => start from zeros
    local pb = {string.byte(p, 1, #p)}
-   for i=8, 1, -1
+   for i=desired_bits/8, 1, -1
    do
       pb[i] = (pb[i] + 1) % 256
       if pb[i]
@@ -233,7 +233,7 @@ function binary_prefix_next_from_usp(b, p)
    then
       return p2
    end
-   return b .. string.rep(string.char(0), 8 - #b)
+   return b .. string.rep(string.char(0), desired_bits/8 - #b)
 end
 
 -- given the hwaddr (in normal aa:bb:cc:dd:ee:ff:aa format) and

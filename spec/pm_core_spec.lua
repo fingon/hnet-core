@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Thu Oct 25 23:16:30 2012 mstenber
--- Edit time:     60 min
+-- Last modified: Sat Oct 27 00:14:42 2012 mstenber
+-- Edit time:     71 min
 --
 
 -- testsuite for the pm_core
@@ -68,6 +68,18 @@ local lap_base = {
     'eth2      Link encap:Ethernet  HWaddr 00:1c:42:a7:f1:d9  '},
    x,
    {'ip -6 addr del dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 dev eth2', ''},
+}
+
+local lap_end = {
+   {'ip -4 addr', 
+    [[
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
+    inet 127.0.0.1/8 scope host lo
+2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    inet 10.211.55.3/24 brd 10.211.55.255 scope global eth2
+428: nk_tap_mstenber: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 500
+    inet 192.168.42.1/24 brd 192.168.42.255 scope global nk_tap_mstenber
+     ]]},
 }
 
 local rule_base = {
@@ -142,6 +154,7 @@ describe("pm", function ()
             it("works", function ()
                   local d = mst.table_copy(lap_base)
                   mst.array_extend(d, rule_base)
+                  mst.array_extend(d, lap_end)
                   setup_fakeshell(d)
                   ep:run()
                   mst.a(pm:run())
@@ -159,6 +172,7 @@ describe("pm", function ()
                   s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.NH_KEY .. 'eth0', nil)
                   local d = mst.table_copy(lap_base)
                   mst.array_extend(d, rule_no_nh)
+                  mst.array_extend(d, lap_end)
                   setup_fakeshell(d)
                   ep:run()
                   mst.a(pm:run())
@@ -166,6 +180,23 @@ describe("pm", function ()
                   mst.a(arri == #arr, 'did not consume all?', arri, #arr)
                   
                                                              end)
+            it("works - post-ULA period => v4 should occur #v4", function ()
+                  local d = mst.table_copy(lap_base)
+                  mst.array_extend(d, rule_base)
+                  mst.array_extend(d, lap_end)
+                  mst.array_extend(d, {{'ifconfig eth2 10.110.150.19 netmask 255.255.255.0', ''}})
+                  setup_fakeshell(d)
+                  local pa = ep.pa
+                  -- change other rid so we have highest one -> v4!
+                  e.lsas={arid1=usp_dead_tlv}
+                  pa.new_prefix_assignment = 10
+                  pa.start_time = pa.start_time - pa.new_prefix_assignment - 10
+                  ep:run()
+                  mst.a(pm:run())
+                  mst.a(not pm:run())
+                  mst.a(arri == #arr, 'did not consume all?', arri, #arr)
+                  
+                   end)
 
                end)
 

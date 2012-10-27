@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Oct 25 01:09:29 2012 mstenber
+-- Last modified: Fri Oct 26 23:34:18 2012 mstenber
 -- Edit time:     468 min
 --
 
@@ -509,6 +509,10 @@ end
 function string_rstrip(s)
   -- from PiL2 20.4
   return (s:gsub("^(.-)%s*$", "%1"))
+end
+
+function string_endswith(s, x)
+   return string.sub(s, -#x) == x
 end
 
 local _my_varok_table = false

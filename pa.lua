@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Fri Oct 26 22:02:02 2012 mstenber
--- Edit time:     615 min
+-- Last modified: Sat Oct 27 01:37:48 2012 mstenber
+-- Edit time:     688 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -20,8 +20,9 @@
 -- client expected to provide:
 --  get_hwf(rid) => hardware fingerprint in string
 --  iterate_rid(rid, f) => callback with {rid=[, ifname=, nh=]}
---  iterate_asp(rid, f) => callback with {prefix=, iid=, rid=}
 --  iterate_usp(rid, f) => callback with {prefix=, rid=}
+--  iterate_asp(rid, f) => callback with {prefix=, iid=, rid=}
+--  iterate_asa(rid, f) => callback with {prefix=, rid=}
 --  iterate_if(rid, f) => callback with if-object
 --   iterate_ifo_neigh(rid, if-object, f) => callback with {iid=, rid=}
 --  .rid (or given to constructor)
@@ -212,10 +213,10 @@ end
 
 -- assigned prefix
 
-asp = mst.create_class{class='asp', mandatory={'prefix', 
-                                               'iid', 
-                                               'rid', 
-                                               'pa'}}
+asp = ph:new_subclass{class='asp', mandatory={'prefix', 
+                                              'iid', 
+                                              'rid', 
+                                              'pa'}}
 
 function asp:init()
    -- superclass init
@@ -310,63 +311,55 @@ function asp:is_remote()
    return self.rid ~= self.pa.rid
 end
 
--- usable prefix, can be either local or remote (no behavioral
--- difference though?)
-usp = mst.create_class{class='usp', mandatory={'prefix', 'rid', 'pa'}}
+-- subprefix sources can generate random prefixes within (using
+-- self:get_desired_bits() as guidance to how long they should be,
+-- provide their own freelist abstraction (which can be cleared as
+-- needed), and some other niceties)
+sps = ph:new_subclass{class='sps', mandatory={'prefix', 'pa'}}
 
-function usp:init()
-   -- superclass init
-   ph.init(self)
-
-   local added = self.pa.usp:insert(self.rid, self)
-   self:a(added, 'already existed?', self)
-
-   self.pa:changed()
+function sps:get_desired_bits()
+   local bits = self.desired_bits
+   self:a(bits, 'desired_bits not set')
+   return bits
 end
 
-function usp:uninit()
-   self:d('uninit')
-   self.pa.usp:remove(self.rid, self)
-   self.pa:changed()
-end
-
-function usp:repr_data()
-   return mst.repr{prefix=self.ascii_prefix, rid=self.rid}
-end
-
-
-function usp:get_random_binary_prefix(iid, i)
+function sps:get_random_binary_prefix(iid, i)
    local b = self.binary_prefix
    i = i or 0
    -- get the rest of the bytes from md5
    local s = string.format("%s-%s-%s-%d", 
                            self.pa.rid, iid, self.ascii_prefix, i)
    local sb = create_hash(s)
-   p = b .. string.sub(sb, #b+1, 8)
-   self:a(#p == 8)
+   local desired_bits = self:get_desired_bits()
+   p = b .. string.sub(sb, #b+1, desired_bits / 8)
+   local got_bits = #p * 8
+   self:a(got_bits == desired_bits, 'mismatch', got_bits, desired_bits)
    return p
 end
 
-function usp:create_prefix_freelist(assigned)
+function sps:create_prefix_freelist(assigned)
    if self.freelist then return self.freelist end
 
    local b = self.binary_prefix
    local t = mst.array:new()
+   local desired_bits = self:get_desired_bits()
+
+   mst.a(desired_bits > 0)
 
    self.freelist = t
 
-   if #b >= 8
+   if #b >= desired_bits/8
    then
       return t
    end
 
    -- use the last prefix as base, iterate through the whole usable prefix
-   local p = b .. string.rep(string.char(0), 8-#b)
+   local p = b .. string.rep(string.char(0), desired_bits/8-#b)
    local sp = p
    while true
    do
-      p = ipv6s.binary_prefix_next_from_usp(b, p)
-      self:a(#p == 8, "binary_prefix_next_from_usp bugs?")
+      p = ipv6s.binary_prefix_next_from_usp(b, p, desired_bits)
+      self:a(#p == desired_bits/8, "binary_prefix_next_from_usp bugs?")
 
       if not assigned[p]
       then
@@ -385,6 +378,93 @@ function usp:create_prefix_freelist(assigned)
    -- never reached
 end
 
+function sps:find_new_from(iid,  assigned)
+   local b = self.binary_prefix
+   local p
+
+   self:a(assigned, 'assigned missing')
+   self:a(b)
+
+   -- if we're in freelist mode, just use it. otherwise, try to
+   -- pick randomly first
+   local t = self.freelist
+   if not t
+   then
+      -- initially, try the specified number times (completely
+      -- arbitrary number) to figure a randomish prefix (based on the
+      -- router id)
+      
+      -- (note: it should be big enough to make it unlikely that we
+      -- have to produce a freelist, which in and of itself is
+      -- expensive)
+      for i=1,self.random_prefix_tries
+      do
+         local p = self:get_random_binary_prefix(iid, i)
+         if not assigned[p]
+         then
+            self:d('find_new_from random worked iteration', i)
+            local np = ipv6s.new_prefix_from_binary(p)
+            self:a(self.prefix:contains(np))
+            return np
+         end
+      end
+      
+      -- ok, lookup failed; create freelist
+      t = self:create_prefix_freelist(assigned)
+   end
+
+   -- Now handle freelist; pick random item from there. We _could_
+   -- try some sort of md5-seeded logic here too; however, I'm not
+   -- convinced the freelist looks same in exhaustion cases anyway, so
+   -- random choice is as good as any?
+   self:a(t)
+   local idx = mst.array_randindex(t)
+   if not idx
+   then
+      self:d('not found in freelist', self.prefix, #t)
+      return
+   end
+   local v = t[idx]
+   t:remove_index(idx)
+   self:d('find_new_from picked index', idx, v)
+   return v
+end
+
+
+-- usable prefix, can be either local or remote (no behavioral
+-- difference though?)
+usp = sps:new_subclass{class='usp', mandatory={'prefix', 'rid', 'pa'}}
+
+function usp:init()
+   -- superclass init
+   sps.init(self)
+
+   local added = self.pa.usp:insert(self.rid, self)
+   self:a(added, 'already existed?', self)
+
+   self.pa:changed()
+end
+
+function usp:uninit()
+   self:d('uninit')
+   self.pa.usp:remove(self.rid, self)
+   self.pa:changed()
+end
+
+function usp:repr_data()
+   return mst.repr{prefix=self.ascii_prefix, rid=self.rid}
+end
+
+function usp:get_desired_bits()
+   if self.prefix:is_ipv4()
+   then
+      return 96 + 24 -- /24
+   else
+      return 64
+   end
+end
+
+
 -- main prefix assignment class
 
 
@@ -394,6 +474,10 @@ pa = mst.create_class{class='pa', lap_class=lap, mandatory={'rid'},
                       random_prefix_tries=5}
 
 function pa:init()
+   -- set the sps subclasses' random prefix #
+   -- XXX - this isn't very pretty
+   sps.random_prefix_tries = self.random_prefix_tries
+
    -- locally assigned prefixes - iid => list
    self.lap = mst.multimap:new()
 
@@ -546,6 +630,7 @@ function pa:assign_own(iid, usp)
 
    -- 1. find already assigned prefixes
    assigned = self:find_assigned(usp)
+   usp.freelist = nil -- clear old freelist, if any
 
    -- 2. try to find 'old one'
    local p
@@ -590,7 +675,7 @@ function pa:assign_own(iid, usp)
    -- 3. assign /64 if possible
    if not p
    then
-      p = self:find_new_from(iid, usp, assigned)
+      p = usp:find_new_from(iid, assigned)
    end
    
    -- 4. hysteresis (sigh)
@@ -649,58 +734,6 @@ function pa:find_assigned(usp)
    return t
 end
 
-function pa:find_new_from(iid, usp, assigned)
-   local b = usp.binary_prefix
-   local p
-
-   self:a(assigned, 'assigned missing')
-   self:a(b)
-
-   -- if we're in freelist mode, just use it. otherwise, try to
-   -- pick randomly first
-   local t = usp.freelist
-   if not t
-   then
-      -- initially, try the specified number times (completely
-      -- arbitrary number) to figure a randomish prefix (based on the
-      -- router id)
-      
-      -- (note: it should be big enough to make it unlikely that we
-      -- have to produce a freelist, which in and of itself is
-      -- expensive)
-      for i=1,self.random_prefix_tries
-      do
-         local p = usp:get_random_binary_prefix(iid, i)
-         if not assigned[p]
-         then
-            --self:d('find_new_from random worked iteration', i)
-            local np = ipv6s.new_prefix_from_binary(p)
-            self:a(usp.prefix:contains(np))
-            return np
-         end
-      end
-      
-      -- ok, lookup failed; create freelist
-      t = usp:create_prefix_freelist(assigned)
-   end
-
-   -- Now handle freelist; pick random item from there. We _could_
-   -- try some sort of md5-seeded logic here too; however, I'm not
-   -- convinced the freelist looks same in exhaustion cases anyway, so
-   -- random choice is as good as any?
-   self:a(t)
-   local idx = mst.array_randindex(t)
-   if not idx
-   then
-      self:d('not found in freelist', usp.prefix, #t)
-      return
-   end
-   local v = t[idx]
-   t:remove_index(idx)
-   self:d('find_new_from picked index', idx, v)
-   return v
-end
-
 -- 6.3.2
 function pa:check_asp_conflicts(iid, asp)
    self:d('6.3.2 check_asp_conflicts', asp)
@@ -740,13 +773,16 @@ function pa:matching_prefix_exists(filter)
    end
 end
 
-function pa:generate_ulaish(filter, filter_own, generate_prefix)
-   -- i) first off, if we _do_ have usable prefixes, use them
+function pa:generate_ulaish(filter, filter_own, generate_prefix, desc)
+   -- i) first off, if we _do_ have usable prefixes from someone else,
+   -- use them
    if self:matching_prefix_exists(filter)
    then
-      self:d('something exists, generate_ulaish skipped')
+      self:d('something exists, generate_ulaish skipped', desc)
       return
    end
+
+   self:d('generate_ulaish', desc)
 
    local rids = self.ridr:keys()
 
@@ -757,6 +793,7 @@ function pa:generate_ulaish(filter, filter_own, generate_prefix)
    local my_rid = self.rid
    if my_rid < highest_rid
    then
+      self:d(' higher rid exists, skipping')
       return
    end
 
@@ -773,9 +810,9 @@ function pa:generate_ulaish(filter, filter_own, generate_prefix)
          if filter_own(usp)
          then
             usp.valid = true
+            return
          end
       end
-      return
    end
 
    -- we don't
@@ -792,7 +829,9 @@ function pa:generate_ulaish(filter, filter_own, generate_prefix)
 
    -- generate usp
    local p = generate_prefix()
+   self:d(' generated prefix', p)
    usp:new{prefix=p, rid=my_rid, pa=self, valid=true}
+
 
    -- XXX store it on disk
 end
@@ -821,7 +860,7 @@ function pa:update_ifs_neigh()
                                                     self:a(_valid_rid(rid))
                                                     self:a(_valid_iid(iid))
                                                     t[rid] = iid
-                                                      end)
+                                                           end)
                         self.neigh[ifo.index] = t
                           end
                     )
@@ -874,7 +913,7 @@ function pa:should_run()
                              self:d('should run - missing rid.nh info', o, r)
                              should = true
                           end
-                          end)
+                       end)
       if not should
       then
          return
@@ -924,27 +963,75 @@ function pa:run(d)
                            end)
 
    -- generate ULA prefix if necessary
-   self:generate_ulaish(
-      -- filter others' (without which this is pointless)
-      function (usp)
-         return usp.rid ~= self.rid and not usp.prefix:is_ula()
-      end,
+   if not self.disable_ula
+   then
+      self:generate_ulaish(
+         -- what prevents ula from happening?
+         function (usp)
+            -- a) something from someone else (don't generate if someone
+            -- else already has _something_ non v4)
+            if usp.rid ~= self.rid and not usp.prefix:is_ipv4()
+            then
+               return true
+            end
+            
+            -- b) own non-ula non-v4
+            if usp.rid == self.rid and not usp.prefix:is_ipv4() and not usp.prefix:is_ula()
+            then
+               return true
+            end
+         end,
 
-      -- filter own ula prefixes
-      function (usp)
-         return usp.rid == self.rid and usp.prefix:is_ula()
-      end,
+         -- filter own ula prefixes
+         function (usp)
+            return usp.rid == self.rid and usp.prefix:is_ula()
+         end,
 
-      -- produce a new prefix
-      function ()
-         local hwf = self.client:get_hwf(self.rid)
-         local bits = create_hash(hwf)
-         -- create binary prefix - first one 0xFC, 5 bytes from bits => /48
-         local bp = ipv6s.ula_prefix .. string.sub(bits, 1, 5)
-         local p = ipv6s.new_prefix_from_binary(bp)
-         return p
-      end
-                       )
+         -- produce a new prefix
+         function ()
+            local hwf = self.client:get_hwf(self.rid)
+            local bits = create_hash(hwf)
+            -- create binary prefix - first one 0xFC, 5 bytes from bits => /48
+            local bp = ipv6s.ula_prefix .. string.sub(bits, 1, 5)
+            local p = ipv6s.new_prefix_from_binary(bp)
+            return p
+         end,
+         'ULA')
+   end
+
+   if not self.disable_ipv4
+   then
+
+      -- generate IPv4 prefix if necessary
+      self:generate_ulaish(
+         -- what prevents our v4 from happening?
+         function (usp)
+            -- XXX - consider if we should implement _real_ priority
+            -- ordering here, or just stick to 'someone publishes one ->
+            -- life is good'
+            if usp.rid ~= self.rid and usp.prefix:is_ipv4() 
+            then
+               return true
+            end
+         end,
+
+         -- filter own v4 prefixes
+         function (usp)
+            return usp.rid == self.rid and usp.prefix:is_ipv4()
+         end,
+
+         -- produce a new prefix
+         function ()
+            -- XXX - implement real algorithm here, instead of just 10./8
+            -- (it _works_, but isn't elegant)
+            local p = ipv6s.new_prefix_from_ascii('10.0.0.0/8')
+            return p
+         end,
+         'V4 USP')
+
+   end
+
+
 
    -- drop those that are not valid immediately
    self:filtered_values_done(self.usp,
@@ -991,6 +1078,18 @@ function pa:run(d)
       end
    end
 
+   if not self.disable_ipv4
+   then
+      -- handle local IPv4 address assignment algorithm
+      for i, lap in ipairs(self.lap:values())
+      do
+         if lap.prefix:is_ipv4()
+         then
+            self:handle_ipv4_lap_address(lap)
+         end
+      end
+   end
+
    self:d('run done', self.changes)
 
    if self.changes > 0
@@ -1001,14 +1100,102 @@ function pa:run(d)
    end
 end
 
+function pa:handle_ipv4_lap_address(lap)
+   -- there can be only one v4 lap per interface 
+   -- (ever only one USP => at most one LAP per interface)
+
+   local rid = self.rid
+
+   self:d('handle_ipv4_lap_address', lap)
+
+   -- XXX implement this effectively
+   local assigned = mst.map:new{}
+   
+   -- store _all_ assignments, and in general the highest rid one if
+   -- there's conflicts
+   self.client:iterate_asa(rid, function (o)
+                              local b = o.prefix:get_binary()
+                              local prev = assigned[b]
+                              if not prev or prev < o.rid
+                              then
+                                 assigned[b] = o.rid
+                              end
+                                end)
+
+
+   -- if we have assignment, and it is valid (assigned[address] == us), nop
+   if lap.address and assigned[lap.address:get_binary()]
+   then
+      self:d(' happy with existing one')
+      return
+   end
+
+   -- ok, we either don't have assignment, or someone with higher rid
+   -- wants _our_ address. let's not fight. try to generate a new one.
+   local s = sps:new{prefix=lap.prefix, desired_bits=128, pa=self}
+   
+   -- this is rather sad algorithm.. :-p
+   while true
+   do
+      local p = s:find_new_from(lap.iid, assigned)
+      if not p
+      then
+         -- no address available
+         -- clear old address if any
+         if lap.address
+         then
+            self:d(' cleared old, unable to allocate new')
+            lap.address = nil
+            self:changed()
+         end
+         return
+      end
+      local b = p:get_binary()
+      mst.a(#b == 16, 'invalid result?', #b)
+      -- consider the last byte - is it >= 1, <= 63?
+      -- (64-254 reserved for DHCPv4 hosts, 255 = broadcast)
+      local lb = string.byte(b, 16, 16)
+      if lb >= 1 and lb <= 64
+      then
+         lap.address = p
+         self:d(' assigned', p)
+         self:changed()
+         return
+      else
+            assigned[b] = true
+      end
+   end
+end
+
+local function _ascii_prefix(prefix)
+   if type(prefix) == 'table'
+   then
+      return prefix:get_ascii()
+   end
+   mst.a(type(prefix)=='string', 'wierd prefix - should be ascii')
+   return prefix
+end
+
 function pa:add_or_update_usp(prefix, rid)
+   local ascii_prefix = _ascii_prefix(prefix)
+
    self:a(self.ridr[rid], 'sanity-check failed - rid not reachable', rid)
    for i, o in ipairs(self.usp[rid] or {})
    do
-      if o.ascii_prefix == prefix
+      if o.ascii_prefix == ascii_prefix
       then
-         self:d(' updated old usp')
-         o.valid = true
+         -- XXX - make a test case that this actually occurs (i.e. old
+         -- ULAs and IPv4 assignments disappear if they're no longer
+         -- relevant)
+
+         -- remote ones are valid if we see them
+         -- local ones are typically, unless they're ULA/IPv4
+         -- (those have to be validated later on)
+         if rid ~= self.rid or (not o.prefix:is_ula() and not o.prefix:is_ipv4())
+         then
+            self:d(' updated old usp')
+            o.valid = true
+         end
          return
       end
    end
@@ -1017,9 +1204,12 @@ function pa:add_or_update_usp(prefix, rid)
 end
 
 function pa:get_asp(prefix, iid, rid)
+   local ascii_prefix = _ascii_prefix(prefix)
+
+   --mst.a(type(prefix)=='string', 'wierd prefix - should be ascii')
    for i, o in ipairs(self.asp[rid] or {})
    do
-      if o.ascii_prefix == prefix and o.iid == iid
+      if o.ascii_prefix == ascii_prefix and o.iid == iid
       -- and o.rid == rid (implicit from the hash by rid)
       then
          return o
@@ -1051,7 +1241,6 @@ function pa:add_or_update_asp(prefix, iid, rid)
    end
    self:d(' adding new asp')
    asp:new{prefix=prefix, iid=iid, rid=rid, pa=self, valid=true}
-   self.changes = self.changes + 1
 end
 
 function pa:changed()

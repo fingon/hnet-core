@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Thu Oct 25 17:23:12 2012 mstenber
--- Edit time:     171 min
+-- Last modified: Sat Oct 27 10:26:05 2012 mstenber
+-- Edit time:     176 min
 --
 
 require 'mst'
@@ -60,6 +60,7 @@ describe("elsa_pa [one node]", function ()
                                          hwf={mypid='foo'},
                                          lsas={},
                                          routes={r1={nh='foo', ifname='fooif'}},
+                                         assume_connected=true,
                                         }
                            s = skv.skv:new{long_lived=true, port=31337}
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='mypid',
@@ -332,25 +333,30 @@ describe("elsa_pa [one node]", function ()
 
                                end)
 
-describe("elsa_pa multinode", function ()
-            it("2 sync state ok #mn", function ()
-                  --mst.d_xpcall(function ()
-
+describe("elsa_pa 2-node", function ()
+            local e, skv1, skv2, ep1, ep2
+            
+            before_each(function ()
                   local base_lsas = {r1=usp_dead_tlv}
-                  local e = delsa:new{iid={ep1={{index=42, name='eth0'},
+                  e = delsa:new{iid={ep1={{index=42, name='eth0'},
                                                 {index=123, name='eth1'}}, 
                                            ep2={{index=43,name='eth0'},
                                                 {index=124, name='eth1'}}},
                                       hwf={ep1='foo',
                                            ep2='bar'},
+                                      assume_connected=true,
                                       lsas=base_lsas}
                   e:connect_neigh('ep1', 123, 'ep2', 124)
-                  local skv1 = skv.skv:new{long_lived=true, port=31338}
-                  local skv2 = skv.skv:new{long_lived=true, port=31339}
-                  local ep1 = elsa_pa.elsa_pa:new{elsa=e, skv=skv1, rid='ep1'}
-                  local ep2 = elsa_pa.elsa_pa:new{elsa=e, skv=skv2, rid='ep2'}
+                  skv1 = skv.skv:new{long_lived=true, port=31338}
+                  skv2 = skv.skv:new{long_lived=true, port=31339}
+                  ep1 = elsa_pa.elsa_pa:new{elsa=e, skv=skv1, rid='ep1'}
+                  ep2 = elsa_pa.elsa_pa:new{elsa=e, skv=skv2, rid='ep2'}
                   e:add_router(ep1)
                   e:add_router(ep2)
+
+                        end)
+            it("2 sync state ok #mn", function ()
+                  --mst.d_xpcall(function ()
 
                   -- store DNS information
                   skv1:set(PD_DNS_KEY .. 'eth1', FAKE_DNS_ADDRESS)
@@ -400,3 +406,13 @@ describe("elsa_pa multinode", function ()
                                   end)
             --                    end)
                               end)
+
+describe("elsa_pa bird7-ish", function ()
+            it("simulated bird7", function ()
+                  -- it has 4 real bird nodes;
+                  -- cpe (which gets prefix at some point),
+                  -- bird1-3 
+
+                   end)
+
+                           end)

@@ -2,6 +2,13 @@
 
 * Bugs to fix
 
+** Figure why things don't disappear as rapidly as they should
+
+- ULAs hang around even when they shouldn't?
+
+add_or_update_usp logic may be bit flawed; have to rethink the whole code
+flow through
+
 * Things to do
 
 ** Demo topology?
@@ -50,16 +57,20 @@ pieces:
 
  - v4-ext (external prefixes)
 
- [ just toss 'em in JSON for the time being ]
+ [ just toss 'em in JSON for the time being.. ]
 
- - v4-usp (configured, prefix) combo => chosen from the router with highest
+ ! for the time being skipped
+
+ + v4-usp (configured, prefix) combo => chosen from the router with highest
    (configured, rid) tuple
 
  [ can be probably normal USP with ~ULA-like behavior, with bit different
  bit length, and extra constraint of it not being in v4-ext lists if not
  manually configured? ]
 
- - v4-asp - assigned from v4-usp
+ ! for the time being, no 'configured' flag
+
+ + v4-asp - assigned from v4-usp
 
  [ can be probably normal ASP, with different bit length ]
 
@@ -76,9 +87,10 @@ pieces:
 
 => changes
 
-- pm* (v4 address assignment, dhclient running)
-- elsa_pa (SKV export, changes to originated LSA)
-- pa (most of the changes)
++ pm* (v4 address assignment, dhclient running)
+ .. todo: run dhclient?
++ elsa_pa (SKV export, changes to originated LSA)
++ pa (most of the changes)
 + ipv6s (v4-encoding stuff)
 
 

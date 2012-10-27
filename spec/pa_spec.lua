@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Fri Oct 19 13:24:54 2012 mstenber
--- Edit time:     225 min
+-- Last modified: Fri Oct 26 23:03:46 2012 mstenber
+-- Edit time:     237 min
 --
 
 require "busted"
@@ -39,6 +39,7 @@ end
 ospf = dneigh.dneigh:new_subclass{class='ospf'}
 
 function ospf:init()
+   self.asa = self.asa or {}
    self.asp = self.asp or {}
    self.usp = self.usp or {}
    self.iif = self.iif or {}
@@ -50,6 +51,13 @@ end
 
 function ospf:get_hwf(rid)
    return rid
+end
+
+function ospf:iterate_asa(rid, f)
+   for i, v in ipairs(self.asa)
+   do
+      f(v)
+   end
 end
 
 function ospf:iterate_asp(rid, f)
@@ -319,9 +327,10 @@ describe("pa-nobody-else", function ()
                   o.usp = {{prefix='dead::/16', rid='myrid'}}
                   pa.new_prefix_assignment = 123
                   pa:run()
-                  mst.a(pa.usp:count() == 1, "usp mismatch")
-                  mst.a(pa.asp:count() == 0, "asp mismatch")
-                  mst.a(pa.lap:count() == 0, "lap mismatch")
+                  -- should have v4 USP, but not yet ASP due to ASP delay
+                  mst.a(pa.usp:count() == 2, "usp mismatch", pa.usp)
+                  mst.a(pa.asp:count() == 0, "asp mismatch", pa.asp)
+                  mst.a(pa.lap:count() == 0, "lap mismatch", pa.lap)
                                                   end)
             it("obeys hysteresis 2 - time long gone", function ()
                   -- just local e.g. PD prefix
@@ -329,9 +338,10 @@ describe("pa-nobody-else", function ()
                   pa.new_prefix_assignment = 123
                   pa.start_time = pa.start_time - pa.new_prefix_assignment - 10
                   pa:run()
-                  mst.a(pa.lap:count() > 0, "lap mismatch")
-                  mst.a(pa.asp:count() > 0, "asp mismatch")
-                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                  mst.a(pa.lap:count() > 0, "lap mismatch", pa.lap)
+                  mst.a(pa.asp:count() > 0, "asp mismatch", pa.asp)
+                  -- should have v4 prefix now too (but no ULA)
+                  mst.a(pa.usp:count() == 2, "usp mismatch", pa.usp)
                                                   end)
             it("obeys hysteresis 3 - other rid present", function ()
                   -- just local e.g. PD prefix
@@ -357,33 +367,37 @@ describe("pa-nobody-else", function ()
                   pa:run()
                   pa.new_ula_prefix = 123
                   pa.start_time = pa.start_time - pa.new_ula_prefix - 10
-                  mst.a(pa.usp:count() == 1, "usp mismatch")
-                  mst.a(pa.asp:count() > 0, "asp mismatch")
-                  mst.a(pa.lap:count() > 0, "lap mismatch")
+                  -- ula + IPv4
+                  mst.a(pa.usp:count() == 2, "usp mismatch")
+                  mst.a(pa.asp:count() == 4, "asp mismatch")
+                  mst.a(pa.lap:count() == 4, "lap mismatch")
                   pa:run()
-                  mst.a(pa.usp:count() == 1, "usp mismatch")
-                  mst.a(pa.asp:count() > 0, "asp mismatch")
-                  mst.a(pa.lap:count() > 0, "lap mismatch")
+
+                  -- ula + IPv4
+                  mst.a(pa.usp:count() == 2, "usp mismatch")
+                  mst.a(pa.asp:count() == 4, "asp mismatch")
+                  mst.a(pa.lap:count() == 4, "lap mismatch")
 
                   -- however, if we add real USP, the ULA should disappear
+                  -- (and v4 too, as other one has higher rid)
                   table.insert(o.usp, {prefix='dead::/16', rid='rid1'})
                   o.ridr = {{rid='myrid'}, {rid='rid1'},}
                   pa:run()
                   mst.a(pa.usp:count() == 1, "usp mismatch")
                   mst.a(pa.asp:count() == 2, "asp mismatch")
-                  mst.a(pa.lap:count() == 4, "lap mismatch")
+                  mst.a(pa.lap:count() == 6, "lap mismatch")
 
                   -- initially they will go unassigned once ULA is gone
                   local c = timeout_laps(pa, function (lap)
                                             return lap.assigned==false
                                              end)
-                  mst.a(c == 2)
+                  mst.a(c == 4, c)
 
                   -- then depracate
                   local c = timeout_laps(pa, function (lap)
                                             return lap.depracated==true
                                              end)
-                  mst.a(c == 2)
+                  mst.a(c == 4, c)
                    
 
                   pa:run()

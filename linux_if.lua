@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  8 13:11:02 2012 mstenber
--- Last modified: Thu Oct 18 12:17:18 2012 mstenber
--- Edit time:     80 min
+-- Last modified: Sat Oct 27 00:10:07 2012 mstenber
+-- Edit time:     91 min
 --
 
 
@@ -27,6 +27,10 @@ module(..., package.seeall)
 --- if_object
 
 if_object = mst.create_class{class='if_object', mandatory={'name'}}
+
+function if_object:init()
+   self.valid = {}
+end
 
 function if_object:get_hwaddr()
    local ifname = self.name
@@ -60,6 +64,15 @@ function if_object:del_ipv6(addr)
    return self.parent.shell(string.format('ip -6 addr del %s dev %s', addr, self.name))
 end
 
+function if_object:set_ipv4(addr, netmask)
+   self.ipv4_valid = false
+   return self.parent.shell(string.format('ifconfig %s %s netmask %s', self.name, addr, netmask))
+end
+
+function if_object:set_valid(key)
+   self.valid[key] = true
+end
+
 --- if_table
 
 if_table = mst.create_class{class='if_table', mandatory={'shell'}}
@@ -79,12 +92,30 @@ function if_table:get_if(k)
    return r
 end
 
-function if_table:read_ip_ipv6()
-   -- invalidate all interfaces first
+function if_table:invalidate_key(key)
    for i, v in ipairs(self.map:values())
    do
-      v.valid = false
+      v.valid[key] = nil
    end
+end
+
+function if_table:delete_invalid()
+   for i, k in ipairs(self.map:keys())
+   do
+      local v = self.map[k]
+      if not mst.table_count(v.valid)
+      then
+         self[k] = nil
+      end
+   end
+end
+
+local AF_IPV4='ipv4'
+local AF_IPV6='ipv6'
+
+function if_table:read_ip_ipv6()
+   -- invalidate all interfaces first
+   self:invalidate_key(AF_IPV6)
 
    local s, err = self.shell("ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary")
    mst.a(s, 'unable to execute ip -6 addr', err)
@@ -103,7 +134,7 @@ function if_table:read_ip_ipv6()
                              ifo = self:get_if(ifname)
                              ifo.ipv6 = mst.array:new{}
                              ifo.ipv6_valid = true
-                             ifo.valid = true
+                             ifo:set_valid(AF_IPV6)
                           end,
                           -- case 2: <spaces> inet6 <addr>/64
                           '^%s+inet6 (%S+/64)%s',
@@ -117,18 +148,46 @@ function if_table:read_ip_ipv6()
    end
 
    -- remove non-valid interface objects
-   for i, k in ipairs(self.map:keys())
+   self:delete_invalid()
+
+   return self.map
+end
+
+function if_table:read_ip_ipv4()
+   -- invalidate all interfaces at the outset
+   self:invalidate_key(AF_IPV4)
+
+
+   local s, err = self.shell("ip -4 addr")
+   mst.a(s, 'unable to execute ip -4 addr', err)
+   local ifo = nil
+
+   local lines = mst.string_split(s, '\n')
+   -- filter empty lines
+   lines = lines:filter(function (line) return #mst.string_strip(line)>0 end)
+
+   for i, line in ipairs(lines)
    do
-      local v = self.map[k]
-      if not v.valid
-      then
-         self[k] = nil
-      else
-         -- no point carrying this info onward..
-         v.valid = nil
-      end
+      mst.string_find_one(line,
+                          -- case 1: <num>: <ifname>: 
+                          '^%d+: (%S+): ',
+                          function (ifname)
+                             ifo = self:get_if(ifname)
+                             ifo.ipv4 = nil
+                             ifo.ipv4_valid = true
+                             ifo:set_valid(AF_IPV4)
+                          end,
+                          -- case 2: <spaces> inet <addr>/<mask>
+                          '^%s+inet (%S+/%d+)%s',
+                          function (addr)
+                             ifo.ipv4 = addr
+                          end
+                         )
    end
 
+
+   -- remove non-valid interrface objects
+   self:delete_invalid()
    return self.map
 end
 
