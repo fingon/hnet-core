@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Sat Oct 27 01:31:06 2012 mstenber
+-- Last modified: Sat Oct 27 11:15:28 2012 mstenber
 -- Edit time:     174 min
 --
 
@@ -89,7 +89,7 @@ function abstract_data:decode(cur)
 end
 
 function abstract_data:try_decode(cur)
-   self:d('try_decode', cur)
+   --self:d('try_decode', cur)
 
    self:a(self)
 
@@ -332,7 +332,7 @@ function decode_ac_tlvs(s)
                              end)
    --mst.d('hls', hls)
    local minimum_size = mst.min(unpack(hls))
-   mst.d('minimum_size', minimum_size)
+   --mst.d('minimum_size', minimum_size)
 
    local t = {}
    while has_left(cur, minimum_size)
