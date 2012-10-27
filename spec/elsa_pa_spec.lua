@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Sat Oct 27 11:13:22 2012 mstenber
--- Edit time:     196 min
+-- Last modified: Sat Oct 27 12:13:34 2012 mstenber
+-- Edit time:     225 min
 --
 
 require 'mst'
@@ -61,6 +61,7 @@ describe("elsa_pa [one node]", function ()
                                          lsas={},
                                          routes={r1={nh='foo', ifname='fooif'}},
                                          assume_connected=true,
+                                         disable_autoroute=true,
                                         }
                            s = skv.skv:new{long_lived=true, port=31337}
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='mypid',
@@ -419,10 +420,30 @@ describe("elsa_pa bird7-ish", function ()
                   e:connect_neigh('bird1', 43, 
                                   'bird3', 42)
                   -- BIRD2, 3 aren't connected anywhere
+                  
 
                   -- sanity check - all 4 nodes should be connected
                   local t = e:get_connected('bird0')
                   mst.a(t:count() == 4, 'connect_neigh or get_connected not working', t)
+            end
+            function run_nodes(iters)
+               -- run nodes up to X iterations, or when none of them
+               -- don't want to run return true if stop condition was
+               -- encountered before iters iterations
+               for i=1,iters
+               do
+                  mst.d('iteration', i)
+                  for i, ep in ipairs(mst.array_randlist(eps))
+                  do
+                     ep:run()
+                  end
+                  local l = 
+                     eps:filter(function (ep) return ep:should_run() end)
+                  if #l == 0
+                  then
+                     return true
+                  end
+               end
             end
             before_each(function ()
                   -- it has 4 real bird nodes;
@@ -446,6 +467,38 @@ describe("elsa_pa bird7-ish", function ()
                      e:add_router(ep)
                   end
                         end)
+
+            function ensure_same()
+                  local ep1 = eps[4]
+                  local pa1 = ep1.pa
+                  for i, ep in ipairs(eps)
+                  do
+                     local pa = ep.pa
+                     mst.a(pa.usp:count() == pa1.usp:count(), 'usp', pa, pa1)
+                     mst.a(pa.asp:count() == pa1.asp:count(), 'asp', pa, pa1)
+
+                     -- lap count can be bigger, if there's redundant
+                     -- allocations
+                     --mst.a(pa.lap:count() == pa1.lap:count(), 'lap', pa, pa1)
+                  end
+            end
+
+            function ensure_counts()
+                  local ep1 = eps[4]
+                  local pa1 = ep1.pa
+                  -- make sure that view sounds sane
+                  -- 2 USP (ULA, IPv4)
+                  mst.a(pa1.usp:count() == 2, 'usp', pa1.usp)
+
+                  -- # links * 2 AF IPv4+USP
+                  -- BIRD1-3, HOME, ISP
+                  local links = 5
+                  mst.a(pa1.asp:count() == links * 2, 'wrong asp count', pa1, pa1.asp, pa1.asp:count())
+                  -- 2 if * USP,IPv4 [cannot be more, highest rid]
+                  local laps = pa1.lap:values()
+                  local alaps = laps:filter(function (lap) return lap.assigned end)
+                  mst.a(#alaps == 2 * 2, 'wrong lap count', pa1, alaps)
+            end
             after_each(function ()
                           for i, ep in ipairs(eps)
                           do
@@ -463,48 +516,48 @@ describe("elsa_pa bird7-ish", function ()
             it("instant connection #inst", function ()
                   connect_nodes()
                   
+                  mst.a(run_nodes(10), 'did not halt in time')
+
+                  ensure_same()
+
+                  ensure_counts()
+                  
+                   end)
+
+            it("delayed connection #delay", function ()
+                  
+                  mst.a(run_nodes(2), 'did not halt in time')
+
+                  connect_nodes()
+                  
+                  mst.a(run_nodes(10), 'did not halt in time')
+
+                  ensure_same()
+
+                  ensure_counts()
+                  
+                   end)
+
+
+            it("survive net burps #burp", function ()
+                  mst.a(run_nodes(2), 'did not halt in time')
+
                   for i=1,3
                   do
-                     for i, ep in ipairs(mst.array_randlist(eps))
-                     do
-                        ep:run()
-                     end
+                  connect_nodes()
+                  
+                  mst.a(run_nodes(10), 'did not halt in time')
+
+                  ensure_same()
+
+                  ensure_counts()
+                  
+                  e:clear_connections()
+
+                  mst.a(run_nodes(2), 'did not halt in time')
+
                   end
 
-                  -- make sure none of the nodes really want to run anymore
-                  for i, ep in ipairs(eps)
-                  do
-                     local pa = ep.pa
-                     mst.a(not pa:should_run(), 'still wants to run', ep)
-                     mst.a(pa.usp:count() == 0, 'some usp', pa.usp)
-
-
-                     -- and make sure next we should get ulas AND
-                     -- prefixes assigned out of them
-                     pa.start_time = pa.start_time - ep.new_ula_prefix - ep.new_prefix_assignment - 10
-                  end
-                  
-                  
-                  for i=1,10
-                  do
-                     for i, ep in ipairs(mst.array_randlist(eps))
-                     do
-                        ep:run()
-                     end
-                  end
-                  
-                  -- make sure none of the nodes really want to run anymore
-                  for i, ep in ipairs(eps)
-                  do
-                     local pa = ep.pa
-                     mst.a(not pa:should_run(), 'still wants to run', ep)
-                     mst.a(pa.usp:count() == 2, 'some usp', pa.usp)
-                     -- 4 nodes * 2 interfaces * 2 AF IPv4+USP
-                     mst.a(pa.asp:count() == 16, 'wrong asp count', pa.asp, pa.asp:count())
-                     -- 2 if, USP + IPv4
-                     mst.a(pa.lap:count() == 4, 'wrong asp count', pa.usp)
-                  end
-                  
                    end)
 
                            end)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Oct  5 00:09:17 2012 mstenber
--- Last modified: Sat Oct 27 11:09:10 2012 mstenber
--- Edit time:     33 min
+-- Last modified: Sat Oct 27 12:11:45 2012 mstenber
+-- Edit time:     40 min
 --
 
 require 'mst'
@@ -25,6 +25,11 @@ function delsa:init()
    self.nodes = {}
    self.connected = {}
    self.lsas = self.lsas or {}
+end
+
+function delsa:clear_connections()
+   self.neigh = {}
+   self.connected = {}
 end
 
 function delsa:connect_neigh(...)
@@ -122,10 +127,22 @@ function delsa:change_rid()
    self.rid_changed = true
 end
 
-function delsa:route_to_rid(rid)
+function delsa:route_to_rid(rid0, rid)
    self:d('route lookup', rid)
-   if not self.routes then return end
-   local t = self.routes[rid] 
-   self:d('lookup got', t)
-   if t then return t end
+   if self.routes 
+   then 
+      local t = self.routes[rid] 
+      self:d('lookup got', t)
+      if t then return t end
+   end
+   -- final fallback - if it's 'connected', there must be a route, but
+   -- we have a lazy coder - so figure something
+   if not self.disable_autoroute
+   then
+      local c = self:get_connected(rid0)
+      if c[rid]
+      then
+         return {ifname='???', nh=tostring(rid0) .. '->' .. tostring(rid)}
+      end
+   end
 end

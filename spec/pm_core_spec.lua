@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Sat Oct 27 00:14:42 2012 mstenber
--- Edit time:     71 min
+-- Last modified: Sat Oct 27 12:30:19 2012 mstenber
+-- Edit time:     75 min
 --
 
 -- testsuite for the pm_core
@@ -119,7 +119,9 @@ describe("pm", function ()
                            s = skv.skv:new{long_lived=true, port=42424}
                            e = delsa:new{iid={myrid={{index=42, name='eth2'}}},
                                          lsas={rid1=usp_dead_tlv},
-                                         hwf={myrid='foo'}}
+                                         hwf={myrid='foo'},
+                                         assume_connected=true,
+                                        }
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='myrid'}
 
                            s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth1'})
@@ -151,7 +153,7 @@ describe("pm", function ()
                           e:done()
                           s:done()
                        end)
-            it("works", function ()
+            it("works #w", function ()
                   local d = mst.table_copy(lap_base)
                   mst.array_extend(d, rule_base)
                   mst.array_extend(d, lap_end)
@@ -184,7 +186,7 @@ describe("pm", function ()
                   local d = mst.table_copy(lap_base)
                   mst.array_extend(d, rule_base)
                   mst.array_extend(d, lap_end)
-                  mst.array_extend(d, {{'ifconfig eth2 10.110.150.19 netmask 255.255.255.0', ''}})
+                  mst.array_extend(d, {{'ifconfig eth2 10.110.150.32 netmask 255.255.255.0', ''}})
                   setup_fakeshell(d)
                   local pa = ep.pa
                   -- change other rid so we have highest one -> v4!

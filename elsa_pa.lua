@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Sat Oct 27 10:21:05 2012 mstenber
--- Edit time:     328 min
+-- Last modified: Sat Oct 27 12:02:27 2012 mstenber
+-- Edit time:     337 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -228,6 +228,13 @@ function elsa_pa:check_conflict(bonus_lsa)
    return true
 end
 
+function elsa_pa:should_run()
+   -- ! important to check pa.should_run() first, even if it's
+   -- inefficient; we never call should_run() within pa.run(), and
+   -- it's needed to get pa.run() to sane state..
+   return self.pa:should_run() or self.first or self.ospf_changes > 0 
+end
+
 function elsa_pa:run()
    self:d('run starting')
 
@@ -258,7 +265,7 @@ function elsa_pa:run()
    -- consider if either ospf change occured (we got callback), pa
    -- itself is in turbulent state, or the if state changed
    local r
-   if self.pa:should_run() or self.ospf_changes > 0 
+   if self:should_run()
    then
       self.ospf_changes = 0
       r = self.pa:run{checked_should=true}
@@ -283,9 +290,14 @@ function elsa_pa:run()
       -- that we need to propagate
       self.skvp_repr = skvp_repr
 
-      -- store the rid to SKV too
-      self.skv:set(OSPF_RID_KEY, self.rid)
+      self:run_handle_new_lsa()
 
+      self:run_handle_skv_publish()
+   end
+   self.first = false
+end
+
+function elsa_pa:run_handle_new_lsa()
       -- originate LSA (or try to, there's duplicate prevention, or should be)
       local body = self:generate_ac_lsa()
       mst.a(body and #body, 'empty generated LSA?!?')
@@ -293,6 +305,12 @@ function elsa_pa:run()
       self.elsa:originate_lsa{type=AC_TYPE, 
                               rid=self.pa.rid,
                               body=body}
+
+end
+
+function elsa_pa:run_handle_skv_publish()
+      -- store the rid to SKV too
+      self.skv:set(OSPF_RID_KEY, self.rid)
 
       -- set up the locally assigned prefix field
       local t = mst.array:new()
@@ -366,8 +384,6 @@ function elsa_pa:run()
       end
 
       self.skv:set(OSPF_USP_KEY, t)
-   end
-   self.first = false
 end
 
 function elsa_pa:iterate_ac_lsa(f, criteria)
@@ -402,7 +418,7 @@ function elsa_pa:iterate_rid(rid, f)
    -- the rest, we look at LSADB 
    self:iterate_ac_lsa(function (lsa) 
                           local rid = lsa.rid
-                          local r = self.elsa:route_to_rid(rid) or {}
+                          local r = self.elsa:route_to_rid(self.rid, rid) or {}
                           f{rid=rid, nh=r.nh, ifname=r.ifname}
                        end)
 end

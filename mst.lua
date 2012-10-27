@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Sat Oct 27 10:53:16 2012 mstenber
--- Edit time:     470 min
+-- Last modified: Sat Oct 27 11:15:56 2012 mstenber
+-- Edit time:     471 min
 --
 
 -- data structure abstractions provided:
@@ -602,7 +602,7 @@ function table_contains(t, t1)
       local v1 = t[k]
       if not repr_equal(v1, v)
       then
-         mst.d('differenence in key', k, v1, v)
+         --mst.d('difference in key', k, v1, v)
          return false
       end
    end
