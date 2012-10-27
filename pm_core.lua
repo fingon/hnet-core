@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Sat Oct 27 00:13:56 2012 mstenber
--- Edit time:     280 min
+-- Last modified: Sat Oct 27 13:09:55 2012 mstenber
+-- Edit time:     292 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -51,6 +51,12 @@ function pm:init()
    self.if_table = linux_if.if_table:new{shell=self.shell} 
    self.rule_table = linux_if.rule_table:new{shell=self.shell}
    self.applied_usp = {}
+
+   -- all  usable prefixes we have been given _some day_; 
+   -- this is the domain of prefixes that we control, and therefore
+   -- also remove addresses as neccessary if they spuriously show up
+   -- (= usp removed, but lap still around)
+   self.all_ipv6_binary_prefixes = mst.set:new{}
 end
 
 function pm:uninit()
@@ -63,24 +69,33 @@ function pm:kv_changed(k, v)
    self.skv:add_change_observer(self.f_usp, elsa_pa.OSPF_USP_KEY)
    if k == elsa_pa.OSPF_USP_KEY
    then
-      self.ospf_usp = v
+      self.ospf_usp = v or {}
+      
       -- reset cache
       self.ipv6_ospf_usp = nil
+
+      -- update the all_ipv6_usp
+      for i, v in ipairs(self:get_ipv6_usp())
+      do
+         local bp = ipv6s.new_prefix_from_ascii(v.prefix):get_binary()
+         self.all_ipv6_binary_prefixes:insert(bp)
+      end
+
       self.pending_routecheck = true
       self.pending_rulecheck = true
    elseif k == elsa_pa.OSPF_LAP_KEY
    then
-      self.ospf_lap = v
+      self.ospf_lap = v or {}
       self.pending_routecheck = true
       self.pending_addrcheck = true
    elseif k == elsa_pa.OSPF_DNS_KEY
    then
-      self.ospf_dns = v
+      self.ospf_dns = v or {}
       self.pending_rewrite_radvd = true
       self.pending_rewrite_dhcpd = true
    elseif k == elsa_pa.OSPF_DNS_SEARCH_KEY
    then
-      self.ospf_dns_search = v
+      self.ospf_dns_search = v or {}
       self.pending_rewrite_radvd = true
       self.pending_rewrite_dhcpd = true
    else
@@ -344,20 +359,21 @@ function pm:get_real_lap()
    do
       for _, addr in ipairs(ifo.ipv6 or {})
       do
-         local bits = ipv6s.prefix_bits(addr)
+         local prefix = ipv6s.new_prefix_from_ascii(addr)
+         local bits = prefix:get_binary_bits()
          if bits == 64
          then
             -- non-64 bit prefixes can't be eui64 either
-            local prefix = ipv6s.eui64_to_prefix(addr)
-            mst.a(not r[prefix])
             -- consider if we should even care about this prefix
             local found = nil
-            for _, v in ipairs(self:get_ipv6_usp())
+            local bp = prefix:get_binary()
+            prefix:clear_tailing_bits()
+            for bp2, _ in pairs(self.all_ipv6_binary_prefixes)
             do
-               self:d('considering', v.prefix, prefix)
-               if ipv6s.prefix_contains(v.prefix, prefix)
+               --self:d('considering', v.prefix, prefix)
+               if ipv6s.binary_prefix_contains(bp2, bp)
                then
-                  found = v
+                  found = true
                   break
                end
             end
@@ -365,7 +381,9 @@ function pm:get_real_lap()
             then
                self:d('ignoring prefix', prefix)
             else
-               local o = {ifname=ifo.name, prefix=prefix, addr=addr}
+               local o = {ifname=ifo.name, 
+                          prefix=prefix:get_ascii(), 
+                          addr=addr}
                self:d('found', o)
                r:insert(o)
             end

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Fri Oct 26 22:36:38 2012 mstenber
--- Edit time:     100 min
+-- Last modified: Sat Oct 27 13:09:34 2012 mstenber
+-- Edit time:     107 min
 --
 
 require 'mst'
@@ -269,17 +269,6 @@ function prefix_bits(addr)
    return bits
 end
 
-function eui64_to_prefix(addr)
-   -- must have /64 within
-   local a = mst.string_split(addr, '/')
-   local bits = prefix_bits(addr)
-   mst.a(bits == 64, 'non-64 bit eui64 address?', addr)
-
-   local bprefix = prefix_to_binary_prefix(addr)
-   local prefix = ipv6s.binary_prefix_to_prefix(bprefix)
-   return prefix
-end
-
 -- OO approach - object
 
 ipv6_prefix = mst.create_class{class='ipv6_prefix'}
@@ -296,6 +285,14 @@ function ipv6_prefix:get_ascii()
       self.ascii = binary_prefix_to_prefix(self.binary)
    end
    return self.ascii
+end
+
+function ipv6_prefix:clear_tailing_bits()
+   -- basically, convert ascii => binary (stores only relevant bits)
+   self:get_binary()
+
+   -- then clear ascii, regenerate it from new binary as needed
+   self.ascii = nil
 end
 
 function ipv6_prefix:get_binary()

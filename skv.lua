@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Tue Oct  9 11:41:59 2012 mstenber
--- Edit time:     363 min
+-- Last modified: Sat Oct 27 12:52:10 2012 mstenber
+-- Edit time:     364 min
 --
 
 require 'mst'
@@ -49,7 +49,7 @@ local SKV_VERSION = '1.0'
 function skv:init()
    self.change_events = mst.multimap:new{}
 
-   self.local_state = {}
+   self.local_state = mst.map:new{}
    self.remote_state = {}
    self.host = self.host or HOST
    self.port = self.port or PORT
@@ -286,6 +286,14 @@ function skv:handle_received_json(d)
    if id
    then
       self.acked_id = id
+   end
+end
+
+-- clear all
+function skv:clear()
+   for i, k in ipairs(self.local_state:keys())
+   do
+      self:set(k, false)
    end
 end
 

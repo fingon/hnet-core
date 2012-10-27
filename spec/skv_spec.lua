@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Thu Oct 11 11:55:12 2012 mstenber
--- Edit time:     177 min
+-- Last modified: Sat Oct 27 12:52:17 2012 mstenber
+-- Edit time:     179 min
 --
 
 require "busted"
@@ -355,6 +355,14 @@ describe("skv-client", function ()
                   local r = skv:wait_in_sync()
                   mst.a(r, 'wait_in_sync timed out')
                   mst.a(skv2:get('bar') == 'baz')
+
+                  -- make sure clearing works too
+                  skv:clear()
+                  local r = skv:wait_in_sync()
+                  mst.a(r, 'wait_in_sync timed out')
+                  mst.a(skv:get('bar') == false)
+                  mst.a(skv2:get('bar') == false)
+
 
                   skv:done()
                   skv2:done()

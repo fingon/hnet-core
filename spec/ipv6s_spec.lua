@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 22:04:20 2012 mstenber
--- Last modified: Fri Oct 26 21:50:40 2012 mstenber
+-- Last modified: Sat Oct 27 13:10:18 2012 mstenber
 -- Edit time:     31 min
 --
 
@@ -96,8 +96,6 @@ describe("prefix_hwaddr_to_eui64", function ()
                   local got = ipv6s.prefix_hwaddr_to_eui64(prefix, hwaddr)
                   mst.a(got == exp, got, exp)
 
-                  local gprefix = ipv6s.eui64_to_prefix(exp)
-                  mst.a(gprefix == prefix, gprefix, prefix)
                         end)
             it("works2 [full 64 bits of prefix]", function ()
                   local prefix = 'fdb2:2c26:f4e4:dead::/64'
@@ -106,8 +104,6 @@ describe("prefix_hwaddr_to_eui64", function ()
                   local got = ipv6s.prefix_hwaddr_to_eui64(prefix, hwaddr)
                   mst.a(got == exp, got, exp)
 
-                  local gprefix = ipv6s.eui64_to_prefix(exp)
-                  mst.a(gprefix == prefix, gprefix, prefix)
                         end)
              end)
 

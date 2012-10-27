@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Sat Oct 27 12:30:19 2012 mstenber
--- Edit time:     75 min
+-- Last modified: Sat Oct 27 13:11:25 2012 mstenber
+-- Edit time:     82 min
 --
 
 -- testsuite for the pm_core
@@ -112,6 +112,27 @@ local rule_no_nh = {
    {'ip -6 rule del from dead::/16 table 1000 pref 1112', ''},
 }
 
+cleanup = {
+   {"ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary",
+    [[1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 
+2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+  inet6 fdb2:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic 
+  inet6 dead:e9d2:a21b:5888:21c:42ff:fea7:f1d9/64 scope global dynamic
+6: 6rd: <NOARP,UP,LOWER_UP> mtu 1480 
+  inet6 ::192.168.100.100/128 scope global 
+]]},
+   {'ip -6 addr del dead:e9d2:a21b:5888:21c:42ff:fea7:f1d9/64 dev eth2', ''},
+   {'ip -6 rule',
+    [[
+                          0:	from all lookup local 
+                          0:	from all to beef::/16 lookup local 
+                             1112:	from dead::/16 lookup 1000 
+                          16383:	from all lookup main 
+                       ]]},
+   {'ip -6 rule del from dead::/16 table 1000 pref 1112', ''},
+
+}
+
 describe("pm", function ()
             local s, e, ep, pm
 
@@ -187,6 +208,10 @@ describe("pm", function ()
                   mst.array_extend(d, rule_base)
                   mst.array_extend(d, lap_end)
                   mst.array_extend(d, {{'ifconfig eth2 10.110.150.32 netmask 255.255.255.0', ''}})
+                  -- second run
+                  mst.array_extend(d, cleanup)
+                  mst.array_extend(d, lap_end)
+
                   setup_fakeshell(d)
                   local pa = ep.pa
                   -- change other rid so we have highest one -> v4!
@@ -196,6 +221,14 @@ describe("pm", function ()
                   ep:run()
                   mst.a(pm:run())
                   mst.a(not pm:run())
+
+                  -- make sure that explicitly clearing the SKV
+                  -- results in correct results - that is, commands to
+                  -- clear all IF state
+                  s:clear()
+                  mst.a(pm:run())
+                  mst.a(not pm:run())
+
                   mst.a(arri == #arr, 'did not consume all?', arri, #arr)
                   
                    end)
