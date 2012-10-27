@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Sat Oct 27 10:49:13 2012 mstenber
--- Edit time:     688 min
+-- Last modified: Sat Oct 27 12:29:22 2012 mstenber
+-- Edit time:     698 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -317,6 +317,10 @@ end
 -- needed), and some other niceties)
 sps = ph:new_subclass{class='sps', mandatory={'prefix', 'pa'}}
 
+function sps:repr_data()
+   return mst.repr{prefix=self.ascii_prefix, desired_bits=self.desired_bits}
+end
+
 function sps:get_desired_bits()
    local bits = self.desired_bits
    self:a(bits, 'desired_bits not set')
@@ -402,8 +406,8 @@ function sps:find_new_from(iid,  assigned)
          local p = self:get_random_binary_prefix(iid, i)
          if not assigned[p]
          then
-            self:d('find_new_from random worked iteration', i)
             local np = ipv6s.new_prefix_from_binary(p)
+            self:d('find_new_from random worked iteration', i, self.pa.rid, iid, np)
             self:a(self.prefix:contains(np))
             return np
          end
@@ -673,15 +677,9 @@ function pa:assign_own(iid, usp)
       end
    end
 
-   -- 3. assign /64 if possible
-   if not p
-   then
-      p = usp:find_new_from(iid, assigned)
-   end
-   
-   -- 4. hysteresis (sigh)
+   -- 3. hysteresis (sigh)
    -- first off, apply it only if within 'short enough' period of time from the start of the router
-   if self.new_prefix_assignment > 0 and self:time_since_start() < self.new_prefix_assignment
+   if not p and self.new_prefix_assignment > 0 and self:time_since_start() < self.new_prefix_assignment
    then
       -- look at number of rids we know; if it's 1, don't do anything
       -- for now
@@ -693,7 +691,14 @@ function pa:assign_own(iid, usp)
       end
    end
    
-   -- 5. if none available, skip (XXX probably this should be done before hysteresis check)
+   -- 4. assign /64 if possible
+   if not p
+   then
+      p = usp:find_new_from(iid, assigned)
+   end
+   
+   -- 5. if none available, skip
+   -- (XXX in draft, the order is assign new + hysteresis + this)
    if not p
    then
       return
@@ -939,6 +944,9 @@ function pa:run(d)
       self:should_run()
    end
 
+   -- must have interfaces present
+   mst.a(self.ifs)
+
    -- mark existing data invalid
    -- (laps have their own lifecycle governed via timeouts etc)
    self.asp:foreach(function (ii, o) o.valid = false end)
@@ -969,16 +977,20 @@ function pa:run(d)
       self:generate_ulaish(
          -- what prevents ula from happening?
          function (usp)
+            -- we ignore ipv4 usps 
+            if usp.prefix:is_ipv4()
+            then
+               return
+            end
+
             -- a) something from someone else (don't generate if someone
-            -- else already has _something_ non v4)
-            if usp.rid ~= self.rid and not usp.prefix:is_ipv4()
+            -- else already has _something_)
+            if usp.rid ~= self.rid
             then
                return true
-            end
-            
-            -- b) own non-ula non-v4
-            if usp.rid == self.rid and not usp.prefix:is_ipv4() and not usp.prefix:is_ula()
+            elseif not usp.prefix:is_ula()
             then
+               -- b) own non-ula non-v4
                return true
             end
          end,
@@ -1134,7 +1146,11 @@ function pa:handle_ipv4_lap_address(lap)
    -- ok, we either don't have assignment, or someone with higher rid
    -- wants _our_ address. let's not fight. try to generate a new one.
    local s = sps:new{prefix=lap.prefix, desired_bits=128, pa=self}
-   
+
+   -- as we have 1/4 chance of hitting our window, do more randoms
+   -- than normally
+   s.random_prefix_tries = 20
+
    -- this is rather sad algorithm.. :-p
    while true
    do
