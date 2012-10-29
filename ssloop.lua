@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Thu Oct  4 16:01:58 2012 mstenber
+-- Last modified: Mon Oct 29 21:47:44 2012 mstenber
 -- Edit time:     126 min
 --
 
@@ -366,7 +366,7 @@ end
 
 --- assorted testing utilities
 
-TEST_TIMEOUT_INVALID=1.0
+TEST_TIMEOUT_INVALID=15.0
 
 function run_loop_awhile(timeout)
    local l = loop()
