@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Oct 17 17:05:01 2012 mstenber
--- Edit time:     95 min
+-- Last modified: Mon Oct 29 21:57:36 2012 mstenber
+-- Edit time:     98 min
 --
 
 require "busted"
@@ -51,11 +51,11 @@ describe("create_class", function ()
                   local o2 = c:new{foo=1}
                   assert.are.same(o2.foo, 1)
                   c.init = function (self)
-                     self.bar = self.bar
+                     self.bar = self.foo
                   end
                   local o3 = c:new{foo=2}
-                  assert.are.same(o3.foo, 2)
-                  assert.are.same(o3.bar, 2)
+                  mst.a(o3.foo == 2)
+                  mst.a(o3.bar == 2)
 
                                              end)
 

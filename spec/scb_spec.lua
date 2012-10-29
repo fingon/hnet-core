@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Thu Oct 11 11:55:25 2012 mstenber
+-- Last modified: Mon Oct 29 21:30:42 2012 mstenber
 -- Edit time:     104 min
 --
 
@@ -133,7 +133,7 @@ describe("scb-test", function ()
                                end)
                                      end)
 
-            it("can transfer 100k", function ()
+            it("can transfer 100k #big", function ()
                   test_once(100000, 12445)
                                      end)
             
