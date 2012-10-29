@@ -87,10 +87,6 @@ pieces:
 + ipv6s (v4-encoding stuff)
 
 
-** Make elsa.lua location configuration option
-
-Hardcoding is bad, mmkay - and if not present, disable the whole thing
-
 ** Compile for Buffalo, get it working there
 
 - write scripts (using Python telnetlib) to produce ~desired router config
@@ -351,6 +347,10 @@ does anyone care :p
 and make sure result is sane
 
 * Done (22.10.+)
+
+** Make elsa.lua location configuration option
+
+Hardcoding is bad, mmkay - and if not present, disable the whole thing
 
 ** Race condition between DHCPv6 PD request, and RADVD setup for ULA
 
