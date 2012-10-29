@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Sat Oct 27 14:02:08 2012 mstenber
--- Edit time:     85 min
+-- Last modified: Mon Oct 29 16:13:48 2012 mstenber
+-- Edit time:     90 min
 --
 
 -- testsuite for the pm_core
@@ -30,22 +30,7 @@ local TEMP_DHCPD_CONF='/tmp/dhcpd.conf'
 local _delsa = require 'delsa'
 delsa = _delsa.delsa
 
-local arr = nil
-local arri = nil
-
-function fakeshell(s)
-   mst.d('fakeshell#', s)
-   arri = arri + 1
-   mst.a(arri <= #arr, 'tried to consume with array empty', s)
-   local t, v = unpack(arr[arri])
-   mst.a(t == s, 'mismatch - expected', t, 'got', s)
-   return v
-end
-
-function setup_fakeshell(a)
-   arr = a
-   arri = 0
-end
+require 'dshell'
 
 local usp_dead_tlv = codec.usp_ac_tlv:encode{prefix='dead::/16'}
 
@@ -134,9 +119,10 @@ cleanup = {
 }
 
 describe("pm", function ()
-            local s, e, ep, pm
+            local s, e, ep, pm, ds
 
             before_each(function ()
+                           ds = dshell.dshell:new{}
                            s = skv.skv:new{long_lived=true, port=42424}
                            e = delsa:new{iid={myrid={{index=42, name='eth2'}}},
                                          lsas={rid1=usp_dead_tlv},
@@ -163,7 +149,7 @@ describe("pm", function ()
                                  'fe80:1234:2345:3456:4567:5678:6789:789a'
                                 )
 
-                           pm = pm_core.pm:new{skv=s, shell=fakeshell,
+                           pm = pm_core.pm:new{skv=s, shell=ds:get_shell(),
                                                radvd_conf_filename=TEMP_RADVD_CONF,
                                                dhcpd_conf_filename=TEMP_DHCPD_CONF,
                                               }
@@ -178,11 +164,11 @@ describe("pm", function ()
                   local d = mst.table_copy(lap_base)
                   mst.array_extend(d, rule_base)
                   mst.array_extend(d, lap_end)
-                  setup_fakeshell(d)
+                  ds:set_array(d)
                   ep:run()
                   mst.a(pm:run())
                   mst.a(not pm:run())
-                  mst.a(arri == #arr, 'did not consume all?', arri, #arr)
+                  ds:check_used()
                   local s = mst.read_filename_to_string(TEMP_RADVD_CONF)
                   mst.a(string.find(s, 'RDNSS'), 'RDNSS missing')
                   mst.a(string.find(s, 'DNSSL'), 'DNSSL missing')
@@ -196,11 +182,11 @@ describe("pm", function ()
                   local d = mst.table_copy(lap_base)
                   mst.array_extend(d, rule_no_nh)
                   mst.array_extend(d, lap_end)
-                  setup_fakeshell(d)
+                  ds:set_array(d)
                   ep:run()
                   mst.a(pm:run())
                   mst.a(not pm:run())
-                  mst.a(arri == #arr, 'did not consume all?', arri, #arr)
+                  ds:check_used()
                   
                                                              end)
             it("works - post-ULA period => v4 should occur #v4", function ()
@@ -212,7 +198,8 @@ describe("pm", function ()
                   mst.array_extend(d, cleanup)
                   mst.array_extend(d, lap_end)
 
-                  setup_fakeshell(d)
+                  ds:set_array(d)
+
                   local pa = ep.pa
                   -- change other rid so we have highest one -> v4!
                   e.lsas={arid1=usp_dead_tlv}
@@ -232,7 +219,7 @@ describe("pm", function ()
                   mst.a(pm:run())
                   mst.a(not pm:run())
 
-                  mst.a(arri == #arr, 'did not consume all?', arri, #arr)
+                  ds:check_used()
                   
                    end)
 

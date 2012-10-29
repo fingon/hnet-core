@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  8 13:11:02 2012 mstenber
--- Last modified: Sat Oct 27 00:10:07 2012 mstenber
--- Edit time:     91 min
+-- Last modified: Mon Oct 29 16:20:56 2012 mstenber
+-- Edit time:     92 min
 --
 
 
@@ -45,7 +45,7 @@ function if_object:get_hwaddr()
    end
 
    s = mst.string_strip(s)
-   local i1, i2, r = string.find(s, 'HWaddr ([0-9a-f:]+)%s*$')
+   local i1, i2, r = string.find(s, 'HWaddr ([0-9a-fA-F:]+)%s*$')
    if not r
    then
       return nil, 'unable to parse ' .. s

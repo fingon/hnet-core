@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Sat Oct 27 13:28:52 2012 mstenber
--- Edit time:     703 min
+-- Last modified: Mon Oct 29 15:51:54 2012 mstenber
+-- Edit time:     705 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -49,8 +49,8 @@ pcall = orig_pcall
 module('pa', package.seeall)
 
 -- wrapper we can override
-create_hash=nil
-create_hash_type=nil
+create_hash=false
+create_hash_type=false
 
 pcall(function ()
          local md5 = require 'md5'
