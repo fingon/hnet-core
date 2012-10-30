@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Thu Oct 25 02:55:08 2012 mstenber
+-- Last modified: Tue Oct 30 14:47:50 2012 mstenber
 -- Edit time:     10 min
 --
 
@@ -36,7 +36,8 @@ local s = skv.skv:new{long_lived=true}
 mst.d('initializing pm')
 local pm = pm_core.pm:new{shell=mst.execute_to_string, skv=s,
                           radvd_conf_filename='/etc/radvd.conf',
-                          dhcpd_conf_filename='/etc/pm-dhcp6d.conf',
+                          dhcpd_conf_filename='/etc/pm-dhcpd.conf',
+                          dhcpd6_conf_filename='/etc/pm-dhcpd6.conf',
                          }
 
 function pm:schedule_run()

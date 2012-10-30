@@ -22,71 +22,6 @@ https://developers.google.com/speed/public-dns/docs/using
 2001:4860:4860::8888
 2001:4860:4860::8844
 
-
-
-** Secondary demo features
-
-~secondary - IPv4
-
- - need to have IPv4 routing protocol (BIRD?)
-
- - BIRD not necessarily optimal? 
-
-** IPv4 setup
-
-pieces:
-
-- dhclient with IPv4 _on interfaces with PD
-  => potentially detect outside edges of the network
-
-  [ started manually by PM ]
-
-  [ or can be manually configured too, e.g. v4-iflist; pd interfaces are
-    just a default ]
-
-  [[ can be also statically configured ]]
-
-- OSPFv3 changes (~pa.lua)
-
- - v4-ext (external prefixes)
-
- [ just toss 'em in JSON for the time being.. ]
-
- ! for the time being skipped
-
- + v4-usp (configured, prefix) combo => chosen from the router with highest
-   (configured, rid) tuple
-
- [ can be probably normal USP with ~ULA-like behavior, with bit different
- bit length, and extra constraint of it not being in v4-ext lists if not
- manually configured? ]
-
- ! for the time being, no 'configured' flag
-
- + v4-asp - assigned from v4-usp
-
- [ can be probably normal ASP, with different bit length ]
-
- - v4-asa - assigned addresses on links to routers (rid-based duplicate
-   detection/elimination)
-
- [ JSON contains list 'v4-asa' for a router ]
-
-  addresses have to be globally unique => which link they're attached on
-  doesn't matter (but usp-asp mechanism should result in the asp being only
-  on single switched network)
-
-- local address assignment on interfaces (IPv4); based on OSPFv3 [ in PM ]
-
-=> changes
-
-+ pm* (v4 address assignment, dhclient running)
- .. todo: run dhclient?
-+ elsa_pa (SKV export, changes to originated LSA)
-+ pa (most of the changes)
-+ ipv6s (v4-encoding stuff)
-
-
 ** Compile for Buffalo, get it working there
 
 - write scripts (using Python telnetlib) to produce ~desired router config
@@ -128,6 +63,13 @@ now the internet connectivity stays down until DHCPv6 PD lease expires
 - whitespace?
 + works with, without lua? with ipv6, without ipv6?
  - should automate these tests
+
+** Optimize memory usage
+
+- there's ~300kb of static stuff that isn't really needed in the LSA/etc
+
+.. but that's peanuts, 32MB router image ran out of memory when running
+primitive topology(!).. by default ~40MB used. OMG :p
 
 ** Optimize PA alg
 
@@ -346,11 +288,77 @@ does anyone care :p
 .. to do: write testcase which has 6rd+native with same assigned prefix,
 and make sure result is sane
 
-* Done (22.10.+)
+* Done (29.10.+)
 
 ** Make elsa.lua location configuration option
 
 Hardcoding is bad, mmkay - and if not present, disable the whole thing
+
+** Secondary demo features
+
+~secondary - IPv4
+
+ - need to have IPv4 routing protocol (BIRD?)
+
+ - BIRD not necessarily optimal? 
+
+** IPv4 setup
+
+pieces:
+
+- dhclient with IPv4 _on interfaces with PD
+  => potentially detect outside edges of the network
+
+  [ started manually by PM ]
+
+  [ or can be manually configured too, e.g. v4-iflist; pd interfaces are
+    just a default ]
+
+  [[ can be also statically configured ]]
+
+- OSPFv3 changes (~pa.lua)
+
+ - v4-ext (external prefixes)
+
+ [ just toss 'em in JSON for the time being.. ]
+
+ ! for the time being skipped
+
+ + v4-usp (configured, prefix) combo => chosen from the router with highest
+   (configured, rid) tuple
+
+ [ can be probably normal USP with ~ULA-like behavior, with bit different
+ bit length, and extra constraint of it not being in v4-ext lists if not
+ manually configured? ]
+
+ ! for the time being, no 'configured' flag
+
+ + v4-asp - assigned from v4-usp
+
+ [ can be probably normal ASP, with different bit length ]
+
+ - v4-asa - assigned addresses on links to routers (rid-based duplicate
+   detection/elimination)
+
+ [ JSON contains list 'v4-asa' for a router ]
+
+  addresses have to be globally unique => which link they're attached on
+  doesn't matter (but usp-asp mechanism should result in the asp being only
+  on single switched network)
+
+- local address assignment on interfaces (IPv4); based on OSPFv3 [ in PM ]
+
+=> changes
+
++ pm* (v4 address assignment, dhclient running)
+ + run dhclient for v4
++ elsa_pa (SKV export, changes to originated LSA)
++ pa (most of the changes)
++ ipv6s (v4-encoding stuff)
+
+
+
+* Done (22.10.+)
 
 ** Race condition between DHCPv6 PD request, and RADVD setup for ULA
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Tue Oct 30 14:35:53 2012 mstenber
--- Edit time:     352 min
+-- Last modified: Tue Oct 30 15:09:16 2012 mstenber
+-- Edit time:     357 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -40,7 +40,6 @@ RULE_PREF_MAX=RULE_PREF_MIN + 128
 
 DHCLIENT_SCRIPT='/usr/share/hnet/dhclient_handler.sh'
 DHCPD_SCRIPT='/usr/share/hnet/dhcpd_handler.sh'
-DHCPD6_SCRIPT='/usr/share/hnet/dhcpd6_handler.sh'
 
 local ipv4_end='/24' -- as it's really v4 looking string
 
@@ -173,11 +172,11 @@ function pm:run()
       local owned4 = self:write_dhcpd_conf()
 
       local p = PID_DIR .. '/' .. DHCPD_PID
-      local s = string.format('%s %s %s %s', DHCPD_SCRIPT, tostring(owned4), p, self.dhcpd_conf_filename)
+      local s = string.format('%s 4 %s %s %s', DHCPD_SCRIPT, tostring(owned4), p, self.dhcpd_conf_filename)
       self.shell(s)
 
       local p = PID_DIR .. '/' .. DHCPD6_PID
-      local s = string.format('%s %s %s %s', DHCPD6_SCRIPT, tostring(owned6), p, self.dhcpd6_conf_filename)
+      local s = string.format('%s 6 %s %s %s', DHCPD_SCRIPT, tostring(owned6), p, self.dhcpd6_conf_filename)
       self.shell(s)
       self.pending_rewrite_dhcpd = nil
    end
@@ -630,7 +629,7 @@ function pm:write_dhcpd_conf()
    if #dns > 0
    then
       local s = table.concat(dns,",")
-      t:insert('option name-servers ' .. s .. ';')
+      t:insert('option domain-name-servers ' .. s .. ';')
    end
    local search = self.ospf_v4_dns_search or {}
 
@@ -651,12 +650,13 @@ function pm:write_dhcpd_conf()
       -- this is used to prevent more than one subnet per interface
       -- (sigh, ISC DHCP limitation #N)
       local already_done = handled[lap.ifname]
-      if not dep and own and not already_done
+      if not dep and own and not already_done and lap.address
       then
          local p = ipv6s.ipv6_prefix:new{ascii=lap.prefix}
          if p:is_ipv4()
          then
             handled:insert(lap.ifname)
+            local myip = mst.string_split(lap.address, '/')[1]
             owned = owned + 1
             local b = p:get_binary()
             local snb = b .. string.char(0)
@@ -667,6 +667,7 @@ function pm:write_dhcpd_conf()
             local en = ipv6s.binary_address_to_address(enb)
             t:insert('subnet ' .. sn .. ' netmask 255.255.255.0 {')
             t:insert('  range ' .. st .. ' ' .. en .. ';')
+            t:insert('  option routers ' .. myip .. ';')
             t:insert('}')
          end
       end

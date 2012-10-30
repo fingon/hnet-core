@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Tue Oct 30 14:39:43 2012 mstenber
--- Edit time:     102 min
+-- Last modified: Tue Oct 30 15:10:23 2012 mstenber
+-- Edit time:     105 min
 --
 
 -- testsuite for the pm_core
@@ -43,20 +43,20 @@ local x =
 
 local v6_dhcpd=
    {
-   {'/usr/share/hnet/dhcpd_handler.sh 0 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
-   {'/usr/share/hnet/dhcpd6_handler.sh 1 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
+   {'/usr/share/hnet/dhcpd_handler.sh 4 0 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
+   {'/usr/share/hnet/dhcpd_handler.sh 6 1 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
    }
 
 local v46_dhcpd=
    {
-   {'/usr/share/hnet/dhcpd_handler.sh 1 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
-   {'/usr/share/hnet/dhcpd6_handler.sh 1 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
+   {'/usr/share/hnet/dhcpd_handler.sh 4 1 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
+   {'/usr/share/hnet/dhcpd_handler.sh 6 1 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
    }
 
 local no_dhcpd=
    {
-   {'/usr/share/hnet/dhcpd_handler.sh 0 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
-   {'/usr/share/hnet/dhcpd6_handler.sh 0 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
+   {'/usr/share/hnet/dhcpd_handler.sh 4 0 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
+   {'/usr/share/hnet/dhcpd_handler.sh 6 0 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
    }
 
 
@@ -247,6 +247,11 @@ describe("pm", function ()
 
                   local d = mst.read_filename_to_string(TEMP_RADVD_CONF)
                   mst.a(not string.find(d, '10.'), 'IPv4 address?!?')
+
+
+                  local d = mst.read_filename_to_string(TEMP_DHCPD_CONF)
+                  mst.a(string.find(d, '10.'), 'no IPv4 address?!?')
+
 
                   -- make sure that explicitly clearing the SKV
                   -- results in correct results - that is, commands to
