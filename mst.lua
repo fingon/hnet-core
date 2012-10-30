@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Oct 30 11:11:00 2012 mstenber
--- Edit time:     480 min
+-- Last modified: Tue Oct 30 11:54:15 2012 mstenber
+-- Edit time:     482 min
 --
 
 -- data structure abstractions provided:
@@ -383,9 +383,10 @@ end
 -- transform array to table, with default value v if provided
 function array_to_table(a, default, dest)
    local t = dest or map:new()
+   local nv = default or true
    for i, v in ipairs(a)
    do
-      t[v] = default or true
+      t[v] = nv
    end
    return t
 end
@@ -519,6 +520,10 @@ end
 
 function string_endswith(s, x)
    return string.sub(s, -#x) == x
+end
+
+function string_startswith(s, x)
+   return string.sub(s, 1, #x) == x
 end
 
 local _my_varok_table = false
@@ -830,6 +835,8 @@ map = create_class{class='map',
                    deep_copy=table_deep_copy,
                    is_empty=table_is_empty,
                    keys=table_keys,
+                   sorted_keys=table_sorted_keys,
+                   sorted_pairs=table_sorted_pairs,
                    map=table_map,
                    repr=table_repr,
                    sorted_keys=table_sorted_keys,
@@ -1320,16 +1327,16 @@ function sync_tables(s1, s2,
                      remove_spurious,
                      add_missing,
                      contents_same_comparison)
-   local only_in_s1 = set_difference(s1, s2)
-   local same_keys = set_intersection(s1, s2)
-   local only_in_s2 = set_difference(s2, s1)
+   local only_in_s1 = set_difference(s1, s2):sorted_keys()
+   local same_keys = set_intersection(s1, s2):sorted_keys()
+   local only_in_s2 = set_difference(s2, s1):sorted_keys()
    local c = 0
-   for k, _ in pairs(only_in_s1)
+   for _, k in ipairs(only_in_s1)
    do
       remove_spurious(k, s1[k])
       c = c + 1
    end
-   for k, _ in pairs(same_keys)
+   for _, k in ipairs(same_keys)
    do
       if contents_same_comparison and not contents_same_comparison(k, s1[k], s2[k])
       then
@@ -1338,7 +1345,7 @@ function sync_tables(s1, s2,
          c = c + 1
       end
    end
-   for k, _ in pairs(only_in_s2)
+   for _, k in ipairs(only_in_s2)
    do
       add_missing(k, s2[k])
       c = c + 1

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Mon Oct 29 21:57:36 2012 mstenber
--- Edit time:     98 min
+-- Last modified: Tue Oct 30 11:53:57 2012 mstenber
+-- Edit time:     99 min
 --
 
 require "busted"
@@ -371,4 +371,15 @@ describe("string_find_one", function ()
                                          mst.a(x == 'oo')
                                       end)
                    end)
+end)
+
+describe("string misc", function ()
+            it("endswith", function ()
+                  mst.a(mst.string_endswith('foobar', 'bar'))
+                  mst.a(not mst.string_endswith('fooba', 'bar'))
+                   end)
+            it("startswith", function ()
+                  mst.a(mst.string_startswith('foobar', 'foo'))
+                  mst.a(not mst.string_startswith('oobar', 'foo'))
+                             end)
 end)

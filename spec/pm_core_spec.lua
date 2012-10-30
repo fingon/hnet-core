@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Tue Oct 30 11:15:21 2012 mstenber
--- Edit time:     90 min
+-- Last modified: Tue Oct 30 11:55:13 2012 mstenber
+-- Edit time:     95 min
 --
 
 -- testsuite for the pm_core
@@ -53,6 +53,11 @@ local lap_base = {
    {'ifconfig eth2 | grep HWaddr',
     'eth2      Link encap:Ethernet  HWaddr 00:1c:42:a7:f1:d9  '},
    x,
+   {'ls -1 /var/run', [[
+pm-pid-dhclient-eth1
+                       ]]},
+   {'kill `cat /var/run/pm-pid-dhclient-eth1` ; rm /var/run/pm-pid-dhclient-eth1', ''},
+   {'dhclient -nw -pf /var/run/pm-pid-dhclient-eth0 eth0', ''},
 }
 
 local lap_end = {
@@ -107,6 +112,10 @@ cleanup = {
   inet6 ::192.168.100.100/128 scope global 
 ]]},
    {'ip -6 addr del dead:e9d2:a21b:5888:21c:42ff:fea7:f1d9/64 dev eth2', ''},
+   {'ls -1 /var/run', [[
+pm-pid-dhclient-eth0
+                       ]]},
+   {'kill `cat /var/run/pm-pid-dhclient-eth0` ; rm /var/run/pm-pid-dhclient-eth0', ''},
    {'ip -6 rule',
     [[
                           0:	from all lookup local 
@@ -131,6 +140,7 @@ describe("pm", function ()
                                         }
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='myrid'}
 
+                           s:set(elsa_pa.OSPF_RID_KEY, 'myrid')
                            s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth1'})
                            s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.PREFIX_KEY .. 'eth0', 
                                  -- prefix[,valid]

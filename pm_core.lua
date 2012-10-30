@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Tue Oct 30 11:15:34 2012 mstenber
--- Edit time:     309 min
+-- Last modified: Tue Oct 30 11:52:38 2012 mstenber
+-- Edit time:     334 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -39,6 +39,9 @@ RULE_PREF_MAX=RULE_PREF_MIN + 128
 
 local ipv4_end='/24' -- as it's really v4 looking string
 
+DHCLIENT_PID_DIR='/var/run'
+DHCLIENT_PID_PREFIX='pm-pid-dhclient-'
+
 
 pm = mst.create_class{class='pm', mandatory={'skv', 'shell', 
                                              'radvd_conf_filename',
@@ -65,8 +68,6 @@ end
 
 function pm:kv_changed(k, v)
    self:d('kv_changed', k, v)
-   self.skv:add_change_observer(self.f_iflist, elsa_pa.OSPF_IFLIST_KEY)
-   self.skv:add_change_observer(self.f_usp, elsa_pa.OSPF_USP_KEY)
    if k == elsa_pa.OSPF_USP_KEY
    then
       self.ospf_usp = v or {}
@@ -83,6 +84,7 @@ function pm:kv_changed(k, v)
 
       self.pending_routecheck = true
       self.pending_rulecheck = true
+      self.pending_dhclient_check = true
    elseif k == elsa_pa.OSPF_LAP_KEY
    then
       self.ospf_lap = v or {}
@@ -124,6 +126,12 @@ function pm:run()
       self.pending_routecheck = nil
       actions = actions + 1
    end
+   if self.pending_dhclient_check
+   then
+      self:check_dhclients()
+      self.pending_dhclient_check = nil
+      actions = actions + 1
+   end
    if self.pending_rulecheck
    then
       self:check_rules()
@@ -156,6 +164,50 @@ function pm:run()
    end
    self:d('run result', actions)
    return actions > 0 and actions
+end
+
+function pm:check_dhclients()
+   -- oddly enough, we actually trust the OS (to a point); therefore,
+   -- we keep only track of the dhclients we _think_ we have started,
+   -- and just start-kill those as appropriate.
+   local running_ifnames = mst.set:new{}
+   for i, v in ipairs(mst.string_split(self.shell('ls -1 ' .. DHCLIENT_PID_DIR), '\n'))
+   do
+      v = mst.string_strip(v)
+      if mst.string_startswith(v, DHCLIENT_PID_PREFIX)
+      then
+         local s = string.sub(v, #DHCLIENT_PID_PREFIX+1)
+         running_ifnames:insert(s)
+      end
+   end
+
+
+   -- get a list of interfaces with valid PD state
+   local ipv6_usp = self:get_ipv6_usp()
+   local rid = self.skv:get(elsa_pa.OSPF_RID_KEY)
+   -- in cleanup, rid may be zeroed already
+   --self:a(rid, 'no rid?!?')
+   local ifnames = ipv6_usp:filter(function (usp) 
+                                      return usp.rid == rid  and usp.ifname
+                                   end):map(function (usp) 
+                                               return usp.ifname 
+                                            end)
+   local ifs = mst.array_to_table(ifnames)
+   mst.sync_tables(running_ifnames, ifs, 
+                   -- remove
+                   function (ifname)
+                      local p = DHCLIENT_PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
+                      local s = string.format('kill `cat %s` ; rm %s', p, p)
+                      self.shell(s)
+                   end,
+                   -- add
+                   function (ifname)
+                      local p = DHCLIENT_PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
+                      local s = string.format('dhclient -nw -pf %s %s', p, ifname)
+                      self.shell(s)
+                   end
+                   -- no equality - if it exists, it exists
+                  )
 end
 
 function pm:check_addresses()
