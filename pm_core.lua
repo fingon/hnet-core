@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Sat Oct 27 14:24:40 2012 mstenber
--- Edit time:     300 min
+-- Last modified: Tue Oct 30 11:15:34 2012 mstenber
+-- Edit time:     309 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -443,39 +443,31 @@ function pm:check_ospf_vs_real()
    local ospf_keys = ospf_lap:keys():to_set()
    local real_keys = real_lap:keys():to_set()
 
-   local changes = 0
-
-   -- 3 cases to consider
-   -- only in ospf_lap
-   for prefix, _ in pairs(ospf_keys:difference(real_keys))
-   do
-      mst.a(mst.string_endswith(prefix, valid_end),
-            'invalid prefix', prefix)
-      self:handle_ospf_prefix(prefix, ospf_lap[prefix])
-      changes = changes + 1
-   end
-   
-   -- only in real_lap
-   for prefix, _ in pairs(real_keys:difference(ospf_keys))
-   do
-      mst.a(mst.string_endswith(prefix, valid_end),
-            'invalid prefix', prefix)
-      self:handle_real_prefix(prefix, real_lap[prefix])
-      changes = changes + 1
-   end
-   
-   -- in both
-   for prefix, _ in pairs(real_keys:intersection(ospf_keys))
-   do
-      mst.a(mst.string_endswith(prefix, valid_end),
-            'invalid prefix', prefix)
-      local c = 
-         self:handle_both_prefix(prefix, ospf_lap[prefix], real_lap[prefix])
-      if c then changes = changes + 1 end
-   end
+   local c
+   c = mst.sync_tables(real_keys, ospf_keys, 
+                       -- remove (only in real)
+                       function (prefix)
+                          mst.a(mst.string_endswith(prefix, valid_end),
+                                'invalid prefix', prefix)
+                          self:handle_real_prefix(prefix, real_lap[prefix])
+                       end,
+                       -- add (only in ospf)
+                       function (prefix)
+                          mst.a(mst.string_endswith(prefix, valid_end),
+                                'invalid prefix', prefix)
+                          self:handle_ospf_prefix(prefix, ospf_lap[prefix])
+                       end,
+                       -- are values same?
+                       function (prefix)
+                          mst.a(mst.string_endswith(prefix, valid_end),
+                                'invalid prefix', prefix)
+                          local v1 = ospf_lap[prefix]
+                          local v2 = real_lap[prefix]
+                          return v1.ifname == v2.ifname
+                       end)
 
    -- rewrite the radvd configuration
-   if changes > 0
+   if c > 0
    then
       self.pending_rewrite_radvd = true
    end
@@ -524,10 +516,10 @@ function pm:write_dhcpd_conf()
       local already_done = handled[lap.ifname]
       if not dep and own and not already_done
       then
-         handled:insert(lap.ifname)
          local p = ipv6s.ipv6_prefix:new{ascii=lap.prefix}
          if not p:is_ipv4()
          then
+            handled:insert(lap.ifname)
             owned = owned + 1
             local b = p:get_binary()
             local stb = b .. string.rep(string.char(0), 7) .. string.char(42)
@@ -571,7 +563,7 @@ function pm:write_radvd_conf()
       t:insert('  AdvManagedFlag off;')
       t:insert('  AdvOtherConfigFlag off;')
       -- 5 minutes is max # we want to stay as default router if gone :p
-      t:insert('  AdvDefaultLifetime 300;')
+      t:insert('  AdvDefaultLifetime 600;')
       for i, addr in ipairs(self.ospf_dns or {})
       do
          t:insert('  RDNSS ' .. addr .. ' {};')
@@ -640,20 +632,5 @@ function pm:handle_real_prefix(prefix, po)
    local ifname = po.ifname
    self:a(ifname)
    return self.shell(string.format('ip -6 addr del %s dev %s', addr, ifname))
-end
-
-function pm:handle_both_prefix(prefix, po1, po2)
-   self:d('handle_both_prefix', po1, po2)
-   -- if same prefix is active both in OSPF worldview, and in reality,
-   -- we're happy!
-   if po1.ifname == po2.ifname
-   then
-      return
-   end
-   -- we pretend it's only on real interface (=remove), and then
-   -- pretend it's only on OSPF interface (=add)
-   self:handle_real_prefix(prefix, po2)
-   self:handle_ospf_prefix(prefix, po1)
-   return true
 end
 

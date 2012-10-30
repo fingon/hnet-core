@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Sat Oct 27 13:33:46 2012 mstenber
--- Edit time:     473 min
+-- Last modified: Tue Oct 30 11:11:00 2012 mstenber
+-- Edit time:     480 min
 --
 
 -- data structure abstractions provided:
@@ -593,6 +593,28 @@ function string_to_hex(s)
    return table.concat(t)
 end
 
+-- string_find_one
+-- try to string_find among string with multiple pattern + action functions
+-- to run out of functions is fatal error => add nop handler to end if desirable
+function string_find_one(s, ...)
+   local l = {...}
+   for i=1,#l,2
+   do
+      local pat = l[i]
+      local act = l[i+1]
+      local r = {string.find(s, pat)}
+      if #r >= 2
+      then
+         if act
+         then
+            return act(unpack(array_slice(r, 3)))
+         end
+         return
+      end
+   end
+   mst.a(false, 'no match for string', s, l)
+end
+
 --- table utilities + class
 
 function table_is(t)
@@ -828,19 +850,7 @@ function set_map(s, fun)
    return t
 end
 
-set = map:new_subclass{class='set',
-                       map=set_map,
-                      }
-
-function set:insert(o)
-   self[o] = true
-end
-
-function set:remove(o)
-   self[o] = nil
-end
-
-function set:intersection(t)
+function set_intersection(self,t)
    local r = set:new{}
    for k, _ in pairs(self)
    do
@@ -852,7 +862,7 @@ function set:intersection(t)
    return r
 end
 
-function set:difference(t)
+function set_difference(self,t)
    local r = set:new{}
    for k, _ in pairs(self)
    do
@@ -864,7 +874,7 @@ function set:difference(t)
    return r
 end
 
-function set:union(t)
+function set_union(self,t)
    -- in theory, just 2x difference + intersection
    -- but much faster to have dedicated op here
    local r = table_copy(self)
@@ -872,6 +882,21 @@ function set:union(t)
    return r
 end
 
+
+set = map:new_subclass{class='set',
+                       map=set_map,
+                       intersection=set_intersection,
+                       difference=set_difference,
+                       union=set_union,
+                      }
+
+function set:insert(o)
+   self[o] = true
+end
+
+function set:remove(o)
+   self[o] = nil
+end
 
 -- add 'insert', 'remove' operations'
 multimap = map:new_subclass{class='multimap'}
@@ -1288,24 +1313,35 @@ function cache:set(k, v, t)
    self.map[k] = {t + now, v}
 end
 
--- string_find_one
--- try to string_find among string with multiple pattern + action functions
--- to run out of functions is fatal error => add nop handler to end if desirable
-function string_find_one(s, ...)
-   local l = {...}
-   for i=1,#l,2
+-- sync algorithm; assumption is that both are _tables_, with
+-- arbitrary contents, and s1 should be made look like s2 using the
+-- operation callbacks given
+function sync_tables(s1, s2, 
+                     remove_spurious,
+                     add_missing,
+                     contents_same_comparison)
+   local only_in_s1 = set_difference(s1, s2)
+   local same_keys = set_intersection(s1, s2)
+   local only_in_s2 = set_difference(s2, s1)
+   local c = 0
+   for k, _ in pairs(only_in_s1)
    do
-      local pat = l[i]
-      local act = l[i+1]
-      local r = {string.find(s, pat)}
-      if #r >= 2
+      remove_spurious(k, s1[k])
+      c = c + 1
+   end
+   for k, _ in pairs(same_keys)
+   do
+      if contents_same_comparison and not contents_same_comparison(k, s1[k], s2[k])
       then
-         if act
-         then
-            return act(unpack(array_slice(r, 3)))
-         end
-         return
+         remove_spurious(k, s1[k])
+         add_missing(k, s2[k])
+         c = c + 1
       end
    end
-   mst.a(false, 'no match for string', s, l)
+   for k, _ in pairs(only_in_s2)
+   do
+      add_missing(k, s2[k])
+      c = c + 1
+   end
+   return c
 end

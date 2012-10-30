@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Mon Oct 29 16:13:48 2012 mstenber
+-- Last modified: Tue Oct 30 11:15:21 2012 mstenber
 -- Edit time:     90 min
 --
 
@@ -49,10 +49,10 @@ local lap_base = {
 6: 6rd: <NOARP,UP,LOWER_UP> mtu 1480 
   inet6 ::192.168.100.100/128 scope global 
 ]]},
+   {'ip -6 addr del dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 dev eth2', ''},
    {'ifconfig eth2 | grep HWaddr',
     'eth2      Link encap:Ethernet  HWaddr 00:1c:42:a7:f1:d9  '},
    x,
-   {'ip -6 addr del dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 dev eth2', ''},
 }
 
 local lap_end = {

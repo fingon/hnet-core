@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Sat Oct 27 13:48:57 2012 mstenber
--- Edit time:     347 min
+-- Last modified: Tue Oct 30 10:59:45 2012 mstenber
+-- Edit time:     351 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -254,10 +254,7 @@ function elsa_pa:run()
       if self:check_conflict() then return end
    end
    
-   self.skvp = mst.map:new()
-   self:iterate_skv_prefix_real(function (p)
-                                   self.skvp[p.prefix] = p
-                                end)
+   self:update_skvp()
 
    -- our rid may have changed -> change that of the pa too, just in case
    self.pa.rid = self.rid
@@ -487,45 +484,58 @@ function elsa_pa:iterate_skv_prefix(f)
    end
 end
 
-function elsa_pa:iterate_skv_prefix_real(f)
-   function handle_if(ifname, skvprefix, metric)
-      local o = self.skv:get(string.format('%s%s%s', 
-                                           skvprefix, PREFIX_KEY, ifname))
-      if o
-      then
-         -- enter to the fallback lottery - the stuff returned by this
-         -- should NOT decrease in size
-         self.all_seen_if_names:insert(ifname)
+function elsa_pa:update_skvp()
+   self.skvp = mst.map:new()
+   self:iterate_skv_prefix_real(function (p)
+                                   self.skvp[p.prefix] = p
+                                end)
+end
 
-         local prefix, valid
-         if type(o) == 'string'
-         then
-            prefix = o
-            valid = nil
-         else
-            prefix, valid = unpack(o)
+function elsa_pa:iterate_skv_if_real(ifname, skvprefix, metric, f)
+   local o = self.skv:get(string.format('%s%s%s', 
+                                        skvprefix, PREFIX_KEY, ifname))
+   if not o
+   then
+      return
          end
-         local nh
-         local o2 = self.skv:get(string.format('%s%s%s', 
-                                               skvprefix, NH_KEY, ifname))
-         if o2
-         then
-            self:a(type(o2) == 'string')
-            nh = o2
-         end
-         if not valid or valid >= os.time()
-         then
-            f{prefix=prefix, ifname=ifname, nh=nh, metric=metric}
-         end
-      end
+   -- enter to the fallback lottery - the stuff returned by this
+   -- should NOT decrease in size
+   self.all_seen_if_names:insert(ifname)
+   
+   local prefix, valid
+   if type(o) == 'string'
+   then
+      prefix = o
+      valid = nil
+   else
+      prefix, valid = unpack(o)
    end
+   local nh
+   local o2 = self.skv:get(string.format('%s%s%s', 
+                                         skvprefix, NH_KEY, ifname))
+   if o2
+   then
+      self:a(type(o2) == 'string')
+      nh = o2
+   end
+   if not valid or valid >= os.time()
+   then
+      f{prefix=prefix, ifname=ifname, nh=nh, metric=metric}
+   end
+end
 
+function elsa_pa:iterate_skv_pd_prefix_real(f)
    local pdlist = self.skv:get(PD_IFLIST_KEY)
    for i, ifname in ipairs(pdlist or self.all_seen_if_names:keys())
    do
-      handle_if(ifname, PD_SKVPREFIX, 1000)
+      self:iterate_skv_if_real(ifname, PD_SKVPREFIX, 1000, f)
    end
-   handle_if(SIXRD_DEV, SIXRD_SKVPREFIX, 2000)
+end
+
+
+function elsa_pa:iterate_skv_prefix_real(f)
+   self:iterate_skv_pd_prefix_real(f)
+   self:iterate_skv_if_real(SIXRD_DEV, SIXRD_SKVPREFIX, 2000, f)
 end
 
 function elsa_pa:get_field_array(locala, jsonfield)
