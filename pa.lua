@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Mon Oct 29 15:51:54 2012 mstenber
--- Edit time:     705 min
+-- Last modified: Tue Oct 30 14:34:06 2012 mstenber
+-- Edit time:     706 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -47,6 +47,8 @@ local lap_sm = require 'pa_lap_sm'
 pcall = orig_pcall
 
 module('pa', package.seeall)
+
+IPV4_PA_LAST_ROUTER=64
 
 -- wrapper we can override
 create_hash=false
@@ -1179,7 +1181,7 @@ function pa:handle_ipv4_lap_address(lap)
       -- consider the last byte - is it >= 1, <= 63?
       -- (64-254 reserved for DHCPv4 hosts, 255 = broadcast)
       local lb = string.byte(b, 16, 16)
-      if lb >= 1 and lb <= 64
+      if lb >= 1 and lb <= IPV4_PA_LAST_ROUTER
       then
          lap.address = p
          self:d(' assigned', p)

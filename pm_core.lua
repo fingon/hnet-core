@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Tue Oct 30 13:07:45 2012 mstenber
--- Edit time:     339 min
+-- Last modified: Tue Oct 30 14:35:53 2012 mstenber
+-- Edit time:     352 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -28,6 +28,7 @@ require 'skv'
 require 'elsa_pa'
 require 'linux_if'
 require 'os'
+require 'pa'
 
 module(..., package.seeall)
 
@@ -38,16 +39,20 @@ RULE_PREF_MIN=1000
 RULE_PREF_MAX=RULE_PREF_MIN + 128 
 
 DHCLIENT_SCRIPT='/usr/share/hnet/dhclient_handler.sh'
+DHCPD_SCRIPT='/usr/share/hnet/dhcpd_handler.sh'
+DHCPD6_SCRIPT='/usr/share/hnet/dhcpd6_handler.sh'
 
 local ipv4_end='/24' -- as it's really v4 looking string
 
-DHCLIENT_PID_DIR='/var/run'
+PID_DIR='/var/run'
+DHCPD_PID='pm-pid-dhcpd'
+DHCPD6_PID='pm-pid-dhcpd6'
 DHCLIENT_PID_PREFIX='pm-pid-dhclient-'
-
 
 pm = mst.create_class{class='pm', mandatory={'skv', 'shell', 
                                              'radvd_conf_filename',
                                              'dhcpd_conf_filename',
+                                             'dhcpd6_conf_filename',
                                             }}
 
 function pm:init()
@@ -96,6 +101,14 @@ function pm:kv_changed(k, v)
       -- => rewrite radvd.conf too (and dhcpd.conf - it may have
       -- been using address range which is now depracated)
       self.pending_rewrite_radvd = true
+      self.pending_rewrite_dhcpd = true
+   elseif k == elsa_pa.OSPF_IPV4_DNS_KEY
+   then
+      self.ospf_v4_dns = v or {}
+      self.pending_rewrite_dhcpd = true
+   elseif k == elsa_pa.OSPF_IPV4_DNS_SEARCH_KEY
+   then
+      self.ospf_v4_dns_search = v or {}
       self.pending_rewrite_dhcpd = true
    elseif k == elsa_pa.OSPF_DNS_KEY
    then
@@ -156,12 +169,16 @@ function pm:run()
    end
    if self.pending_rewrite_dhcpd
    then
-      local owned = self:write_dhcpd_conf()
-      os.execute('killall -9 dhcpd 2>/dev/null')
-      if owned > 0
-      then
-         os.execute('sh -c "dhcpd -6 -cf ' .. self.dhcpd_conf_filename .. '" 2>/dev/null ')
-      end
+      local owned6 = self:write_dhcpd6_conf()
+      local owned4 = self:write_dhcpd_conf()
+
+      local p = PID_DIR .. '/' .. DHCPD_PID
+      local s = string.format('%s %s %s %s', DHCPD_SCRIPT, tostring(owned4), p, self.dhcpd_conf_filename)
+      self.shell(s)
+
+      local p = PID_DIR .. '/' .. DHCPD6_PID
+      local s = string.format('%s %s %s %s', DHCPD6_SCRIPT, tostring(owned6), p, self.dhcpd6_conf_filename)
+      self.shell(s)
       self.pending_rewrite_dhcpd = nil
    end
    self:d('run result', actions)
@@ -173,7 +190,7 @@ function pm:check_dhclients()
    -- we keep only track of the dhclients we _think_ we have started,
    -- and just start-kill those as appropriate.
    local running_ifnames = mst.set:new{}
-   for i, v in ipairs(mst.string_split(self.shell('ls -1 ' .. DHCLIENT_PID_DIR), '\n'))
+   for i, v in ipairs(mst.string_split(self.shell('ls -1 ' .. PID_DIR), '\n'))
    do
       v = mst.string_strip(v)
       if mst.string_startswith(v, DHCLIENT_PID_PREFIX)
@@ -198,13 +215,13 @@ function pm:check_dhclients()
    mst.sync_tables(running_ifnames, ifs, 
                    -- remove
                    function (ifname)
-                      local p = DHCLIENT_PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
+                      local p = PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
                       local s = string.format('%s stop %s %s', DHCLIENT_SCRIPT, ifname, p)
                       self.shell(s)
                    end,
                    -- add
                    function (ifname)
-                      local p = DHCLIENT_PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
+                      local p = PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
                       local s = string.format('%s start %s %s', DHCLIENT_SCRIPT, ifname, p)
                       self.shell(s)
                    end
@@ -527,11 +544,11 @@ function pm:check_ospf_vs_real()
    end
 end
 
-function pm:write_dhcpd_conf()
+function pm:write_dhcpd6_conf()
    local owned = 0
-   self:d('entered write_dhcpd_conf')
+   self:d('entered write_dhcpd6_conf')
 
-   local fpath = self.dhcpd_conf_filename
+   local fpath = self.dhcpd6_conf_filename
    local f, err = io.open(fpath, 'w')
    self:a(f, 'unable to open for writing', fpath, err)
 
@@ -582,6 +599,74 @@ function pm:write_dhcpd_conf()
             local en = ipv6s.binary_address_to_address(enb)
             t:insert('subnet6 ' .. lap.prefix .. ' {')
             t:insert('  range6 ' .. st .. ' ' .. en .. ';')
+            t:insert('}')
+         end
+      end
+   end
+   f:write(t:join('\n'))
+   f:write('\n')
+
+   -- close the file
+   io.close(f)
+   return owned
+end
+
+function pm:write_dhcpd_conf()
+   local owned = 0
+   self:d('entered write_dhcpd_conf')
+
+   local fpath = self.dhcpd_conf_filename
+   local f, err = io.open(fpath, 'w')
+   self:a(f, 'unable to open for writing', fpath, err)
+
+   local t = mst.array:new{}
+
+   t:insert([[
+# dhcpd.conf
+# automatically generated by pm_core.lua
+]])
+   
+   local dns = self.ospf_v4_dns or {}
+   if #dns > 0
+   then
+      local s = table.concat(dns,",")
+      t:insert('option name-servers ' .. s .. ';')
+   end
+   local search = self.ospf_v4_dns_search or {}
+
+   if #search>0
+   then
+      local rl = mst.array_map(search, mst.repr)
+      local s = table.concat(rl, ",")
+      t:insert('option domain-search ' .. s .. ';')
+   end
+
+   -- for each locally assigned prefix, if we're the owner (=publisher
+   -- of asp), run DHCPv4 otherwise not..
+   handled = mst.set:new{}
+   for i, lap in ipairs(self.ospf_lap)
+   do
+      local dep = lap.depracate      
+      local own = lap.owner
+      -- this is used to prevent more than one subnet per interface
+      -- (sigh, ISC DHCP limitation #N)
+      local already_done = handled[lap.ifname]
+      if not dep and own and not already_done
+      then
+         local p = ipv6s.ipv6_prefix:new{ascii=lap.prefix}
+         if p:is_ipv4()
+         then
+            handled:insert(lap.ifname)
+            owned = owned + 1
+            local b = p:get_binary()
+            local snb = b .. string.char(0)
+            local sn = ipv6s.binary_address_to_address(snb)
+            local stb = b .. string.char(pa.IPV4_PA_LAST_ROUTER)
+            local enb = b .. string.char(254)
+            local st = ipv6s.binary_address_to_address(stb)
+            local en = ipv6s.binary_address_to_address(enb)
+            t:insert('subnet ' .. sn .. ' netmask 255.255.255.0 {')
+            t:insert('  range ' .. st .. ' ' .. en .. ';')
             t:insert('}')
          end
       end

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Tue Oct 30 13:08:50 2012 mstenber
--- Edit time:     98 min
+-- Last modified: Tue Oct 30 14:39:43 2012 mstenber
+-- Edit time:     102 min
 --
 
 -- testsuite for the pm_core
@@ -26,6 +26,7 @@ module("pm_core_spec", package.seeall)
 
 local TEMP_RADVD_CONF='/tmp/radvd.conf'
 local TEMP_DHCPD_CONF='/tmp/dhcpd.conf'
+local TEMP_DHCPD6_CONF='/tmp/dhcpd6.conf'
 
 local _delsa = require 'delsa'
 delsa = _delsa.delsa
@@ -39,6 +40,26 @@ local x =
    {'ip -6 addr add dead:1399:9def:f860:21c:42ff:fea7:f1d9/64 dev eth2', ''} -- md5
    or
    {'ip -6 addr add dead:e9d2:a21b:5888:21c:42ff:fea7:f1d9/64 dev eth2', ''} -- sha1
+
+local v6_dhcpd=
+   {
+   {'/usr/share/hnet/dhcpd_handler.sh 0 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
+   {'/usr/share/hnet/dhcpd6_handler.sh 1 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
+   }
+
+local v46_dhcpd=
+   {
+   {'/usr/share/hnet/dhcpd_handler.sh 1 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
+   {'/usr/share/hnet/dhcpd6_handler.sh 1 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
+   }
+
+local no_dhcpd=
+   {
+   {'/usr/share/hnet/dhcpd_handler.sh 0 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
+   {'/usr/share/hnet/dhcpd6_handler.sh 0 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
+   }
+
+
 
 local lap_base = {                     
    {"ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary",
@@ -162,6 +183,7 @@ describe("pm", function ()
                            pm = pm_core.pm:new{skv=s, shell=ds:get_shell(),
                                                radvd_conf_filename=TEMP_RADVD_CONF,
                                                dhcpd_conf_filename=TEMP_DHCPD_CONF,
+                                               dhcpd6_conf_filename=TEMP_DHCPD6_CONF,
                                               }
                         end)
             after_each(function ()
@@ -174,6 +196,7 @@ describe("pm", function ()
                   local d = mst.table_copy(lap_base)
                   mst.array_extend(d, rule_base)
                   mst.array_extend(d, lap_end)
+                  mst.array_extend(d, v6_dhcpd)
                   ds:set_array(d)
                   ep:run()
                   mst.a(pm:run())
@@ -182,7 +205,7 @@ describe("pm", function ()
                   local s = mst.read_filename_to_string(TEMP_RADVD_CONF)
                   mst.a(string.find(s, 'RDNSS'), 'RDNSS missing')
                   mst.a(string.find(s, 'DNSSL'), 'DNSSL missing')
-                  local s = mst.read_filename_to_string(TEMP_DHCPD_CONF)
+                  local s = mst.read_filename_to_string(TEMP_DHCPD6_CONF)
                   mst.a(string.find(s, 'subnet6'), 'subnet6 missing')
 
                         end)
@@ -192,6 +215,7 @@ describe("pm", function ()
                   local d = mst.table_copy(lap_base)
                   mst.array_extend(d, rule_no_nh)
                   mst.array_extend(d, lap_end)
+                  mst.array_extend(d, v6_dhcpd)
                   ds:set_array(d)
                   ep:run()
                   mst.a(pm:run())
@@ -204,9 +228,11 @@ describe("pm", function ()
                   mst.array_extend(d, rule_base)
                   mst.array_extend(d, lap_end)
                   mst.array_extend(d, {{'ifconfig eth2 10.110.150.32 netmask 255.255.255.0', ''}})
+                  mst.array_extend(d, v46_dhcpd)
                   -- second run
                   mst.array_extend(d, cleanup)
                   mst.array_extend(d, lap_end)
+                  mst.array_extend(d, no_dhcpd)
 
                   ds:set_array(d)
 
