@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Tue Oct 30 11:55:13 2012 mstenber
--- Edit time:     95 min
+-- Last modified: Tue Oct 30 13:08:50 2012 mstenber
+-- Edit time:     98 min
 --
 
 -- testsuite for the pm_core
@@ -56,8 +56,8 @@ local lap_base = {
    {'ls -1 /var/run', [[
 pm-pid-dhclient-eth1
                        ]]},
-   {'kill `cat /var/run/pm-pid-dhclient-eth1` ; rm /var/run/pm-pid-dhclient-eth1', ''},
-   {'dhclient -nw -pf /var/run/pm-pid-dhclient-eth0 eth0', ''},
+   {'/usr/share/hnet/dhclient_handler.sh stop eth1 /var/run/pm-pid-dhclient-eth1', ''},
+   {'/usr/share/hnet/dhclient_handler.sh start eth0 /var/run/pm-pid-dhclient-eth0', ''},
 }
 
 local lap_end = {
@@ -115,7 +115,7 @@ cleanup = {
    {'ls -1 /var/run', [[
 pm-pid-dhclient-eth0
                        ]]},
-   {'kill `cat /var/run/pm-pid-dhclient-eth0` ; rm /var/run/pm-pid-dhclient-eth0', ''},
+   {'/usr/share/hnet/dhclient_handler.sh stop eth0 /var/run/pm-pid-dhclient-eth0', ''},
    {'ip -6 rule',
     [[
                           0:	from all lookup local 

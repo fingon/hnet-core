@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Tue Oct 30 11:52:38 2012 mstenber
--- Edit time:     334 min
+-- Last modified: Tue Oct 30 13:07:45 2012 mstenber
+-- Edit time:     339 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -36,6 +36,8 @@ MAIN_TABLE='main'
 -- we use the (128-length of prefix as preference on top of the base => 128)
 RULE_PREF_MIN=1000
 RULE_PREF_MAX=RULE_PREF_MIN + 128 
+
+DHCLIENT_SCRIPT='/usr/share/hnet/dhclient_handler.sh'
 
 local ipv4_end='/24' -- as it's really v4 looking string
 
@@ -197,13 +199,13 @@ function pm:check_dhclients()
                    -- remove
                    function (ifname)
                       local p = DHCLIENT_PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
-                      local s = string.format('kill `cat %s` ; rm %s', p, p)
+                      local s = string.format('%s stop %s %s', DHCLIENT_SCRIPT, ifname, p)
                       self.shell(s)
                    end,
                    -- add
                    function (ifname)
                       local p = DHCLIENT_PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
-                      local s = string.format('dhclient -nw -pf %s %s', p, ifname)
+                      local s = string.format('%s start %s %s', DHCLIENT_SCRIPT, ifname, p)
                       self.shell(s)
                    end
                    -- no equality - if it exists, it exists

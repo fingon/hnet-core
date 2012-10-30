@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Oct 30 10:59:45 2012 mstenber
--- Edit time:     351 min
+-- Last modified: Tue Oct 30 14:11:49 2012 mstenber
+-- Edit time:     372 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -42,6 +42,8 @@ PD_SKVPREFIX='pd-'
 SIXRD_SKVPREFIX='6rd-'
 SIXRD_DEV='6rd'
 
+DHCPV4_SKVPREFIX='dhcp-'
+
 PREFIX_KEY='prefix.'
 DNS_KEY='dns.'
 DNS_SEARCH_KEY='dns-search.'
@@ -51,6 +53,9 @@ JSON_ASA_KEY='asa'
 JSON_DNS_KEY='dns'
 JSON_DNS_SEARCH_KEY='dns-search'
 
+JSON_IPV4_DNS_KEY='ipv4-dns'
+JSON_IPV4_DNS_SEARCH_KEY='ipv4-dns-search'
+
 PD_IFLIST_KEY='pd-iflist'
 
 OSPF_RID_KEY='ospf-rid'
@@ -59,6 +64,8 @@ OSPF_USP_KEY='ospf-usp'
 OSPF_DNS_KEY='ospf-dns'
 OSPF_DNS_SEARCH_KEY='ospf-dns-search'
 OSPF_IFLIST_KEY='ospf-iflist'
+OSPF_IPV4_DNS_KEY='ospf-v4-dns'
+OSPF_IPV4_DNS_SEARCH_KEY='ospf-v4-dns-search'
 
 -- from the draft; time from boot to wait iff no other routers around
 -- before starting new assignments
@@ -84,6 +91,22 @@ LAP_EXPIRE_TIMEOUT=300
 -- elsa specific lap subclass
 
 elsa_lap = pa.lap:new_subclass{class='elsa_lap'}
+
+local json_sources={[JSON_DNS_KEY]={prefix=PD_SKVPREFIX, 
+                                    key=DNS_KEY, 
+                                    ospf=OSPF_DNS_KEY},
+                    [JSON_DNS_SEARCH_KEY]={prefix=PD_SKVPREFIX, 
+                                           key=DNS_SEARCH_KEY, 
+                                           ospf=OSPF_DNS_SEARCH_KEY},
+
+                    [JSON_IPV4_DNS_KEY]={prefix=DHCPV4_SKVPREFIX,
+                                         key=DNS_KEY, 
+                                         ospf=OSPF_IPV4_DNS_KEY},
+                    [JSON_IPV4_DNS_SEARCH_KEY]={prefix=DHCPV4_SKVPREFIX,
+                                           key=DNS_SEARCH_KEY, 
+                                           ospf=OSPF_IPV4_DNS_SEARCH_KEY},
+}
+                    
 
 function elsa_lap:start_depracate_timeout()
    local loop = ssloop.loop()
@@ -335,12 +358,12 @@ function elsa_pa:run_handle_skv_publish()
    end
    self.skv:set(OSPF_IFLIST_KEY, t)
 
-   -- set up the 'all visible DNS servers' field (right now, bit
-   -- formless, but oh well)
-   self.skv:set(OSPF_DNS_KEY, self:get_dns_array())
-
-   -- similarly search domains
-   self.skv:set(OSPF_DNS_SEARCH_KEY, self:get_dnssearch_array())
+   -- handle assorted 'gather info across the net' fields
+   for jsonkey, o in pairs(json_sources)
+   do
+      local l = self:get_local_field_array(o.prefix, o.key)
+      self.skv:set(o.ospf, self:get_field_array(l, jsonkey))
+   end
 
    -- toss in the usp's too
    local t = mst.array:new{}
@@ -542,7 +565,7 @@ function elsa_pa:get_field_array(locala, jsonfield)
    local s = mst.set:new{}
    
    -- get local ones
-   for i, addr in ipairs(locala)
+   for i, addr in ipairs(locala or {})
    do
       s:insert(addr)
    end
@@ -560,12 +583,12 @@ function elsa_pa:get_field_array(locala, jsonfield)
    return s:keys()
 end
 
-function elsa_pa:get_local_field_array(pdfield)
+function elsa_pa:get_local_field_array(prefix, field)
    local t
    for i, ifname in ipairs(self.all_seen_if_names:keys())
    do
       local o = self.skv:get(string.format('%s%s%s', 
-                                           PD_SKVPREFIX, pdfield, ifname))
+                                           prefix, field, ifname))
       if o
       then
          if not t then t = mst.array:new{} end
@@ -573,24 +596,6 @@ function elsa_pa:get_local_field_array(pdfield)
       end
    end
    return t
-end
-
-function elsa_pa:get_local_dns_array()
-   return self:get_local_field_array(DNS_KEY) or {}
-end
-
-function elsa_pa:get_dns_array()
-   return self:get_field_array(self:get_local_dns_array(), 
-                               JSON_DNS_KEY)
-end
-
-function elsa_pa:get_local_dnssearch_array()
-   return self:get_local_field_array(DNS_SEARCH_KEY) or {}
-end
-
-function elsa_pa:get_dnssearch_array()
-   return self:get_field_array(self:get_local_dnssearch_array(), 
-                               JSON_DNS_SEARCH_KEY)
 end
 
 function elsa_pa:get_local_asa_array()
@@ -609,8 +614,7 @@ function elsa_pa:get_local_asa_array()
 end
 
 function elsa_pa:get_asa_array()
-   return self:get_field_array(self:get_local_asa_array(), 
-                               JSON_ASA_KEY)
+   return self:get_field_array(self:get_local_asa_array(), JSON_ASA_KEY)
 end
 
 function elsa_pa:ph_list_sorted(l)
@@ -656,8 +660,12 @@ function elsa_pa:generate_ac_lsa()
    -- generate 'FYI' blob out of local SKV state; right now, just the
    -- interface-specific DNS information, if any
    local t = mst.map:new{}
-   t[JSON_DNS_KEY] = self:get_local_dns_array()
-   t[JSON_DNS_SEARCH_KEY] = self:get_local_dnssearch_array()
+
+   for jsonkey, o in pairs(json_sources)
+   do
+      local l = self:get_local_field_array(o.prefix, o.key)
+      t[jsonkey] = l
+   end
    t[JSON_ASA_KEY] = self:get_local_asa_array()
 
    if t:count() > 0

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Sat Oct 27 13:50:07 2012 mstenber
--- Edit time:     227 min
+-- Last modified: Tue Oct 30 14:10:51 2012 mstenber
+-- Edit time:     228 min
 --
 
 require 'mst'
@@ -199,7 +199,7 @@ describe("elsa_pa [one node]", function ()
                   mst.a(not v or #v == 0, 'DNS search set?!?', v)
                    end)
 
-            it("also works via skv configuration - but no ifs!", function ()
+            it("also works via skv configuration - but no ifs! #noi", function ()
                   -- in the beginning, should only get nothing
                   ep:run()
                   mst.a(not usp_added)
@@ -234,7 +234,7 @@ describe("elsa_pa [one node]", function ()
 
                   -- make sure DNS gets set IF we have DNS info
                   local v = s:get(elsa_pa.OSPF_DNS_KEY)
-                  mst.a(mst.repr_equal(v, {FAKE_DNS_ADDRESS}))
+                  mst.a(mst.repr_equal(v, {FAKE_DNS_ADDRESS}), 'got', v)
 
                   local v = s:get(elsa_pa.OSPF_DNS_SEARCH_KEY)
                   mst.a(mst.repr_equal(v, {FAKE_DNS_SEARCH}))
