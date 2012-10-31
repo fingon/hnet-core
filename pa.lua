@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Oct 30 14:34:06 2012 mstenber
--- Edit time:     706 min
+-- Last modified: Wed Oct 31 15:08:37 2012 mstenber
+-- Edit time:     710 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -561,6 +561,12 @@ function pa:run_if_usp(iid, neigh, usp)
    self:d('run_if_usp', iid, usp.prefix, neigh)
 
 
+   -- skip if it's IPv4 prefix + interface is static
+   if usp.prefix:is_ipv4() and self.ifs[iid].static
+   then
+      return
+   end
+
    -- Alg from 6.3.. steps noted 
    
    -- 1. if some shorter prefix contains this usp, skip
@@ -923,7 +929,12 @@ function pa:should_run()
                           -- not us => we should have nh, or
                           -- routing table is still in flux
                           local r = self:route_to_rid(o.rid) or {}
-                          if not r.nh
+
+                          -- it seems that in some cases nh is empty
+                          -- string (probably given to us by the 
+                          -- BIRD code?).. anyway, hopefully that's only
+                          -- temporary anomaly and not permanent
+                          if not r.nh or #r.nh == 0
                           then
                              self:d('should run - missing rid.nh info', o, r)
                              should = true

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Oct 30 14:11:49 2012 mstenber
--- Edit time:     372 min
+-- Last modified: Wed Oct 31 15:08:11 2012 mstenber
+-- Edit time:     376 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -42,7 +42,11 @@ PD_SKVPREFIX='pd-'
 SIXRD_SKVPREFIX='6rd-'
 SIXRD_DEV='6rd'
 
+-- used to convey DHCPv4-sourced information
 DHCPV4_SKVPREFIX='dhcp-'
+
+-- used to indicate that no IPv4 prefix assignment on the interface
+STATIC_SKVPREFIX='static-'
 
 PREFIX_KEY='prefix.'
 DNS_KEY='dns.'
@@ -486,6 +490,8 @@ function elsa_pa:iterate_if(rid, f)
                            self:a(ifo)
                            if not inuse_ifnames[ifo.name]
                            then
+                              -- set up the static variable on the ifo
+                              ifo.static = self.skv:get(STATIC_SKVPREFIX .. ifo.name)
                               f(ifo)
                            else
                               self:d('skipping in use', ifo, 'delegated prefix source')

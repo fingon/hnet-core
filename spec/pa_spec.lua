@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Fri Oct 26 23:03:46 2012 mstenber
--- Edit time:     237 min
+-- Last modified: Wed Oct 31 15:12:37 2012 mstenber
+-- Edit time:     240 min
 --
 
 require "busted"
@@ -364,19 +364,23 @@ describe("pa-nobody-else", function ()
                    end)
 
             it("ula generation works - time long gone #ula", function ()
+                  -- disable the v4 on first interface => should have just 1
+                  -- v4 ASP + LAP
+                  o.iif.myrid[1].static = 1
+
                   pa:run()
                   pa.new_ula_prefix = 123
                   pa.start_time = pa.start_time - pa.new_ula_prefix - 10
                   -- ula + IPv4
                   mst.a(pa.usp:count() == 2, "usp mismatch")
-                  mst.a(pa.asp:count() == 4, "asp mismatch")
-                  mst.a(pa.lap:count() == 4, "lap mismatch")
+                  mst.a(pa.asp:count() == 3, "asp mismatch")
+                  mst.a(pa.lap:count() == 3, "lap mismatch")
                   pa:run()
 
                   -- ula + IPv4
                   mst.a(pa.usp:count() == 2, "usp mismatch")
-                  mst.a(pa.asp:count() == 4, "asp mismatch")
-                  mst.a(pa.lap:count() == 4, "lap mismatch")
+                  mst.a(pa.asp:count() == 3, "asp mismatch")
+                  mst.a(pa.lap:count() == 3, "lap mismatch")
 
                   -- however, if we add real USP, the ULA should disappear
                   -- (and v4 too, as other one has higher rid)
@@ -385,19 +389,19 @@ describe("pa-nobody-else", function ()
                   pa:run()
                   mst.a(pa.usp:count() == 1, "usp mismatch")
                   mst.a(pa.asp:count() == 2, "asp mismatch")
-                  mst.a(pa.lap:count() == 6, "lap mismatch")
+                  mst.a(pa.lap:count() == 5, "lap mismatch")
 
                   -- initially they will go unassigned once ULA is gone
                   local c = timeout_laps(pa, function (lap)
                                             return lap.assigned==false
                                              end)
-                  mst.a(c == 4, c)
+                  mst.a(c == 3, c)
 
                   -- then depracate
                   local c = timeout_laps(pa, function (lap)
                                             return lap.depracated==true
                                              end)
-                  mst.a(c == 4, c)
+                  mst.a(c == 3, c)
                    
 
                   pa:run()
