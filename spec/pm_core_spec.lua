@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Tue Oct 30 15:10:23 2012 mstenber
+-- Last modified: Wed Oct 31 17:51:45 2012 mstenber
 -- Edit time:     105 min
 --
 
@@ -43,18 +43,24 @@ local x =
 
 local v6_dhcpd=
    {
+   {'killall -9 radvd', ''},
+   {'radvd -C /tmp/radvd.conf', ''},
    {'/usr/share/hnet/dhcpd_handler.sh 4 0 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
    {'/usr/share/hnet/dhcpd_handler.sh 6 1 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
    }
 
 local v46_dhcpd=
    {
+   {'killall -9 radvd', ''},
+   {'radvd -C /tmp/radvd.conf', ''},
    {'/usr/share/hnet/dhcpd_handler.sh 4 1 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
    {'/usr/share/hnet/dhcpd_handler.sh 6 1 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
    }
 
 local no_dhcpd=
    {
+   {'killall -9 radvd', ''},
+   {'radvd -C /tmp/radvd.conf', ''},
    {'/usr/share/hnet/dhcpd_handler.sh 4 0 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
    {'/usr/share/hnet/dhcpd_handler.sh 6 0 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
    }
