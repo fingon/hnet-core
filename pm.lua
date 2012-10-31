@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Wed Oct 31 20:58:59 2012 mstenber
+-- Last modified: Wed Oct 31 21:36:15 2012 mstenber
 -- Edit time:     10 min
 --
 
@@ -35,6 +35,7 @@ mst.d('initializing skv')
 local s = skv.skv:new{long_lived=true}
 mst.d('initializing pm')
 local pm = pm_core.pm:new{shell=mst.execute_to_string, skv=s,
+                          radvd='radvd -m logfile',
                           radvd_conf_filename='/etc/pm-radvd.conf',
                           dhcpd_conf_filename='/etc/pm-dhcpd.conf',
                           dhcpd6_conf_filename='/etc/pm-dhcpd6.conf',

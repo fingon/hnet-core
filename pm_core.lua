@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Wed Oct 31 21:34:27 2012 mstenber
--- Edit time:     392 min
+-- Last modified: Wed Oct 31 21:36:05 2012 mstenber
+-- Edit time:     394 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -164,7 +164,8 @@ function pm:run()
       self.shell('killall -9 radvd', true)
       if c and c > 0
       then
-         self.shell('radvd -C ' .. self.radvd_conf_filename)
+         local radvd = self.radvd or 'radvd'
+         self.shell(radvd .. ' -C ' .. self.radvd_conf_filename)
       end
       self.pending_rewrite_radvd = nil
       actions = actions + 1
