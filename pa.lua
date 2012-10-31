@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Wed Oct 31 15:08:37 2012 mstenber
--- Edit time:     710 min
+-- Last modified: Wed Oct 31 15:18:27 2012 mstenber
+-- Edit time:     711 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -561,9 +561,17 @@ function pa:run_if_usp(iid, neigh, usp)
    self:d('run_if_usp', iid, usp.prefix, neigh)
 
 
-   -- skip if it's IPv4 prefix + interface is static
-   if usp.prefix:is_ipv4() and self.ifs[iid].static
+   local ifo = self.ifs[iid]
+   if ifo.disable
    then
+      self:d(' PA disabled')
+      return
+   end
+
+   -- skip if it's IPv4 prefix + interface is disabled for v4
+   if usp.prefix:is_ipv4() and ifo.disable_v4
+   then
+      self:d(' v4 PA disabled')
       return
    end
 

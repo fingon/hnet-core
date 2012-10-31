@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Oct 31 15:15:08 2012 mstenber
--- Edit time:     230 min
+-- Last modified: Wed Oct 31 15:19:10 2012 mstenber
+-- Edit time:     231 min
 --
 
 require 'mst'
@@ -64,7 +64,8 @@ describe("elsa_pa [one node]", function ()
                                          disable_autoroute=true,
                                         }
                            s = skv.skv:new{long_lived=true, port=31337}
-                           s:set(elsa_pa.STATIC_SKVPREFIX .. 'eth0', '1')
+                           s:set(elsa_pa.DISABLE_SKVPREFIX .. 'eth0', 1)
+                           s:set(elsa_pa.DISABLE_V4_SKVPREFIX .. 'eth0', 2)
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='mypid',
                                                     new_prefix_assignment=0}
                            e:add_router(ep)
@@ -123,7 +124,8 @@ describe("elsa_pa [one node]", function ()
                   mst.a(not asp_added)
 
                   -- make sure 'static' flag was propagated to eth0
-                  mst.a(ep.pa.ifs[42].static)
+                  mst.a(ep.pa.ifs[42].disable == 1)
+                  mst.a(ep.pa.ifs[42].disable_v4 == 2)
 
 
                   -- then, we add the usp (from someone else than us)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Wed Oct 31 15:12:37 2012 mstenber
--- Edit time:     240 min
+-- Last modified: Wed Oct 31 15:17:28 2012 mstenber
+-- Edit time:     241 min
 --
 
 require "busted"
@@ -366,7 +366,7 @@ describe("pa-nobody-else", function ()
             it("ula generation works - time long gone #ula", function ()
                   -- disable the v4 on first interface => should have just 1
                   -- v4 ASP + LAP
-                  o.iif.myrid[1].static = 1
+                  o.iif.myrid[1].disable_v4 = 1
 
                   pa:run()
                   pa.new_ula_prefix = 123
