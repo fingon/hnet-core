@@ -4,7 +4,7 @@
 
 ** Why address assignments are not constant?
 
-** Why radvd doesn't stay up? Or does someone kill it?
+- should make sure nothing uses non-hash-seeded randomness
 
 * Things to do
 
@@ -221,6 +221,16 @@ does anyone care :p
 and make sure result is sane
 
 * Done (29.10.+)
+
+** Why radvd doesn't stay up? Or does someone kill it?
+
+- seems like it wasn't happy about nonexistent configs at least => making
+  sure we have valid config seems to have alleviated the problem a bit
+
+- PD <> hnet integration is again bit questionable; we _really_ need NH
+  maintenance
+
+! /var non-symlink = big issue on owrt, it seems..
 
 ** IPv4 support
 
