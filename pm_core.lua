@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Tue Oct 30 15:09:16 2012 mstenber
--- Edit time:     357 min
+-- Last modified: Wed Oct 31 12:58:02 2012 mstenber
+-- Edit time:     371 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -162,7 +162,7 @@ function pm:run()
    then
       self:write_radvd_conf()
       os.execute('killall -9 radvd 2>/dev/null')
-      os.execute('sh -c "radvd -C ' .. self.radvd_conf_filename .. '" 2>/dev/null ')
+      os.execute('radvd -C ' .. self.radvd_conf_filename .. ' 2>/dev/null ')
       self.pending_rewrite_radvd = nil
       actions = actions + 1
    end
@@ -543,6 +543,48 @@ function pm:check_ospf_vs_real()
    end
 end
 
+function pm:dump_address_list_option(t, l, option_name)
+   if #l == 0
+   then
+      return
+   end
+   l = mst.array_filter(l, function (v)
+                           return #mst.string_strip(v) > 0
+                        end)
+   local s = table.concat(l,",")
+   -- if we have multiple ones from e.g. shell, separator may be
+   -- space too
+   s = string.gsub(s, ' ', ',') 
+   t:insert('option ' .. option_name .. ' ' .. s .. ';')
+end
+
+function pm:dump_search_list_option(t, l, option_name)
+   if #l == 0
+   then
+      return
+   end
+   local r = mst.array:new{}
+   for i, v0 in ipairs(l)
+   do
+      for i, v in ipairs(mst.string_split(v0, ' '))
+      do
+         v = mst.string_strip(v)
+         if #v > 0
+         then
+            r:insert(mst.repr(v))
+         end
+      end
+   end
+   -- may also skip if results were just whitespaces or something
+   if #r == 0
+   then
+      return
+   end
+   local s = table.concat(r, ",")
+   t:insert('option ' .. option_name .. ' ' .. s .. ';')
+end
+
+
 function pm:write_dhcpd6_conf()
    local owned = 0
    self:d('entered write_dhcpd6_conf')
@@ -559,20 +601,10 @@ function pm:write_dhcpd6_conf()
 ]])
    
    local dns = self.ospf_dns or {}
-   if #dns > 0
-   then
-      local s = table.concat(dns,",")
-      t:insert('option dhcp6.name-servers ' .. s .. ';')
-   end
-   local search = self.ospf_dns_search or {}
+   self:dump_address_list_option(t, dns, 'dhcp6.name-servers')
 
-   if #search>0
-   then
-      local rl = mst.array_map(search, mst.repr)
-      local s = table.concat(rl, ",")
-      t:insert('option dhcp6.domain-search ' .. s .. ';')
-      
-   end
+   local search = self.ospf_dns_search or {}
+   self:dump_search_list_option(t, search, 'dhcp6.domain-search')
 
    -- for each locally assigned prefix, if we're the owner (=publisher
    -- of asp), run DHCPv6, otherwise not..
@@ -626,19 +658,10 @@ function pm:write_dhcpd_conf()
 ]])
    
    local dns = self.ospf_v4_dns or {}
-   if #dns > 0
-   then
-      local s = table.concat(dns,",")
-      t:insert('option domain-name-servers ' .. s .. ';')
-   end
-   local search = self.ospf_v4_dns_search or {}
+   self:dump_address_list_option(t, dns, 'domain-name-servers')
 
-   if #search>0
-   then
-      local rl = mst.array_map(search, mst.repr)
-      local s = table.concat(rl, ",")
-      t:insert('option domain-search ' .. s .. ';')
-   end
+   local search = self.ospf_v4_dns_search or {}
+   self:dump_search_list_option(t, search, 'domain-search')
 
    -- for each locally assigned prefix, if we're the owner (=publisher
    -- of asp), run DHCPv4 otherwise not..
@@ -706,11 +729,16 @@ function pm:write_radvd_conf()
       t:insert('  AdvDefaultLifetime 600;')
       for i, addr in ipairs(self.ospf_dns or {})
       do
+         -- space-separated addresses are ok here (unlike DHCP)
          t:insert('  RDNSS ' .. addr .. ' {};')
       end
       for i, suffix in ipairs(self.ospf_dns_search or {})
       do
-         t:insert('  DNSSL ' .. suffix .. ' {};')
+         local s = mst.string_strip(suffix)
+         if #s > 0
+         then
+            t:insert('  DNSSL ' .. suffix .. ' {};')
+         end
       end
       for i, lap in ipairs(self.ospf_lap)
       do
