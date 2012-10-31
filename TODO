@@ -45,12 +45,33 @@ patches BIRD
 
 => zero-conf(!)
 
+What's needed to get the getup on real Buffalo as opposed to OpenWRT?
+
+- image with binaries
+ + ISC DHCP (v4, v6)
+ + Babel
+ + bird6-elsa
+
+- files/ with configuration
+ also the Lua stuff + shell script helpers 
+ (these should move to a separate package at some point)
+
+- local_setup.sh which prepares ground
+
+- rc.local
+
 ** Comprehensively test PA alg (2/2)
 
 - think more corner cases to test
 
-
 * Things to do if I have time (hah)
+
+** Convert the hnet Lua stuff to a single package-formatted thing
+
+** Package hnet package for OpenWRT
+
+- also have dependency on bird6-elsa, do all the relevant init scripts etc
+=> ~plug-n-play
 
 ** Next-hop management in pm.lua
 
