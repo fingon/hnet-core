@@ -4,6 +4,8 @@
 
 * Things to do
 
+** Convert to use ULA always?
+
 ** Demo topology?
 
 [ - IETF v6? (/x?) ]
@@ -136,6 +138,86 @@ just get provided with LSA updates
 
 
 
+** Document architecture better
+
+- at least what moves, where
+
+- which modules exist
+
+- ...
+
+
+** Improve DNS support
+
+- provide _stateless_ DHCPv6 and RA DNS server + search domain information
+
+! ISC DHCP P.O.S. does not do stateless stuff at all - needs some state to
+  work. Clearly not the option we want to support => at some point have to
+  write minimal DHCPv6 server (.. among other things. *sigh*)
+
+.. and stateful stuff is horrible, e.g.
+
+Interface eth1 matches multiple shared networks
+
+(can only have only subnet per interface, it seems)
+
+
+! rdnssd does not support search domain (even in it's latest
+  incarnation). even more stuff I could contirbute to, perhaps..
+
+** DNS with split horizon based on domains
+
+- multihomed, may want to use e.g. cisco.com server X, and for rest Y
+
+** Border detection - DHCPv6 PD integration
+
+Somehow keep probing that DHCPv6 server is present on link.. that may
+require luasocket w/ v6?
+
+!!! fairly broken that we have to use SLAAC to get default route on
+    interface; also making sure it stays valid is awkward.. and should make
+    sure it's not one of the OSPF talking nodes somehow (...)
+
+I suppose we can play with ND to make sure it stays there (and therefore
+DHCPv6 solicit flooding isn't really neccessary?)
+
+*** Which DHCPv6 PD to use?
+
+- ISC has huge dependencies and is big
+
+- dnsmasq too integrated with dnsmasq
+
+ <2k LoC
+
+- udhcp in busybox seems bit broken
+
+ <2k LoC
+
+.. just implement the state machine in SMC, make it a public reference, 
+
+
+** Write ~Pythonic key handling to mst. data structures
+
+- requires ~Pythonia equality function
+
+
+- API-wise, should look like current one
+
+- except, accept tables and other arbitrary structures as keys and compare
+  them 'correctly' (now, has to be same table instance for it to work,
+  which is unfortunate)
+
+
+** 6rd sunsetting
+
+right now probably won't work correctly due to ignoring preferences; but
+does anyone care :p
+
+.. to do: write testcase which has 6rd+native with same assigned prefix,
+and make sure result is sane
+
+* Done (29.10.+)
+
 ** IPv4 support
 
 What does it _mean_? RFC 1918 space allocation, pick _one_ random prefix,
@@ -230,86 +312,6 @@ for DHCPv4 - 64 routers, 192 hosts per subnet)
 
 .. could even sync DHCPv4 state across the 'cloud' for redundancy, but why
 bother? DNS discovery?
-
-** Document architecture better
-
-- at least what moves, where
-
-- which modules exist
-
-- ...
-
-
-** Improve DNS support
-
-- provide _stateless_ DHCPv6 and RA DNS server + search domain information
-
-! ISC DHCP P.O.S. does not do stateless stuff at all - needs some state to
-  work. Clearly not the option we want to support => at some point have to
-  write minimal DHCPv6 server (.. among other things. *sigh*)
-
-.. and stateful stuff is horrible, e.g.
-
-Interface eth1 matches multiple shared networks
-
-(can only have only subnet per interface, it seems)
-
-
-! rdnssd does not support search domain (even in it's latest
-  incarnation). even more stuff I could contirbute to, perhaps..
-
-** DNS with split horizon based on domains
-
-- multihomed, may want to use e.g. cisco.com server X, and for rest Y
-
-** Border detection - DHCPv6 PD integration
-
-Somehow keep probing that DHCPv6 server is present on link.. that may
-require luasocket w/ v6?
-
-!!! fairly broken that we have to use SLAAC to get default route on
-    interface; also making sure it stays valid is awkward.. and should make
-    sure it's not one of the OSPF talking nodes somehow (...)
-
-I suppose we can play with ND to make sure it stays there (and therefore
-DHCPv6 solicit flooding isn't really neccessary?)
-
-*** Which DHCPv6 PD to use?
-
-- ISC has huge dependencies and is big
-
-- dnsmasq too integrated with dnsmasq
-
- <2k LoC
-
-- udhcp in busybox seems bit broken
-
- <2k LoC
-
-.. just implement the state machine in SMC, make it a public reference, 
-
-
-** Write ~Pythonic key handling to mst. data structures
-
-- requires ~Pythonia equality function
-
-
-- API-wise, should look like current one
-
-- except, accept tables and other arbitrary structures as keys and compare
-  them 'correctly' (now, has to be same table instance for it to work,
-  which is unfortunate)
-
-
-** 6rd sunsetting
-
-right now probably won't work correctly due to ignoring preferences; but
-does anyone care :p
-
-.. to do: write testcase which has 6rd+native with same assigned prefix,
-and make sure result is sane
-
-* Done (29.10.+)
 
 ** Make elsa.lua location configuration option
 
