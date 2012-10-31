@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Wed Oct 31 17:50:23 2012 mstenber
--- Edit time:     389 min
+-- Last modified: Wed Oct 31 21:34:27 2012 mstenber
+-- Edit time:     392 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -160,9 +160,12 @@ function pm:run()
    end
    if self.pending_rewrite_radvd
    then
-      self:write_radvd_conf()
+      local c = self:write_radvd_conf()
       self.shell('killall -9 radvd', true)
-      self.shell('radvd -C ' .. self.radvd_conf_filename)
+      if c and c > 0
+      then
+         self.shell('radvd -C ' .. self.radvd_conf_filename)
+      end
       self.pending_rewrite_radvd = nil
       actions = actions + 1
    end
@@ -724,6 +727,7 @@ function pm:write_dhcpd_conf()
 end
 
 function pm:write_radvd_conf()
+   local c = 0
    self:d('entered write_radvd_conf')
    -- write configuration on per-interface basis.. 
    local fpath = self.radvd_conf_filename
@@ -764,6 +768,7 @@ function pm:write_radvd_conf()
       do
          if lap.ifname == ifname
          then
+            c = c + 1
             local p = ipv6s.ipv6_prefix:new{ascii=lap.prefix}
             if not p:is_ipv4()
             then
@@ -798,6 +803,7 @@ function pm:write_radvd_conf()
    f:write('\n')
    -- close the file
    io.close(f)
+   return c
 end
 
 function pm:handle_ospf_prefix(prefix, po)

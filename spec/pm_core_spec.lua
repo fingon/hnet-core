@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Wed Oct 31 17:51:45 2012 mstenber
--- Edit time:     105 min
+-- Last modified: Wed Oct 31 21:35:12 2012 mstenber
+-- Edit time:     106 min
 --
 
 -- testsuite for the pm_core
@@ -60,7 +60,7 @@ local v46_dhcpd=
 local no_dhcpd=
    {
    {'killall -9 radvd', ''},
-   {'radvd -C /tmp/radvd.conf', ''},
+--   {'radvd -C /tmp/radvd.conf', ''},
    {'/usr/share/hnet/dhcpd_handler.sh 4 0 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
    {'/usr/share/hnet/dhcpd_handler.sh 6 0 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
    }

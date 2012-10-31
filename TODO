@@ -2,6 +2,10 @@
 
 * Bugs to fix
 
+** Why address assignments are not constant?
+
+** Why radvd doesn't stay up? Or does someone kill it?
+
 * Things to do
 
 ** Convert to use ULA always?
