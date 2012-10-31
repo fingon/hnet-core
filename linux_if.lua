@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  8 13:11:02 2012 mstenber
--- Last modified: Mon Oct 29 16:20:56 2012 mstenber
--- Edit time:     92 min
+-- Last modified: Wed Oct 31 16:25:49 2012 mstenber
+-- Edit time:     95 min
 --
 
 
@@ -172,6 +172,10 @@ function if_table:read_ip_ipv4()
                           -- case 1: <num>: <ifname>: 
                           '^%d+: (%S+): ',
                           function (ifname)
+                             -- in certain cases, may have eth0.1@eth0
+                             -- => we care only about eth0.1
+                             ifname = mst.string_split(ifname, '@')[1]
+
                              ifo = self:get_if(ifname)
                              ifo.ipv4 = nil
                              ifo.ipv4_valid = true

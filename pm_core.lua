@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Wed Oct 31 12:58:02 2012 mstenber
--- Edit time:     371 min
+-- Last modified: Wed Oct 31 16:31:40 2012 mstenber
+-- Edit time:     384 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -238,32 +238,52 @@ function pm:check_addresses()
 
    local m = self.if_table:read_ip_ipv4()
    local if2a = {}
+
+   -- this is what we _want_ (OSPF-based)
    for i, lap in ipairs(self.ospf_lap)
    do
       if lap.address
       then
-         if2a[lap.ifname] = lap.address
+         -- just store address, no mask (we assume it's sane)
+         if2a[lap.ifname] = mst.string_split(lap.address, '/')[1]
       end
    end
 
-
+   -- this is what we have
+   local hif2a = {}
    for ifname, ifo in pairs(m)
    do
-      local found = if2a[ifname]
-      if ifo.ipv4 ~= found
+      if ifo.ipv4
       then
-         if found
+         -- just store address, no mask; but if mask isn't 24, we just
+         -- ignore whole address
+         local l = mst.string_split(ifo.ipv4, '/')
+         if l[2] == '24'
          then
-            -- set address
-            local base = mst.string_split(found, '/')[1]
-            ifo:set_ipv4(base, '255.255.255.0')
-         else
-            -- we don't remove addresses, as that could be
-            -- counterproductive in so many ways
+            local s = l[1]
+            hif2a[ifname] = s
          end
       end
    end
-   
+
+   -- then fire up the sync algorithm
+   mst.sync_tables(hif2a, if2a,
+                   -- remove
+                   function (ifname, v)
+                      -- nop
+                      -- we don't remove addresses, as that could be
+                      -- counterproductive in so many ways;
+                      -- we are not the sole source of addresses
+                   end,
+                   -- add
+                   function (ifname, v)
+                      local ifo = self.if_table:get_if(ifname)
+                      ifo:set_ipv4(v, '255.255.255.0')
+                   end,
+                   -- equal
+                   function (k, v1, v2)
+                      return v1 == v2
+                   end)
 end
 
 function pm:invalidate_rules()
