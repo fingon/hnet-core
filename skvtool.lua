@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 13:18:34 2012 mstenber
--- Last modified: Thu Oct  4 18:12:03 2012 mstenber
--- Edit time:     39 min
+-- Last modified: Wed Oct 31 15:48:55 2012 mstenber
+-- Edit time:     48 min
 --
 
 -- minimalist tool for playing with SKV
@@ -18,9 +18,11 @@
 -- -l dump contents
 -- -s set  key=value
 -- -g get  key
+-- -w wait for server to go up (forever)
 
 require 'mst'
 require 'skv'
+require 'socket'
 
 _TEST = false
 
@@ -34,6 +36,7 @@ function create_cli()
    cli:add_flag('-d', 'enable debugging (spammy)')
    cli:add_flag('-l', 'list all key-value pairs')
    cli:add_flag("-v, --version", "prints the program's version and exits")
+   cli:add_flag('-w', 'wait for other end to go up')
 
    return cli
 end
@@ -77,12 +80,22 @@ then
 end
 
 -- ok, we're on a mission. get skv to ~stable state
-local s = skv.skv:new{long_lived=false}
+local s
 
-local r, err = s:connect()
-if not r
-then
-   return print('connection failure', err)
+while true
+do
+   s = skv.skv:new{long_lived=false}
+   local r, err = s:connect()
+   if r
+   then
+      break
+   end
+   if not args.w
+   then
+      return print('connection failure', err)
+   end
+   s:done()
+   socket.sleep(1)
 end
 
 if args.l
@@ -107,7 +120,7 @@ do
       --mst.a(f, 'unable to loadstring', err)
       --rv, err = f()
       rv = v
-      mst.a(rv, 'invalid value', v, rv, err)
+      mst.a(rv, 'invalid value', v, rv)
       mst.d('.. setting', k, v)
       s:set(k, v)
       mst.d('.. done')
