@@ -11,11 +11,19 @@ public domain - http://regex.info/blog/lua/sha1
 
 Referred libraries
 ------------------
+busted - unit testing framework
+MIT license - http://olivinelabs.com/busted/
+
+cliargs
+MIT license - https://github.com/amireh/lua_cliargs
+
+dkjson
+MIT license - http://chiselapp.com/user/dhkolf/repository/dkjson/home
+(See dkjson.lua head for license text)
+
 luasocket
 MIT license - http://w3.impa.br/~diego/software/luasocket/
 
 vstruct
 MIT license - https://github.com/ToxicFrog/vstruct
 
-busted - unit testing framework
-MIT license - http://olivinelabs.com/busted/
