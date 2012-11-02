@@ -15,7 +15,7 @@ luasocket
 MIT license - http://w3.impa.br/~diego/software/luasocket/
 
 vstruct
-public domain - https://github.com/ToxicFrog/vstruct
+MIT license - https://github.com/ToxicFrog/vstruct
 
 busted - unit testing framework
 MIT license - http://olivinelabs.com/busted/
