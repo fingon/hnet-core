@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Wed Oct 31 23:04:00 2012 mstenber
--- Edit time:     395 min
+-- Last modified: Fri Nov  2 12:35:57 2012 mstenber
+-- Edit time:     396 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -65,7 +65,7 @@ function pm:init()
    -- this is the domain of prefixes that we control, and therefore
    -- also remove addresses as neccessary if they spuriously show up
    -- (= usp removed, but lap still around)
-   self.all_ipv6_binary_prefixes = mst.set:new{}
+   self.all_ipv6_binary_prefixes = mst.map:new{}
 end
 
 function pm:uninit()
@@ -84,8 +84,9 @@ function pm:kv_changed(k, v)
       -- update the all_ipv6_usp
       for i, v in ipairs(self:get_ipv6_usp())
       do
-         local bp = ipv6s.new_prefix_from_ascii(v.prefix):get_binary()
-         self.all_ipv6_binary_prefixes:insert(bp)
+         local p = ipv6s.new_prefix_from_ascii(v.prefix)
+         local bp = p:get_binary()
+         self.all_ipv6_binary_prefixes[bp] = p
       end
 
       self.pending_routecheck = true
@@ -466,12 +467,11 @@ function pm:get_real_lap()
             -- non-64 bit prefixes can't be eui64 either
             -- consider if we should even care about this prefix
             local found = nil
-            local bp = prefix:get_binary()
             prefix:clear_tailing_bits()
-            for bp2, _ in pairs(self.all_ipv6_binary_prefixes)
+            for _, p2 in pairs(self.all_ipv6_binary_prefixes)
             do
                --self:d('considering', v.prefix, prefix)
-               if ipv6s.binary_prefix_contains(bp2, bp)
+               if p2:contains(prefix)
                then
                   found = true
                   break

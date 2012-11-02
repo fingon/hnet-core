@@ -6,9 +6,13 @@
 
 - should make sure nothing uses non-hash-seeded randomness
 
+** Why some test timeouts
+
 * Things to do
 
 ** Convert to use ULA always?
+
+** Add option to avoid v4 support
 
 ** Demo topology?
 
@@ -27,44 +31,6 @@ https://developers.google.com/speed/public-dns/docs/using
 
 2001:4860:4860::8888
 2001:4860:4860::8844
-
-** Compile for Buffalo, get it working there
-
-- write scripts (using Python telnetlib) to produce ~desired router config
-  from scratch
-
-Plan B: Change OpenWRT installation s.t. luasocket is default, and so is
-patches BIRD
-
-~howto
-
-.. need also iproute2 package ..
-+ homenet-feed (feeds.conf add)
-+ prefer it (scripts/feeds install -p homenet)
-+ install bird6
-
-=> by default included
-
-- scripts 
- - fire up both bird6 + pm with valid config
- - fire up ISC DHCPv6 PD client with appropriate script
-
-=> zero-conf(!)
-
-What's needed to get the getup on real Buffalo as opposed to OpenWRT?
-
-- image with binaries
- + ISC DHCP (v4, v6)
- + Babel
- + bird6-elsa
-
-- files/ with configuration
- also the Lua stuff + shell script helpers 
- (these should move to a separate package at some point)
-
-- local_setup.sh which prepares ground
-
-- rc.local
 
 ** Comprehensively test PA alg (2/2)
 
@@ -151,23 +117,6 @@ just get provided with LSA updates
 - ...
 
 
-** Improve DNS support
-
-- provide _stateless_ DHCPv6 and RA DNS server + search domain information
-
-! ISC DHCP P.O.S. does not do stateless stuff at all - needs some state to
-  work. Clearly not the option we want to support => at some point have to
-  write minimal DHCPv6 server (.. among other things. *sigh*)
-
-.. and stateful stuff is horrible, e.g.
-
-Interface eth1 matches multiple shared networks
-
-(can only have only subnet per interface, it seems)
-
-
-! rdnssd does not support search domain (even in it's latest
-  incarnation). even more stuff I could contirbute to, perhaps..
 
 ** DNS with split horizon based on domains
 
@@ -200,6 +149,22 @@ DHCPv6 solicit flooding isn't really neccessary?)
 .. just implement the state machine in SMC, make it a public reference, 
 
 
+** 6rd sunsetting
+
+right now probably won't work correctly due to ignoring preferences; but
+does anyone care :p
+
+.. to do: write testcase which has 6rd+native with same assigned prefix,
+and make sure result is sane
+
+* Done (29.10.+)
+
+** Non-/8 divisible prefix length support
+
+- not hard math, but should do it; also should avoid raw-binary (without
+  bit length) as datastore anywhere, as ascii+prefix length or
+  binary+prefix length are lossless data wise, but raw-binary isn't
+
 ** Write ~Pythonic key handling to mst. data structures
 
 - requires ~Pythonia equality function
@@ -212,15 +177,61 @@ DHCPv6 solicit flooding isn't really neccessary?)
   which is unfortunate)
 
 
-** 6rd sunsetting
+** Improve DNS support
 
-right now probably won't work correctly due to ignoring preferences; but
-does anyone care :p
+- provide _stateless_ DHCPv6 and RA DNS server + search domain information
 
-.. to do: write testcase which has 6rd+native with same assigned prefix,
-and make sure result is sane
+! ISC DHCP P.O.S. does not do stateless stuff at all - needs some state to
+  work. Clearly not the option we want to support => at some point have to
+  write minimal DHCPv6 server (.. among other things. *sigh*)
 
-* Done (29.10.+)
+.. and stateful stuff is horrible, e.g.
+
+Interface eth1 matches multiple shared networks
+
+(can only have only subnet per interface, it seems)
+
+
+! rdnssd does not support search domain (even in it's latest
+  incarnation). even more stuff I could contirbute to, perhaps..
+
+** Compile for Buffalo, get it working there
+
+- write scripts (using Python telnetlib) to produce ~desired router config
+  from scratch
+
+Plan B: Change OpenWRT installation s.t. luasocket is default, and so is
+patches BIRD
+
+~howto
+
+.. need also iproute2 package ..
++ homenet-feed (feeds.conf add)
++ prefer it (scripts/feeds install -p homenet)
++ install bird6
+
+=> by default included
+
+- scripts 
+ - fire up both bird6 + pm with valid config
+ - fire up ISC DHCPv6 PD client with appropriate script
+
+=> zero-conf(!)
+
+What's needed to get the getup on real Buffalo as opposed to OpenWRT?
+
++ image with binaries
+ + ISC DHCP (v4, v6)
+ + Babel
+ + bird6-elsa
+
++ files/ with configuration
+ also the Lua stuff + shell script helpers 
+ (these should move to a separate package at some point)
+
++ local_setup.sh which prepares ground
+
++ rc.local
 
 ** Why radvd doesn't stay up? Or does someone kill it?
 

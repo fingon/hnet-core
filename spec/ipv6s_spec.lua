@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 22:04:20 2012 mstenber
--- Last modified: Sat Oct 27 13:10:18 2012 mstenber
--- Edit time:     31 min
+-- Last modified: Fri Nov  2 12:16:57 2012 mstenber
+-- Edit time:     47 min
 --
 
 require 'ipv6s'
@@ -107,6 +107,23 @@ describe("prefix_hwaddr_to_eui64", function ()
                         end)
              end)
 
+local test_strings = {'::/0', '::/1', '::/8',
+                      '8000::/1', '8000::/8', 'dead::/16',
+                      '1.2.3.0/24',
+                      '1.2.3.4/32',
+
+}
+
+local next_tests = {{'::/0', '::/64', '0:0:0:1::/64'},
+                    {'10.0.0.0/8', '10.0.0.0/24', '10.0.1.0/24'},
+                    {'10.0.0.0/8', '10.255.255.0/24', '10.0.0.0/24'},
+                    -- overflow case, should return self?
+                    {'8000::/1', '8000::/64', '8000:0:0:1::/64'},
+                    {'8000::/1', 'ffff:ffff:ffff:ffff::/64', '8000::/64'},
+                    {'8000::/1', '8000::/1', '8000::/1'},
+                    {'8000::/1', '8000::/8', '8100::/8'},
+}
+
 
 describe("ipv6_prefix", function ()
             it("can be initialized in various ways", function ()
@@ -123,6 +140,33 @@ describe("ipv6_prefix", function ()
                   local p2 = ipv6s.ipv6_prefix:new{binary=b1}
                   local a2 = p2:get_ascii()
                   mst.a(p1:get_ascii() == a2, 'ascii mismatch', a2)
+
+                   end)
+            it("works with test strings #s", function ()
+                  for i, v in ipairs(test_strings)
+                  do
+                     local p = ipv6s.new_prefix_from_ascii(v)
+                     local b = p:get_binary()
+                     local bl = p:get_binary_bits()
+                     mst.a(bl == 0 or #b > 0, 'get_binary dropping data?', v)
+                     mst.d('playing with', p, mst.string_to_hex(b), bl)
+                     local p2 = ipv6s.new_prefix_from_binary(b, bl)
+                     local a2 = p2:get_ascii()
+                     mst.a(a2 == v, 'unable to handle', v, a2, p2, #b)
+                  end
+                   end)
+            it("get-next works too #n", function ()
+                  for i, v in ipairs(next_tests)
+                  do
+                     local uspa, nowa, exp = unpack(v)
+                     local usp = ipv6s.new_prefix_from_ascii(uspa)
+                     local now = ipv6s.new_prefix_from_ascii(nowa)
+                     local np = now:next_from_usp(usp)
+                     local got = np:get_ascii()
+                     mst.d('running', usp, now)
+                     mst.a(got == exp, 'next does not work', np, exp)
+
+                  end
 
                    end)
              end)

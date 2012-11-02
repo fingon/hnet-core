@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Sat Oct 27 13:09:34 2012 mstenber
--- Edit time:     107 min
+-- Last modified: Fri Nov  2 12:37:23 2012 mstenber
+-- Edit time:     154 min
 --
 
 require 'mst'
@@ -25,14 +25,14 @@ local mapped_ipv4_prefix = string.rep(string.char(0), 10) .. string.rep(string.c
 
 
 -- ipv6 handling stuff
-function address_cleanup_sub(nl, si, ei, r)
-   for i=si,ei
-   do
-      table.insert(r, string.format("%x", nl[i]))
-   end
-end
-
 function address_cleanup(s)
+   function address_cleanup_sub(nl, si, ei, r)
+      for i=si,ei
+      do
+         table.insert(r, string.format("%x", nl[i]))
+      end
+   end
+
    local sl = mst.string_split(s, ':')
    local nl = mst.array_map(sl, function (x) return mst.strtol(x, 16) end)
    local best = false
@@ -59,7 +59,12 @@ function address_cleanup(s)
    local r = {}
    if best
    then
-      address_cleanup_sub(nl, 1, best[2]-1, r)
+      if best[2] >= 2
+      then
+         address_cleanup_sub(nl, 1, best[2]-1, r)
+      else
+         table.insert(r, '')
+      end
       table.insert(r, '')
       if best[1]+best[2] >  #nl
       then
@@ -111,6 +116,12 @@ function address_to_binary_address(b)
    -- potentially one ::
    --mst.d('address_to_binary_address', b)
 
+   -- special case handling of '::'
+   if b == '::'
+   then
+      return string.rep(string.char(0), 16)
+   end
+
    local l = mst.string_split(b, ":")
    --mst.d('address_to_binary', l)
 
@@ -133,7 +144,7 @@ function address_to_binary_address(b)
    do
       if #v == 0
       then
-         mst.a(not idx or (idx == i-1 and i == #l), "multiple ::s", b)
+         mst.a(not idx or (idx == i-1 and i == #l), "multiple ::s", b, idx, i)
          if not idx
          then
             idx = i
@@ -156,7 +167,9 @@ function address_to_binary_address(b)
       else
          local n, err = mst.strtol(v, 16)
          mst.a(n, 'error in strtol', err)
-         table.insert(t, string.char(math.floor(n / 256)) .. string.char(n % 256))
+         local b1 = string.char(math.floor(n / 256))
+         local b2 = string.char(n % 256)
+         table.insert(t,  b1 .. b2)
       end
    end
    return table.concat(t)
@@ -177,63 +190,105 @@ end
 function prefix_to_binary_prefix(p)
    local l = mst.string_split(p, '/')
    mst.a(#l == 2, 'invalid prefix (no prefix length)', p)
-   mst.a(l[2] % 8 == 0, 'bit-based prefix length handling not supported yet')
+   local bits = tonumber(l[2])
    local b, add_bits = address_to_binary_address(l[1])
-   l[2] = l[2] + (add_bits or 0)
-   return string.sub(b, 1, l[2] / 8)
+   bits = bits + (add_bits or 0)
+   --mst.d('# bits', bits, 'raw data', #b)
+
+   return string.sub(b, 1, math.floor((bits + 7) / 8)), bits
 end
 
 -- assume that everything within is actually relevant
-function binary_prefix_to_prefix(bin)
-   local bits = #bin * 8
-   local bin = binary_prefix_to_binary_address(bin)
-   local a, remove_bits = binary_address_to_address(bin)
+function binary_prefix_to_prefix(bin, bits)
+   local bits = bits or #bin * 8
+   local abin = binary_prefix_to_binary_address(bin)
+   local a, remove_bits = binary_address_to_address(abin)
    bits = bits - (remove_bits or 0)
    return string.format('%s/%d', a, bits)
 end
 
-function binary_prefix_contains(b1, b2)
+function binary_prefix_contains(b1, bits1, b2, bits2)
+   mst.a(type(b1) == 'string', 'non-string arg')
+   mst.a(type(b2) == 'string', 'non-string arg')
+
    mst.a(b1 and b2, 'invalid arguments to binary_prefix_contains', b1, b2)
    if #b1 > #b2
    then
       return false
    end
-   -- #b1 <= #b2 if p1 contains p2
-   return string.sub(b2, 1, #b1) == b1
+
+   mst.a(bits1 and bits2)
+
+   if bits1 > bits2
+   then
+      return false
+   end
+
+
+   mst.a(#b1 == math.floor((bits1+7)/8))
+   mst.a(#b2 == math.floor((bits2+7)/8))
+
+   mst.d('binary_prefix_contains', #b1, bits1, #b2, bits2)
+
+   function contains_rec(ofs)
+      -- already processed bit count = bo
+      local bo = (ofs - 1) * 8
+      if bo >= bits1
+      then
+         return true
+      end
+      if bits1 > (bo + 8)
+      then
+         -- still full bit comparison
+         --mst.d('full', bo)
+         return b1[ofs] == b2[ofs] and contains_rec(ofs+1)
+      end
+      local bits = bits1 - bo
+      -- number of relevant bits to compare => effectively, we have to
+      -- take the 'bits' highest-order bits. 
+      local v1 = string.byte(string.sub(b1, ofs, ofs))
+      local v2 = string.byte(string.sub(b2, ofs, ofs))
+      v1 = math.floor(v1 / 2^(8-bits))
+      v2 = math.floor(v2 / 2^(8-bits))
+      --mst.d('final', v1, v2)
+      return v1 == v2
+   end
+   return contains_rec(1)
 end
 
 function prefix_contains(p1, p2)
    mst.a(p1 and p2, 'invalid arguments to prefix_contains', p1, p2)
-   local b1 = prefix_to_binary_prefix(p1)
-   local b2 = prefix_to_binary_prefix(p2)
-   return binary_prefix_contains(b1, b2)
+   local b1, bl1 = prefix_to_binary_prefix(p1)
+   local b2, bl2 = prefix_to_binary_prefix(p2)
+   return binary_prefix_contains(b1, bl1, b2, bl2)
 end
 
-function binary_prefix_next_from_usp(b, p, desired_bits)
-   mst.a(#p == desired_bits/8)
-   mst.a(#b <= desired_bits/8)
-   if #b == desired_bits/8
-   then
-      mst.a(b == p)
-      return p
-   end
+function binary_prefix_next_from_usp(b, usp_bits, p, desired_bits)
    -- two different cases - either prefix+1 is still within up => ok,
    -- or it's not => start from zeros
+   mst.a(type(b) == 'string', b)
+   mst.a(type(p) == 'string', p)
    local pb = {string.byte(p, 1, #p)}
+   local bit = (8 - desired_bits % 8) % 8
    for i=desired_bits/8, 1, -1
    do
-      pb[i] = (pb[i] + 1) % 256
-      if pb[i]
+      local val = 2^bit
+      mst.d('changing', i, bit, val)
+      pb[i] = (pb[i] + val) % 256
+      if pb[i] > 0
       then
+         mst.d('did not yet overflow', pb[i])
          break
+      else
+         bit = 0
       end
    end
    local p2 = string.char(unpack(pb))
-   if string.sub(p2, 1, #b) == b
+   if binary_prefix_contains(b, usp_bits, p2, desired_bits)
    then
       return p2
    end
-   return b .. string.rep(string.char(0), desired_bits/8 - #b)
+   return b .. string.rep(string.char(0), (desired_bits+7)/8 - #b)
 end
 
 -- given the hwaddr (in normal aa:bb:cc:dd:ee:ff:aa format) and
@@ -276,13 +331,15 @@ ipv6_prefix = mst.create_class{class='ipv6_prefix'}
 function ipv6_prefix:init()
    -- must have EITHER ascii or binary representation to start with!
    self:a(self.ascii or self.binary)
+   self:a(not self.binary_bits or (self.binary_bits >= 0 and self.binary_bits <= 128))
 end
 
 function ipv6_prefix:get_ascii()
    if not self.ascii
    then
       self:a(self.binary)
-      self.ascii = binary_prefix_to_prefix(self.binary)
+      self.ascii = binary_prefix_to_prefix(self.binary, 
+                                           self:get_binary_bits())
    end
    return self.ascii
 end
@@ -299,7 +356,8 @@ function ipv6_prefix:get_binary()
    if not self.binary
    then
       self:a(self.ascii)
-      self.binary = prefix_to_binary_prefix(self.ascii)
+      self.binary, self.binary_bits = prefix_to_binary_prefix(self.ascii)
+      self:a(self.binary_bits >= 0 and self.binary_bits <= 128)
    end
    return self.binary
 end
@@ -331,9 +389,30 @@ function ipv6_prefix:repr()
    return mst.repr(self:get_ascii())
 end
 
+function ipv6_prefix:next_from_usp(p)
+   -- assume our length = desired length
+   -- => matter of just calling binary_prefix_next_from_usp
+   local myb = self:get_binary()
+   local mybits = self:get_binary_bits()
+   local uspb = p:get_binary()
+   local uspbits = p:get_binary_bits()
+
+   -- finally, call binary_prefix_next_from_usp
+   local nb = binary_prefix_next_from_usp(uspb, uspbits, myb, mybits)
+
+   -- create the new prefix object
+   return new_prefix_from_binary(nb, mybits)
+end
+
+
 
 function ipv6_prefix:contains(p2)
-   return prefix_contains(self:get_ascii(), p2:get_ascii())
+   local b1 = self:get_binary()
+   local bl1 = self:get_binary_bits()
+   local b2 = p2:get_binary()
+   local bl2 = p2:get_binary_bits()
+   return binary_prefix_contains(b1, bl1, b2, bl2)
+   --return prefix_contains(self:get_ascii(), p2:get_ascii())
 end
 
 function new_prefix_from_ascii(s)

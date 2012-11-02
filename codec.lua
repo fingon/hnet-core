@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Sat Oct 27 11:15:28 2012 mstenber
--- Edit time:     174 min
+-- Last modified: Fri Nov  2 11:55:23 2012 mstenber
+-- Edit time:     177 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -210,9 +210,10 @@ function prefix_body:try_decode(cur)
    s = math.floor((o.prefix_length + 31) / 32)
    s = s * 4
    if not has_left(cur, s) then return nil, 'not enough for prefix' end
-   r = cur:read(s)
+   local r = cur:read(s)
+   mst.a(r, 'read failed despite having enough left?', cur)
    --o.prefix = ipv6s.binary_to_ascii(r)
-   local nonpaddedr = string.sub(r, 1, o.prefix_length / 8)
+   local nonpaddedr = string.sub(r, 1, (o.prefix_length+7) / 8)
    o.prefix = ipv6s.new_prefix_from_binary(nonpaddedr, o.prefix_length)
    return o
 end
@@ -224,7 +225,7 @@ function prefix_body:do_encode(o)
 
    -- assume it's ipv6s.ipv6_prefix object
    local p = o.prefix
-   b = p:get_binary()
+   local b = p:get_binary()
    local bl = p:get_binary_bits()
    o.prefix_length = bl
    s = math.floor((bl + 31) / 32)

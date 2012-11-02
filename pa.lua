@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Wed Oct 31 15:18:27 2012 mstenber
--- Edit time:     711 min
+-- Last modified: Fri Nov  2 12:33:42 2012 mstenber
+-- Edit time:     714 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -349,7 +349,7 @@ function sps:create_prefix_freelist(assigned)
    local b = self.binary_prefix
    local t = mst.array:new()
    local desired_bits = self:get_desired_bits()
-
+   local usp_bits = self.prefix:get_binary_bits()
    mst.a(desired_bits > 0)
 
    self.freelist = t
@@ -364,7 +364,7 @@ function sps:create_prefix_freelist(assigned)
    local sp = p
    while true
    do
-      p = ipv6s.binary_prefix_next_from_usp(b, p, desired_bits)
+      p = ipv6s.binary_prefix_next_from_usp(b, usp_bits, p, desired_bits)
       self:a(#p == desired_bits/8, "binary_prefix_next_from_usp bugs?")
 
       if not assigned[p]
@@ -742,13 +742,11 @@ end
 
 function pa:find_assigned(usp)
    local t = mst.set:new()
-   local b = usp.binary_prefix
-   self:a(b, 'no usp.binary_prefix')
    for i, asp in ipairs(self.asp:values())
    do
       local ab = asp.binary_prefix
       self:a(ab, 'no asp.binary_prefix')
-      if ipv6s.binary_prefix_contains(b, ab)
+      if usp.prefix:contains(asp.prefix)
       then
          t:insert(ab)
       end
