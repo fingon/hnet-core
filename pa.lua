@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Sat Nov  3 20:43:45 2012 mstenber
--- Edit time:     739 min
+-- Last modified: Sun Nov  4 01:05:05 2012 mstenber
+-- Edit time:     750 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -347,13 +347,27 @@ end
 
 function sps:get_random_binary_prefix(iid, i)
    local b = self.binary_prefix
+   local bl = self.prefix:get_binary_bits()
    i = i or 0
    -- get the rest of the bytes from md5
    local s = string.format("%s-%s-%s-%d", 
                            self.pa:get_hwf(), iid, self.ascii_prefix, i)
    local sb = create_hash(s)
    local desired_bits = self:get_desired_bits()
-   p = b .. string.sub(sb, #b+1, desired_bits / 8)
+
+   -- sub-byte handling of the bits available
+   local v = string.byte(b, #b, #b)
+   local v2 = string.byte(sb, 1, 1)
+   for i=1,(8-bl%8)%8
+   do
+      if mst.bitv_is_set_bit(v2, i)
+      then
+         v = mst.bitv_xor_bit(v, i)
+      end
+   end
+   local c = string.char(v)
+
+   p = string.sub(b, 1, #b-1) .. c .. string.sub(sb, #b+1, desired_bits / 8)
    local got_bits = #p * 8
    self:a(got_bits == desired_bits, 'mismatch', got_bits, desired_bits)
    return p

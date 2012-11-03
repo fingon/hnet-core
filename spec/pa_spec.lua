@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Sat Nov  3 14:16:36 2012 mstenber
--- Edit time:     243 min
+-- Last modified: Sun Nov  4 00:56:39 2012 mstenber
+-- Edit time:     246 min
 --
 
 require "busted"
@@ -241,6 +241,26 @@ describe("pa", function ()
                   mst.a(pa.usp:count() == 1, "usp mismatch")
                   mst.a(pa.lap:count() == 256, "lap mismatch")
                   mst.a(pa.asp:count() == 256, "asp mismatch")
+
+                  --profiler.stop()
+                   end)
+            
+            it("handles /60 #60", function ()
+                  -- /60 usp, 20 interfaces -> should get 16 LAP/ASP
+                  o.usp={{prefix='abcd:dead:beef:cafe::/60', rid='rid1'}}
+                  o.asp = {}
+                  local t = mst.array:new()
+                  for i=1,20
+                  do
+                     -- {index=42, name='if1'}
+                     t:insert({index=i, name=string.format('if%d', i)})
+                  end
+                  o.iif={myrid=t}
+                  
+                  pa:run()
+                  mst.a(pa.usp:count() == 1, "usp mismatch")
+                  mst.a(pa.lap:count() == 16, "lap mismatch (exp 16)", pa.lap:count(), pa.lap)
+                  mst.a(pa.asp:count() == 16, "asp mismatch")
 
                   --profiler.stop()
                    end)
