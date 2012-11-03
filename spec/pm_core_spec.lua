@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Sat Nov  3 13:17:49 2012 mstenber
+-- Last modified: Sat Nov  3 14:17:09 2012 mstenber
 -- Edit time:     109 min
 --
 
@@ -249,6 +249,7 @@ describe("pm", function ()
                   local pa = ep.pa
                   -- change other rid so we have highest one -> v4!
                   e.lsas={arid1=usp_dead_tlv}
+                  pa.disable_always_ula = true
                   pa.new_prefix_assignment = 10
                   pa.start_time = pa.start_time - pa.new_prefix_assignment - 10
                   ep:run()

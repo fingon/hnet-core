@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Mon Oct 29 21:30:42 2012 mstenber
--- Edit time:     104 min
+-- Last modified: Sat Nov  3 15:09:17 2012 mstenber
+-- Edit time:     105 min
 --
 
 require "busted"
@@ -44,7 +44,7 @@ function create_dummy_l_c(port, receiver)
                  end
                  mst.d('create_dummy_l_c - done')
                                                     end}
-   local l = scb.new_listener(d)
+   local l = scb.new_listener(mst.table_copy(d))
    local c = scb.new_connect(d)
    c = wait_connected(c)
    return l, c

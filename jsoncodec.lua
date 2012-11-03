@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 20 18:30:13 2012 mstenber
--- Last modified: Thu Sep 27 13:42:32 2012 mstenber
--- Edit time:     60 min
+-- Last modified: Sat Nov  3 15:42:56 2012 mstenber
+-- Edit time:     66 min
 --
 
 -- json codec that can be plugged on top of scb abstracted sockets, to
@@ -30,7 +30,7 @@ local _hs = #_format.pack({magic=HEADER_MAGIC,size=0})
 
 module(..., package.seeall)
 
-jsoncodec = mst.create_class{class='jsoncodec'}
+jsoncodec = mst.create_class{class='jsoncodec', mandatory={'s'}}
 
 function jsoncodec:init()
    -- read queue
@@ -59,8 +59,8 @@ end
 function jsoncodec:repr_data()
    return string.format('s:%s #rq:%d rql:%d',
                         mst.repr(self.s),
-                        #self.rq,
-                        self.rql)
+                        self.rq and #self.rq or -1,
+                        self.rql and self.rql or -1)
 end
 
 function jsoncodec:write(o)
@@ -77,6 +77,9 @@ function jsoncodec:write(o)
 end
 
 function jsoncodec:rq_join()
+   -- we should be called only when #rq > 1
+   self:a(#self.rq > 1)
+
    -- combine all strings
    self.rq = {table.concat(self.rq)}
    self:a(#self.rq == 1)
@@ -113,7 +116,8 @@ function jsoncodec:handle_data(x)
       self:a(#self.rq[1] >= need1)
 
       
-      local cur = vstruct.cursor(ri == 1 and self.rq[1] or string.sub(self.rq[1], ri))
+      local cur = vstruct.cursor(ri == 1 and self.rq[1] or 
+                                 string.sub(self.rq[1], ri))
       local d = _format.unpack(cur)
       local magic = d.magic
       local cnt = d.size
@@ -172,7 +176,6 @@ function jsoncodec:handle_data(x)
 end
 
 function wrap_socket(d)
-   mst.check_parameters("jsoncodec:wrap_socket", d, {"s"}, 3)
    local o = jsoncodec:new(d)
    return o
 end

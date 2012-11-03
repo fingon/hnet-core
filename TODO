@@ -4,9 +4,26 @@
 
 * Things to do
 
-** Convert to use ULA always?
+** Code review the code
 
-** Add option to avoid v4 support
+- use of 'class' as name for class name is bit misleading
+ - but 'name' might be too popular(?)
+
+- accessors for getting class object, superclass objects would be nice
+
+ - could use some sort of ~singleton to save classname=>class,
+   class=>superclass relations?
+
+- changed semantics so that no implicit copying happening almost anywhere
+  => caller responsibility. only way to ensure high performance?
+
+- added validity_sync utility class, which handles a collection's
+  validity. it has methods for both setting and clearing validity of
+  everything within (and it works with arrays, maps, multimaps)
+
+TODO codereview
+- ipv6s (bit too much spaghetti, perhaps?)
+ - mst.lua+
 
 ** Demo topology?
 
@@ -152,6 +169,10 @@ does anyone care :p
 and make sure result is sane
 
 * Done (29.10.+)
+
+** Convert to use ULA always? (and add option to disable it too)
+
+- pa.disable_always_ula
 
 ** Why address assignments are not constant?
 

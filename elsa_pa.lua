@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Oct 31 15:16:55 2012 mstenber
--- Edit time:     378 min
+-- Last modified: Sat Nov  3 14:58:51 2012 mstenber
+-- Edit time:     399 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -36,8 +36,10 @@ local pa = require 'pa'
 
 module(..., package.seeall)
 
+-- LSA type used for storing the auto-configuration LSA
 AC_TYPE=0xBFF0
 
+-- SKV-related things
 PD_SKVPREFIX='pd-'
 SIXRD_SKVPREFIX='6rd-'
 SIXRD_DEV='6rd'
@@ -51,20 +53,14 @@ DISABLE_SKVPREFIX='disable-pa-'
 -- used to indicate that no IPv4 prefix assignment on the interface
 DISABLE_V4_SKVPREFIX='disable-pa-v4-'
 
+-- skv key is formed of *_SKVPREFIX + one of these + interface name
 PREFIX_KEY='prefix.'
 DNS_KEY='dns.'
 DNS_SEARCH_KEY='dns-search.'
 NH_KEY='nh.'
 
-JSON_ASA_KEY='asa'
-JSON_DNS_KEY='dns'
-JSON_DNS_SEARCH_KEY='dns-search'
-
-JSON_IPV4_DNS_KEY='ipv4-dns'
-JSON_IPV4_DNS_SEARCH_KEY='ipv4-dns-search'
-
+-- SKV 'singleton' keys
 PD_IFLIST_KEY='pd-iflist'
-
 OSPF_RID_KEY='ospf-rid'
 OSPF_LAP_KEY='ospf-lap'
 OSPF_USP_KEY='ospf-usp'
@@ -73,6 +69,13 @@ OSPF_DNS_SEARCH_KEY='ospf-dns-search'
 OSPF_IFLIST_KEY='ospf-iflist'
 OSPF_IPV4_DNS_KEY='ospf-v4-dns'
 OSPF_IPV4_DNS_SEARCH_KEY='ospf-v4-dns-search'
+
+-- JSON fields within jsonblob AC TLV
+JSON_ASA_KEY='asa'
+JSON_DNS_KEY='dns'
+JSON_DNS_SEARCH_KEY='dns-search'
+JSON_IPV4_DNS_KEY='ipv4-dns'
+JSON_IPV4_DNS_SEARCH_KEY='ipv4-dns-search'
 
 -- from the draft; time from boot to wait iff no other routers around
 -- before starting new assignments
@@ -159,20 +162,25 @@ elsa_pa = mst.create_class{class='elsa_pa', mandatory={'skv', 'elsa'},
                            new_ula_prefix=NEW_ULA_PREFIX}
 
 function elsa_pa:init()
-   self.first = true
-   self.ridr_repr = ''
-   self.skvp_repr = ''
-   self.ospf_changes = 0
+   -- force first run (repr changes force AC LSA generation; ospf_changes
+   -- forces PA alg to be run)
+   self.ridr_repr_hash = ''
+   self.skvp_repr_hash = ''
+   self.ospf_changes = 1
+
+   -- create the actual abstract prefix algorithm object we wrap
    self.pa = pa.pa:new{rid=self.rid, client=self, lap_class=elsa_lap,
                        new_prefix_assignment=self.new_prefix_assignment,
                        new_ula_prefix=self.new_ula_prefix}
+
+   -- set of _all_ interface names we've _ever_ seen (used for
+   -- checking SKV for tidbits)
    self.all_seen_if_names = mst.set:new{}
 end
 
 function elsa_pa:uninit()
    -- we don't 'own' skv or 'elsa', so we don't do anything here,
-   -- except clean up our own state
-
+   -- except clean up our own state, which is basically the pa object
    self.pa:done()
 end
 
@@ -262,7 +270,7 @@ function elsa_pa:should_run()
    -- ! important to check pa.should_run() first, even if it's
    -- inefficient; we never call should_run() within pa.run(), and
    -- it's needed to get pa.run() to sane state..
-   return self.pa:should_run() or self.first or self.ospf_changes > 0 
+   return self.pa:should_run() or self.ospf_changes > 0 
 end
 
 function elsa_pa:run()
@@ -298,24 +306,24 @@ function elsa_pa:run()
       r = self.pa:run{checked_should=true}
    end
 
-   self:d('pa.run result', r, self.first)
-   local ridr_repr = mst.repr(self.pa.ridr)
-   local skvp_repr = mst.repr(self.skvp)
+   self:d('pa.run result', r)
+   local ridr_repr_hash = pa.create_hash(mst.repr(self.pa.ridr))
+   local skvp_repr_hash = pa.create_hash(mst.repr(self.skvp))
 
-   local c1 = ridr_repr ~= self.ridr_repr
-   local c2 = skvp_repr ~= self.skvp_repr
-   if r or self.first or c1 or c2
+   local c1 = ridr_repr_hash ~= self.ridr_repr_hash
+   local c2 = skvp_repr_hash ~= self.skvp_repr_hash
+   if r or c1 or c2
    then
       self:d('run doing skv/lsa update',  r, self.first, c1, c2)
 
       -- raw contents of the interfaces MAY change what we publish,
       -- even if the PA algorithm is still happy! so therefore we consider the
-      -- ridr_repr too
-      self.ridr_repr = ridr_repr
+      -- ridr_repr_hash too
+      self.ridr_repr_hash = ridr_repr_hash
 
       -- same with SKV - we may have e.g. different next hop from DHCPv6 PD
       -- that we need to propagate
-      self.skvp_repr = skvp_repr
+      self.skvp_repr_hash = skvp_repr_hash
 
       self:run_handle_new_lsa()
 
@@ -330,7 +338,7 @@ function elsa_pa:run_handle_new_lsa()
    mst.a(body and #body, 'empty generated LSA?!?')
 
    self.elsa:originate_lsa{type=AC_TYPE, 
-                           rid=self.pa.rid,
+                           rid=self.rid,
                            body=body}
 
 end
@@ -403,17 +411,18 @@ function elsa_pa:run_handle_skv_publish()
          end
       end
    end
-
    self.skv:set(OSPF_USP_KEY, t)
 end
 
 function elsa_pa:iterate_ac_lsa(f, criteria)
-   if criteria
-   then
-      criteria = mst.table_copy(criteria)
-   else
-      criteria = {}
-   end
+   criteria = criteria or {}
+
+   -- make sure this object isn't being reused - 
+   -- we intentionally minimize number of copies, but if there
+   -- is type selector already, this is a second call with same table
+   -- (and potentially problematic)
+   mst.a(not criteria.type)
+
    criteria.type = AC_TYPE
    self.elsa:iterate_lsa(self.rid, f, criteria)
 end
@@ -491,15 +500,15 @@ function elsa_pa:iterate_if(rid, f)
    self.elsa:iterate_if(rid, function (ifo)
                            self.all_seen_if_names:insert(ifo.name)
                            self:a(ifo)
-                           if not inuse_ifnames[ifo.name]
+                           if inuse_ifnames[ifo.name]
                            then
-                              -- set up the static variable on the ifo
-                              ifo.disable = self.skv:get(DISABLE_SKVPREFIX .. ifo.name)
-                              ifo.disable_v4 = self.skv:get(DISABLE_V4_SKVPREFIX .. ifo.name)
-                              f(ifo)
-                           else
                               self:d('skipping in use', ifo, 'delegated prefix source')
+                              return
                            end
+                           -- set up the static variable on the ifo
+                           ifo.disable = self.skv:get(DISABLE_SKVPREFIX .. ifo.name)
+                           ifo.disable_v4 = self.skv:get(DISABLE_V4_SKVPREFIX .. ifo.name)
+                           f(ifo)
                              end)
 end
 
@@ -530,8 +539,8 @@ function elsa_pa:iterate_skv_if_real(ifname, skvprefix, metric, f)
    if not o
    then
       return
-         end
-   -- enter to the fallback lottery - the stuff returned by this
+   end
+   -- enter to the fallback lottery - the interface set we check
    -- should NOT decrease in size
    self.all_seen_if_names:insert(ifname)
    
@@ -575,21 +584,22 @@ function elsa_pa:get_field_array(locala, jsonfield)
    local s = mst.set:new{}
    
    -- get local ones
-   for i, addr in ipairs(locala or {})
+   for i, v in ipairs(locala or {})
    do
-      s:insert(addr)
+      s:insert(v)
    end
 
    -- get global ones
    self:iterate_ac_lsa_tlv(function (json, lsa)
-                              for i, addr in ipairs(json.table[jsonfield] or {})
+                              for i, v in ipairs(json.table[jsonfield] or {})
                               do
-                                 s:insert(addr)
+                                 s:insert(v)
                               end
                            end, {type=codec.AC_TLV_JSONBLOB})
 
 
    -- return set as array
+   -- XXX - does the order matter? hope not!
    return s:keys()
 end
 

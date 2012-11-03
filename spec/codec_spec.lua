@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 18:34:49 2012 mstenber
--- Last modified: Fri Nov  2 11:54:38 2012 mstenber
--- Edit time:     19 min
+-- Last modified: Sat Nov  3 14:27:23 2012 mstenber
+-- Edit time:     20 min
 --
 
 require "busted"
@@ -38,6 +38,16 @@ local tests = {
 
 describe("test the ac endecode",
          function ()
+            setup(function ()
+                     -- make sure the classes do copies of the encoded
+                     -- dictionaries, we don't want to copy test vectors
+                     -- by hand
+                     for i, v in ipairs(tests)
+                     do
+                        local cl, orig = unpack(v)
+                        cl.copy_on_encode = true
+                     end
+                  end)
             it("basic en-decode ~= same #base", function ()
                   for i, v in ipairs(tests)
                   do
@@ -56,7 +66,7 @@ describe("test the ac endecode",
                      mst.a(r1 == r2, 'changed', r1, r2)
                      mst.a(mst.table_contains(o2, orig), "something missing", cl.class, o2, orig)
                   end
-                                          end)
+                                                end)
             it("can handle list of tlvs", function()
                   -- glom all tests together to one big thing
                   local l = mst.array_map(tests, function (s) 

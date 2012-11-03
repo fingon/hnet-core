@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Oct 30 11:54:15 2012 mstenber
--- Edit time:     482 min
+-- Last modified: Sat Nov  3 15:45:44 2012 mstenber
+-- Edit time:     505 min
 --
 
 -- data structure abstractions provided:
@@ -100,16 +100,17 @@ function baseclass:new_subclass(o)
 end
 
 function baseclass:new(o)
-   if o
-   then
-      -- shallow copy is cheap insurance, allows lazy use outside
-      o = table_copy(o)
-   else
-      o = {}
-   end
+   o = o or {}
+
    local cmt = getmetatable(self).cmt
 
    mst.a(cmt, "missing child-metatable", self)
+
+   -- make sure it isn't already set with this metatable - would
+   -- indicate reuse of table for multiple objects, which is a no-no
+   self:a(getmetatable(o) == nil, ':new with table that has non-empty metatable', o)
+
+   -- set the child metatable
    setmetatable(o, cmt)
 
    mst.a(o.init, "missing init method?", self)
@@ -844,6 +845,13 @@ map = create_class{class='map',
                    values=table_values,
                   }
 
+function map:foreach(f)
+   for k, v in pairs(self)
+   do
+      f(k, v)
+   end
+end
+
 --- set
 
 function set_map(s, fun)
@@ -1351,4 +1359,87 @@ function sync_tables(s1, s2,
       c = c + 1
    end
    return c
+end
+
+-- another sync algorithm implementation; this time a set of
+-- objects, whose validity is controlled by one (or more) keys being
+-- valid on the objects. 
+
+-- it is a wrapper around a container (which obeys these mst.* APIs),
+-- with few methods to invalidate/validate individual objects
+
+validity_sync = mst.create_class{'validity_sync', 
+                                 mandatory={'t', 'single'}}
+
+function validity_sync:clear_all_valid(key)
+   key = key or true
+   self:a(not self.single == (key ~= true))
+   if key == true
+   then
+      self.t:foreach(function (k, v)
+                        local o = v or k
+                        o.invalid = true
+                     end)
+   else
+      self.t:foreach(function (k, v)
+                        local o = v or k
+                        if not o.valid
+                        then
+                           return
+                        end
+                        o.valid[key] = nil
+                        if table_count(o) == 0
+                        then
+                           o.valid = nil
+                        end
+                     end)
+   end
+end
+
+function validity_sync:set_valid(o, key)
+   key = key or true
+   self:a(not self.single == (key ~= true))
+   if key == true
+   then
+      o.invalid = nil
+   else
+      if not o.valid
+      then
+         o.valid = {}
+      end
+      o.valid[key] = true
+   end
+end
+
+function validity_sync:remove_all_invalid()
+   t = {}
+   if self.single
+   then
+      self.t:foreach(function (k, v)
+                        local o = v or k
+                        if o.invalid
+                        then
+                           table.insert(t, {k, v})
+                        end
+                    end)
+
+   else
+      self.t:foreach(function (k, v)
+                        local o = v or k
+                        if not o.valid
+                        then
+                           table.insert(t, {k, v})
+                        end
+                    end)
+   end
+   for i, v in ipairs(t)
+   do
+      local k, v = unpack(v)
+      self:remove(k, v)
+   end
+end
+
+function validity_sync:remove(k, v)
+   -- hopewish it supports this api.. arrays don't have keys :p
+   self.t:remove(k, v)
 end

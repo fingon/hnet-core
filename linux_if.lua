@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  8 13:11:02 2012 mstenber
--- Last modified: Wed Oct 31 16:25:49 2012 mstenber
--- Edit time:     95 min
+-- Last modified: Sat Nov  3 15:44:53 2012 mstenber
+-- Edit time:     106 min
 --
 
 
@@ -27,10 +27,6 @@ module(..., package.seeall)
 --- if_object
 
 if_object = mst.create_class{class='if_object', mandatory={'name'}}
-
-function if_object:init()
-   self.valid = {}
-end
 
 function if_object:get_hwaddr()
    local ifname = self.name
@@ -69,16 +65,13 @@ function if_object:set_ipv4(addr, netmask)
    return self.parent.shell(string.format('ifconfig %s %s netmask %s', self.name, addr, netmask))
 end
 
-function if_object:set_valid(key)
-   self.valid[key] = true
-end
-
 --- if_table
 
 if_table = mst.create_class{class='if_table', mandatory={'shell'}}
 
 function if_table:init()
    self.map = mst.map:new{}
+   self.vs = mst.validity_sync:new{t=self.map, single=false}
 end
 
 -- this is really get-or-set operation..
@@ -92,30 +85,12 @@ function if_table:get_if(k)
    return r
 end
 
-function if_table:invalidate_key(key)
-   for i, v in ipairs(self.map:values())
-   do
-      v.valid[key] = nil
-   end
-end
-
-function if_table:delete_invalid()
-   for i, k in ipairs(self.map:keys())
-   do
-      local v = self.map[k]
-      if not mst.table_count(v.valid)
-      then
-         self[k] = nil
-      end
-   end
-end
-
 local AF_IPV4='ipv4'
 local AF_IPV6='ipv6'
 
 function if_table:read_ip_ipv6()
    -- invalidate all interfaces first
-   self:invalidate_key(AF_IPV6)
+   self.vs:clear_all_valid(AF_IPV6)
 
    local s, err = self.shell("ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary")
    mst.a(s, 'unable to execute ip -6 addr', err)
@@ -134,7 +109,7 @@ function if_table:read_ip_ipv6()
                              ifo = self:get_if(ifname)
                              ifo.ipv6 = mst.array:new{}
                              ifo.ipv6_valid = true
-                             ifo:set_valid(AF_IPV6)
+                             self.vs:set_valid(ifo, AF_IPV6)
                           end,
                           -- case 2: <spaces> inet6 <addr>/64
                           '^%s+inet6 (%S+/64)%s',
@@ -148,15 +123,14 @@ function if_table:read_ip_ipv6()
    end
 
    -- remove non-valid interface objects
-   self:delete_invalid()
+   self.vs:remove_all_invalid()
 
    return self.map
 end
 
 function if_table:read_ip_ipv4()
    -- invalidate all interfaces at the outset
-   self:invalidate_key(AF_IPV4)
-
+   self.vs:clear_all_valid(AF_IPV4)
 
    local s, err = self.shell("ip -4 addr")
    mst.a(s, 'unable to execute ip -4 addr', err)
@@ -179,7 +153,7 @@ function if_table:read_ip_ipv4()
                              ifo = self:get_if(ifname)
                              ifo.ipv4 = nil
                              ifo.ipv4_valid = true
-                             ifo:set_valid(AF_IPV4)
+                             self.vs:set_valid(ifo, AF_IPV4)
                           end,
                           -- case 2: <spaces> inet <addr>/<mask>
                           '^%s+inet (%S+/%d+)%s',
@@ -191,7 +165,7 @@ function if_table:read_ip_ipv4()
 
 
    -- remove non-valid interrface objects
-   self:delete_invalid()
+   self.vs:remove_all_invalid()
    return self.map
 end
 
@@ -220,6 +194,10 @@ end
 rule_table = mst.array:new_subclass{class='rule_table', mandatory={'shell'},
                                     start_table=1000}
 
+function rule_table:init()
+   self.vs = mst.validity_sync:new{t=self, single=true}
+end
+
 function rule_table:find(criteria)
    for _, o in ipairs(self)
    do
@@ -229,10 +207,7 @@ end
 
 function rule_table:parse()
    -- start by invalidating current objects
-   for i, v in ipairs(self)
-   do
-      v.valid = false
-   end
+   self.vs:clear_all_valid()
 
    local s, err = self.shell("ip -6 rule")
    mst.a(s, 'unable to execute ip -6 rule', err)
@@ -256,7 +231,7 @@ function rule_table:parse()
          else
             self:d('already had?', r)
          end
-         r.valid = true
+         self.vs:set_valid(r)
       end
 
       --self:d('line', line)
@@ -268,11 +243,7 @@ function rule_table:parse()
    end
 
    -- get rid of non-valid entries
-   invalid = self:filter(function (o) return not o.valid end)
-   for i, v in ipairs(invalid)
-   do
-      self:remove(v)
-   end
+   self.vs:remove_all_invalid()
 end
 
 function rule_table:add_rule(criteria)

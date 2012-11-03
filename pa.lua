@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Sat Nov  3 13:13:10 2012 mstenber
--- Edit time:     717 min
+-- Last modified: Sat Nov  3 15:53:15 2012 mstenber
+-- Edit time:     729 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -31,6 +31,18 @@
 -- provide the real assign/unassign/deprecation (by providing do_*
 -- methods). once done, they should call Done/Error. if asynchronous,
 -- they should also provide stop_* methods.
+
+-- configuration parameters of note:
+
+-- disable_ula - disable ALL ULA generation (we will use it if it is
+-- provided by the network, though)
+
+-- disable_ipv4 - disable IPv4 handling (both origination of IPv4 USP,
+-- and assignment of local addresses)
+
+-- disable_always_ula - disable constant ULA generation/use (if
+-- disabled, ULA will be available if and only if no global prefixes
+-- are available)
 
 require 'mst'
 require 'ipv6s'
@@ -493,9 +505,11 @@ function pa:init()
 
    -- all asp data, ordered by prefix
    self.asp = mst.multimap:new()
+   self.vsa = mst.validity_sync:new{t=self.asp, single=true}
 
    -- all usp data, ordered by prefix
    self.usp = mst.multimap:new()
+   self.vsu = mst.validity_sync:new{t=self.usp, single=true}
 
    -- init changes to 0 here (it's cleared at _end_ of each pa:run,
    -- but timeouts may cause it to become non-zero before next pa:run)
@@ -725,8 +739,7 @@ function pa:assign_own(iid, usp)
                      usp=usp,
                      pa=self,
                      iid=iid,
-                     rid=self.rid, 
-                     valid=true}
+                     rid=self.rid}
    o:assign_lap(iid)
 end
 
@@ -769,7 +782,7 @@ function pa:check_asp_conflicts(iid, asp)
    end
 
    -- otherise mark it as valid
-   asp.valid = true
+   self.vsa:set_valid(asp)
 end
 
 -- 6.3.4
@@ -777,7 +790,7 @@ function pa:assign_other(iid, asp)
    self:d('6.3.4 assign_other', asp)
    -- if we get here, it's valid asp.. just question of what we need
    -- to do with lap
-   asp.valid = true
+   self.vsa:set_valid(asp)
 
    -- So we just fire up the assign_lap, it will ignore duplicate calls anyway
 
@@ -830,7 +843,7 @@ function pa:generate_ulaish(filter, filter_own, generate_prefix, desc)
          if filter_own(usp)
          then
             self:d(' keeping', usp)
-            usp.valid = true
+            self.vsu:set_valid(usp)
             return
          end
       end
@@ -851,8 +864,7 @@ function pa:generate_ulaish(filter, filter_own, generate_prefix, desc)
    -- generate usp
    local p = generate_prefix()
    self:d(' generated prefix', p)
-   usp:new{prefix=p, rid=my_rid, pa=self, valid=true}
-
+   usp:new{prefix=p, rid=my_rid, pa=self}
 
    -- XXX store it on disk
 end
@@ -983,8 +995,8 @@ function pa:run(d)
 
    -- mark existing data invalid
    -- (laps have their own lifecycle governed via timeouts etc)
-   self.asp:foreach(function (ii, o) o.valid = false end)
-   self.usp:foreach(function (ii, o) o.valid = false end)
+   self.vsu:clear_all_valid()
+   self.vsa:clear_all_valid()
    self.ridr:keys():map(function (k) self.ridr[k]=false end)
 
    -- get the rid reachability
@@ -1016,6 +1028,16 @@ function pa:run(d)
             then
                return
             end
+            
+            -- we ignore non-v4 non-ULA, if we're in generate always mode
+            if not self.disable_always_ula
+            then
+               if not usp.prefix:is_ula()
+               then
+                  return
+               end
+            end
+
 
             -- a) something from someone else (don't generate if someone
             -- else already has _something_)
@@ -1082,7 +1104,7 @@ function pa:run(d)
 
    -- drop those that are not valid immediately
    self:filtered_values_done(self.usp,
-                             function (usp) return not usp.valid end)
+                             function (usp) return usp.invalid end)
    
    -- get the (remotely) assigned prefixes
    client:iterate_asp(rid, function (o)
@@ -1100,7 +1122,7 @@ function pa:run(d)
    self:filtered_values_done(self.asp,
                              function (asp) 
                                 self:a(asp.class == 'asp', asp, asp.class)
-                                return asp:is_remote() and not asp.valid 
+                                return asp:is_remote() and asp.invalid 
                              end)
 
 
@@ -1119,7 +1141,7 @@ function pa:run(d)
    -- handle the expired local assignments
    for i, asp in ipairs(self:get_local_asp_values())
    do
-      if not asp.valid
+      if asp.invalid
       then
          asp:done()
       end
@@ -1203,7 +1225,7 @@ function pa:handle_ipv4_lap_address(lap)
       end
       local b = p:get_binary()
       mst.a(#b == 16, 'invalid result?', #b)
-      -- consider the last byte - is it >= 1, <= 63?
+      -- consider the last byte - is it >= 1, <= 64?
       -- (64-254 reserved for DHCPv4 hosts, 255 = broadcast)
       local lb = string.byte(b, 16, 16)
       if lb >= 1 and lb <= IPV4_PA_LAST_ROUTER
@@ -1245,13 +1267,13 @@ function pa:add_or_update_usp(prefix, rid)
          if rid ~= self.rid or (not o.prefix:is_ula() and not o.prefix:is_ipv4())
          then
             self:d(' updated old usp')
-            o.valid = true
+            self.vsu:set_valid(o)
          end
          return
       end
    end
    self:d(' adding new usp')
-   usp:new{prefix=prefix, rid=rid, pa=self, valid=true}
+   usp:new{prefix=prefix, rid=rid, pa=self}
 end
 
 function pa:get_asp(prefix, iid, rid)
@@ -1277,12 +1299,12 @@ function pa:add_or_update_asp(prefix, iid, rid)
       -- mark it valid if it's remote
       if o:is_remote()
       then
-         o.valid = true
+         self.vsa:set_valid(o)
       else
          self:a(o.rid == self.rid, o.rid, self.rid)
 
          -- validity should be governed by PA alg
-         self:a(not o.valid)
+         self:a(o.invalid)
       end
       return
    elseif rid == self.rid
@@ -1291,7 +1313,7 @@ function pa:add_or_update_asp(prefix, iid, rid)
       return
    end
    self:d(' adding new asp')
-   asp:new{prefix=prefix, iid=iid, rid=rid, pa=self, valid=true}
+   asp:new{prefix=prefix, iid=iid, rid=rid, pa=self}
 end
 
 function pa:changed()

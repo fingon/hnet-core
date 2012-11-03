@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Wed Oct 31 15:17:28 2012 mstenber
--- Edit time:     241 min
+-- Last modified: Sat Nov  3 14:16:36 2012 mstenber
+-- Edit time:     243 min
 --
 
 require "busted"
@@ -322,9 +322,22 @@ describe("pa-nobody-else", function ()
                    end)
 
 
-            it("obeys hysteresis 1 - no routers", function ()
+            it("obeys hysteresis 1 - no routers - always ULA on", function ()
                   -- just local e.g. PD prefix
                   o.usp = {{prefix='dead::/16', rid='myrid'}}
+                  pa.new_prefix_assignment = 123
+                  pa:run()
+                  -- should have v4 USP, but not yet ASP due to ASP delay
+                  -- (also ULA)
+                  mst.a(pa.usp:count() == 3, "usp mismatch", pa.usp)
+                  mst.a(pa.asp:count() == 0, "asp mismatch", pa.asp)
+                  mst.a(pa.lap:count() == 0, "lap mismatch", pa.lap)
+                                                  end)
+
+            it("obeys hysteresis 1 - no routers - always ULA off", function ()
+                  -- just local e.g. PD prefix
+                  o.usp = {{prefix='dead::/16', rid='myrid'}}
+                  pa.disable_always_ula = true
                   pa.new_prefix_assignment = 123
                   pa:run()
                   -- should have v4 USP, but not yet ASP due to ASP delay
@@ -335,6 +348,7 @@ describe("pa-nobody-else", function ()
             it("obeys hysteresis 2 - time long gone", function ()
                   -- just local e.g. PD prefix
                   o.usp = {{prefix='dead::/16', rid='myrid'}}
+                  pa.disable_always_ula = true
                   pa.new_prefix_assignment = 123
                   pa.start_time = pa.start_time - pa.new_prefix_assignment - 10
                   pa:run()

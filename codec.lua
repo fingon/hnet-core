@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Fri Nov  2 11:55:23 2012 mstenber
--- Edit time:     177 min
+-- Last modified: Sat Nov  3 14:34:13 2012 mstenber
+-- Edit time:     185 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -45,10 +45,12 @@ AC_TLV_JSONBLOB=42
 
 MINIMUM_AC_TLV_RHF_LENGTH=32
 
+local _null = string.char(0)
 
 --mst.enable_debug = true
 
-abstract_data = mst.create_class{class='abstract_data'}
+abstract_data = mst.create_class{class='abstract_data',
+                                 copy_on_encode=false}
 
 --- abstract_data baseclass
 
@@ -69,7 +71,9 @@ function abstract_data:init()
 end
 
 function abstract_data:repr_data()
-   return mst.repr{format=self.format, header_length=self.header_length, header_default=self.header_default}
+   return mst.repr{format=self.format, 
+                   header_length=self.header_length, 
+                   header_default=self.header_default}
 end
 
 function abstract_data:decode(cur)
@@ -90,9 +94,6 @@ end
 
 function abstract_data:try_decode(cur)
    --self:d('try_decode', cur)
-
-   self:a(self)
-
    if not has_left(cur, self.header_length) 
    then
       return nil, string.format('not enough left for header (%d<%d+%d)',
@@ -114,7 +115,6 @@ function abstract_data:do_encode(o)
          end
       end
    end
-   
    local r = self.header.pack(o)
    --mst.d('do_encode', mst.string_to_hex(r))
    return r
@@ -125,8 +125,11 @@ function abstract_data:encode(o)
 
    self:a(self.header, 'header missing - using class method instead of instance?')
 
-   -- work on shallow copy
-   o = mst.table_copy(o)
+   -- work on shallow copy if required
+   if self.copy_on_encode
+   then
+      o = mst.table_copy(o)
+   end
 
    -- call do_encode to do real things
    return self:do_encode(o)
@@ -160,11 +163,14 @@ function ac_tlv:init()
 end
 
 function ac_tlv:try_decode(cur)
+   -- do superclass decoding of the header
    local o, err = abstract_data.try_decode(self, cur)
    if not o then return o, err end
+
    -- then make sure there's also enough space left for the body
    if not has_left(cur, o.length) then return nil, 'not enough for body' end
-   -- check tlv_type
+
+   -- check tlv_type matches the class
    if self.tlv_type and o.type ~= self.tlv_type 
    then 
       return nil, string.format("wrong type - expected %d, got %d", self.tlv_type, o.type)
@@ -194,15 +200,17 @@ function ac_tlv:do_encode(o)
    -- must be a subclass which has tlv_type set!
    self:a(self.tlv_type, 'self.tlv_type not set')
    o.length = #o.body
-   local npad = 4 - o.length % 4
-   local padding = npad == 4 and "" or string.rep(string.char(0), npad)
-   return abstract_data.do_encode(self, o) .. o.body .. padding
+   local npad = (4 - o.length % 4) % 4
+   local padding = string.rep(_null, npad)
+   local t = {abstract_data.do_encode(self, o), o.body, padding}
+   return table.concat(t)
 end
 
 --- prefix_body
 prefix_body = abstract_data:new{class='prefix_body', 
                                 format='prefix_length:u1 r1:u1 r2:u1 r3:u1',
-                                header_default={prefix_length=0, r1=0, r2=0, r3=0}}
+                                header_default={prefix_length=0, 
+                                                r1=0, r2=0, r3=0}}
 
 function prefix_body:try_decode(cur)
    local o, err = abstract_data.try_decode(self, cur)
@@ -217,8 +225,6 @@ function prefix_body:try_decode(cur)
    o.prefix = ipv6s.new_prefix_from_binary(nonpaddedr, o.prefix_length)
    return o
 end
-
-local _null = string.char(0)
 
 function prefix_body:do_encode(o)
    mst.a(o.prefix, 'prefix missing', o)

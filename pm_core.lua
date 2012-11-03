@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Fri Nov  2 12:35:57 2012 mstenber
--- Edit time:     396 min
+-- Last modified: Sat Nov  3 14:10:03 2012 mstenber
+-- Edit time:     397 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -709,7 +709,7 @@ function pm:write_dhcpd_conf()
             local b = p:get_binary()
             local snb = b .. string.char(0)
             local sn = ipv6s.binary_address_to_address(snb)
-            local stb = b .. string.char(pa.IPV4_PA_LAST_ROUTER)
+            local stb = b .. string.char(pa.IPV4_PA_LAST_ROUTER + 1)
             local enb = b .. string.char(254)
             local st = ipv6s.binary_address_to_address(stb)
             local en = ipv6s.binary_address_to_address(enb)
