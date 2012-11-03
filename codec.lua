@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Sat Nov  3 14:34:13 2012 mstenber
--- Edit time:     185 min
+-- Last modified: Sat Nov  3 20:56:38 2012 mstenber
+-- Edit time:     186 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -221,7 +221,8 @@ function prefix_body:try_decode(cur)
    local r = cur:read(s)
    mst.a(r, 'read failed despite having enough left?', cur)
    --o.prefix = ipv6s.binary_to_ascii(r)
-   local nonpaddedr = string.sub(r, 1, (o.prefix_length+7) / 8)
+   local n = math.floor((o.prefix_length+7) / 8)
+   local nonpaddedr = string.sub(r, 1, n)
    o.prefix = ipv6s.new_prefix_from_binary(nonpaddedr, o.prefix_length)
    return o
 end

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Sat Nov  3 20:51:27 2012 mstenber
--- Edit time:     164 min
+-- Last modified: Sat Nov  3 21:02:26 2012 mstenber
+-- Edit time:     165 min
 --
 
 require 'mst'
@@ -293,7 +293,8 @@ function binary_prefix_next_from_usp(b, usp_bits, p, desired_bits)
    then
       return p2
    end
-   return b .. string.rep(_null, (desired_bits+7)/8 - #b)
+   local n = math.floor((desired_bits+7)/8)
+   return b .. string.rep(_null, n - #b)
 end
 
 -- given the hwaddr (in normal aa:bb:cc:dd:ee:ff:aa format) and
