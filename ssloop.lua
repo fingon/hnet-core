@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Mon Oct 29 21:47:44 2012 mstenber
--- Edit time:     126 min
+-- Last modified: Sat Nov  3 13:08:40 2012 mstenber
+-- Edit time:     127 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -286,6 +286,11 @@ end
 function ssloop:loop_until(cond, timeout)
    local timeouted = false
    local t
+   -- shortcut - if we're already done, we _are_ done
+   if cond()
+   then
+      return true
+   end
    if timeout
    then
       t = self:new_timeout_delta(timeout, function () timedout = true end)
