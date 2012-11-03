@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Sat Nov  3 18:41:06 2012 mstenber
--- Edit time:     163 min
+-- Last modified: Sat Nov  3 20:51:27 2012 mstenber
+-- Edit time:     164 min
 --
 
 require 'mst'
@@ -305,7 +305,7 @@ function prefix_hwaddr_to_eui64(prefix, hwaddr)
    -- then, generat binary representation of hw hwaddr.. which is bit depressing
    local t = mst.string_split(hwaddr, ':')
    mst.a(#t == 6, 'invalid hwaddr', #t, hwaddr)
-   local hwa = t:map(function (x) return mst.strtol(x, 16) end)
+   local hwa = t:map(function (x) return tonumber(x, 16) end)
 
    -- xor the globally unique bit
    hwa[1] = mst.bitv_xor_bit(hwa[1], 2)
