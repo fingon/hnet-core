@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 22:04:20 2012 mstenber
--- Last modified: Fri Nov  2 12:16:57 2012 mstenber
--- Edit time:     47 min
+-- Last modified: Sat Nov  3 18:36:10 2012 mstenber
+-- Edit time:     49 min
 --
 
 require 'ipv6s'
@@ -70,13 +70,14 @@ describe("prefix_to_binary_prefix", function ()
                      {"dead::/16", 2, 0xde, 0xad},
                      {"dead::/32", 4, 0xde, 0},
                      {"dead::/128", 16, 0xde, 0},
+                     {"::dead/128", 16, 0, 0xad},
                   }
                   for i, v in ipairs(d)
                   do
                      local px, elen, efirst, elast = unpack(v)
                      local b = ipv6s.prefix_to_binary_prefix(px)
                      mst.a(b, 'no result')
-                     mst.a(#b==elen, px, elen)
+                     mst.a(#b==elen, 'different len than expected', px, #b, elen)
 
                      local gotf = string.byte(string.sub(b, 1, 1))
                      local gotl = string.byte(string.sub(b, #b, #b))

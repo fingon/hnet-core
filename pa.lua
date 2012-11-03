@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Sat Nov  3 15:53:15 2012 mstenber
--- Edit time:     729 min
+-- Last modified: Sat Nov  3 20:43:45 2012 mstenber
+-- Edit time:     739 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -17,15 +17,14 @@
 -- provide a way of doing the required operations, and should call us
 -- whenever it's state changes.
 
--- client expected to provide:
+-- client is expected to provide:
 --  get_hwf(rid) => hardware fingerprint in string
---  iterate_rid(rid, f) => callback with {rid=[, ifname=, nh=]}
---  iterate_usp(rid, f) => callback with {prefix=, rid=}
---  iterate_asp(rid, f) => callback with {prefix=, iid=, rid=}
---  iterate_asa(rid, f) => callback with {prefix=, rid=}
---  iterate_if(rid, f) => callback with if-object
+--  iterate_rid(rid, f) => callback f with {rid=[, ifname=, nh=]}
+--  iterate_usp(rid, f) => callback f with {prefix=, rid=}
+--  iterate_asp(rid, f) => callback f with {prefix=, iid=, rid=}
+--  iterate_asa(rid, f) => callback f with {prefix=, rid=}
+--  iterate_if(rid, f) => callback f with if-object
 --   iterate_ifo_neigh(rid, if-object, f) => callback with {iid=, rid=}
---  .rid (or given to constructor)
 
 -- client can also override/subclass the lap class here within pa, to
 -- provide the real assign/unassign/deprecation (by providing do_*
@@ -34,15 +33,17 @@
 
 -- configuration parameters of note:
 
--- disable_ula - disable ALL ULA generation (we will use it if it is
--- provided by the network, though)
+--  disable_ula - disable ALL ULA generation (we will use it if it is
+--  provided by the network, though)
 
--- disable_ipv4 - disable IPv4 handling (both origination of IPv4 USP,
--- and assignment of local addresses)
+--  disable_ipv4 - disable IPv4 handling (both origination of IPv4 USP,
+--  and assignment of local addresses)
 
--- disable_always_ula - disable constant ULA generation/use (if
--- disabled, ULA will be available if and only if no global prefixes
--- are available)
+--  disable_always_ula - disable constant ULA generation/use (if
+--  disabled, ULA will be available if and only if no global prefixes
+--  are available)
+
+--  rid (or given to constructor)
 
 require 'mst'
 require 'ipv6s'
@@ -60,6 +61,9 @@ pcall = orig_pcall
 
 module('pa', package.seeall)
 
+-- which is the last ip# on a /24 reserved for routers; assumption is
+-- that there WON'T be that many nodes on a link (although wireless
+-- may surprise us at some point)
 IPV4_PA_LAST_ROUTER=64
 
 -- wrapper we can override
@@ -68,8 +72,8 @@ create_hash_type=false
 
 pcall(function ()
          local md5 = require 'md5'
-         create_hash=md5.sum
-         create_hash_type='md5'
+         create_hash = md5.sum
+         create_hash_type = 'md5'
       end)
 
 if not create_hash
@@ -77,7 +81,7 @@ then
    print('using sha1')
    require 'sha1'
    create_hash = sha1_binary
-   create_hash_type='sha1'
+   create_hash_type = 'sha1'
    print('using sha1')
 end
 
@@ -103,7 +107,7 @@ function ph:init()
    self:a(self.prefix)
    if type(self.prefix) == 'string' 
    then 
-      self.prefix=ipv6s.new_prefix_from_ascii(self.prefix)
+      self.prefix = ipv6s.new_prefix_from_ascii(self.prefix)
    end
 
    self.ascii_prefix = self.prefix:get_ascii()

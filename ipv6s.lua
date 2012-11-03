@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Fri Nov  2 12:37:23 2012 mstenber
--- Edit time:     154 min
+-- Last modified: Sat Nov  3 18:41:06 2012 mstenber
+-- Edit time:     163 min
 --
 
 require 'mst'
@@ -19,9 +19,11 @@ module(..., package.seeall)
 -- ULA addresses are just fcXX:*
 ula_prefix = string.char(0xFC)
 
+local _null = string.char(0)
+
 -- 10x 0, 2x ff, 4x IPv4 address
 -- ::ffff:1.2.3.4
-local mapped_ipv4_prefix = string.rep(string.char(0), 10) .. string.rep(string.char(0xFF), 2) 
+local mapped_ipv4_prefix = string.rep(_null, 10) .. string.rep(string.char(0xFF), 2) 
 
 
 -- ipv6 handling stuff
@@ -34,7 +36,7 @@ function address_cleanup(s)
    end
 
    local sl = mst.string_split(s, ':')
-   local nl = mst.array_map(sl, function (x) return mst.strtol(x, 16) end)
+   local nl = mst.array_map(sl, function (x) return tonumber(x, 16) end)
    local best = false
    for i, v in ipairs(nl)
    do
@@ -108,8 +110,6 @@ function binary_address_to_address(b)
    return address_cleanup(table.concat(t))
 end
 
-local _null = string.char(0)
-
 function address_to_binary_address(b)
    mst.a(type(b) == 'string', 'non-string input to address_to_binary', b)
    -- let us assume it is in standard XXXX:YYYY:ZZZZ: format, with
@@ -119,7 +119,7 @@ function address_to_binary_address(b)
    -- special case handling of '::'
    if b == '::'
    then
-      return string.rep(string.char(0), 16)
+      return string.rep(_null, 16)
    end
 
    local l = mst.string_split(b, ":")
@@ -144,7 +144,7 @@ function address_to_binary_address(b)
    do
       if #v == 0
       then
-         mst.a(not idx or (idx == i-1 and i == #l), "multiple ::s", b, idx, i)
+         mst.a(not idx or (idx == i-1), "multiple ::s", b, idx, i)
          if not idx
          then
             idx = i
@@ -157,19 +157,24 @@ function address_to_binary_address(b)
    do
       if i == idx
       then
-         local _pad=(9-#l)
+         -- basically, we want 8 short's worth of data;
+         -- however, :: includes idx + idx+1 not being printed,
+         -- so we add 2 to it..
+         local _pad=(8+2-#l)
          --mst.d('padding', _pad)
          for _=1,_pad
          do
             -- dump few magic 0000's 
             table.insert(t, _null .. _null)
          end
-      else
-         local n, err = mst.strtol(v, 16)
-         mst.a(n, 'error in strtol', err)
+      elseif #v > 0
+      then
+         local n, err = tonumber(v, 16)
          local b1 = string.char(math.floor(n / 256))
          local b2 = string.char(n % 256)
          table.insert(t,  b1 .. b2)
+      else
+         -- empty ones should be handled by now? (by the padding code)
       end
    end
    return table.concat(t)
@@ -179,7 +184,7 @@ end
 function binary_prefix_to_binary_address(b)
    if #b < 16
    then
-      return b .. string.rep(string.char(0), 16-#b)
+      return b .. string.rep(_null, 16-#b)
    end
    mst.a(#b == 16)
    return b
@@ -288,7 +293,7 @@ function binary_prefix_next_from_usp(b, usp_bits, p, desired_bits)
    then
       return p2
    end
-   return b .. string.rep(string.char(0), (desired_bits+7)/8 - #b)
+   return b .. string.rep(_null, (desired_bits+7)/8 - #b)
 end
 
 -- given the hwaddr (in normal aa:bb:cc:dd:ee:ff:aa format) and
@@ -319,7 +324,8 @@ end
 function prefix_bits(addr)
    local a = mst.string_split(addr, '/')
    mst.a(#a == 2)
-   local bits = mst.strtol(a[2], 10)
+   local bits = tonumber(a[2])
+   mst.a(bits, 'failed to convert', a[2])
    mst.a(bits >= 0 and bits <= 128)
    return bits
 end

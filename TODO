@@ -6,6 +6,8 @@
 
 ** Code review the code
 
+Comments to self
+
 - use of 'class' as name for class name is bit misleading
  - but 'name' might be too popular(?)
 
@@ -21,9 +23,19 @@
   validity. it has methods for both setting and clearing validity of
   everything within (and it works with arrays, maps, multimaps)
 
+- at some point could try to clean up the class inheritance mess -
+  especially tostring handling is worryingly opaque
+
+- could try to optimize map:count, array:count, array:is with some play
+  around metatables (is_array flag, perhaps member count too?)
+
+- how to deal with >255 nodes on IPv4 subnet? 
+
 TODO codereview
 - ipv6s (bit too much spaghetti, perhaps?)
- - mst.lua+
+- ~l331 pa.lua+
+
+** split mst.lua
 
 ** Demo topology?
 

@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Tue Oct 30 11:53:57 2012 mstenber
+-- Last modified: Sat Nov  3 18:41:17 2012 mstenber
 -- Edit time:     99 min
 --
 
@@ -134,13 +134,6 @@ describe("array_to_table", function ()
                   assert(t.z)
                                             end)
         end)
-
-describe('strtol', function()
-            it("works", function()
-                  assert.are.same(mst.strtol('1011'), 1011)
-                  assert.are.same(mst.strtol('fff0', 16), 65535-15)
-                        end)
-                   end)
 
 describe('string_split', function()
             it("works", function()

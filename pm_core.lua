@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Sat Nov  3 14:10:03 2012 mstenber
--- Edit time:     397 min
+-- Last modified: Sat Nov  3 18:40:16 2012 mstenber
+-- Edit time:     398 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -47,6 +47,8 @@ PID_DIR='/var/run'
 DHCPD_PID='pm-pid-dhcpd'
 DHCPD6_PID='pm-pid-dhcpd6'
 DHCLIENT_PID_PREFIX='pm-pid-dhclient-'
+
+local _null=string.char(0)
 
 pm = mst.create_class{class='pm', mandatory={'skv', 'shell', 
                                              'radvd_conf_filename',
@@ -362,7 +364,7 @@ function pm:check_rules()
       local sel = 'from ' .. usp.prefix
       local i1, i2, s = string.find(usp.prefix, '/(%d+)$')
       self:a('invalid prefix', usp.prefix)
-      local bits = mst.strtol(s)
+      local bits = tonumber(s)
       local pref = RULE_PREF_MIN + 128 - bits
       local template = {sel=sel, pref=pref}
       local o = self.rule_table:find(template)
@@ -649,8 +651,8 @@ function pm:write_dhcpd6_conf()
             handled:insert(lap.ifname)
             owned = owned + 1
             local b = p:get_binary()
-            local stb = b .. string.rep(string.char(0), 7) .. string.char(42)
-            local enb = b .. string.rep(string.char(0), 7) .. string.char(123)
+            local stb = b .. string.rep(_null, 7) .. string.char(42)
+            local enb = b .. string.rep(_null, 7) .. string.char(123)
             local st = ipv6s.binary_address_to_address(stb)
             local en = ipv6s.binary_address_to_address(enb)
             t:insert('subnet6 ' .. lap.prefix .. ' {')
@@ -707,7 +709,7 @@ function pm:write_dhcpd_conf()
             local myip = mst.string_split(lap.address, '/')[1]
             owned = owned + 1
             local b = p:get_binary()
-            local snb = b .. string.char(0)
+            local snb = b .. _null
             local sn = ipv6s.binary_address_to_address(snb)
             local stb = b .. string.char(pa.IPV4_PA_LAST_ROUTER + 1)
             local enb = b .. string.char(254)

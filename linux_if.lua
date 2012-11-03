@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  8 13:11:02 2012 mstenber
--- Last modified: Sat Nov  3 15:44:53 2012 mstenber
+-- Last modified: Sat Nov  3 18:28:22 2012 mstenber
 -- Edit time:     106 min
 --
 
@@ -222,7 +222,7 @@ function rule_table:parse()
       line = mst.string_strip(line)
 
       function handle_line(pref, sel, table)
-         pref = mst.strtol(pref)
+         pref = tonumber(pref)
          local o = {pref=pref, sel=sel, table=table}
          local r = self:find(o)
          if not r

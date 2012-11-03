@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Sat Nov  3 15:45:44 2012 mstenber
--- Edit time:     505 min
+-- Last modified: Sat Nov  3 18:41:22 2012 mstenber
+-- Edit time:     524 min
 --
 
 -- data structure abstractions provided:
@@ -345,6 +345,8 @@ function array_is(t)
    then
       return
    end
+   -- this method is expensive; is it really worth it? O(n) from just
+   -- table_count and O(<=n) from the second step too
    local cnt = table_count(t)
    for i=1,cnt
    do
@@ -500,11 +502,11 @@ function string_ipairs(s, st)
    return string_ipairs_iterator, s, st-1
 end
 
-function string_to_table(s)
-   local t = map:new()
+function string_to_set(s)
+   local t = set:new()
    for i, c in string_ipairs(s)
    do
-      t[c] = true
+      t:insert(c)
    end
    return t
 end
@@ -533,7 +535,7 @@ function string_is_varok(s)
    local t = _my_varok_table
    if not t
    then
-      t = string_to_table("1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
+      t = string_to_set("1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
       _my_varok_table = t
    end
    
@@ -550,8 +552,6 @@ function string_is_varok(s)
    --mst.d('varok', s)
    return true
 end
-
-local _my_ascii_table = false
 
 function string_is_ascii(s)
    for i, c in string_ipairs(s)
@@ -644,38 +644,45 @@ function table_contains(t, t1)
 end
 
 -- deep copy table
-function table_deep_copy_rec(t, n, already)
-   -- already contains the 'already done' mapping of tables
-   -- table => new table
-   assert(already)
+function table_deep_copy(t, already)
+   mst.a(type(t) == "table")
+
+   already = already or {}
 
    -- first off, check if 't' already done => return it as-is
    local na = already[t]
    if na
    then
-      assert(not n)
       return na
    end
-   n = n or {}
+   n = {}
    setmetatable(n, getmetatable(t))
    already[t] = n
    for k, v in pairs(t)
    do
-      nk = table_is(k) and table_deep_copy_rec(k, nil, already) or k
-      nv = table_is(v) and table_deep_copy_rec(v, nil, already) or v
+      nk = deep_copy(k, already)
+      nv = deep_copy(v, already)
       n[nk] = nv
    end
    return n
 end
 
-function table_deep_copy(t)
-   already = {}
-   return table_deep_copy_rec(t, nil, already)
+-- deep copy anything(!)
+
+function deep_copy(o, already)
+   already = already or {}
+
+   if table_is(o)
+   then
+      return table_deep_copy(o, already)
+   end
+   -- the rest we can't (userdata), or won't copy (string, int, ...)
+   return o
 end
 
 -- shallow copy table
 function table_copy(t, n)
-   assert(type(t) == "table")
+   mst.a(type(t) == "table")
    n = n or {}
    for k, v in pairs(t)
    do
@@ -854,17 +861,6 @@ end
 
 --- set
 
-function set_map(s, fun)
-   a(type(s) == 'table', 'non-table to set_map', t)
-   local t = set:new{}
-   for k, v in pairs(s)
-   do
-      fun(k)
-      t[k] = true
-   end
-   return t
-end
-
 function set_intersection(self,t)
    local r = set:new{}
    for k, _ in pairs(self)
@@ -899,7 +895,6 @@ end
 
 
 set = map:new_subclass{class='set',
-                       map=set_map,
                        intersection=set_intersection,
                        difference=set_difference,
                        union=set_union,
@@ -913,8 +908,11 @@ function set:remove(o)
    self[o] = nil
 end
 
--- add 'insert', 'remove' operations'
+--- multimap 
+-- (one key => list of values)
+
 multimap = map:new_subclass{class='multimap'}
+
 function multimap:insert(k, v)
    self:a(self.class)
    local t = self[k]
@@ -1036,32 +1034,6 @@ function repr(o, shown)
    else
       error("unknown type " .. t, 2)
    end
-end
-
--- strtol
-function strtol(s, base)
-   base = base or 10
-   local s = string.lower(s)
-   r = 0
-   for i, c in mst.string_ipairs(s)
-   do
-      local v 
-      if c >= '0' and c <= '9'
-      then
-         v = string.byte(c) - string.byte('0')
-      elseif c >= 'a' and c <= 'z'
-      then
-         v = string.byte(c) - string.byte('a') + 10
-      else
-         return nil, string.format('invalid character at position %d:%s', i, c)
-      end
-      if v >= base
-      then
-         return nil, string.format('invalid character at position %d:%s', i, c)
-      end
-      r = r * base + v
-   end
-   return r
 end
 
 -- count
