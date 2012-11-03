@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Fri Nov  2 12:33:42 2012 mstenber
--- Edit time:     714 min
+-- Last modified: Sat Nov  3 13:13:10 2012 mstenber
+-- Edit time:     717 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -334,7 +334,7 @@ function sps:get_random_binary_prefix(iid, i)
    i = i or 0
    -- get the rest of the bytes from md5
    local s = string.format("%s-%s-%s-%d", 
-                           self.pa.rid, iid, self.ascii_prefix, i)
+                           self.pa:get_hwf(), iid, self.ascii_prefix, i)
    local sb = create_hash(s)
    local desired_bits = self:get_desired_bits()
    p = b .. string.sub(sb, #b+1, desired_bits / 8)
@@ -955,6 +955,14 @@ function pa:should_run()
    return true
 end
 
+function pa:get_hwf()
+   if not self.hwf
+   then
+      self.hwf = self.client:get_hwf(self.rid)
+   end
+   return self.hwf
+end
+
 function pa:run(d)
    self:d('run called')
 
@@ -1028,7 +1036,7 @@ function pa:run(d)
 
          -- produce a new prefix
          function ()
-            local hwf = self.client:get_hwf(self.rid)
+            local hwf = self:get_hwf()
             local bits = create_hash(hwf)
             -- create binary prefix - first one 0xFC, 5 bytes from bits => /48
             local bp = ipv6s.ula_prefix .. string.sub(bits, 1, 5)

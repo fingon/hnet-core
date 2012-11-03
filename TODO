@@ -2,12 +2,6 @@
 
 * Bugs to fix
 
-** Why address assignments are not constant?
-
-- should make sure nothing uses non-hash-seeded randomness
-
-** Why some test timeouts
-
 * Things to do
 
 ** Convert to use ULA always?
@@ -158,6 +152,19 @@ does anyone care :p
 and make sure result is sane
 
 * Done (29.10.+)
+
+** Why address assignments are not constant?
+
++ should make sure nothing uses non-hash-seeded randomness
+
+ .. as it turns out, we used rid as base, and in real world routers with
+ zero conf _start_ out with random rid => it's somewhat inferior to
+ starting with HWF-based one, as in that case the router starts with same
+ prefix regardless of what state it happens to be in..
+
+ [ do iid's stay constant? or should we use actually ifnames? hmm. ]
+
+** Why some test timeouts
 
 ** Non-/8 divisible prefix length support
 
