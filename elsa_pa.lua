@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Sun Nov  4 04:13:08 2012 mstenber
--- Edit time:     411 min
+-- Last modified: Sun Nov  4 04:20:46 2012 mstenber
+-- Edit time:     416 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -281,7 +281,16 @@ function elsa_pa:should_run()
    -- ! important to check pa.should_run() first, even if it's
    -- inefficient; we never call should_run() within pa.run(), and
    -- it's needed to get pa.run() to sane state..
-   return self.pa:should_run() or self.ospf_changes > 0 
+   if self.pa:should_run()
+   then
+      -- debug message provided by self.pa..
+      return true
+   end
+   if self.ospf_changes > 0
+   then
+      mst.d('should run - ospf changes pending', self.ospf_changes)
+      return true
+   end
 end
 
 function elsa_pa:run()
