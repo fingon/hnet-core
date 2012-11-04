@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Sun Nov  4 04:20:46 2012 mstenber
--- Edit time:     416 min
+-- Last modified: Sun Nov  4 04:23:31 2012 mstenber
+-- Edit time:     418 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -327,9 +327,8 @@ function elsa_pa:run()
    then
       self.ospf_changes = 0
       r = self.pa:run{checked_should=true}
+      self:d('pa.run result', r)
    end
-
-   self:d('pa.run result', r)
 
    local s_repr = table.concat{mst.repr{self.pa.ridr}, self.skvp_repr}
 
@@ -344,6 +343,7 @@ function elsa_pa:run()
 
       self:run_handle_skv_publish()
    end
+   self:d('run done')
 end
 
 function elsa_pa:run_handle_new_lsa()
