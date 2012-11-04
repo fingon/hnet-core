@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Sun Nov  4 00:46:18 2012 mstenber
--- Edit time:     754 min
+-- Last modified: Sun Nov  4 05:34:40 2012 mstenber
+-- Edit time:     763 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -348,12 +348,16 @@ end
 function sps:get_random_binary_prefix(iid, i)
    local b = self.binary_prefix
    local bl = self.prefix:get_binary_bits()
+   local desired_bits = self:get_desired_bits()
+
+   mst.a(bl > (#b-1) * 8 and bl <= #b * 8, "weird b<>bl", #b, bl)
+   mst.a(bl <= desired_bits, 'invalid prefix length prefix<>wanted', self, desired_bits)
+
    i = i or 0
    -- get the rest of the bytes from md5
    local s = string.format("%s-%s-%s-%d", 
                            self.pa:get_hwf(), self.pa.ifs[iid].name, self.ascii_prefix, i)
    local sb = create_hash(s)
-   local desired_bits = self:get_desired_bits()
 
    -- sub-byte handling of the bits available
    local v = string.byte(b, #b, #b)
@@ -917,9 +921,10 @@ function pa:update_ifs_neigh()
                     )
 end
 
-function pa:get_ifs_neigh_hash()
+function pa:get_ifs_neigh_state()
+   -- XXX - determine if this should in truth use hash; but if sw fallback, it's _slow_
    self:update_ifs_neigh()
-   return create_hash(mst.repr{self.ifs, self.neigh})
+   return mst.repr{self.ifs, self.neigh}
 end
 
 function pa:busy_until(seconds_delta_from_start)
@@ -934,16 +939,16 @@ function pa:should_run()
    -- XXX - add test cases to make sure we do things 'correctly'
    -- (empirically, we seem to, but having test cases is better)
    local rid = self.rid
-   local h = self:get_ifs_neigh_hash()
+   local h = self:get_ifs_neigh_state()
    if self.busy and self.busy <= self:time_since_start()
    then
       self:d('no longer busy - should run')
       self.busy = nil
-   elseif h ~= self.last_ifs_neigh_hash
+   elseif h ~= self.last_ifs_neigh_state
    then
       self:d('should run - ifs/neighs changed')
       
-      self.last_ifs_neigh_hash = h
+      self.last_ifs_neigh_state = h
    elseif self.changes > 0
    then
       self:d('should run - changes > 0 (timeouts)')
