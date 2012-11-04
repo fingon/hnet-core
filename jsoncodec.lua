@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 20 18:30:13 2012 mstenber
--- Last modified: Sat Nov  3 15:42:56 2012 mstenber
--- Edit time:     66 min
+-- Last modified: Sun Nov  4 01:22:41 2012 mstenber
+-- Edit time:     72 min
 --
 
 -- json codec that can be plugged on top of scb abstracted sockets, to
@@ -91,7 +91,7 @@ function jsoncodec:handle_close()
 end
 
 function jsoncodec:handle_data(x)
-   self:d('handle_data')
+   self:d('handle_data', #x)
 
    -- by default, just push it off to the rq
    table.insert(self.rq, x)
@@ -134,7 +134,7 @@ function jsoncodec:handle_data(x)
       if self.rql < need2
       then
          self:d('too short read queue[2]', self.rql, need2)
-         return
+         break
       end
 
       if #self.rq[1] < need2
@@ -151,7 +151,7 @@ function jsoncodec:handle_data(x)
       local o = json.decode(s)
 
       self:a(self.callback, 'no callback?!?')
-      self:d('providing callback to client')
+      self:d('providing callback to client', o)
       self.callback(o)
 
       -- update the index and re-iterate
@@ -160,16 +160,19 @@ function jsoncodec:handle_data(x)
    end
 
    -- chop the first string appropriately
-   if ri > 1
+   local len = ri - 1
+
+   if len > 0
    then
-      self:d('consuming some bytes', ri)
+      self:d('consuming some bytes', len)
 
-      self.read = self.read + (ri - 1)
+      self.read = self.read + len
 
-      self.rq[1] = string.sub(self.rq[1], ri)
+      self.rq[1] = string.sub(self.rq[1], len + 1)
 
       -- and decrement the rql
-      self.rql = self.rql - (ri - 1)
+      self.rql = self.rql - len
+
       mst.a(self.rql >= 0, "invalid rql", self)
 
    end
