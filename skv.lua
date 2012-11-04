@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Sun Nov  4 01:54:53 2012 mstenber
--- Edit time:     370 min
+-- Last modified: Sun Nov  4 03:53:57 2012 mstenber
+-- Edit time:     383 min
 --
 
 require 'mst'
@@ -303,7 +303,12 @@ end
 
 function skv:get(k)
    -- local state overrides remote state
-   return self.local_state[k] or self.remote_state[k]
+   local lv = self.local_state[k]
+   if lv ~= nil
+   then
+      return lv
+   end
+   return self.remote_state[k]
 end
 
 function skv:set(k, v)
@@ -334,11 +339,15 @@ function skv:send_update_kv(k, v)
    self:send_update{[k]=v}
 end
 
-function skv:send_update_to_clients(k, v)
+function skv:send_update_to_clients(k, v, source_json)
    self:d('send_update_to_clients', k, v)
    for c, _ in pairs(self.connections)
    do
-      c.json:write{[MSG_UPDATE] = {[k] = v}}
+      if c.json ~= source_json
+      then
+         c.sent_update_id = c.sent_update_id + 1
+         c.json:write{[MSG_UPDATE] = {[k] = v}, [MSG_ID]=c.sent_update_id}
+      end
    end
 end
 
@@ -348,9 +357,9 @@ function skv:client_remote_update(json, k, v)
    local ov = self:get(k)
    self.remote_state[k] = v
    local lv = self.local_state[k]
-   if lv and not mst.repr_equal(lv, v)
+   if lv ~= nil and not mst.repr_equal(lv, v)
    then
-      mst.d('remote attempted to update with old value - sending back', k)
+      mst.d('remote server attempted to update with old value - sending back', k)
       -- local just overrides remote provided value
       self:send_update{[k]=lv}
       return
@@ -372,12 +381,13 @@ function skv:server_remote_update(json, k, v)
    -- if we have local state on 'k', skip forwarding and discard
    -- remote state we may have
    lv = self.local_state[k]
-   if self.local_state[k]
+   if self.local_state[k] ~= nil
    then
       -- if local state is different than what we got from remote,
       -- update remote
       if not mst.repr_equal(lv, v)
       then
+         mst.d('remote client attempted to update with old value - sending back', k)
          json:write{[MSG_UPDATE] = {[k] = lv}}
       end
       self.remote_state[k] = nil
@@ -392,7 +402,7 @@ function skv:server_remote_update(json, k, v)
    -- update remote state
    self.remote_state[k] = v
 
-   self:send_update_to_clients(k, v)
+   self:send_update_to_clients(k, v, json)
 end
 
 
@@ -530,6 +540,7 @@ function skvconnection:init()
                                         self:handle_close()
                                      end
                                     }
+   self.sent_update_id = 0
    self.s = nil
 
    -- send version
