@@ -2,6 +2,8 @@
 
 * Bugs to fix
 
+** route to router (nh calc) still bugging
+
 * Things to do
 
 ** Code review the code
@@ -181,6 +183,12 @@ does anyone care :p
 and make sure result is sane
 
 * Done (29.10.+)
+
+** skv gets to infinite loop at some point?
+
+- or somehow gets same transaction multiple times
+
+.. there was rather horrid bug in jsoncodec :p
 
 ** Convert to use ULA always? (and add option to disable it too)
 
