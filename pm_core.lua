@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Sat Nov  3 18:40:16 2012 mstenber
--- Edit time:     398 min
+-- Last modified: Sun Nov  4 04:38:40 2012 mstenber
+-- Edit time:     400 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -62,6 +62,7 @@ function pm:init()
    self.if_table = linux_if.if_table:new{shell=self.shell} 
    self.rule_table = linux_if.rule_table:new{shell=self.shell}
    self.applied_usp = {}
+   self.dhclient_ifnames = mst.set:new{}
 
    -- all  usable prefixes we have been given _some day_; 
    -- this is the domain of prefixes that we control, and therefore
@@ -225,12 +226,14 @@ function pm:check_dhclients()
                       local p = PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
                       local s = string.format('%s stop %s %s', DHCLIENT_SCRIPT, ifname, p)
                       self.shell(s)
+                      self.dhclient_ifnames:remove(ifname)
                    end,
                    -- add
                    function (ifname)
                       local p = PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
                       local s = string.format('%s start %s %s', DHCLIENT_SCRIPT, ifname, p)
                       self.shell(s)
+                      self.dhclient_ifnames:insert(ifname)
                    end
                    -- no equality - if it exists, it exists
                   )
@@ -285,6 +288,12 @@ function pm:check_addresses()
                    end,
                    -- add
                    function (ifname, v)
+                      -- don't hinder the -4 dhclient by changing address under it
+                      if self.dhclient_ifnames[ifname]
+                      then
+                         return
+                      end
+
                       local ifo = self.if_table:get_if(ifname)
                       ifo:set_ipv4(v, '255.255.255.0')
                    end,
