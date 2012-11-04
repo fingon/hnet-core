@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Sat Oct 27 12:52:10 2012 mstenber
--- Edit time:     364 min
+-- Last modified: Sun Nov  4 01:54:53 2012 mstenber
+-- Edit time:     370 min
 --
 
 require 'mst'
@@ -280,6 +280,10 @@ function skv:handle_received_json(d)
    local id = d[MSG_ID]
    if id
    then
+      -- store the last received id - these should be monotonically increasing
+      self:a(not self.last_id or self.last_id == (id - 1), 'not monotonically increasing', self.last_id, id)
+      self.last_id = id
+
       self.json:write{[MSG_ACK]=id}
    end
    local id = d[MSG_ACK]
@@ -558,6 +562,10 @@ function skvconnection:handle_received_json(d)
    local id = d[MSG_ID]
    if id
    then
+      -- store the last received id - these should be monotonically increasing
+      self:a(not self.last_id or self.last_id == (id - 1), 'not monotonically increasing', self.last_id, id)
+      self.last_id = id
+
       -- ack client id's
       self.json:write{[MSG_ACK]=id}
    end
