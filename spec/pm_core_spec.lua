@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Sat Nov  3 14:17:09 2012 mstenber
--- Edit time:     109 min
+-- Last modified: Sun Nov  4 00:48:11 2012 mstenber
+-- Edit time:     111 min
 --
 
 -- testsuite for the pm_core
@@ -37,7 +37,7 @@ local usp_dead_tlv = codec.usp_ac_tlv:encode{prefix='dead::/16'}
 
 local x = 
    pa.create_hash_type == 'md5' and
-   {'ip -6 addr add dead:bba9:192:3256:21c:42ff:fea7:f1d9/64 dev eth2', ''} -- md5
+   {'ip -6 addr add dead:fa5:c92f:74db:21c:42ff:fea7:f1d9/64 dev eth2', ''} -- md5
    or
    {'ip -6 addr add dead:e9d2:a21b:5888:21c:42ff:fea7:f1d9/64 dev eth2', ''} -- sha1
 -- XXX - probably broken after alg change
@@ -237,7 +237,7 @@ describe("pm", function ()
                   local d = mst.table_copy(lap_base)
                   mst.array_extend(d, rule_base)
                   mst.array_extend(d, lap_end)
-                  mst.array_extend(d, {{'ifconfig eth2 10.102.110.18 netmask 255.255.255.0', ''}})
+                  mst.array_extend(d, {{'ifconfig eth2 10.171.21.41 netmask 255.255.255.0', ''}})
                   mst.array_extend(d, v46_dhcpd)
                   -- second run
                   mst.array_extend(d, cleanup)

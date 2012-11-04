@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Sun Nov  4 01:05:05 2012 mstenber
--- Edit time:     750 min
+-- Last modified: Sun Nov  4 00:46:18 2012 mstenber
+-- Edit time:     754 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -351,7 +351,7 @@ function sps:get_random_binary_prefix(iid, i)
    i = i or 0
    -- get the rest of the bytes from md5
    local s = string.format("%s-%s-%s-%d", 
-                           self.pa:get_hwf(), iid, self.ascii_prefix, i)
+                           self.pa:get_hwf(), self.pa.ifs[iid].name, self.ascii_prefix, i)
    local sb = create_hash(s)
    local desired_bits = self:get_desired_bits()
 
