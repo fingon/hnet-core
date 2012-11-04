@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  8 13:11:02 2012 mstenber
--- Last modified: Sat Nov  3 18:28:22 2012 mstenber
--- Edit time:     106 min
+-- Last modified: Sun Nov  4 00:41:56 2012 mstenber
+-- Edit time:     107 min
 --
 
 
@@ -76,6 +76,10 @@ end
 
 -- this is really get-or-set operation..
 function if_table:get_if(k)
+   -- in certain cases, may have eth0.1@eth0
+   -- => we care only about eth0.1
+   k = mst.string_split(k, '@')[1]
+
    local r = self.map[k]
    if not r
    then
@@ -146,10 +150,6 @@ function if_table:read_ip_ipv4()
                           -- case 1: <num>: <ifname>: 
                           '^%d+: (%S+): ',
                           function (ifname)
-                             -- in certain cases, may have eth0.1@eth0
-                             -- => we care only about eth0.1
-                             ifname = mst.string_split(ifname, '@')[1]
-
                              ifo = self:get_if(ifname)
                              ifo.ipv4 = nil
                              ifo.ipv4_valid = true
