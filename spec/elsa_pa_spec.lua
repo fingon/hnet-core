@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Oct 31 15:19:10 2012 mstenber
--- Edit time:     231 min
+-- Last modified: Sun Nov  4 12:47:03 2012 mstenber
+-- Edit time:     237 min
 --
 
 require 'mst'
@@ -177,7 +177,7 @@ describe("elsa_pa [one node]", function ()
 
                                         end)
 
-            it("works even if routes become available later", function ()
+            it("works even if routes become available later #later", function ()
                   -- in this case, the route information was not being
                   -- propagated to USP if route information became
                   -- available _AFTER_ the usp. let's see if this is still true
@@ -195,6 +195,7 @@ describe("elsa_pa [one node]", function ()
 
                   -- add route info
                   e.routes = old_routes
+                  ep:ospf_changed() -- XXX - hopefully it will trigger this too!
                   ep:run()
                   ensure_skv_usp_has_nh(s, true)
 
@@ -237,7 +238,9 @@ describe("elsa_pa [one node]", function ()
 
                   -- but without ifs, no asp assignment
                   ep:run()
-                  mst.a(not asp_added)
+                  --mst.a(not asp_added)
+                  -- (even the PD IF should get a prefix now 11/04)
+                  mst.a(asp_added)
 
                   -- make sure DNS gets set IF we have DNS info
                   local v = s:get(elsa_pa.OSPF_DNS_KEY)
@@ -447,7 +450,7 @@ describe("elsa_pa bird7-ish", function ()
                      ep:run()
                   end
                   local l = 
-                     eps:filter(function (ep) return ep:should_run() end)
+                     eps:filter(function (ep) return ep:should_run(ep.ospf_changes) end)
                   if #l == 0
                   then
                      return true

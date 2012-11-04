@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Sun Nov  4 05:34:40 2012 mstenber
--- Edit time:     763 min
+-- Last modified: Sun Nov  4 12:23:21 2012 mstenber
+-- Edit time:     769 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -270,7 +270,7 @@ function asp:find_lap(iid)
    local t = self.pa.lap[iid]
    for i, v in ipairs(t or {})
    do
-      self:d(' considering', v)
+      --self:d(' considering', v)
       if v.ascii_prefix == self.ascii_prefix
       then
          -- update the asp object, just in case..
@@ -605,9 +605,16 @@ function pa:run_if_usp(iid, neigh, usp)
    end
 
    -- skip if it's IPv4 prefix + interface is disabled for v4
-   if usp.prefix:is_ipv4() and ifo.disable_v4
+   if usp.prefix:is_ipv4() and (ifo.disable_v4 or ifo.external)
    then
       self:d(' v4 PA disabled')
+      return
+   end
+
+   -- skip ULA if it's external
+   if usp.prefix:is_ula() and ifo.external
+   then
+      self:d(' ULA disabled (external)')
       return
    end
 
@@ -633,10 +640,10 @@ function pa:run_if_usp(iid, neigh, usp)
    
    for i, asp in ipairs(self.asp:values())
    do
-      self:d(' considering', asp)
+      --self:d(' considering', asp)
       if ((asp.rid == rid and iid == asp.iid) or neigh[asp.rid] == asp.iid) and usp.prefix:contains(asp.prefix)
       then
-         self:d(' fitting')
+         self:d(' fitting', asp)
          if not highest or highest.rid < asp.rid
          then
             highest = asp
@@ -891,10 +898,6 @@ function pa:generate_ulaish(filter, filter_own, generate_prefix, desc)
    -- XXX store it on disk
 end
 
-function pa:route_to_rid(rid)
-   return self.ridr[rid]
-end
-
 function pa:update_ifs_neigh()
    local client = self.client
    local rid = self.rid
@@ -965,20 +968,6 @@ function pa:should_run()
                           if o.prefix:is_ula() or o.prefix:is_ipv4()
                           then
                              return
-                          end
-
-                          -- not us => we should have nh, or
-                          -- routing table is still in flux
-                          local r = self:route_to_rid(o.rid) or {}
-
-                          -- it seems that in some cases nh is empty
-                          -- string (probably given to us by the 
-                          -- BIRD code?).. anyway, hopefully that's only
-                          -- temporary anomaly and not permanent
-                          if not r.nh or #r.nh == 0
-                          then
-                             self:d('should run - missing rid.nh info', o, r)
-                             should = true
                           end
                        end)
       if not should

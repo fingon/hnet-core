@@ -2,9 +2,21 @@
 
 * Bugs to fix
 
+** rhf bit flaky
+
+- sometimes eth0, sometimes eth1 too.. depending on which if is up. correct
+  approach is to check _all_ interfaces that are configured, regardless of
+  addresses present (right now we seed it with IPv6)
+
 ** route to router (nh calc) still bugging
 
 * Things to do
+
+** On-link detection
+
+(or smart bridging? could bridge if no routers detected on link..)
+
+** Save assignments
 
 ** Code review the code
 
@@ -183,6 +195,10 @@ does anyone care :p
 and make sure result is sane
 
 * Done (29.10.+)
+
+** Package lua-md5 for openwrt
+
+it's prohibitively slow with sha1.. *sigh*
 
 ** skv gets to infinite loop at some point?
 

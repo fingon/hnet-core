@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Oct  5 00:09:17 2012 mstenber
--- Last modified: Sat Oct 27 12:11:45 2012 mstenber
--- Edit time:     40 min
+-- Last modified: Sun Nov  4 12:44:02 2012 mstenber
+-- Edit time:     42 min
 --
 
 require 'mst'
@@ -129,6 +129,7 @@ end
 
 function delsa:route_to_rid(rid0, rid)
    self:d('route lookup', rid)
+   if rid == rid0 then return nil end
    if self.routes 
    then 
       local t = self.routes[rid] 

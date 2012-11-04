@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Sun Nov  4 04:23:31 2012 mstenber
--- Edit time:     418 min
+-- Last modified: Sun Nov  4 12:51:58 2012 mstenber
+-- Edit time:     437 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -38,6 +38,8 @@ module(..., package.seeall)
 
 -- LSA type used for storing the auto-configuration LSA
 AC_TYPE=0xBFF0
+
+FORCE_SKV_AC_CHECK_INTERVAL=60
 
 -- SKV-related things
 PD_SKVPREFIX='pd-'
@@ -159,15 +161,15 @@ end
 -- skv/elsa-wrapper
 elsa_pa = mst.create_class{class='elsa_pa', mandatory={'skv', 'elsa'},
                            new_prefix_assignment=NEW_PREFIX_ASSIGNMENT,
-                           new_ula_prefix=NEW_ULA_PREFIX}
+                           new_ula_prefix=NEW_ULA_PREFIX,
+                           time=os.time}
 
 function elsa_pa:init()
    -- force first run (repr changes force AC LSA generation; ospf_changes
    -- forces PA alg to be run)
-   self.ridr_repr_hash = ''
-   self.skvp_repr_hash = ''
    self.ospf_changes = 1
    self.check_skvp = true
+   self.last_publish = 0
 
    -- create the actual abstract prefix algorithm object we wrap
    self.pa = pa.pa:new{rid=self.rid, client=self, lap_class=elsa_lap,
@@ -277,7 +279,7 @@ function elsa_pa:check_conflict(bonus_lsa)
    return true
 end
 
-function elsa_pa:should_run()
+function elsa_pa:should_run(ospf_changes)
    -- ! important to check pa.should_run() first, even if it's
    -- inefficient; we never call should_run() within pa.run(), and
    -- it's needed to get pa.run() to sane state..
@@ -286,11 +288,12 @@ function elsa_pa:should_run()
       -- debug message provided by self.pa..
       return true
    end
-   if self.ospf_changes > 0
+   if ospf_changes > 0
    then
       mst.d('should run - ospf changes pending', self.ospf_changes)
       return true
    end
+   
 end
 
 function elsa_pa:run()
@@ -312,6 +315,9 @@ function elsa_pa:run()
       if self:check_conflict() then return end
    end
    
+   local ospf_changes = self.ospf_changes
+   self.ospf_changes = 0
+
    if self.check_skvp
    then
       self:update_skvp()
@@ -323,17 +329,18 @@ function elsa_pa:run()
    -- consider if either ospf change occured (we got callback), pa
    -- itself is in turbulent state, or the if state changed
    local r
-   if self:should_run()
+   if self:should_run(ospf_changes)
    then
-      self.ospf_changes = 0
       r = self.pa:run{checked_should=true}
       self:d('pa.run result', r)
    end
 
    local s_repr = table.concat{mst.repr{self.pa.ridr}, self.skvp_repr}
 
-   if r or s_repr ~= self.s_repr
+   if r or s_repr ~= self.s_repr or ospf_changes > 0 or (self.time() - self.last_publish) > FORCE_SKV_AC_CHECK_INTERVAL
    then
+      self.last_publish = self.time()
+      
       self:d('run doing skv/lsa update',  r)
 
       -- store the current local state
@@ -369,12 +376,14 @@ function elsa_pa:run_handle_skv_publish()
       if not ifo
       then
          self:d('zombie interface', lap)
+         ifo = {}
       end
       t:insert({ifname=lap.ifname, 
                 prefix=lap.ascii_prefix,
                 depracate=lap.depracated and 1 or nil,
                 owner=lap.owner,
                 address=lap.address and lap.address:get_ascii() or nil,
+                external=ifo.external,
                })
    end
    self.skv:set(OSPF_LAP_KEY, t)
@@ -412,16 +421,14 @@ function elsa_pa:run_handle_skv_publish()
          then
             t:insert({prefix=p, rid=rid})
          else
-            local r = self.pa:route_to_rid(rid) or {}
-            -- nh/ifname are optional (not applicable in case of e.g. self)
-            self:d('got route', r)
-            
             -- look up the local SKV prefix if available
             -- (pa code doesn't pass-through whole objects, intentionally)
-            local n = self.skvp[p] or {}
-            local nh = r.nh or n.nh
-            local ifname = r.ifname or n.ifname
-            t:insert({prefix=p, rid=rid, nh=nh, ifname=ifname})
+            local n = self.skvp[p]
+            if not n or not n.ifname
+            then
+               n = self:route_to_rid(rid) or {}
+            end
+            t:insert({prefix=p, rid=rid, nh=n.nh, ifname=n.ifname})
          end
       end
    end
@@ -454,6 +461,12 @@ function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
    self:iterate_ac_lsa(inner_f)
 end
 
+-- get route to the rid, if any
+function elsa_pa:route_to_rid(rid)
+   local r = self.elsa:route_to_rid(self.rid, rid) or {}
+   return r
+end
+
 --  iterate_rid(rid, f) => callback with rid
 function elsa_pa:iterate_rid(rid, f)
    -- we're always reachable (duh), but no next-hop/if
@@ -461,9 +474,7 @@ function elsa_pa:iterate_rid(rid, f)
 
    -- the rest, we look at LSADB 
    self:iterate_ac_lsa(function (lsa) 
-                          local rid = lsa.rid
-                          local r = self.elsa:route_to_rid(self.rid, rid) or {}
-                          f{rid=rid, nh=r.nh, ifname=r.ifname}
+                          f{rid=lsa.rid}
                        end)
 end
 
@@ -500,7 +511,7 @@ end
 
 --  iterate_if(rid, f) => callback with ifo
 function elsa_pa:iterate_if(rid, f)
-   local inuse_ifnames = mst.set:new{}
+   local external_ifnames = mst.set:new{}
 
    -- determine the interfaces for which we don't want to provide
    -- interface callback (if we're using local interface-sourced
@@ -508,16 +519,22 @@ function elsa_pa:iterate_if(rid, f)
    self:iterate_skv_prefix(function (o)
                               local ifname = o.ifname
                               self:d('in use ifname', ifname)
-                              inuse_ifnames:insert(ifname)
+                              external_ifnames:insert(ifname)
                            end)
 
    self.elsa:iterate_if(rid, function (ifo)
                            self.all_seen_if_names:insert(ifo.name)
                            self:a(ifo)
-                           if inuse_ifnames[ifo.name]
+                           if external_ifnames[ifo.name]
                            then
-                              self:d('skipping in use', ifo, 'delegated prefix source')
-                              return
+                              --self:d('skipping in use', ifo, 'delegated prefix source')
+                              --return
+                              ifo.external = true
+                              -- mark it as external; PA alg should
+                              -- propagate flag onwards, and it means
+                              -- that while we may assign address on
+                              -- that prefix, we don't do any outward
+                              -- facing services
                            end
                            -- set up the static variable on the ifo
                            ifo.disable = self.skv:get(DISABLE_SKVPREFIX .. ifo.name)

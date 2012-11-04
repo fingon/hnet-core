@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Sun Nov  4 04:38:40 2012 mstenber
--- Edit time:     400 min
+-- Last modified: Sun Nov  4 07:19:53 2012 mstenber
+-- Edit time:     402 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -215,7 +215,7 @@ function pm:check_dhclients()
    -- in cleanup, rid may be zeroed already
    --self:a(rid, 'no rid?!?')
    local ifnames = ipv6_usp:filter(function (usp) 
-                                      return usp.rid == rid  and usp.ifname
+                                      return usp.rid == rid and usp.ifname
                                    end):map(function (usp) 
                                                return usp.ifname 
                                             end)
@@ -648,7 +648,7 @@ function pm:write_dhcpd6_conf()
    for i, lap in ipairs(self.ospf_lap)
    do
       local dep = lap.depracate      
-      local own = lap.owner
+      local own = lap.owner and not lap.external
       -- this is used to prevent more than one subnet per interface
       -- (sigh, ISC DHCP limitation #N)
       local already_done = handled[lap.ifname]
@@ -705,7 +705,7 @@ function pm:write_dhcpd_conf()
    for i, lap in ipairs(self.ospf_lap)
    do
       local dep = lap.depracate      
-      local own = lap.owner
+      local own = lap.owner and not lap.external
       -- this is used to prevent more than one subnet per interface
       -- (sigh, ISC DHCP limitation #N)
       local already_done = handled[lap.ifname]
