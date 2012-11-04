@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Sat Nov  3 14:58:51 2012 mstenber
--- Edit time:     399 min
+-- Last modified: Sun Nov  4 04:13:08 2012 mstenber
+-- Edit time:     411 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -167,6 +167,7 @@ function elsa_pa:init()
    self.ridr_repr_hash = ''
    self.skvp_repr_hash = ''
    self.ospf_changes = 1
+   self.check_skvp = true
 
    -- create the actual abstract prefix algorithm object we wrap
    self.pa = pa.pa:new{rid=self.rid, client=self, lap_class=elsa_lap,
@@ -176,12 +177,22 @@ function elsa_pa:init()
    -- set of _all_ interface names we've _ever_ seen (used for
    -- checking SKV for tidbits)
    self.all_seen_if_names = mst.set:new{}
+
+   self.f = function (k, v) self:kv_changed(k, v) end
+   self.skv:add_change_observer(self.f)
 end
 
 function elsa_pa:uninit()
+   self.skv:remove_change_observer(self.f)
+
    -- we don't 'own' skv or 'elsa', so we don't do anything here,
    -- except clean up our own state, which is basically the pa object
    self.pa:done()
+end
+
+function elsa_pa:kv_changed(k, v)
+   -- should check skv the next time we've run
+   self.check_skvp = true
 end
 
 function elsa_pa:ospf_changed()
@@ -292,7 +303,10 @@ function elsa_pa:run()
       if self:check_conflict() then return end
    end
    
-   self:update_skvp()
+   if self.check_skvp
+   then
+      self:update_skvp()
+   end
 
    -- our rid may have changed -> change that of the pa too, just in case
    self.pa.rid = self.rid
@@ -307,29 +321,20 @@ function elsa_pa:run()
    end
 
    self:d('pa.run result', r)
-   local ridr_repr_hash = pa.create_hash(mst.repr(self.pa.ridr))
-   local skvp_repr_hash = pa.create_hash(mst.repr(self.skvp))
 
-   local c1 = ridr_repr_hash ~= self.ridr_repr_hash
-   local c2 = skvp_repr_hash ~= self.skvp_repr_hash
-   if r or c1 or c2
+   local s_repr = table.concat{mst.repr{self.pa.ridr}, self.skvp_repr}
+
+   if r or s_repr ~= self.s_repr
    then
-      self:d('run doing skv/lsa update',  r, self.first, c1, c2)
+      self:d('run doing skv/lsa update',  r)
 
-      -- raw contents of the interfaces MAY change what we publish,
-      -- even if the PA algorithm is still happy! so therefore we consider the
-      -- ridr_repr_hash too
-      self.ridr_repr_hash = ridr_repr_hash
-
-      -- same with SKV - we may have e.g. different next hop from DHCPv6 PD
-      -- that we need to propagate
-      self.skvp_repr_hash = skvp_repr_hash
+      -- store the current local state
+      self.s_repr = s_repr
 
       self:run_handle_new_lsa()
 
       self:run_handle_skv_publish()
    end
-   self.first = false
 end
 
 function elsa_pa:run_handle_new_lsa()
@@ -527,10 +532,12 @@ function elsa_pa:iterate_skv_prefix(f)
 end
 
 function elsa_pa:update_skvp()
+   self.check_skvp = nil
    self.skvp = mst.map:new()
    self:iterate_skv_prefix_real(function (p)
                                    self.skvp[p.prefix] = p
                                 end)
+   self.skvp_repr = mst.repr(self.skvp)
 end
 
 function elsa_pa:iterate_skv_if_real(ifname, skvprefix, metric, f)
