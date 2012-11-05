@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Sat Nov  3 21:02:26 2012 mstenber
--- Edit time:     165 min
+-- Last modified: Mon Nov  5 07:08:41 2012 mstenber
+-- Edit time:     168 min
 --
 
 require 'mst'
@@ -240,13 +240,17 @@ function binary_prefix_contains(b1, bits1, b2, bits2)
       local bo = (ofs - 1) * 8
       if bo >= bits1
       then
+         mst.d('yep, all bits done')
          return true
       end
-      if bits1 > (bo + 8)
+      if bits1 >= (bo + 8)
       then
          -- still full bit comparison
          --mst.d('full', bo)
-         return b1[ofs] == b2[ofs] and contains_rec(ofs+1)
+         local v1 = string.sub(b1, ofs, ofs)
+         local v2 = string.sub(b2, ofs, ofs)
+         mst.d(' considering full', ofs, v1, v2)
+         return v1 == v2 and contains_rec(ofs+1)
       end
       local bits = bits1 - bo
       -- number of relevant bits to compare => effectively, we have to
@@ -256,6 +260,7 @@ function binary_prefix_contains(b1, bits1, b2, bits2)
       v1 = math.floor(v1 / 2^(8-bits))
       v2 = math.floor(v2 / 2^(8-bits))
       --mst.d('final', v1, v2)
+      mst.d(' considering', ofs, v1, v2)
       return v1 == v2
    end
    return contains_rec(1)

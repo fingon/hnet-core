@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 22:04:20 2012 mstenber
--- Last modified: Sat Nov  3 18:36:10 2012 mstenber
--- Edit time:     49 min
+-- Last modified: Mon Nov  5 07:10:10 2012 mstenber
+-- Edit time:     52 min
 --
 
 require 'ipv6s'
@@ -33,7 +33,7 @@ describe("address_cleanup", function ()
                      mst.a(dst == got, 'unexpected', src, dst, got)
                   end
                end)
-                          end)
+                            end)
 
 describe("address_to_binary_address/binary_address_to_address", function ()
             it("should be bidirectional",
@@ -61,7 +61,7 @@ describe("address_to_binary_address/binary_address_to_address", function ()
                      assert.are.same(s, v)
                   end
                         end)
-                                            end)
+                                                                end)
 
 describe("prefix_to_binary_prefix", function ()
             it("works", function ()
@@ -85,8 +85,8 @@ describe("prefix_to_binary_prefix", function ()
                      mst.a(gotf == efirst, gotf, efirst)
                      mst.a(gotl == elast, gotl, elast)
                   end
-                   end)
-                          end)
+                        end)
+                                    end)
 
 describe("prefix_hwaddr_to_eui64", function ()
             it("works", function ()
@@ -105,8 +105,8 @@ describe("prefix_hwaddr_to_eui64", function ()
                   local got = ipv6s.prefix_hwaddr_to_eui64(prefix, hwaddr)
                   mst.a(got == exp, got, exp)
 
-                        end)
-             end)
+                                                  end)
+                                   end)
 
 local test_strings = {'::/0', '::/1', '::/8',
                       '8000::/1', '8000::/8', 'dead::/16',
@@ -132,7 +132,7 @@ describe("ipv6_prefix", function ()
                   local p2 = ipv6s.ipv6_prefix:new{ascii='dead::/16'}
                   mst.a(p1:get_ascii() == p2:get_ascii())
                   mst.a(p1:get_binary() == p2:get_binary())
-                   end)
+                                                     end)
 
             it("ipv4 works #v4", function ()
                   local p1 = ipv6s.ipv6_prefix:new{ascii='1.2.3.0/24'}
@@ -142,7 +142,7 @@ describe("ipv6_prefix", function ()
                   local a2 = p2:get_ascii()
                   mst.a(p1:get_ascii() == a2, 'ascii mismatch', a2)
 
-                   end)
+                                 end)
             it("works with test strings #s", function ()
                   for i, v in ipairs(test_strings)
                   do
@@ -155,7 +155,7 @@ describe("ipv6_prefix", function ()
                      local a2 = p2:get_ascii()
                      mst.a(a2 == v, 'unable to handle', v, a2, p2, #b)
                   end
-                   end)
+                                             end)
             it("get-next works too #n", function ()
                   for i, v in ipairs(next_tests)
                   do
@@ -169,8 +169,41 @@ describe("ipv6_prefix", function ()
 
                   end
 
-                   end)
-             end)
+                                        end)
+                        end)
+
+describe("prefix_contains", function ()
+            it("works", function ()
+                  function test_tv(usp, tv)
+                     for i, v in ipairs(tv)
+                     do
+                        local a, exp = unpack(v)
+                        local asp = ipv6s.new_prefix_from_ascii(a)
+                        local got = usp:contains(asp)
+                        mst.a(got == exp, 'not what expected', usp, asp, got, exp)
+
+                     end
+
+                  end
+                  
+                  local usp = ipv6s.new_prefix_from_ascii('10.0.0.0/8')
+                  local tv = {
+                     {'11.0.0.0/24', false},
+                     {'9.0.0.0/24', false},
+                     {'10.0.0.0/24', true},
+                     {'10.255.255.255/24', true},
+                     {'10.42.42.42/24', true},
+                  }
+                  test_tv(usp, tv)
+                  local usp = ipv6s.new_prefix_from_ascii('10.0.0.0/7')
+                  local tv = {
+                     {'11.0.0.0/24', true},
+                     {'12.0.0.0/24', false},
+                     {'9.0.0.0/24', false},
+                  }
+                  test_tv(usp, tv)
+                        end)
+                            end)
 
 -- todo
 
