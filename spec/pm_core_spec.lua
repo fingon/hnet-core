@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Sun Nov  4 00:48:11 2012 mstenber
--- Edit time:     111 min
+-- Last modified: Sun Nov  4 21:31:22 2012 mstenber
+-- Edit time:     131 min
 --
 
 -- testsuite for the pm_core
@@ -162,16 +162,18 @@ describe("pm", function ()
             local s, e, ep, pm, ds
 
             before_each(function ()
+                           local myrid = '123456'
                            ds = dshell.dshell:new{}
                            s = skv.skv:new{long_lived=true, port=42424}
-                           e = delsa:new{iid={myrid={{index=42, name='eth2'}}},
+                           e = delsa:new{iid={[myrid]={{index=42, name='eth2'}}},
                                          lsas={rid1=usp_dead_tlv},
-                                         hwf={myrid='foo'},
+                                         hwf={[myrid]='foo'},
                                          assume_connected=true,
                                         }
-                           ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='myrid'}
 
-                           s:set(elsa_pa.OSPF_RID_KEY, 'myrid')
+                           ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid=myrid}
+                           e:add_router(ep)
+                           s:set(elsa_pa.OSPF_RID_KEY, myrid)
                            s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth1'})
                            s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.PREFIX_KEY .. 'eth0', 
                                  -- prefix[,valid]
@@ -252,6 +254,7 @@ describe("pm", function ()
                   pa.disable_always_ula = true
                   pa.new_prefix_assignment = 10
                   pa.start_time = pa.start_time - pa.new_prefix_assignment - 10
+                  ep:ospf_changed()
                   ep:run()
                   mst.a(pm:run())
                   mst.a(not pm:run())

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Sun Nov  4 07:19:53 2012 mstenber
--- Edit time:     402 min
+-- Last modified: Sun Nov  4 21:34:05 2012 mstenber
+-- Edit time:     444 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -40,6 +40,7 @@ RULE_PREF_MAX=RULE_PREF_MIN + 128
 
 DHCLIENT_SCRIPT='/usr/share/hnet/dhclient_handler.sh'
 DHCPD_SCRIPT='/usr/share/hnet/dhcpd_handler.sh'
+BIRD4_SCRIPT='/usr/share/hnet/bird4_handler.sh'
 
 local ipv4_end='/24' -- as it's really v4 looking string
 
@@ -69,6 +70,12 @@ function pm:init()
    -- also remove addresses as neccessary if they spuriously show up
    -- (= usp removed, but lap still around)
    self.all_ipv6_binary_prefixes = mst.map:new{}
+
+   -- get initial values (and notify changed if they're applicable)
+   for k, v in pairs(self.skv:get_combined_state())
+   do
+      self:kv_changed(k, v)
+   end
 end
 
 function pm:uninit()
@@ -95,6 +102,10 @@ function pm:kv_changed(k, v)
       self.pending_routecheck = true
       self.pending_rulecheck = true
       self.pending_dhclient_check = true
+   elseif k == elsa_pa.OSPF_RID_KEY
+   then
+      self.rid = v
+      self.pending_bird4_check = true
    elseif k == elsa_pa.OSPF_LAP_KEY
    then
       self.ospf_lap = v or {}
@@ -105,6 +116,7 @@ function pm:kv_changed(k, v)
       -- been using address range which is now depracated)
       self.pending_rewrite_radvd = true
       self.pending_rewrite_dhcpd = true
+      self.pending_bird4_check = true
    elseif k == elsa_pa.OSPF_IPV4_DNS_KEY
    then
       self.ospf_v4_dns = v or {}
@@ -138,30 +150,17 @@ end
 
 function pm:run()
    local actions = 0
-   if self.pending_routecheck
-   then
-      self:check_ospf_vs_real()
-      self.pending_routecheck = nil
-      actions = actions + 1
+   function got(v)
+      if v
+      then
+         actions = actions + v
+      end
    end
-   if self.pending_dhclient_check
-   then
-      self:check_dhclients()
-      self.pending_dhclient_check = nil
-      actions = actions + 1
-   end
-   if self.pending_rulecheck
-   then
-      self:check_rules()
-      self.pending_rulecheck = nil
-      actions = actions + 1
-   end
-   if self.pending_addrcheck
-   then
-      self:check_addresses()
-      self.pending_addrcheck = nil
-      actions = actions + 1
-   end
+   got(self:check_ospf_vs_real())
+   got(self:check_dhclients())
+   got(self:check_bird4())
+   got(self:check_rules())
+   got(self:check_addresses())
    if self.pending_rewrite_radvd
    then
       local c = self:write_radvd_conf()
@@ -193,7 +192,64 @@ function pm:run()
    return actions > 0 and actions
 end
 
+function pm:check_bird4()
+   -- just assume that the bird state sticks, and that it's not
+   -- running before we start
+
+   -- need stop if running, and either pid changed,or ipv4 allocations
+   -- disappeared
+   if not self.rid or not self.lap
+   then
+      return
+   end
+
+   if not self.pending_bird4_check
+   then
+      return
+   end
+
+   self.pending_bird4_check = nil
+
+   local v4 = mst.array_filter(self.ospf_lap, function (lap)
+                                  local p = ipv6s.ipv6_prefix:new{ascii=lap.prefix}
+                                  return p:is_ipv4() and not lap.depracate
+                                    end)
+   self:d('check_bird4', self.rid, v4:count(), self.bird_rid)
+
+
+   
+   -- first check if we should stop existing one
+   if self.bird_rid and (not v4:count() or self.rid ~= self.bird_rid)
+   then
+      self.shell(BIRD4_SCRIPT .. ' stop')
+      self.bird_rid = nil
+   end
+   if v4:count() and self.rid ~= self.bird_rid
+   then
+      -- convert the rid to IPv4
+      t = mst.array:new{}
+      local v, err = tonumber(self.rid)
+      self:a(v, 'unable to convert rid to number?!?', self.rid, err)
+
+      for i=1,4
+      do
+         t:insert(v % 256)
+         v = math.floor(v / 256)
+      end
+      local ips = table.concat(t, '.')
+
+      self.shell(BIRD4_SCRIPT .. ' start ' .. ips)
+      self.bird_rid = self.rid
+   end
+   return 1
+end
+
 function pm:check_dhclients()
+   if not self.pending_dhclient_check
+   then
+      return
+   end
+   self.pending_dhclient_check = nil
    -- oddly enough, we actually trust the OS (to a point); therefore,
    -- we keep only track of the dhclients we _think_ we have started,
    -- and just start-kill those as appropriate.
@@ -237,6 +293,7 @@ function pm:check_dhclients()
                    end
                    -- no equality - if it exists, it exists
                   )
+   return 1
 end
 
 function pm:check_addresses()
@@ -246,6 +303,15 @@ function pm:check_addresses()
    then
       return
    end
+
+   if not self.pending_addrcheck
+   then
+      return
+   end
+
+   self:d('entered check_addresses')
+
+   self.pending_addrcheck = nil
 
    local m = self.if_table:read_ip_ipv4()
    local if2a = {}
@@ -277,6 +343,10 @@ function pm:check_addresses()
       end
    end
 
+   self:d('got', hif2a)
+   self:d('want', if2a)
+
+
    -- then fire up the sync algorithm
    mst.sync_tables(hif2a, if2a,
                    -- remove
@@ -291,6 +361,8 @@ function pm:check_addresses()
                       -- don't hinder the -4 dhclient by changing address under it
                       if self.dhclient_ifnames[ifname]
                       then
+                         self:d(' ignoring dhclient interface', ifname)
+
                          return
                       end
 
@@ -301,6 +373,7 @@ function pm:check_addresses()
                    function (k, v1, v2)
                       return v1 == v2
                    end)
+   return 1
 end
 
 function pm:invalidate_rules()
@@ -317,6 +390,7 @@ function pm:get_rules()
                                  end)
 end
 
+-- XXX - convert to use validity_sync
 function pm:delete_invalid_rules()
    local my_rules = self:get_rules()
    self:d('considering rules', #my_rules)
@@ -347,12 +421,20 @@ function pm:get_ipv6_usp()
 end
 
 function pm:check_rules()
-   self:d('entering check_rules')
 
    if not self.ospf_usp
    then
       return
    end
+
+   if not self.pending_rulecheck
+   then
+      return
+   end
+
+   self:d('entering check_rules')
+
+   self.pending_rulecheck = nil
 
    -- we have the internal rule_table object. we compare that against
    -- the state we have in skv for OSPF (pd changes should come via
@@ -460,6 +542,8 @@ function pm:check_rules()
       local r = self.rule_table:add_rule(template)
       r:add(self.shell)
    end
+   
+   return 1
 end
 
 function pm:get_real_lap()
@@ -509,14 +593,21 @@ function pm:repr_data()
 end
 
 function pm:check_ospf_vs_real()
-   local valid_end='::/64'
-
-   self:d('entering check_ospf_vs_real')
-
    if not self.ospf_lap or not self.ospf_usp
    then
       return
    end
+
+   if not self.pending_routecheck
+   then
+      return
+   end
+
+   self.pending_routecheck = nil
+   local valid_end='::/64'
+
+   self:d('entering check_ospf_vs_real')
+
    local lap = self.ospf_lap
    local rlap = self:get_real_lap()
    self:d('lap_changed - rlap/lap', #rlap, #lap)
@@ -577,6 +668,7 @@ function pm:check_ospf_vs_real()
    then
       self.pending_rewrite_radvd = true
    end
+   return 1
 end
 
 function pm:dump_address_list_option(t, l, option_name)
