@@ -2,7 +2,11 @@
 
 * Bugs to fix
 
-** route to router (nh calc) still bugging
+** rhf bit flaky
+
+- sometimes eth0, sometimes eth1 too.. depending on which if is up. correct
+  approach is to check _all_ interfaces that are configured, regardless of
+  addresses present (right now we seed it with IPv6)
 
 * Things to do
 
@@ -190,11 +194,7 @@ and make sure result is sane
 
 * Done (29.10.+)
 
-** rhf bit flaky
-
-- sometimes eth0, sometimes eth1 too.. depending on which if is up. correct
-  approach is to check _all_ interfaces that are configured, regardless of
-  addresses present (right now we seed it with IPv6)
+** route to router (nh calc) still bugging
 
 + solution: just set up always subnet also on the ISP-facing side, and
 route towards that using standard BIRD Nest API.. works, but not insanely
