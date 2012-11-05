@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Mon Nov  5 05:37:52 2012 mstenber
--- Edit time:     139 min
+-- Last modified: Mon Nov  5 05:47:31 2012 mstenber
+-- Edit time:     142 min
 --
 
 -- testsuite for the pm_core
@@ -103,6 +103,10 @@ local lap_end = {
      ]]},
 }
 
+local bird_on = {
+   {'/usr/share/hnet/bird4_handler.sh start 135.214.18.0', ''},
+}
+
 local rule_base = {
    {'ip -6 rule',
     [[
@@ -147,6 +151,7 @@ cleanup = {
 pm-pid-dhclient-eth0
                        ]]},
    {'/usr/share/hnet/dhclient_handler.sh stop eth0 /var/run/pm-pid-dhclient-eth0', ''},
+   {'/usr/share/hnet/bird4_handler.sh stop', ''},
    {'ip -6 rule',
     [[
                           0:	from all lookup local 
@@ -208,6 +213,7 @@ describe("pm", function ()
                        end)
             it("works #w", function ()
                   local d = mst.table_copy(lap_base)
+                  --mst.array_extend(d, bird_on)
                   mst.array_extend(d, rule_base)
                   mst.array_extend(d, lap_end)
                   mst.array_extend(d, v6_dhcpd)
@@ -227,6 +233,7 @@ describe("pm", function ()
                   -- get rid of the nh
                   s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.NH_KEY .. 'eth0', nil)
                   local d = mst.table_copy(lap_base)
+                  --mst.array_extend(d, bird_on)
                   mst.array_extend(d, rule_no_nh)
                   mst.array_extend(d, lap_end)
                   mst.array_extend(d, v6_dhcpd)
@@ -239,6 +246,7 @@ describe("pm", function ()
                                                              end)
             it("works - post-ULA period => v4 should occur #v4", function ()
                   local d = mst.table_copy(lap_base)
+                  mst.array_extend(d, bird_on)
                   mst.array_extend(d, rule_base)
                   mst.array_extend(d, lap_end)
                   mst.array_extend(d, {{'ifconfig eth2 10.171.21.41 netmask 255.255.255.0', ''}})

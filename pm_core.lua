@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Sun Nov  4 21:34:05 2012 mstenber
--- Edit time:     444 min
+-- Last modified: Mon Nov  5 05:47:12 2012 mstenber
+-- Edit time:     450 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -104,6 +104,7 @@ function pm:kv_changed(k, v)
       self.pending_dhclient_check = true
    elseif k == elsa_pa.OSPF_RID_KEY
    then
+      --mst.a(v, 'empty rid not valid')
       self.rid = v
       self.pending_bird4_check = true
    elseif k == elsa_pa.OSPF_LAP_KEY
@@ -198,19 +199,15 @@ function pm:check_bird4()
 
    -- need stop if running, and either pid changed,or ipv4 allocations
    -- disappeared
-   if not self.rid or not self.lap
-   then
-      return
-   end
-
    if not self.pending_bird4_check
    then
       return
    end
 
+   local lap = self.ospf_lap or {}
    self.pending_bird4_check = nil
 
-   local v4 = mst.array_filter(self.ospf_lap, function (lap)
+   local v4 = mst.array_filter(lap, function (lap)
                                   local p = ipv6s.ipv6_prefix:new{ascii=lap.prefix}
                                   return p:is_ipv4() and not lap.depracate
                                     end)
@@ -219,13 +216,14 @@ function pm:check_bird4()
 
    
    -- first check if we should stop existing one
-   if self.bird_rid and (not v4:count() or self.rid ~= self.bird_rid)
+   if self.bird_rid and (v4:count() == 0 or self.rid ~= self.bird_rid)
    then
       self.shell(BIRD4_SCRIPT .. ' stop')
       self.bird_rid = nil
    end
-   if v4:count() and self.rid ~= self.bird_rid
+   if v4:count()>0 and self.rid ~= self.bird_rid
    then
+      self:a(self.rid, 'no rid but wanting to turn on bird, strange')
       -- convert the rid to IPv4
       t = mst.array:new{}
       local v, err = tonumber(self.rid)
