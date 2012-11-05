@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Sun Nov  4 21:31:22 2012 mstenber
--- Edit time:     131 min
+-- Last modified: Mon Nov  5 05:37:52 2012 mstenber
+-- Edit time:     139 min
 --
 
 -- testsuite for the pm_core
@@ -162,11 +162,13 @@ describe("pm", function ()
             local s, e, ep, pm, ds
 
             before_each(function ()
-                           local myrid = '123456'
+                           local myrid = 'myrid'
+                           local myrid = 1234567
+                           local orid = 12345678
                            ds = dshell.dshell:new{}
                            s = skv.skv:new{long_lived=true, port=42424}
                            e = delsa:new{iid={[myrid]={{index=42, name='eth2'}}},
-                                         lsas={rid1=usp_dead_tlv},
+                                         lsas={[orid]=usp_dead_tlv},
                                          hwf={[myrid]='foo'},
                                          assume_connected=true,
                                         }
@@ -250,7 +252,8 @@ describe("pm", function ()
 
                   local pa = ep.pa
                   -- change other rid so we have highest one -> v4!
-                  e.lsas={arid1=usp_dead_tlv}
+                  local lowrid = 123
+                  e.lsas={[lowrid]=usp_dead_tlv}
                   pa.disable_always_ula = true
                   pa.new_prefix_assignment = 10
                   pa.start_time = pa.start_time - pa.new_prefix_assignment - 10

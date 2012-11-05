@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Sat Nov  3 18:41:22 2012 mstenber
--- Edit time:     524 min
+-- Last modified: Mon Nov  5 05:38:49 2012 mstenber
+-- Edit time:     525 min
 --
 
 -- data structure abstractions provided:
@@ -1067,6 +1067,7 @@ function max(...)
    local largest = nil
    local l = {...}
    array_foreach(l, function (v)
+                    --mst.a(not largest or type(largest) == type(v), v, largest)
                     if not largest or v > largest
                     then
                        largest = v
