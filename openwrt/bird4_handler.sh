@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Mon Nov  5 05:56:59 2012 mstenber
-# Edit time:     3 min
+# Last modified: Mon Nov  5 07:27:04 2012 mstenber
+# Edit time:     17 min
 #
 
 # Start or stop bird4 (for 'home' routing)
@@ -25,7 +25,10 @@ start() {
     RID=$1
 cat > $CONF <<EOF
 
-log syslog all;
+log "/tmp/bird4.log" all;
+#log syslog all;
+
+debug protocols {states, routes, filters, interfaces, events, packets};
 
 router id $RID;
 
@@ -33,24 +36,32 @@ protocol device {
         scan time 10;
 }
 
+# protocol direct is implicit
+
 protocol kernel {
+        learn; # learn alien routes from kernel
+        persist;
+        device routes;
+        import all;
         export all;
         scan time 15;
 }
 
 protocol ospf {
         import all;
+        export all;
 
         area 0 {
-                interface "eth0.*", "eth1" {
+                # We talk with about anyone with the password.. ;-)
+                interface "*" {
                         hello 5; retransmit 2; wait 10; dead count 4;
                         authentication cryptographic; password "foo";
                 };
 
-                interface "*" {
-                        cost 1000;
-                        stub;
-                };
+#                interface "*" {
+#                        cost 1000;
+#                        stub;
+#                };
         };
 }
 
@@ -62,7 +73,9 @@ stop() {
     killall -9 bird4
 }
 
-case CMD in
+CMD=$1
+
+case $CMD in
     start)
         start $2
         ;;

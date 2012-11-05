@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Sun Nov  4 12:23:21 2012 mstenber
--- Edit time:     769 min
+-- Last modified: Mon Nov  5 07:35:18 2012 mstenber
+-- Edit time:     779 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -219,6 +219,7 @@ function lap:do_depracate()
    self.pa:changed()
    self.assigned = false
    self.depracated = true
+   self.address = nil -- clear ipv4 address, if any
    self.sm:Done()
 end
 
@@ -226,6 +227,8 @@ function lap:do_unassign()
    self:a(not self._is_done, 'called when done')
    self.pa:changed()
    self.assigned = false
+   self.address = nil -- clear ipv4 address, if any
+   -- (hopefully we have something better to replace it with)
    self.sm:Done()
 end
 
@@ -1164,7 +1167,7 @@ function pa:run(d)
       -- handle local IPv4 address assignment algorithm
       for i, lap in ipairs(self.lap:values())
       do
-         if lap.prefix:is_ipv4()
+         if lap.assigned and lap.prefix:is_ipv4()
          then
             self:handle_ipv4_lap_address(lap)
          end
