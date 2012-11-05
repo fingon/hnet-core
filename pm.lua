@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Wed Oct 31 21:36:15 2012 mstenber
--- Edit time:     10 min
+-- Last modified: Mon Nov  5 05:52:10 2012 mstenber
+-- Edit time:     12 min
 --
 
 -- 'prefix manager' (name still temporary)
@@ -27,6 +27,12 @@ require 'pm_core'
 require 'skv'
 require 'ssloop'
 
+-- where to put configuration files. /tmp is fairly safe, as it won't
+-- cause flash wear on devices (.. not like it really mattered, wear
+-- leveling is your friend)
+local PM_CONF_DIR='/tmp'
+
+
 local loop = ssloop.loop()
 
 -- XXX - option processing
@@ -34,11 +40,12 @@ local loop = ssloop.loop()
 mst.d('initializing skv')
 local s = skv.skv:new{long_lived=true}
 mst.d('initializing pm')
+
 local pm = pm_core.pm:new{shell=mst.execute_to_string, skv=s,
                           radvd='radvd -m logfile',
-                          radvd_conf_filename='/etc/pm-radvd.conf',
-                          dhcpd_conf_filename='/etc/pm-dhcpd.conf',
-                          dhcpd6_conf_filename='/etc/pm-dhcpd6.conf',
+                          radvd_conf_filename=PM_CONF_DIR .. '/pm-radvd.conf',
+                          dhcpd_conf_filename=PM_CONF_DIR .. '/pm-dhcpd.conf',
+                          dhcpd6_conf_filename=PM_CONF_DIR .. '/pm-dhcpd6.conf',
                          }
 
 function pm:schedule_run()
