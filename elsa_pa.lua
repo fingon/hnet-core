@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Sun Nov  4 12:51:58 2012 mstenber
--- Edit time:     437 min
+-- Last modified: Tue Nov  6 08:06:21 2012 mstenber
+-- Edit time:     474 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -25,7 +25,7 @@
 
 -- XXX - document the API between elsa (wrapper), elsa_pa
 
--- => ospf_changed()
+-- => lsa_changed(lsa[,delete])
 -- <= ???
 
 require 'mst'
@@ -37,8 +37,13 @@ local pa = require 'pa'
 module(..., package.seeall)
 
 -- LSA type used for storing the auto-configuration LSA
-AC_TYPE=0xBFF0
+-- Benjamin
+--AC_TYPE=0xBFF0
 
+-- 0xAC0F Jari
+AC_TYPE=0xAC0F
+
+--FORCE_PA_RUN_INTERVAL=120
 FORCE_SKV_AC_CHECK_INTERVAL=60
 
 -- SKV-related things
@@ -167,7 +172,9 @@ elsa_pa = mst.create_class{class='elsa_pa', mandatory={'skv', 'elsa'},
 function elsa_pa:init()
    -- force first run (repr changes force AC LSA generation; ospf_changes
    -- forces PA alg to be run)
-   self.ospf_changes = 1
+   self.ac_changes = 1
+   self.lsa_changes = 1
+
    self.check_skvp = true
    self.last_publish = 0
 
@@ -197,8 +204,27 @@ function elsa_pa:kv_changed(k, v)
    self.check_skvp = true
 end
 
+function elsa_pa:lsa_changed(lsa, delete)
+   local lsatype = lsa.type
+   if lsa.rid == self.rid
+   then
+      -- ignore us, if BIRD calls us about it.. we don't
+      -- 'see' our own changes
+      return
+   end
+   if lsatype == AC_TYPE
+   then
+      self.ac_changes = self.ac_changes + 1
+   else
+      self.lsa_changes = self.lsa_changes + 1
+   end
+end
+
 function elsa_pa:ospf_changed()
-   self.ospf_changes = self.ospf_changes + 1
+   -- emulate to get the old behavior.. shouldn't be called!
+   self:d('deprecated ospf_changed called')
+   self:lsa_changed{type=AC_TYPE}
+   self:lsa_changed{type=AC_TYPE-1}
 end
 
 function elsa_pa:repr_data()
@@ -273,13 +299,18 @@ function elsa_pa:check_conflict(bonus_lsa)
    -- uh oh, our hwf < other hwf -> have to change
    self.elsa:change_rid(self.rid)
 
-   self.ospf_changes = 0
+   self.ac_changes = 0
+   self.lsa_changes = 0
+
    self.had_conflict = true
 
    return true
 end
 
-function elsa_pa:should_run(ospf_changes)
+function elsa_pa:should_run(ac_changes)
+   -- allow override of ac_changes
+   ac_changes = ac_changes or self.ac_changes
+
    -- ! important to check pa.should_run() first, even if it's
    -- inefficient; we never call should_run() within pa.run(), and
    -- it's needed to get pa.run() to sane state..
@@ -288,12 +319,34 @@ function elsa_pa:should_run(ospf_changes)
       -- debug message provided by self.pa..
       return true
    end
-   if ospf_changes > 0
+   if ac_changes > 0
    then
-      mst.d('should run - ospf changes pending', self.ospf_changes)
+      mst.d('should run - ac changes pending', self.ac_changes)
       return true
    end
+
+   -- XXX - do we want to do this? shouldn't be _necessary_,
+   -- but someday might be relevant?
+   -- .. if (self.time() - self.last_pa_run) > FORCE_PA_RUN_INTERVAL
+   -- .. self.last_pa_run = self.time()
+
    
+end
+
+function elsa_pa:should_publish(d)
+   -- if pa.run() said there's changes, yep, we should
+   if d.r then return true end
+
+   -- if the publish state representation has changed, we should
+   if d.s_repr ~= self.s_repr then return true end
+   
+   -- if ac or lsa changed, we should
+   if d.ac_changes > 0 then return true end
+   if d.lsa_changes > 0 then return true end
+   
+   -- finally, if the FORCE_SKV_AC_CHECK_INTERVAL was passed, we do
+   -- this (but this is paranoia, shouldn't be necessary)
+   if  (self.time() - self.last_publish) > FORCE_SKV_AC_CHECK_INTERVAL then return true end
 end
 
 function elsa_pa:run()
@@ -304,7 +357,7 @@ function elsa_pa:run()
    --
    -- if someone like that exists, either we (or they) have to change
    -- their router id..
-   if self.ospf_changes == 0
+   if self.ac_changes == 0 
    then
       if self.had_conflict
       then
@@ -315,8 +368,10 @@ function elsa_pa:run()
       if self:check_conflict() then return end
    end
    
-   local ospf_changes = self.ospf_changes
-   self.ospf_changes = 0
+   local ac_changes = self.ac_changes
+   local lsa_changes = self.lsa_changes
+   self.ac_changes = 0
+   self.lsa_changes = 0
 
    if self.check_skvp
    then
@@ -329,15 +384,17 @@ function elsa_pa:run()
    -- consider if either ospf change occured (we got callback), pa
    -- itself is in turbulent state, or the if state changed
    local r
-   if self:should_run(ospf_changes)
+   if self:should_run(ac_changes) 
    then
       r = self.pa:run{checked_should=true}
       self:d('pa.run result', r)
    end
 
+   local now = self.time()
+
    local s_repr = table.concat{mst.repr{self.pa.ridr}, self.skvp_repr}
 
-   if r or s_repr ~= self.s_repr or ospf_changes > 0 or (self.time() - self.last_publish) > FORCE_SKV_AC_CHECK_INTERVAL
+   if self:should_publish{s_repr=s_repr, r=r, ac_changes=ac_changes, lsa_changes=lsa_changes}
    then
       self.last_publish = self.time()
       
@@ -450,6 +507,11 @@ end
 
 function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
    function inner_f(lsa) 
+      -- don't bother with own rid
+      if lsa.rid == self.rid
+      then
+         return
+      end
       for i, tlv in ipairs(codec.decode_ac_tlvs(lsa.body))
       do
          if not criteria or mst.table_contains(tlv, criteria)
@@ -482,6 +544,7 @@ end
 function elsa_pa:iterate_asp(rid, f)
    self:iterate_ac_lsa_tlv(function (asp, lsa) 
                               self:a(lsa and asp)
+                              self:a(rid ~= lsa.rid, 'own asp in iterate?')
                               f{prefix=asp.prefix, iid=asp.iid, rid=lsa.rid}
                            end, {type=codec.AC_TLV_ASP})
 end
@@ -504,7 +567,11 @@ function elsa_pa:iterate_usp(rid, f)
                                }
                            end)
    self:iterate_ac_lsa_tlv(function (usp, lsa)
+                              -- for our own rid, we 
+                              -- should get the data from SKV, 
+                              -- not LSAs
                               self:a(lsa and usp)
+                              self:a(rid ~= lsa.rid, 'own asp in iterate?')
                               f{prefix=usp.prefix, rid=lsa.rid}
                            end, {type=codec.AC_TLV_USP})
 end

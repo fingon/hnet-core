@@ -2,6 +2,41 @@
 
 * Bugs to fix
 
+** at some point someone 'stole' USP prefix ownership
+
+=> routes broke
+
+= wtf ??
+
+** identify why eth1 is only working PD interface
+
+.. pd client on eth0.* does not work the same way (has some assumptions
+about IP aliases? started by hand=works, started at boot=does not work)
+
+** write testsuite which tests time changes
+
+- at least the *pa.lua should not be confused by time jumps
+  (or it should recover from them)
+
+.. potential source of router #3(/6) hangup
+
+it cleared it's state and never recovered; it is also possible that somehow
+the pm process does something bad, but seems unlikely as all these fields
+are sourced from BIRD and are set to sensible-looking values
+
+root@inner:~# skvtool -l
+ospf-rid=24336807
+ospf-v4-dns={}
+ospf-v4-dns-search={}
+ospf-dns={}
+ospf-iflist={"eth0.2", "eth0.3", "eth0.4", "eth1", "eth0.1"}
+disable-pa-eth0="1"
+ospf-dns-search={}
+ospf-usp={}
+ospf-lap={{address="10.24.33.23/32", ifname="eth0.4", prefix="10.24.33.0/24"}, {ifname="eth0.4", prefix="fc60:574d:6f60:3468::/64"}}
+root@inner:~# 
+
+
 ** rhf bit flaky
 
 - sometimes eth0, sometimes eth1 too.. depending on which if is up. correct
@@ -70,8 +105,37 @@ https://developers.google.com/speed/public-dns/docs/using
 ** Comprehensively test PA alg (2/2)
 
 - think more corner cases to test
-
+ - _large_ topologies should still converge
+ 
 * Things to do if I have time (hah)
+
+** Design own routing protocol? :---p
+
+- OSPF insanely chatty
+
+- assumption should be: 
+
+ - link is ~constant 
+
+- IF no traffic whatsoever, make sure of bidir reachability (but can trust
+  e.g. RAs?)
+
+- with traffic, routing protocol shouldn't need to chat _much_
+
+- and chat should be just trickle-based 'life still same for you?
+  brilliant, mate.'
+
+- subtree synchronization => e.g. using hash trees, with few (or many)
+  roundtrips depending on how large portions of tree are checked at once
+
+- subtree updates can just send change deltas => no need for synchronization
+
+.. these assumptions work for wired. how about wireless?
+
+- _have_ to be more proactive about verifying people are still on link
+
+- packet loss more of a concern?
+
 
 ** Convert the hnet Lua stuff to a single package-formatted thing
 

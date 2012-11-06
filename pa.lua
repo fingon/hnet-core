@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Mon Nov  5 07:35:18 2012 mstenber
--- Edit time:     779 min
+-- Last modified: Tue Nov  6 08:04:06 2012 mstenber
+-- Edit time:     789 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -515,6 +515,7 @@ pa = mst.create_class{class='pa', lap_class=lap, mandatory={'rid'},
                       new_prefix_assignment=0,
                       new_ula_prefix=0,
                       random_prefix_tries=5,
+                      time=os.time,
                      }
 
 function pa:init()
@@ -541,7 +542,7 @@ function pa:init()
    self.changes = 0
 
    -- store when we started, for hysteresis calculations
-   self.start_time = os.time()
+   self.start_time = self.time()
 end
 
 function pa:uninit()
@@ -569,7 +570,17 @@ function pa:get_local_asp_values()
    self:a(self)
    self:a(self.class=='pa')
 
-   return self.asp:values():filter(function (v) return not v:is_remote() end)
+   local l = self.asp[self.rid]
+   if l then l = mst.table_copy(l) end
+   return l or {}
+end
+
+function pa:get_local_usp_values()
+   self:a(self)
+   self:a(self.class=='pa')
+   local l = self.usp[self.rid] 
+   if l then l = mst.table_copy(l) end
+   return l or {}
 end
 
 function pa:repr_data()
@@ -776,7 +787,7 @@ function pa:assign_own(iid, usp)
 end
 
 function pa:time_since_start()
-   return os.time() - self.start_time
+   return self.time() - self.start_time
 end
 
 -- child responsibility - return old assignment multimap, with
@@ -934,7 +945,6 @@ function pa:get_ifs_neigh_state()
 end
 
 function pa:busy_until(seconds_delta_from_start)
-   -- XXX - add test cases to make sure this works correctly
    if not self.busy or self.busy > seconds_delta_from_start
    then
       self.busy = seconds_delta_from_start
@@ -946,40 +956,29 @@ function pa:should_run()
    -- (empirically, we seem to, but having test cases is better)
    local rid = self.rid
    local h = self:get_ifs_neigh_state()
-   if self.busy and self.busy <= self:time_since_start()
+   if self.busy
    then
-      self:d('no longer busy - should run')
-      self.busy = nil
-   elseif h ~= self.last_ifs_neigh_state
+      if self.busy <= self:time_since_start()
+      then
+         self:d('no longer busy - should run')
+         self.busy = nil
+      else
+         self:d('still busy - should run')
+      end
+      return true
+   end
+   if h ~= self.last_ifs_neigh_state
    then
       self:d('should run - ifs/neighs changed')
       
       self.last_ifs_neigh_state = h
-   elseif self.changes > 0
+      return true
+   end
+   if self.changes > 0
    then
       self:d('should run - changes > 0 (timeouts)')
-   else
-      local should
-      -- check known USP's - if they are missing nh, that's valid
-      -- reason too (should be anomalous, temporary condition)
-      self.usp:foreach(function (ii, o) 
-                          -- we never have nh if it's us (locals
-                          -- handled per-if basis in elsa_pa)
-                          if o.rid == rid then return end
-
-                          -- if it's ULA or v4, it shouldn't matter
-                          if o.prefix:is_ula() or o.prefix:is_ipv4()
-                          then
-                             return
-                          end
-                       end)
-      if not should
-      then
-         return
-      end
+      return true
    end
-   -- one of the positive branches
-   return true
 end
 
 function pa:get_hwf()
