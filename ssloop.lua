@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Sat Nov  3 13:08:40 2012 mstenber
--- Edit time:     127 min
+-- Last modified: Tue Nov  6 14:26:30 2012 mstenber
+-- Edit time:     130 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -319,16 +319,23 @@ function ssloop:run_timeouts(now)
    local c = 0
 
    self:a(now, 'now mandatory in run_timeouts')
+   local t = {}
+   -- first gather a list of expired events
    for i, v in ipairs(self.t)
    do
       if v.started and v.timeout <= now
       then
-         self:d('running timeout', v)
-         self:a(v.callback, 'no callback for', v)
-         v.callback()
-         v:done()
-         c = c + 1
+         table.insert(t, v)
       end
+   end
+   -- then run the expired timeouts
+   for i, v in ipairs(t)
+   do
+      self:d('running timeout', v)
+      self:a(v.callback, 'no callback for', v)
+      v.callback()
+      v:done()
+      c = c + 1
    end
    return c
 end
