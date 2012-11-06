@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Nov  6 09:25:44 2012 mstenber
--- Edit time:     492 min
+-- Last modified: Tue Nov  6 14:42:55 2012 mstenber
+-- Edit time:     499 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -467,6 +467,7 @@ function elsa_pa:run_handle_skv_publish()
 
    -- set up the locally assigned prefix field
    local t = mst.array:new()
+   local dumped_if_ipv4 = {}
    for i, lap in ipairs(self.pa.lap:values())
    do
       local ifo = self.pa.ifs[lap.iid]
@@ -474,6 +475,13 @@ function elsa_pa:run_handle_skv_publish()
       then
          self:d('zombie interface', lap)
          ifo = {}
+      end
+      if lap.address
+      then
+         self:a(not dumped_if_ipv4[lap.ifname],
+                'system state somehow screwed up [>1 v4 address per if] ',
+                self.pa.usp, self.pa.asp, self.pa.lap)
+         dumped_if_ipv4[lap.ifname] = true
       end
       t:insert({ifname=lap.ifname, 
                 prefix=lap.ascii_prefix,
