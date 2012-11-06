@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Mon Nov  5 05:47:12 2012 mstenber
--- Edit time:     450 min
+-- Last modified: Tue Nov  6 10:14:21 2012 mstenber
+-- Edit time:     454 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -788,6 +788,14 @@ function pm:write_dhcpd_conf()
 
    local search = self.ospf_v4_dns_search or {}
    self:dump_search_list_option(t, search, 'domain-search')
+
+   if #dns == 0
+   then
+     t:insert([[
+# we don't have good information yet, keep asking!
+max-lease-time 30;
+]])
+   end
 
    -- for each locally assigned prefix, if we're the owner (=publisher
    -- of asp), run DHCPv4 otherwise not..
