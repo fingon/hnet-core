@@ -2,6 +2,13 @@
 
 * Bugs to fix
 
+** should offer very, very short leases until we have DNS parameters?
+
+** pd nh disappears at times at renew?
+
+- the rdisc6 stuff should be more robust, or we should probe more actively
+  ( the latter + correct state machine = win, in long term)
+
 ** at some point someone 'stole' USP prefix ownership
 
 => routes broke

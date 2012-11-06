@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Nov  6 08:12:23 2012 mstenber
+-- Last modified: Tue Nov  6 09:26:11 2012 mstenber
 -- Edit time:     241 min
 --
 
@@ -477,7 +477,8 @@ describe("elsa_pa bird7-ish", function ()
                                    {index=43, name='eth1'}}
                      hwfs[name] = name
                      local s = skv.skv:new{long_lived=true, port=42420+i}
-                     local ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid=name}
+                     local ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid=name,
+                                                    originate_min_interval=0}
                      skvs:insert(s)
                      eps:insert(ep)
                      e:add_router(ep)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Nov  6 08:17:17 2012 mstenber
--- Edit time:     480 min
+-- Last modified: Tue Nov  6 09:25:44 2012 mstenber
+-- Edit time:     492 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -25,7 +25,8 @@
 
 -- XXX - document the API between elsa (wrapper), elsa_pa
 
--- => lsa_changed(lsa[,delete])
+-- => lsa_changed(lsa)
+-- => lsa_deleting(lsa)
 -- <= ???
 
 require 'mst'
@@ -100,14 +101,17 @@ LAP_DEPRACATE_TIMEOUT=240
 -- first if need be)
 LAP_EXPIRE_TIMEOUT=300
 
+ORIGINATE_MIN_INTERVAL=4 -- up to this point, we hold on spamming
+ORIGINATE_MAX_INTERVAL=300 -- even without changes
+
 -- XXX - TERMINATE_ULA_PREFIX timeout is a 'SHOULD', but we ignore it
 -- for simplicity's sake; getting rid of floating prefixes ASAP is
 -- probably good thing (and the individual interface-assigned prefixes
 -- will be depracated => will disappear soon anyway)
 
 -- elsa specific lap subclass
-
-elsa_lap = pa.lap:new_subclass{class='elsa_lap'}
+elsa_lap = pa.lap:new_subclass{class='elsa_lap',
+                              }
 
 local json_sources={[JSON_DNS_KEY]={prefix=PD_SKVPREFIX, 
                                     key=DNS_KEY, 
@@ -164,10 +168,13 @@ end
 
 -- actual elsa_pa itself, which controls pa (and interfaces with
 -- skv/elsa-wrapper
-elsa_pa = mst.create_class{class='elsa_pa', mandatory={'skv', 'elsa'},
+elsa_pa = mst.create_class{class='elsa_pa', 
+                           mandatory={'skv', 'elsa'},
                            new_prefix_assignment=NEW_PREFIX_ASSIGNMENT,
                            new_ula_prefix=NEW_ULA_PREFIX,
-                           time=os.time}
+                           time=os.time,
+                           originate_min_interval=ORIGINATE_MIN_INTERVAL,
+                          }
 
 function elsa_pa:init()
    -- force first run (repr changes force AC LSA generation; ospf_changes
@@ -176,7 +183,14 @@ function elsa_pa:init()
    self.lsa_changes = 1
 
    self.check_skvp = true
+
+   -- when did we consider originate/publish last
    self.last_publish = 0
+
+   -- when did we last actually originate AC LSA
+   self.last_originate = 0
+   -- and what did it contain?
+   self.last_body = ''
 
    -- create the actual abstract prefix algorithm object we wrap
    self.pa = pa.pa:new{rid=self.rid, client=self, lap_class=elsa_lap,
@@ -204,7 +218,7 @@ function elsa_pa:kv_changed(k, v)
    self.check_skvp = true
 end
 
-function elsa_pa:lsa_changed(lsa, delete)
+function elsa_pa:lsa_changed(lsa)
    local lsatype = lsa.type
    if lsa.rid == self.rid
    then
@@ -220,11 +234,16 @@ function elsa_pa:lsa_changed(lsa, delete)
    end
 end
 
+function elsa_pa:lsa_deleting(lsa)
+   -- for the time being, we don't note a difference between the two
+   self:lsa_changed(lsa)
+end
+
 function elsa_pa:ospf_changed()
    -- emulate to get the old behavior.. shouldn't be called!
    self:d('deprecated ospf_changed called')
-   self:lsa_changed{type=AC_TYPE}
-   self:lsa_changed{type=AC_TYPE-1}
+   self.ac_changes = self.ac_changes + 1
+   self.lsa_changes = self.lsa_changes + 1
 end
 
 function elsa_pa:repr_data()
@@ -336,7 +355,7 @@ function elsa_pa:should_publish(d)
    if d.r then return true end
 
    -- if the publish state representation has changed, we should
-   if d.s_repr ~= self.s_repr then return true end
+   if d.s_repr and d.s_repr ~= self.s_repr then return true end
    
    -- if ac or lsa changed, we should
    if d.ac_changes > 0 then return true end
@@ -412,6 +431,29 @@ function elsa_pa:run_handle_new_lsa()
    -- originate LSA (or try to, there's duplicate prevention, or should be)
    local body = self:generate_ac_lsa()
    mst.a(body and #body, 'empty generated LSA?!?')
+   local now = self.time()
+   local delta = now - self.last_originate
+
+   -- don't spam, but ensure we publish as soon as interval is done
+   -- by setting the last_publish to 0
+   if delta < self.originate_min_interval
+   then
+      self.last_publish = 0
+      return
+   end
+
+   -- send duplicate if and only if we haven't sent anything in a long
+   -- while
+   if body == self.last_body
+   then
+      if delta < ORIGINATE_MAX_INTERVAL
+      then
+         return
+      end
+   end
+
+   self.last_originate = now
+   self.last_body = body
 
    self.elsa:originate_lsa{type=AC_TYPE, 
                            rid=self.rid,
@@ -672,7 +714,7 @@ function elsa_pa:iterate_skv_if_real(ifname, skvprefix, metric, f)
       self:a(type(o2) == 'string')
       nh = o2
    end
-   if not valid or valid >= os.time()
+   if not valid or valid >= self.time()
    then
       f{prefix=prefix, ifname=ifname, nh=nh, metric=metric}
    end
