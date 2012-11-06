@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Sat Nov  3 20:56:38 2012 mstenber
--- Edit time:     186 min
+-- Last modified: Tue Nov  6 08:15:22 2012 mstenber
+-- Edit time:     187 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -359,7 +359,9 @@ function decode_ac_tlvs(s)
             break
          end
       end
-      mst.a(found, 'unable to decode', cur)
+      -- intentionally using normal assert - elegant way
+      -- to break out, and doesn't spam prints like mst.a
+      assert(found, 'unable to decode', cur)
    end
    return t, cur.pos
 end

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Nov  6 08:05:21 2012 mstenber
--- Edit time:     239 min
+-- Last modified: Tue Nov  6 08:12:23 2012 mstenber
+-- Edit time:     241 min
 --
 
 require 'mst'
@@ -24,6 +24,9 @@ local _delsa = require 'delsa'
 delsa = _delsa.delsa
 
 local usp_dead_tlv = codec.usp_ac_tlv:encode{prefix='dead::/16'}
+local jari_tlv_type = codec.ac_tlv:new_subclass{tlv_type=123}
+local broken_jari_tlv = jari_tlv_type:new{}:encode{body=''}
+
 local rhf_low_tlv = codec.rhf_ac_tlv:encode{body=string.rep("a", 32)}
 local rhf_high_tlv = codec.rhf_ac_tlv:encode{body=string.rep("z", 32)}
 local valid_end='::/64'
@@ -129,7 +132,7 @@ describe("elsa_pa [one node]", function ()
 
 
                   -- then, we add the usp (from someone else than us)
-                  e.lsas = {r1=usp_dead_tlv}
+                  e.lsas = {r1=usp_dead_tlv, jari=broken_jari_tlv}
                   ep:ospf_changed()
 
                   ep:run()

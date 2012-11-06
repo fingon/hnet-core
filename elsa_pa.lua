@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Nov  6 08:06:21 2012 mstenber
--- Edit time:     474 min
+-- Last modified: Tue Nov  6 08:17:17 2012 mstenber
+-- Edit time:     480 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -120,10 +120,10 @@ local json_sources={[JSON_DNS_KEY]={prefix=PD_SKVPREFIX,
                                          key=DNS_KEY, 
                                          ospf=OSPF_IPV4_DNS_KEY},
                     [JSON_IPV4_DNS_SEARCH_KEY]={prefix=DHCPV4_SKVPREFIX,
-                                           key=DNS_SEARCH_KEY, 
-                                           ospf=OSPF_IPV4_DNS_SEARCH_KEY},
+                                                key=DNS_SEARCH_KEY, 
+                                                ospf=OSPF_IPV4_DNS_SEARCH_KEY},
 }
-                    
+
 
 function elsa_lap:start_depracate_timeout()
    local loop = ssloop.loop()
@@ -257,21 +257,19 @@ function elsa_pa:check_conflict(bonus_lsa)
    local tlvs = 0
    function consider_lsa(lsa)
       lsas = lsas + 1
-      if lsa.rid == self.rid
-      then
-         local found = nil
-         for i, tlv in ipairs(codec.decode_ac_tlvs(lsa.body))
-         do
-            tlvs = tlvs + 1
-            if tlv.type == codec.AC_TLV_RHF
-            then
-               found = tlv.body
-            end
-         end
-         if found and found ~= my_hwf
+      if lsa.rid ~= self.rid then return end
+      local found = nil
+      for i, tlv in ipairs(codec.decode_ac_tlvs(lsa.body))
+      do
+         tlvs = tlvs + 1
+         if tlv.type == codec.AC_TLV_RHF
          then
-            other_hwf = found
+            found = tlv.body
          end
+      end
+      if found and found ~= my_hwf
+      then
+         other_hwf = found
       end
    end
 
@@ -512,13 +510,27 @@ function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
       then
          return
       end
-      for i, tlv in ipairs(codec.decode_ac_tlvs(lsa.body))
-      do
-         if not criteria or mst.table_contains(tlv, criteria)
-         then
-            f(tlv, lsa)
-         end
-      end
+      xpcall(function ()
+                for i, tlv in ipairs(codec.decode_ac_tlvs(lsa.body))
+                do
+                   if not criteria or mst.table_contains(tlv, criteria)
+                   then
+                      f(tlv, lsa)
+                   end
+                end
+             end,
+             function (...)
+                if mst.enable_debug
+                then
+                   print(debug.traceback())
+                   mst.debug_print('!!! lsa body handling failed', ...)
+                end
+                if not _TEST
+                then
+                   mst.debug_print('invalid lsa in hex', lsa.rid, lsa.type, mst.string_to_hex(lsa.body))
+
+                end
+             end)
    end
    self:iterate_ac_lsa(inner_f)
 end
