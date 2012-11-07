@@ -2,7 +2,26 @@
 
 * Bugs to fix
 
-** should offer very, very short leases until we have DNS parameters?
+** BIRD - OSPFv3
+
+lsalib.c: 86 => what happens of time moves backwards?
+
+** findings
+
+- windows failed horribly
+- Lorenzo's Linux had same features - why?
+
+** fun hack
+
+- instead of calculating the nh all the time
+
+ - make route to the BR ip => can be ~static! (win-win, kernel does the
+   ugly bits)
+
+** interesting point
+
+- default src+default dst = used for address selection
+=> we don't have global connectivity on homenet without!
 
 ** pd nh disappears at times at renew?
 
@@ -42,7 +61,6 @@ ospf-dns-search={}
 ospf-usp={}
 ospf-lap={{address="10.24.33.23/32", ifname="eth0.4", prefix="10.24.33.0/24"}, {ifname="eth0.4", prefix="fc60:574d:6f60:3468::/64"}}
 root@inner:~# 
-
 
 ** rhf bit flaky
 
@@ -114,6 +132,11 @@ https://developers.google.com/speed/public-dns/docs/using
 - think more corner cases to test
  - _large_ topologies should still converge
  
+- try to see if we can do again the DHCPv4 bug
+ - some sort of mutating topology testcase? which runs long time?
+   .. make sure every now and then that the design assertions hold,
+   e.g. one IP address per interface per device, one prefix per link per USP
+
 * Things to do if I have time (hah)
 
 ** Design own routing protocol? :---p
@@ -263,13 +286,113 @@ does anyone care :p
 .. to do: write testcase which has 6rd+native with same assigned prefix,
 and make sure result is sane
 
-* Done (29.10.+)
+* Done (5.11.+)
+
+** bugs
+
+*** dhcpd
+
+- for some reason #4 box dropped dhcpv4 support
+
+ - configs look ok-ish
+
+ - but no response to e.g. DHCPv4
+
+ .. hmm.
+
+eth0.2, eth0.3 same IPv4 subnet
+
+ospf-lap={
+{address="10.105.164.9/32", ifname="eth0.2", owner=true,
+prefix="10.105.164.0/24"}, 
+{ifname="eth0.2", owner=true, prefix="2001:470:e178:bd95::/64"}, 
+{ifname="eth0.2", owner=true, prefix="2001:470:dd33:b0f9::/64"}, 
+{ifname="eth0.2", owner=true, prefix="fcf7:7f30:29b2:6215::/64"}, 
+{ifname="eth0.2", prefix="2001:470:e178:bdb1::/64"}, 
+{address="10.174.208.51/32", ifname="eth0.2", prefix="10.174.208.0/24"}, 
+{ifname="eth0.2", prefix="2001:470:dd33:b074::/64"}, 
+{ifname="eth0.2", prefix="fcf7:7f30:29b2:7739::/64"}, 
+{address="10.43.92.52/32", ifname="eth0.3", owner=true,
+prefix="10.43.92.0/24"}, 
+{ifname="eth0.3", owner=true, prefix="2001:470:e178:bd38::/64"}, 
+{ifname="eth0.3", owner=true, prefix="2001:470:dd33:b07b::/64"}, 
+{ifname="eth0.3", owner=true, prefix="fcf7:7f30:29b2:dda8::/64"}, 
+{ifname="eth0.3", prefix="2001:470:e178:bdb1::/64"}, 
+{address="10.174.208.49/32", ifname="eth0.3", prefix="10.174.208.0/24"}, 
+{ifname="eth0.3", prefix="2001:470:dd33:b074::/64"}, 
+{ifname="eth0.3", prefix="fcf7:7f30:29b2:7739::/64"}, 
+{address="10.215.93.16/32", ifname="eth0.4", owner=true,
+prefix="10.215.93.0/24"}, 
+{ifname="eth0.4", owner=true, prefix="2001:470:e178:bd0a::/64"}, 
+{ifname="eth0.4", owner=true, prefix="2001:470:dd33:b022::/64"}, 
+{ifname="eth0.4", owner=true, prefix="fcf7:7f30:29b2:714a::/64"}, 
+{address="10.135.129.54/32", ifname="eth1", prefix="10.135.129.0/24"}, 
+{ifname="eth1", prefix="2001:470:e178:bdb2::/64"}, 
+{ifname="eth1", prefix="2001:470:dd33:b03c::/64"}, 
+{ifname="eth1", prefix="fcf7:7f30:29b2:5a2f::/64"}, 
+{address="10.18.247.16/32", ifname="eth0.1", owner=true,
+prefix="10.18.247.0/24"}, 
+{ifname="eth0.1", owner=true, prefix="2001:470:e178:bd71::/64"}, 
+{ifname="eth0.1", owner=true, prefix="2001:470:dd33:b089::/64"}, 
+{ifname="eth0.1", owner=true, prefix="fcf7:7f30:29b2:de06::/64"}}
+
+8: eth0.2@eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP 
+    inet 10.174.208.51/24 brd 10.174.208.255 scope global eth0.2
+9: eth0.3@eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP 
+    inet 10.174.208.49/24 brd 10.174.208.255 scope global eth0.3
+
+! WTH are _two_ address'es doing out there?
+! one owner, one not owner
+ - one relic from past but not cleaned up correctly?
+
+.. let's compare it to what we have on another router
+
+ospf-lap={
+{address="10.174.208.52/32", ifname="eth0.2", prefix="10.174.208.0/24"}, 
+{ifname="eth0.2", prefix="2001:470:dd33:b074::/64"}, 
+{ifname="eth0.2", prefix="fcf7:7f30:29b2:7739::/64"}, 
+{ifname="eth0.2", prefix="2001:470:e178:bdb1::/64"}, 
+{address="10.132.137.43/32", ifname="eth0.2", owner=true,
+prefix="10.132.137.0/24"}, 
+{ifname="eth0.2", owner=true, prefix="2001:470:dd33:b09e::/64"}, 
+{ifname="eth0.2", owner=true, prefix="fcf7:7f30:29b2:35d4::/64"}, 
+{ifname="eth0.2", owner=true, prefix="2001:470:e178:bd27::/64"}, 
+{address="10.3.175.60/32", ifname="eth0.3", owner=true,
+prefix="10.3.175.0/24"}, 
+{ifname="eth0.3", owner=true, prefix="2001:470:dd33:b036::/64"}, 
+{ifname="eth0.3", owner=true, prefix="fcf7:7f30:29b2:a511::/64"}, 
+{ifname="eth0.3", owner=true, prefix="2001:470:e178:bdc8::/64"}, 
+{address="10.100.200.50/32", ifname="eth0.4", owner=true,
+prefix="10.100.200.0/24"}, 
+{ifname="eth0.4", owner=true, prefix="2001:470:dd33:b04c::/64"}, 
+{ifname="eth0.4", owner=true, prefix="fcf7:7f30:29b2:ce3d::/64"}, 
+{ifname="eth0.4", owner=true, prefix="2001:470:e178:bddd::/64"}, 
+{address="10.18.247.12/32", ifname="eth1", prefix="10.18.247.0/24"}, 
+{ifname="eth1", prefix="2001:470:dd33:b089::/64"}, 
+{ifname="eth1", prefix="fcf7:7f30:29b2:de06::/64"}, 
+{ifname="eth1", prefix="2001:470:e178:bd71::/64"}, 
+{address="10.215.93.3/32", ifname="eth0.1", prefix="10.215.93.0/24"}, 
+{ifname="eth0.1", prefix="2001:470:dd33:b022::/64"}, 
+{ifname="eth0.1", prefix="fcf7:7f30:29b2:714a::/64"}, 
+{ifname="eth0.1", prefix="2001:470:e178:bd0a::/64"}
+}
+
+! router 5 seems to have also bonus one
+
+=> fixed ssloop timeout handling to be bit better (hopefully), and also
+added assertion that we never punt this on to pm.lua again (things will
+just blow up on elsa_pa skv export, if we find here again)
+
+
+** should offer very, very short leases until we have DNS parameters?
 
 ** route to router (nh calc) still bugging
 
 + solution: just set up always subnet also on the ISP-facing side, and
 route towards that using standard BIRD Nest API.. works, but not insanely
 elegant.
+
+* Done (29.10.+)
 
 ** Package lua-md5 for openwrt
 
