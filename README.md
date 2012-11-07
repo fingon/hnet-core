@@ -1,6 +1,6 @@
     Author:        Markus Stenberg <markus.stenberg@iki.fi>, cisco Systems, Inc.
     Created:       Tue Nov  6 16:10:45 2012 mstenber
-    Last modified: Wed Nov  7 07:09:42 2012 mstenber
+    Last modified: Wed Nov  7 10:20:17 2012 mstenber
     Edit time:     40 min
 
 hnet (core) package
@@ -134,6 +134,8 @@ system should work.
   and open source packages to use at the start of this effort, and insights
   on state of Linux.
 
+* Jari Arkko <jari.arkko@piuha.net> - bugfixing help with the
+  implementation.
 
 [D1]: http://tools.ietf.org/html/draft-arkko-homenet-prefix-assignment
 [D2]: http://tools.ietf.org/html/draft-ietf-ospf-ospfv3-autoconfig-00

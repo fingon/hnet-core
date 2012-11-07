@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 18:34:49 2012 mstenber
--- Last modified: Sat Nov  3 14:27:23 2012 mstenber
--- Edit time:     20 min
+-- Last modified: Wed Nov  7 10:10:11 2012 mstenber
+-- Edit time:     22 min
 --
 
 require "busted"
@@ -77,3 +77,14 @@ describe("test the ac endecode",
                   assert.are.same(#l, #l2)
                                           end)
          end)
+
+describe("make sure stuff is in network order", function ()
+            it("works", function ()
+                  local r = codec.json_ac_tlv:encode{table={'foo'}}
+                  local _null = string.char(0)
+                  local c = string.sub(r, 1, 1)
+                  local b = string.byte(c)
+                  mst.a(c == _null, 'wierd first character', b)
+                  mst.a(string.sub(r, 3, 3) == _null)
+                   end)
+end)

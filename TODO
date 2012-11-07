@@ -2,6 +2,10 @@
 
 * Bugs to fix
 
+** Try not to allocate stuff on if's that are bridged
+
+(two ports, same bridged network => need only one address/...?)
+
 ** BIRD - OSPFv3
 
 lsalib.c: 86 => what happens of time moves backwards?
