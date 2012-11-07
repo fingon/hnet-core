@@ -74,6 +74,43 @@ root@inner:~#
 
 * Things to do
 
+** Recursive routing
+
+use ULA's for border nodes in the routing table on non-border nodes
+
+=> less need to refresh the information
+
+.. if not available, fall back to non-ULA lookup
+
+.. each router can announce it's ULA in the infamous JSONBLOB
+:--p
+
+** Real RA support
+
+options:
+
+a) use kernel
+
+ accept_ra 2 [ do RA accepting even when router ]
+ accept_ra_defrtr 1
+ accept_ra_pinfo 0 [ we don't really want normal address ]
+
+and then..
+
+- can get it from there either as part of in-Bird stuff
+
+OR
+
+- using e.g. ip -6 route checking for default routes
+
+ - bit less effective, but much more robust?
+
+b) do it in userland
+
+- listening to RA is easy
+
+- NUD painful
+
 ** On-link detection
 
 (or smart bridging? could bridge if no routers detected on link..)

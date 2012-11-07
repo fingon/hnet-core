@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct 29 16:05:22 2012 mstenber
--- Last modified: Mon Oct 29 16:55:07 2012 mstenber
--- Edit time:     8 min
+-- Last modified: Wed Nov  7 18:27:06 2012 mstenber
+-- Edit time:     12 min
 --
 
 require "busted"
@@ -49,3 +49,25 @@ describe("if_table", function ()
                   ds:check_used()
                                  end)
              end)
+
+route_test = [[
+default via fe80::21c:42ff:fe00:18 dev eth2  proto static  metric 1 
+default via fe80::21c:42ff:fe00:18 dev eth2  proto static  metric 1  dead
+default via fe80::21c:42ff:fe00:18 dev eth2  proto kernel  metric 1024  expires 687sec
+ ]]
+
+describe("parse_route", function ()
+            it("parse_route test", function ()
+                  routes = linux_if.parse_routes(route_test)
+                  mst.a(#routes == 3, routes)
+                  mst.a(routes[2].dead)
+                  mst.a(not routes[1].dead)
+                  mst.a(routes[1].dst == 'default')
+                  mst.a(routes[1].via == 'fe80::21c:42ff:fe00:18')
+                  mst.a(routes[1].dev == 'eth2')
+                  mst.a(routes[1].metric == 1, 'no metric/wrong metric')
+                  mst.a(routes[3].metric == 1024)
+                  mst.a(not routes[1].expires)
+                  mst.a(routes[3].expires)
+                   end)
+end)

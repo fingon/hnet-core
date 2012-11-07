@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  8 13:11:02 2012 mstenber
--- Last modified: Sun Nov  4 00:41:56 2012 mstenber
--- Edit time:     107 min
+-- Last modified: Wed Nov  7 18:27:33 2012 mstenber
+-- Edit time:     113 min
 --
 
 
@@ -167,6 +167,48 @@ function if_table:read_ip_ipv4()
    -- remove non-valid interrface objects
    self.vs:remove_all_invalid()
    return self.map
+end
+
+-- route parsing
+function parse_routes(text)
+   local r = mst.array:new()
+   for i, line in ipairs(mst.string_split(text, '\n'))
+   do
+      line = mst.string_strip(line)
+      if #line > 0
+      then
+         -- destination is the first thing
+         local t = {}
+         t.dst = mst.string_split(line, ' ')[1]
+         for k, v in pairs{via=1, dev=1, metric=2, expires=1, dead=0}
+         do
+            if v == 1
+            then
+               local r = {string.find(line, '%s' .. k .. ' (%S+)')}
+               if r and #r > 2
+               then
+                  t[k] = r[3]
+               end
+            elseif v == 2
+            then
+               local r = {string.find(line, '%s' .. k .. ' (%S+)')}
+               if r and #r > 2
+               then
+                  t[k] = tonumber(r[3])
+               end
+            else
+               mst.a(v == 0)
+               local r = {string.find(line, '%s' .. k)}
+               if r and #r == 2
+               then
+                  t[k] = true
+               end
+            end
+         end
+         r:insert(t)
+      end
+   end
+   return r
 end
 
 
