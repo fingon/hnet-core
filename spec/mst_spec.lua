@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Sat Nov  3 18:41:17 2012 mstenber
--- Edit time:     99 min
+-- Last modified: Wed Nov  7 19:07:56 2012 mstenber
+-- Edit time:     101 min
 --
 
 require "busted"
@@ -375,4 +375,38 @@ describe("string misc", function ()
                   mst.a(mst.string_startswith('foobar', 'foo'))
                   mst.a(not mst.string_startswith('oobar', 'foo'))
                              end)
+end)
+
+describe("validity_sync", function ()
+            it("it works with map", function ()
+                  local m = mst.map:new{}
+                  local o1 = {}
+                  local o2 = {}
+                  local o3 = {}
+                  m.foo = o1
+                  m.bar = o2
+                  m.baz = o3
+                  local vs = mst.validity_sync:new{t=m, single=true}
+                  vs:clear_all_valid()
+                  vs:set_valid(o1)
+                  vs:set_valid(o2)
+                  vs:remove_all_invalid()
+                  mst.a(m:count() == 2)
+                   end)
+            it("it works with array", function ()
+                  local a = mst.array:new{}
+                  local o1 = {}
+                  local o2 = {}
+                  local o3 = {}
+                  a:insert(o1)
+                  a:insert(o2)
+                  a:insert(o3)
+                  local vs = mst.validity_sync:new{t=a, single=true}
+                  vs:clear_all_valid()
+                  vs:set_valid(o1)
+                  vs:set_valid(o2)
+                  vs:remove_all_invalid()
+                  mst.a(#a == 2)
+                   end)
+            -- XXX - add test for non-single key validity stuff
 end)

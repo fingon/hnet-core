@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Nov  5 05:38:49 2012 mstenber
--- Edit time:     525 min
+-- Last modified: Wed Nov  7 19:07:26 2012 mstenber
+-- Edit time:     530 min
 --
 
 -- data structure abstractions provided:
@@ -857,6 +857,10 @@ function map:foreach(f)
    do
       f(k, v)
    end
+end
+
+function map:remove(k, v)
+   self[k] = nil
 end
 
 --- set
