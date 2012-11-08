@@ -1,0 +1,7 @@
+*~
+luacov.stats.out
+luacov.report.out
+*.orig
+*.log
+*_sm.pdf
+*_sm.dot
