@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Tue Nov  6 10:14:21 2012 mstenber
--- Edit time:     454 min
+-- Last modified: Wed Nov  7 19:22:51 2012 mstenber
+-- Edit time:     482 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -61,7 +61,17 @@ function pm:init()
    self.f = function (k, v) self:kv_changed(k, v) end
    self.skv:add_change_observer(self.f)
    self.if_table = linux_if.if_table:new{shell=self.shell} 
-   self.rule_table = linux_if.rule_table:new{shell=self.shell}
+   local rt = linux_if.rule_table:new{shell=self.shell}
+   self.rule_table = rt
+   local vs = mst.validity_sync:new{t=self.rule_table, single=true}
+   self.vsrt = vs
+   function vs:remove(rule)
+      if rule.pref >= RULE_PREF_MIN and rule.pref <= RULE_PREF_MAX
+      then
+        rule:del(rt.shell)
+      end
+      rt:remove(rule)
+   end
    self.applied_usp = {}
    self.dhclient_ifnames = mst.set:new{}
 
@@ -374,38 +384,6 @@ function pm:check_addresses()
    return 1
 end
 
-function pm:invalidate_rules()
-   self:d('invalidating rules')
-   self:a(self.rule_table)
-   self:a(self.rule_table.foreach)
-   self.rule_table:foreach(function (rule) rule.valid = nil end)
-end
-
-function pm:get_rules()
-   return self.rule_table:filter(function (rule)
-                                    self:a(type(rule.pref) == 'number')
-                                    return rule.pref >= RULE_PREF_MIN and rule.pref <= RULE_PREF_MAX
-                                 end)
-end
-
--- XXX - convert to use validity_sync
-function pm:delete_invalid_rules()
-   local my_rules = self:get_rules()
-   self:d('considering rules', #my_rules)
-   for i, rule in ipairs(my_rules)
-   do
-      if not rule.valid
-      then
-         self:d('not valid', rule)
-         rule:del(self.shell)
-         -- remove it from rule table too (happy assumption about no failures)
-         self.rule_table:remove(rule)
-      else
-         self:d('keeping valid rule', rule)
-      end
-   end
-end
-
 function pm:get_ipv6_usp()
    if not self.ipv6_ospf_usp
    then
@@ -442,7 +420,7 @@ function pm:check_rules()
    self.rule_table:parse()
 
    -- mark all rules non-valid 
-   self:invalidate_rules()
+   self.vsrt:clear_all_valid()
 
    -- different cases for each USP prefix
    local validc = 0
@@ -471,11 +449,9 @@ function pm:check_rules()
             if self.applied_usp[usp.prefix] == uspi
             then
                -- in rule table, not changed => nop
-               o.valid = true
+               self.vsrt:set_valid(o)
             else
                -- in rule table, changed => del + add
-               -- prefix, nh, ifname, .. if any of those changes, it's bad news
-               -- and we better remove + add back
                o = nil
             end
          end
@@ -498,15 +474,14 @@ function pm:check_rules()
       local o = self.rule_table:find(template)
       if o
       then
-         o.valid = true
+         self.vsrt:set_valid(o)
       else
          pending2:insert(template)
       end
    end
 
    -- in rule table, not in OSPF => del
-   self:delete_invalid_rules()
-
+   self.vsrt:remove_all_invalid()
 
    for i, v in ipairs(pending1)
    do
