@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:54:56 2012 mstenber
--- Last modified: Thu Nov  8 07:42:26 2012 mstenber
--- Edit time:     4 min
+-- Last modified: Thu Nov  8 07:56:53 2012 mstenber
+-- Edit time:     5 min
 --
 
 require 'pm_handler'
@@ -22,7 +22,7 @@ DHCPD_SCRIPT='/usr/share/hnet/dhcpd_handler.sh'
 DHCPD_PID='pm-pid-dhcpd'
 DHCPD6_PID='pm-pid-dhcpd6'
 
-pm_dhcpd = pm_handler.pm_handler:new_subclass()
+pm_dhcpd = pm_handler.pm_handler:new_subclass{class='pm_dhcpd'}
 
 function pm_dhcpd:run()
    local fpath = self.pm.dhcpd_conf_filename

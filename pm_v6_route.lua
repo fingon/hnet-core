@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:48:34 2012 mstenber
--- Last modified: Thu Nov  8 07:35:32 2012 mstenber
--- Edit time:     5 min
+-- Last modified: Thu Nov  8 07:57:33 2012 mstenber
+-- Edit time:     6 min
 --
 
 -- pm_v6_route is responsible for syncing the real state to ospf_lap/usp 
@@ -21,7 +21,7 @@ module(..., package.seeall)
 
 local ipv4_end='/24' -- as it's really v4 looking string
 
-pm_v6_route = pm_handler.pm_handler:new_subclass()
+pm_v6_route = pm_handler.pm_handler:new_subclass{class='pm_v6_route'}
 
 function pm_v6_route:ready()
    return self.pm.ospf_lap and self.pm.ospf_usp

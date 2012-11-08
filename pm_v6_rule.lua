@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:12:11 2012 mstenber
--- Last modified: Thu Nov  8 07:41:26 2012 mstenber
+-- Last modified: Thu Nov  8 07:57:41 2012 mstenber
 -- Edit time:     2 min
 --
 
@@ -21,7 +21,7 @@ RULE_PREF_MIN=1000
 RULE_PREF_MAX=RULE_PREF_MIN + 128 
 MAIN_TABLE='main'
 
-pm_v6_rule = pm_handler.pm_handler:new_subclass()
+pm_v6_rule = pm_handler.pm_handler:new_subclass{class='pm_v6_rule'}
 
 function pm_v6_rule:init()
    pm_handler.pm_handler.init(self)

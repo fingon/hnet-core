@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:14:12 2012 mstenber
--- Last modified: Thu Nov  8 07:39:23 2012 mstenber
+-- Last modified: Thu Nov  8 07:57:13 2012 mstenber
 -- Edit time:     2 min
 --
 
@@ -16,7 +16,7 @@ require 'pm_handler'
 
 module(..., package.seeall)
 
-pm_v4_addr = pm_handler.pm_handler:new_subclass()
+pm_v4_addr = pm_handler.pm_handler:new_subclass{class='pm_v4_addr'}
 
 function pm_v4_addr:ready()
    return self.pm.ospf_lap

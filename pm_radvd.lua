@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:51:43 2012 mstenber
--- Last modified: Thu Nov  8 07:39:13 2012 mstenber
+-- Last modified: Thu Nov  8 07:57:05 2012 mstenber
 -- Edit time:     3 min
 --
 
@@ -16,7 +16,7 @@ require 'pm_handler'
 
 module(..., package.seeall)
 
-pm_radvd = pm_handler.pm_handler:new_subclass()
+pm_radvd = pm_handler.pm_handler:new_subclass{class='pm_radvd'}
 
 function pm_radvd:ready()
    return true

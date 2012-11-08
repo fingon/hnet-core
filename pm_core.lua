@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Thu Nov  8 07:42:19 2012 mstenber
--- Edit time:     508 min
+-- Last modified: Thu Nov  8 07:50:44 2012 mstenber
+-- Edit time:     512 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -29,13 +29,6 @@ require 'elsa_pa'
 require 'linux_if'
 require 'os'
 require 'pa'
-require 'pm_dhcpd'
-require 'pm_bird4'
-require 'pm_radvd'
-require 'pm_v4_addr'
-require 'pm_v4_dhclient'
-require 'pm_v6_route'
-require 'pm_v6_rule'
 
 
 module(..., package.seeall)
@@ -83,6 +76,7 @@ local _handlers = {'v6_route',
 }
 
 function pm:init()
+   self.changes = 0
    self.f = function (k, v) self:kv_changed(k, v) end
    self.h = {}
    self.if_table = linux_if.if_table:new{shell=self.shell} 
@@ -90,7 +84,12 @@ function pm:init()
    do
       local v2 = 'pm_' .. v
       local m = require(v2)
-      self.h[v] = m[v2]:new{pm=self}
+      local o = m[v2]:new{pm=self}
+      self.h[v] = o
+      -- make sure it updates self.changes if it changes
+      o:connect(o.changed, function ()
+                   self.changes = self.changes + 1
+                           end)
    end
    self:connect_changed('v6_route', 'radvd')
 
@@ -133,9 +132,13 @@ function pm:kv_changed(k, v)
          self.all_ipv6_binary_prefixes[bp] = p
       end
 
+      -- may be relevant to whether we want dhclient on the
+      -- interface or not (border change?)
+      self:queue('v4_dhclient')
+
+      -- obviously v6 routes/rules also change
       self:queue('v6_route')
       self:queue('v6_rule')
-      self:queue('v4_dhclient')
    elseif k == elsa_pa.OSPF_RID_KEY
    then
       --mst.a(v, 'empty rid not valid')
@@ -185,13 +188,6 @@ end
 
 function pm:run()
    self.changes = 0
-   local actions = 0
-   function got(v)
-      if v
-      then
-         actions = actions + v
-      end
-   end
    -- fixed order, sigh :)
    -- XXX - replace this with something better
    -- (requires refactoring of unit tests too)
