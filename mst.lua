@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Nov  7 19:07:26 2012 mstenber
--- Edit time:     530 min
+-- Last modified: Wed Nov  7 19:09:44 2012 mstenber
+-- Edit time:     531 min
 --
 
 -- data structure abstractions provided:
@@ -1390,6 +1390,7 @@ end
 
 function validity_sync:remove_all_invalid()
    t = {}
+   local ok = 0
    if self.single
    then
       self.t:foreach(function (k, v)
@@ -1397,6 +1398,8 @@ function validity_sync:remove_all_invalid()
                         if o.invalid
                         then
                            table.insert(t, {k, v})
+                        else
+                           ok = ok + 1
                         end
                     end)
 
@@ -1406,9 +1409,12 @@ function validity_sync:remove_all_invalid()
                         if not o.valid
                         then
                            table.insert(t, {k, v})
+                        else
+                           ok = ok + 1
                         end
                     end)
    end
+   self:d('remove_all_invalid - ok/zapping', ok, #t)
    for i, v in ipairs(t)
    do
       local k, v = unpack(v)
