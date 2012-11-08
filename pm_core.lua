@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Thu Nov  8 08:08:08 2012 mstenber
--- Edit time:     517 min
+-- Last modified: Thu Nov  8 08:23:54 2012 mstenber
+-- Edit time:     520 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -62,7 +62,10 @@ function pm:queue(name)
    then
       return
    end
-   o:queue()
+   if o:queue()
+   then
+      self:d('queued', o)
+   end
 end
 
 
@@ -73,6 +76,7 @@ local _handlers = {'v6_route',
                    'v4_addr',
                    'radvd',
                    'dhcpd',
+                   'v6_nh',
 }
 
 function pm:init()
@@ -192,7 +196,6 @@ function pm:schedule_run()
 end
 
 function pm:run()
-   self.changes = 0
    -- fixed order, sigh :)
    -- XXX - replace this with something better
    -- (requires refactoring of unit tests too)
@@ -204,15 +207,23 @@ function pm:run()
    end
 
    self:d('run result', self.changes)
-   return self.changes > 0 and self.changes
+   local r = self.changes > 0 and self.changes
+   self.changes = 0
+   return r
 end
 
 -- this should be called every now and then
 function pm:tick()
+   self:d('tick')
    for i, v in ipairs(_handlers)
    do
       local o = self.h[v]
       o:tick()
+   end
+   -- if there's pending changes, call run too
+   if self.changes > 0
+   then
+      self:run()
    end
 end
 

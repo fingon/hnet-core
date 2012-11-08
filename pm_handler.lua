@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov  7 19:33:20 2012 mstenber
--- Last modified: Thu Nov  8 08:02:08 2012 mstenber
+-- Last modified: Thu Nov  8 08:45:43 2012 mstenber
 -- Edit time:     5 min
 --
 
@@ -31,7 +31,9 @@ function pm_handler:init()
 end
 
 function pm_handler:queue()
+   local old = self.queued
    self.queued = true
+   return not old
 end
 
 function pm_handler:ready()
@@ -42,17 +44,18 @@ function pm_handler:tick()
 end
 
 function pm_handler:maybe_run()
+   if not self.queued
+   then
+      --self:d(' not queued')
+      return
+   end
+
    -- if not ready, not going to do a thing
    self:d('maybe_run')
 
    if not self:ready()
    then
       self:d(' not ready')
-      return
-   end
-   if not self.queued
-   then
-      self:d(' not queued')
       return
    end
    self.queued = nil

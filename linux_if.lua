@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  8 13:11:02 2012 mstenber
--- Last modified: Wed Nov  7 18:27:33 2012 mstenber
--- Edit time:     113 min
+-- Last modified: Thu Nov  8 08:19:31 2012 mstenber
+-- Edit time:     117 min
 --
 
 
@@ -209,6 +209,11 @@ function parse_routes(text)
       end
    end
    return r
+end
+
+function get_ip6_routes(sh, table)
+   table = table and (' table ' .. table) or ''
+   return parse_routes(sh('ip -6 route' .. table))
 end
 
 

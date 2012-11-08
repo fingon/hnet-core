@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Thu Nov  8 08:09:56 2012 mstenber
--- Edit time:     142 min
+-- Last modified: Thu Nov  8 09:11:22 2012 mstenber
+-- Edit time:     163 min
 --
 
 -- testsuite for the pm_core
@@ -115,13 +115,9 @@ local rule_base = {
                              1112:	from dead::/16 lookup 1000 
                           16383:	from all lookup main 
                        ]]},
-   -- delete old rule, even if it matches (almost - not same nh info)
-   {'ip -6 rule del from dead::/16 table 1000 pref 1112', ''},
    -- add the rule back + relevant route
-   {'ip -6 rule add from dead::/16 table 1000 pref 1112', ''},
    {'ip -6 route flush table 1000', ''},
    {'ip -6 route add default via fe80:1234:2345:3456:4567:5678:6789:789a dev eth0 table 1000', ''},
-   
    -- add the local routing rule
    {'ip -6 rule add from all to dead::/16 table main pref 1000', ''},
 }
@@ -136,6 +132,26 @@ local rule_no_nh = {
    -- delete old rule, even if it matches (almost - not same nh info)
    {'ip -6 rule del from dead::/16 table 1000 pref 1112', ''},
 }
+
+nh_juggling = {{'ip -6 route', [[
+default via 1.2.3.4 dev eth0
+                                                        ]]},
+               {'ip -6 rule', [[
+0:	from all lookup local 
+0:	from all to beef::/16 lookup local 
+1000:	from all to dead::/16 lookup main
+1112:	from dead::/16 lookup 1000 
+16383:	from all lookup main 
+]]},
+               {'ip -6 route flush table 1000'},
+               {'ip -6 route add default via 1.2.3.4 dev eth0 table 1000'},
+               {'ip -6 route', [[
+default via 1.2.3.4 dev eth0
+                                                        ]]}
+
+}
+                                        
+
 
 cleanup = {
    {"ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary",
@@ -251,7 +267,14 @@ describe("pm", function ()
                   mst.array_extend(d, lap_end)
                   mst.array_extend(d, {{'ifconfig eth2 10.171.21.41 netmask 255.255.255.0', ''}})
                   mst.array_extend(d, v46_dhcpd)
+
+                  -- tick
+                  -- => find that NH has changed
+                  -- => should rewrite that
+                  mst.array_extend(d, nh_juggling)
+
                   -- second run
+
                   mst.array_extend(d, cleanup)
                   mst.array_extend(d, lap_end)
                   mst.array_extend(d, no_dhcpd)
@@ -271,7 +294,11 @@ describe("pm", function ()
                   mst.a(not pm:run())
 
                   -- make sure tick is harmless too
+                  -- (it should result in next hop being checked)
+                  mst.a(not pm.nh['eth0'])
                   pm:tick()
+                  pm:tick()
+                  mst.a(pm.nh['eth0'])
 
                   local d = mst.read_filename_to_string(TEMP_RADVD_CONF)
                   mst.a(not string.find(d, '10.'), 'IPv4 address?!?')
