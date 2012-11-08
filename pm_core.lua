@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Thu Nov  8 08:23:54 2012 mstenber
--- Edit time:     520 min
+-- Last modified: Thu Nov  8 09:33:42 2012 mstenber
+-- Edit time:     521 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -70,6 +70,7 @@ end
 
 
 local _handlers = {'v6_route',
+                   'v6_listen_ra',
                    'v4_dhclient',
                    'bird4',
                    'v6_rule',
@@ -78,6 +79,7 @@ local _handlers = {'v6_route',
                    'dhcpd',
                    'v6_nh',
 }
+
 
 function pm:init()
    self.changes = 0
@@ -148,6 +150,9 @@ function pm:kv_changed(k, v)
       -- obviously v6 routes/rules also change
       self:queue('v6_route')
       self:queue('v6_rule')
+
+      -- may need to change if we listen to RAs or not
+      self:queue('v6_listen_ra')
    elseif k == elsa_pa.OSPF_RID_KEY
    then
       --mst.a(v, 'empty rid not valid')

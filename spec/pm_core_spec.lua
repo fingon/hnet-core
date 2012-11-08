@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Thu Nov  8 09:11:22 2012 mstenber
--- Edit time:     163 min
+-- Last modified: Thu Nov  8 09:34:27 2012 mstenber
+-- Edit time:     165 min
 --
 
 -- testsuite for the pm_core
@@ -84,6 +84,8 @@ local lap_base = {
    {'ifconfig eth2 | grep HWaddr',
     'eth2      Link encap:Ethernet  HWaddr 00:1c:42:a7:f1:d9  '},
    x,
+   {'echo 2 > /proc/sys/net/ipv6/conf/eth0/accept_ra', ''},
+   {'echo 0 > /proc/sys/net/ipv6/conf/eth0/accept_ra_pinfo', ''},
    {'ls -1 /var/run', [[
 pm-pid-dhclient-eth1
                        ]]},
@@ -163,6 +165,7 @@ cleanup = {
   inet6 ::192.168.100.100/128 scope global 
 ]]},
    {'ip -6 addr del dead:e9d2:a21b:5888:21c:42ff:fea7:f1d9/64 dev eth2', ''},
+   {'echo 1 > /proc/sys/net/ipv6/conf/eth0/accept_ra_pinfo', ''},
    {'ls -1 /var/run', [[
 pm-pid-dhclient-eth0
                        ]]},
