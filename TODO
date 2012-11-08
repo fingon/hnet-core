@@ -27,18 +27,13 @@ lsalib.c: 86 => what happens of time moves backwards?
 - default src+default dst = used for address selection
 => we don't have global connectivity on homenet without!
 
-** pd nh disappears at times at renew?
-
-- the rdisc6 stuff should be more robust, or we should probe more actively
-  ( the latter + correct state machine = win, in long term)
-
 ** at some point someone 'stole' USP prefix ownership
 
 => routes broke
 
 = wtf ??
 
-** identify why eth1 is only working PD interface
+** identify why eth1 is only working PD interface on HW
 
 .. pd client on eth0.* does not work the same way (has some assumptions
 about IP aliases? started by hand=works, started at boot=does not work)
@@ -84,38 +79,6 @@ use ULA's for border nodes in the routing table on non-border nodes
 
 .. each router can announce it's ULA in the infamous JSONBLOB
 :--p
-
-** Real RA support
-
-options:
-
-a) use kernel
-
- accept_ra 2 [ do RA accepting even when router ]
- accept_ra_defrtr 1
- accept_ra_pinfo 0 [ we don't really want normal address ]
-
-and then..
-
-- can get it from there either as part of in-Bird stuff
-
-OR
-
-- using e.g. ip -6 route checking for default routes
-
- - bit less effective, but much more robust?
-
-! stuff needs to be enabled/disabled per-border detection, as otherwise
-  things break horribly (
-
-.. as there's delay to this, we can use rdisc6 for _first approximation_
-(and to speed up the initial part). Polling kernel will be painful :p
-
-b) do it in userland
-
-- listening to RA is easy
-
-- NUD painful
 
 ** On-link detection
 
@@ -220,12 +183,6 @@ https://developers.google.com/speed/public-dns/docs/using
 
 - also have dependency on bird6-elsa, do all the relevant init scripts etc
 => ~plug-n-play
-
-** Next-hop management in pm.lua
-
-DHCPv6 case - the next-hop router _may_ change, for various reasons, and
-now the internet connectivity stays down until DHCPv6 PD lease expires
-
 
 ** Cleanup BIRD changes
 
@@ -335,7 +292,53 @@ and make sure result is sane
 
 * Done (5.11.+)
 
+** Next-hop management in pm.lua
+
+DHCPv6 case - the next-hop router _may_ change, for various reasons, and
+now the internet connectivity stays down until DHCPv6 PD lease expires
+
+.. provided by real RA support
+
+** Real RA support
+
+options:
+
+a) use kernel
+
+ accept_ra 2 [ do RA accepting even when router ]
+ accept_ra_defrtr 1
+ accept_ra_pinfo 0 [ we don't really want normal address ]
+
+and then..
+
+- can get it from there either as part of in-Bird stuff
+
+OR
+
++ using e.g. ip -6 route checking for default routes
+
+ - bit less effective, but much more robust?
+
+! stuff needs to be enabled/disabled per-border detection, as otherwise
+  things break horribly (
+
+.. as there's delay to this, we can use rdisc6 for _first approximation_
+(and to speed up the initial part). Polling kernel will be painful :p
+
+b) do it in userland
+
+- listening to RA is easy
+
+- NUD painful
+
 ** bugs
+
+*** pd nh disappears at times at renew?
+
+- the rdisc6 stuff should be more robust, or we should probe more actively
+  ( the latter + correct state machine = win, in long term)
+
+.. fixed by real RA use
 
 *** dhcpd
 
