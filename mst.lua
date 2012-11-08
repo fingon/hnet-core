@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Nov  7 19:09:44 2012 mstenber
--- Edit time:     531 min
+-- Last modified: Thu Nov  8 07:28:45 2012 mstenber
+-- Edit time:     536 min
 --
 
 -- data structure abstractions provided:
@@ -134,6 +134,7 @@ end
 function baseclass:connect(ev, fun)
    self:a(ev, 'null event')
    self:a(fun, 'null fun')
+   self:a(type(ev) == 'table', 'event not table', type(ev), ev, fun)
 
    -- connect event 'ev' to local observer function 'fun'
    -- (and keep the connection up as long as we are)
@@ -149,6 +150,12 @@ function baseclass:connect(ev, fun)
 
    -- then call the event itself to add the observer
    ev:add_observer(fun)
+end
+
+function baseclass:connect_method(ev, o, fun)
+   self:connect(ev, function (...)
+                   fun(o, ...)
+                    end)
 end
 
 function baseclass:repr_data(shown)

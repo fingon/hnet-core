@@ -105,6 +105,12 @@ OR
 
  - bit less effective, but much more robust?
 
+! stuff needs to be enabled/disabled per-border detection, as otherwise
+  things break horribly (
+
+.. as there's delay to this, we can use rdisc6 for _first approximation_
+(and to speed up the initial part). Polling kernel will be painful :p
+
 b) do it in userland
 
 - listening to RA is easy
