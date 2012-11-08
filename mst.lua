@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Nov  8 07:28:45 2012 mstenber
+-- Last modified: Thu Nov  8 09:58:24 2012 mstenber
 -- Edit time:     536 min
 --
 
@@ -1170,9 +1170,13 @@ end
 
 function read_filename_to_string(filename)
    local f = io.open(filename)
-   local d = f:read('*a')
-   f:close()
-   return d
+   if f
+   then
+      local d = f:read('*a')
+      f:close()
+      return d
+   end
+   return nil, 'no such file ' .. filename
 end
 
 -- python-like randint - return random integer in range [a,b],

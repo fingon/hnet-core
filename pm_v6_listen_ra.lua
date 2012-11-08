@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 09:13:53 2012 mstenber
--- Last modified: Thu Nov  8 09:40:56 2012 mstenber
--- Edit time:     8 min
+-- Last modified: Thu Nov  8 09:58:46 2012 mstenber
+-- Edit time:     14 min
 --
 
 -- pm_v6_listen_ra module turns on and off listening to router
@@ -49,7 +49,26 @@ function pm_v6_listen_ra:enable_ra(ifname)
    self.shell('echo 0 > ' .. b .. 'accept_ra_pinfo')
 end
 
+function pm_v6_listen_ra:check_if(ifname)
+   local b = BASE .. '/' .. ifname .. '/' .. 'accept_ra'
+   local d = mst.read_filename_to_string(b)
+   if d and mst.string_strip(d) ~= '2'
+   then
+      self:d('accept_ra changed?', b)
+      self.clientif:remove(ifname)
+   end
+end
+
 function pm_v6_listen_ra:run()
+   -- look at actual files (NOTE: this should be somehow done only in
+   -- real env, sigh)
+
+   -- Linux is a jungle, something changes this at times :p
+   for i, v in ipairs(self.clientif:keys())
+   do
+      self:check_if(v)
+   end
+
    -- figure which ones we should listen to - get OSPF USP with
    -- ifname set
    local usps = self.pm:get_ipv6_usp()
