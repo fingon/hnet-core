@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Thu Nov  8 09:41:31 2012 mstenber
--- Edit time:     7 min
+-- Last modified: Thu Nov  8 10:06:23 2012 mstenber
+-- Edit time:     8 min
 --
 
 -- individual handler tests
@@ -52,9 +52,8 @@ describe("pm_v6_listen_ra", function ()
                                                    }}
                   local o = pm_v6_listen_ra.pm_v6_listen_ra:new{pm=pm}
                   pm.ds:set_array{
-                     {'echo 2 > /proc/sys/net/ipv6/conf/eth0/accept_ra', ''},
-                     {'echo 0 > /proc/sys/net/ipv6/conf/eth0/accept_ra_pinfo', ''},
-                     {'echo 1 > /proc/sys/net/ipv6/conf/eth0/accept_ra_pinfo', ''},
+                     {'/usr/share/hnet/listen_ra_handler.sh start eth0', ''},
+                     {'/usr/share/hnet/listen_ra_handler.sh stop eth0', ''},
                                  }
                   o:run()
                   -- make sure this is nop

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 09:13:53 2012 mstenber
--- Last modified: Thu Nov  8 09:58:46 2012 mstenber
--- Edit time:     14 min
+-- Last modified: Thu Nov  8 10:06:46 2012 mstenber
+-- Edit time:     18 min
 --
 
 -- pm_v6_listen_ra module turns on and off listening to router
@@ -27,6 +27,7 @@ module(..., package.seeall)
 
 pm_v6_listen_ra = pm_handler.pm_handler:new_subclass{class='pm_v6_listen_ra'}
 
+SCRIPT='/usr/share/hnet/listen_ra_handler.sh'
 BASE='/proc/sys/net/ipv6/conf'
 
 function pm_v6_listen_ra:init()
@@ -38,15 +39,12 @@ end
 
 function pm_v6_listen_ra:disable_ra(ifname)
    self.clientif:remove(ifname)
-   local b = BASE .. '/' .. ifname .. '/'
-   self.shell('echo 1 > ' .. b .. 'accept_ra_pinfo')
+   self.shell(SCRIPT .. ' stop ' .. ifname)
 end
 
 function pm_v6_listen_ra:enable_ra(ifname)
    self.clientif:insert(ifname)
-   local b = BASE .. '/' .. ifname .. '/'
-   self.shell('echo 2 > ' .. b .. 'accept_ra')
-   self.shell('echo 0 > ' .. b .. 'accept_ra_pinfo')
+   self.shell(SCRIPT .. ' start ' .. ifname)
 end
 
 function pm_v6_listen_ra:check_if(ifname)
@@ -54,7 +52,7 @@ function pm_v6_listen_ra:check_if(ifname)
    local d = mst.read_filename_to_string(b)
    if d and mst.string_strip(d) ~= '2'
    then
-      self:d('accept_ra changed?', b)
+      self:d('accept_ra changed?', b, d)
       self.clientif:remove(ifname)
    end
 end

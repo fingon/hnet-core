@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Thu Nov  8 09:43:19 2012 mstenber
--- Edit time:     167 min
+-- Last modified: Thu Nov  8 10:07:14 2012 mstenber
+-- Edit time:     168 min
 --
 
 -- testsuite for the pm_core
@@ -123,8 +123,7 @@ local rule_base = {
 }
 
 local rule_no_nh = {
-   {'echo 2 > /proc/sys/net/ipv6/conf/eth0/accept_ra', ''},
-   {'echo 0 > /proc/sys/net/ipv6/conf/eth0/accept_ra_pinfo', ''},
+   {'/usr/share/hnet/listen_ra_handler.sh start eth0', ''},
    {'ip -6 rule',
     [[
                           0:	from all lookup local 
