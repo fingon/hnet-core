@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 09:13:53 2012 mstenber
--- Last modified: Thu Nov  8 09:29:18 2012 mstenber
+-- Last modified: Thu Nov  8 09:40:56 2012 mstenber
 -- Edit time:     8 min
 --
 
@@ -56,7 +56,7 @@ function pm_v6_listen_ra:run()
    local ospfif = mst.set:new{}
    mst.array_foreach(usps, 
                      function (usp)
-                        if usp.ifname
+                        if usp.ifname and not usp.nh
                         then
                            ospfif:insert(usp.ifname)
                         end

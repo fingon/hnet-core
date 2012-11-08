@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Thu Nov  8 09:34:38 2012 mstenber
+-- Last modified: Thu Nov  8 09:41:31 2012 mstenber
 -- Edit time:     7 min
 --
 
@@ -45,7 +45,11 @@ end)
 
 describe("pm_v6_listen_ra", function ()
             it("works", function ()
-                  local pm = dpm.dpm:new{ipv6_usps={{ifname='eth0'},}}
+                  -- we shouldn't do anything to interfaces with
+                  -- explicit next hop managed by OSPFv3
+                  local pm = dpm.dpm:new{ipv6_usps={{ifname='eth0'},
+                                                    {ifname='eth1', nh='1'},
+                                                   }}
                   local o = pm_v6_listen_ra.pm_v6_listen_ra:new{pm=pm}
                   pm.ds:set_array{
                      {'echo 2 > /proc/sys/net/ipv6/conf/eth0/accept_ra', ''},

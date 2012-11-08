@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Thu Nov  8 09:33:42 2012 mstenber
+-- Last modified: Thu Nov  8 09:42:50 2012 mstenber
 -- Edit time:     521 min
 --
 
@@ -70,9 +70,9 @@ end
 
 
 local _handlers = {'v6_route',
-                   'v6_listen_ra',
                    'v4_dhclient',
                    'bird4',
+                   'v6_listen_ra',
                    'v6_rule',
                    'v4_addr',
                    'radvd',
