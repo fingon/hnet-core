@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Mon Nov  5 05:47:31 2012 mstenber
+-- Last modified: Thu Nov  8 08:09:56 2012 mstenber
 -- Edit time:     142 min
 --
 
@@ -269,6 +269,9 @@ describe("pm", function ()
                   ep:run()
                   mst.a(pm:run())
                   mst.a(not pm:run())
+
+                  -- make sure tick is harmless too
+                  pm:tick()
 
                   local d = mst.read_filename_to_string(TEMP_RADVD_CONF)
                   mst.a(not string.find(d, '10.'), 'IPv4 address?!?')

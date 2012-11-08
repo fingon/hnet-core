@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov  7 19:33:20 2012 mstenber
--- Last modified: Thu Nov  8 07:55:55 2012 mstenber
+-- Last modified: Thu Nov  8 08:02:08 2012 mstenber
 -- Edit time:     5 min
 --
 
@@ -36,6 +36,9 @@ end
 
 function pm_handler:ready()
    return true
+end
+
+function pm_handler:tick()
 end
 
 function pm_handler:maybe_run()

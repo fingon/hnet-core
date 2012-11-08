@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Thu Nov  8 07:50:44 2012 mstenber
--- Edit time:     512 min
+-- Last modified: Thu Nov  8 08:08:08 2012 mstenber
+-- Edit time:     517 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -79,7 +79,12 @@ function pm:init()
    self.changes = 0
    self.f = function (k, v) self:kv_changed(k, v) end
    self.h = {}
+
+   -- shared datastructures
    self.if_table = linux_if.if_table:new{shell=self.shell} 
+   -- IPv6 next hops - ifname => nh-list
+   self.nh = mst.multimap:new{}
+
    for i, v in ipairs(_handlers)
    do
       local v2 = 'pm_' .. v
@@ -92,8 +97,8 @@ function pm:init()
                            end)
    end
    self:connect_changed('v6_route', 'radvd')
+   self:connect_changed('v6_nh', 'v6_rule')
 
-   self.applied_usp = {}
    self.dhclient_ifnames = mst.set:new{}
 
    -- all  usable prefixes we have been given _some day_; 
@@ -200,6 +205,15 @@ function pm:run()
 
    self:d('run result', self.changes)
    return self.changes > 0 and self.changes
+end
+
+-- this should be called every now and then
+function pm:tick()
+   for i, v in ipairs(_handlers)
+   do
+      local o = self.h[v]
+      o:tick()
+   end
 end
 
 function pm:get_ipv6_usp()

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:12:11 2012 mstenber
--- Last modified: Thu Nov  8 07:57:41 2012 mstenber
--- Edit time:     2 min
+-- Last modified: Thu Nov  8 08:09:30 2012 mstenber
+-- Edit time:     6 min
 --
 
 require 'pm_handler'
@@ -26,6 +26,8 @@ pm_v6_rule = pm_handler.pm_handler:new_subclass{class='pm_v6_rule'}
 function pm_v6_rule:init()
    pm_handler.pm_handler.init(self)
 
+   self.applied_usp = {}
+
    local rt = linux_if.rule_table:new{shell=self.shell}
    self.rule_table = rt
    local vs = mst.validity_sync:new{t=self.rule_table, single=true}
@@ -41,6 +43,11 @@ end
 
 function pm_v6_rule:ready()
    return self.pm.ospf_usp
+end
+
+function pm_v6_rule:get_usp_key(usp)
+   return mst.repr{usp.prefix, usp.ifname, 
+                   self.pm.nh[usp.ifname] or {usp.nh}}
 end
 
 function pm_v6_rule:run()
@@ -77,8 +84,8 @@ function pm_v6_rule:run()
             -- not in rule table => add
             -- (done in second pass)
          else
-            local uspi = mst.repr(usp)
-            if self.pm.applied_usp[usp.prefix] == uspi
+            local uspk = self:get_usp_key(usp)
+            if self.applied_usp[usp.prefix] == uspk
             then
                -- in rule table, not changed => nop
                self.vsrt:set_valid(o)
@@ -120,8 +127,8 @@ function pm_v6_rule:run()
       local usp, template = unpack(v)
 
       -- store that it has been added
-      local uspi = mst.repr(usp)
-      self.pm.applied_usp[usp.prefix] = uspi
+      local uspi = self:get_usp_key(usp)
+      self.applied_usp[usp.prefix] = uspi
 
       -- figure table number
       local table = self.rule_table:get_free_table()
@@ -136,10 +143,15 @@ function pm_v6_rule:run()
       self.shell('ip -6 route flush table ' .. table)
       
       -- and add the default route         
-      nh = usp.nh
       dev = usp.ifname
-      self.shell(string.format('ip -6 route add default via %s dev %s table %s',
-                               nh, dev, table))
+
+      local nhl = self.pm.nh[usp.ifname] or (usp.nh and {usp.nh}) or {}
+
+      for i, nh in ipairs(nhl)
+      do
+         self.shell(string.format('ip -6 route add default via %s dev %s table %s',
+                                  nh, dev, table))
+      end
    end
 
    for i, template in ipairs(pending2)

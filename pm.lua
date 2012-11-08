@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Mon Nov  5 05:52:10 2012 mstenber
--- Edit time:     12 min
+-- Last modified: Thu Nov  8 08:03:23 2012 mstenber
+-- Edit time:     13 min
 --
 
 -- 'prefix manager' (name still temporary)
@@ -61,5 +61,20 @@ function pm:schedule_run()
    
 end
 
+function schedule_next_tick()
+   local t
+   t = loop:new_timeout_delta(10,
+                              function ()
+                                 -- call tick
+                                 pm:tick()
+                                 
+                                 -- get rid of the timeout
+                                 t:done()
+
+                                 schedule_next_tick()
+                              end):start()
+end
+
 mst.d('entering event loop')
+schedule_next_tick()
 loop:loop()
