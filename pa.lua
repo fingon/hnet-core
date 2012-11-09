@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Nov  6 08:04:06 2012 mstenber
--- Edit time:     789 min
+-- Last modified: Thu Nov  8 17:57:51 2012 mstenber
+-- Edit time:     800 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -185,13 +185,17 @@ function lap:assign()
       -- depracate immediately any other prefix that is on this iid,
       -- with same USP as us (self->asp->usp.prefix)
       local usp = self.asp.usp
-      for i, lap2 in ipairs(self.pa.ifs[self.iid])
+      local is_ipv4 = self.prefix:is_ipv4()
+      -- XXX - examine why this v4-only check is needed. chances
+      -- are, the algorithm is broken somehow horribly. 
+      for i, lap2 in ipairs(self.pa.lap[self.iid])
       do
-         if lap ~= lap2 and usp.prefix:contains(lap2.prefix)
+         if lap ~= lap2 and (usp.prefix:contains(lap2.prefix) or (is_ipv4 and lap2.prefix:is_ipv4()))
          then
             lap2:depracate()
          end
       end
+      
    end
    self.sm:Assign()
 end
