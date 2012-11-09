@@ -2,6 +2,20 @@
 
 * Bugs to fix
 
+** duplicate lap's for v4 - more study
+
+- boom2 log
+iid=7 has two addresses, all 'valid'
+
+10.164.106.0
+cr: 06-11-2012 22:04:46 (asp)
+rid: 3397908108
+
+10.66.160.0
+! seems to be the right onw
+cr: 06-11-2012 22:04:52 
+rid?: 1401178559
+
 ** Try not to allocate stuff on if's that are bridged
 
 (two ports, same bridged network => need only one address/...?)
