@@ -11,9 +11,9 @@ SMC=../smc/bin/smc.jar
 all: test
 
 clean:
-	rm -f luacov.stats.out
+	rm -f luacov.stats.out luacov.report.out
 
-cov: test
+cov: clean test
 	busted -l "./run_lua_with_luacov.sh" spec
 	./run_luacov.sh
 

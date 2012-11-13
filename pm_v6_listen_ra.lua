@@ -8,17 +8,15 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 09:13:53 2012 mstenber
--- Last modified: Thu Nov  8 10:06:46 2012 mstenber
--- Edit time:     18 min
+-- Last modified: Tue Nov 13 13:09:46 2012 mstenber
+-- Edit time:     19 min
 --
 
 -- pm_v6_listen_ra module turns on and off listening to router
 -- advertisements on particular interfaces. this should be tied to the
 -- interfaces being 'upstream' from the homenet router.
 
--- assumption is that all interfaces are by default in kernel default
--- state (XXX - should this change?), and we just manipulate them
--- between that, and the 'client' state
+-- (otherwise horribly routing loops will occur)
 
 require 'pm_handler'
 require 'linux_if'

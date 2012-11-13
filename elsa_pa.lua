@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Nov  7 18:16:31 2012 mstenber
--- Edit time:     499 min
+-- Last modified: Tue Nov 13 13:07:20 2012 mstenber
+-- Edit time:     500 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -761,7 +761,12 @@ function elsa_pa:get_field_array(locala, jsonfield)
 
 
    -- return set as array
-   -- XXX - does the order matter? hope not!
+
+   -- obviously the order is arbitrary; however, without changes in
+   -- the table, it won't change, so the no-change constraint can be
+   -- still verified. in practise it would be nice to transmit across
+   -- sub-table deltas instead of whole tables, but as long as we
+   -- don't, this is good enough.
    return s:keys()
 end
 

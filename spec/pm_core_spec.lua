@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Thu Nov  8 10:07:14 2012 mstenber
+-- Last modified: Tue Nov 13 13:36:08 2012 mstenber
 -- Edit time:     168 min
 --
 
@@ -266,7 +266,7 @@ describe("pm", function ()
                   mst.array_extend(d, bird_on)
                   mst.array_extend(d, rule_base)
                   mst.array_extend(d, lap_end)
-                  mst.array_extend(d, {{'ifconfig eth2 10.171.21.41 netmask 255.255.255.0', ''}})
+                  mst.array_extend(d, {{'ifconfig eth2 10.171.21.15 netmask 255.255.255.0', ''}})
                   mst.array_extend(d, v46_dhcpd)
 
                   -- tick

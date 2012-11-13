@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Thu Nov  8 09:42:50 2012 mstenber
--- Edit time:     521 min
+-- Last modified: Tue Nov 13 13:45:07 2012 mstenber
+-- Edit time:     523 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -160,6 +160,9 @@ function pm:kv_changed(k, v)
       self:queue('bird4')
    elseif k == elsa_pa.OSPF_LAP_KEY
    then
+      -- reset cache
+      self.ipv6_ospf_lap = nil
+
       self.ospf_lap = v or {}
       self:queue('v6_route')
       self:queue('v4_addr')
@@ -201,9 +204,8 @@ function pm:schedule_run()
 end
 
 function pm:run()
-   -- fixed order, sigh :)
-   -- XXX - replace this with something better
-   -- (requires refactoring of unit tests too)
+   -- fixed order, sigh :) some day would be nice to replace this with
+   -- something better (requires refactoring of unit tests too)
    for i, v in ipairs(_handlers)
    do
       local o = self.h[v]
@@ -232,16 +234,27 @@ function pm:tick()
    end
 end
 
+local function filter_ipv6(l)
+   return mst.array_filter(l, function (usp)
+                              local p = ipv6s.new_prefix_from_ascii(usp.prefix)
+                              return not p:is_ipv4()
+                              end)
+end
+
 function pm:get_ipv6_usp()
    if not self.ipv6_ospf_usp
    then
-      self.ipv6_ospf_usp = 
-         mst.array_filter(self.ospf_usp, function (usp)
-                             local p = ipv6s.new_prefix_from_ascii(usp.prefix)
-                             return not p:is_ipv4()
-                                         end)
+      self.ipv6_ospf_usp = filter_ipv6(self.ospf_usp)
    end
    return self.ipv6_ospf_usp
+end
+
+function pm:get_ipv6_lap()
+   if not self.ipv6_ospf_lap
+   then
+      self.ipv6_ospf_lap = filter_ipv6(self.ospf_lap)
+   end
+   return self.ipv6_ospf_lap
 end
 
 function pm:repr_data()

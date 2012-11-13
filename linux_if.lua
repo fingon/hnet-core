@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  8 13:11:02 2012 mstenber
--- Last modified: Thu Nov  8 08:19:31 2012 mstenber
--- Edit time:     117 min
+-- Last modified: Tue Nov 13 14:12:11 2012 mstenber
+-- Edit time:     118 min
 --
 
 
@@ -76,6 +76,8 @@ end
 
 -- this is really get-or-set operation..
 function if_table:get_if(k)
+   self:a(k, 'get_if nil if!')
+
    -- in certain cases, may have eth0.1@eth0
    -- => we care only about eth0.1
    k = mst.string_split(k, '@')[1]
