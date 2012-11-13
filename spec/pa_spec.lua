@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Sun Nov  4 00:56:39 2012 mstenber
--- Edit time:     246 min
+-- Last modified: Tue Nov 13 14:42:28 2012 mstenber
+-- Edit time:     247 min
 --
 
 require "busted"
@@ -69,14 +69,18 @@ function ospf:iterate_asp(rid, f)
 
    for i, t in ipairs(self.nodes)
    do
-      mst.d('dumping pa', i)
+      if t.rid ~= rid
+      then
 
-      for j, asp in ipairs(t:get_local_asp_values())
-      do
-         mst.a(not asp._is_done)
-         mst.a(asp.rid)
-         mst.a(t.rid == asp.rid)
-         f(asp)
+         mst.d('dumping pa', i)
+
+         for j, asp in ipairs(t:get_local_asp_values())
+         do
+            mst.a(not asp._is_done)
+            mst.a(asp.rid)
+            mst.a(t.rid == asp.rid)
+            f(asp)
+         end
       end
    end
 end
@@ -149,33 +153,33 @@ end
 
 describe("pa", function ()
             before_each(function ()
-                     o = ospf:new{usp={{prefix='dead::/16', rid='rid1'},
-                                       {prefix='dead:beef::/32', rid='rid2'},
-                                       {prefix='cafe::/16', rid='rid3'}},
+                           o = ospf:new{usp={{prefix='dead::/16', rid='rid1'},
+                                             {prefix='dead:beef::/32', rid='rid2'},
+                                             {prefix='cafe::/16', rid='rid3'}},
 
-                                  -- in practise, 2 usp
-                                  asp={{prefix='dead:bee0::/64', 
-                                        iid=256,  
-                                        rid='rid1'}},
-                                  iif={myrid={{index=42,name='if1'},
-                                              {index=43,name='if2'}}},
-                                  ridr={{rid='rid1'},
-                                        {rid='rid2'},
-                                        {rid='rid3'},
-                                  },
-                                 }
-                     -- connect the asp-equipped rid1 if + myrid if1
-                     o:connect_neigh('myrid', 42, 'rid1', 256)
-                     pa = _pa.pa:new{client=o, lap_class=dummy_lap,
-                                     rid='myrid'}
-                  end)
+                                        -- in practise, 2 usp
+                                        asp={{prefix='dead:bee0::/64', 
+                                              iid=256,  
+                                              rid='rid1'}},
+                                        iif={myrid={{index=42,name='if1'},
+                                                    {index=43,name='if2'}}},
+                                        ridr={{rid='rid1'},
+                                              {rid='rid2'},
+                                              {rid='rid3'},
+                                        },
+                                       }
+                           -- connect the asp-equipped rid1 if + myrid if1
+                           o:connect_neigh('myrid', 42, 'rid1', 256)
+                           pa = _pa.pa:new{client=o, lap_class=dummy_lap,
+                                           rid='myrid'}
+                        end)
             after_each(function ()
-                        -- make sure pa seems sane
-                        check_sanity()
-                        -- and kill it explicitly
-                        pa:done()
-                        mst.a(timeouts:is_empty(), timeouts)
-                     end)
+                          -- make sure pa seems sane
+                          check_sanity()
+                          -- and kill it explicitly
+                          pa:done()
+                          mst.a(timeouts:is_empty(), timeouts)
+                       end)
             it("can be created", function ()
                                  end)
             it("works [small rid] #srid", function ()
@@ -221,7 +225,7 @@ describe("pa", function ()
 
                   mst.a(pa.lap:count() == 0, "lap mismatch")
                   
-                                    end)
+                                          end)
             it("survives prefix exhaustion #many", function ()
                   --require 'profiler'
                   --profiler.start()
@@ -243,7 +247,7 @@ describe("pa", function ()
                   mst.a(pa.asp:count() == 256, "asp mismatch")
 
                   --profiler.stop()
-                   end)
+                                                   end)
             
             it("handles /60 #60", function ()
                   -- /60 usp, 20 interfaces -> should get 16 LAP/ASP
@@ -263,7 +267,7 @@ describe("pa", function ()
                   mst.a(pa.asp:count() == 16, "asp mismatch")
 
                   --profiler.stop()
-                   end)
+                                  end)
             
             it("make sure old assignments show up by default #old", function ()
                   o = ospf:new{usp={{prefix='dead::/16', rid='rid1'},
@@ -292,21 +296,21 @@ describe("pa", function ()
                   pa:run()
                   mst.a(find_lap('dead:bee1::/64'))
                   pa:done()
-                                                               end)
+                                                                    end)
 
-                   end)
+               end)
 
 describe("pa-nobody-else", function ()
 
             before_each(function ()
-                     o = ospf:new{usp={},
-                                  asp={},
-                                  iif={myrid={{index=42,name='if1'},
-                                              {index=43,name='if2'}}},
-                                  ridr={{rid='myrid'}},
-                                 }
-                     pa = _pa.pa:new{client=o, lap_class=dummy_lap,
-                                     rid='myrid'}
+                           o = ospf:new{usp={},
+                                        asp={},
+                                        iif={myrid={{index=42,name='if1'},
+                                                    {index=43,name='if2'}}},
+                                        ridr={{rid='myrid'}},
+                                       }
+                           pa = _pa.pa:new{client=o, lap_class=dummy_lap,
+                                           rid='myrid'}
 
                         end)
             it("changes prefix if there is sudden conflict #conflict", function ()
@@ -339,7 +343,7 @@ describe("pa-nobody-else", function ()
                   mst.a(pa.asp:count() == 3, "asp mismatch", pa.asp)
                   mst.a(pa.lap:count() == 3, "lap mismatch", pa.lap)
 
-                   end)
+                                                                       end)
 
 
             it("obeys hysteresis 1 - no routers - always ULA on", function ()
@@ -352,7 +356,7 @@ describe("pa-nobody-else", function ()
                   mst.a(pa.usp:count() == 3, "usp mismatch", pa.usp)
                   mst.a(pa.asp:count() == 0, "asp mismatch", pa.asp)
                   mst.a(pa.lap:count() == 0, "lap mismatch", pa.lap)
-                                                  end)
+                                                                  end)
 
             it("obeys hysteresis 1 - no routers - always ULA off", function ()
                   -- just local e.g. PD prefix
@@ -364,7 +368,7 @@ describe("pa-nobody-else", function ()
                   mst.a(pa.usp:count() == 2, "usp mismatch", pa.usp)
                   mst.a(pa.asp:count() == 0, "asp mismatch", pa.asp)
                   mst.a(pa.lap:count() == 0, "lap mismatch", pa.lap)
-                                                  end)
+                                                                   end)
             it("obeys hysteresis 2 - time long gone", function ()
                   -- just local e.g. PD prefix
                   o.usp = {{prefix='dead::/16', rid='myrid'}}
@@ -376,7 +380,7 @@ describe("pa-nobody-else", function ()
                   mst.a(pa.asp:count() > 0, "asp mismatch", pa.asp)
                   -- should have v4 prefix now too (but no ULA)
                   mst.a(pa.usp:count() == 2, "usp mismatch", pa.usp)
-                                                  end)
+                                                      end)
             it("obeys hysteresis 3 - other rid present", function ()
                   -- just local e.g. PD prefix
                   o.usp = {{prefix='dead::/16', rid='myrid'}}
@@ -387,7 +391,7 @@ describe("pa-nobody-else", function ()
                   mst.a(pa.lap:count() > 0, "lap mismatch")
                   mst.a(pa.asp:count() > 0, "asp mismatch")
                   mst.a(pa.usp:count() == 1, "usp mismatch")
-                                                  end)
+                                                         end)
 
             it("ula generation 1 - higher rid exists", function ()
                   o.ridr = {{rid='myrid'}, {rid='rid1'},}
@@ -395,7 +399,7 @@ describe("pa-nobody-else", function ()
                   mst.a(pa.lap:count() == 0, "lap mismatch")
                   mst.a(pa.asp:count() == 0, "asp mismatch")
                   mst.a(pa.usp:count() == 0, "usp mismatch")
-                   end)
+                                                       end)
 
             it("ula generation works - time long gone #ula", function ()
                   -- disable the v4 on first interface => should have just 1
@@ -436,7 +440,7 @@ describe("pa-nobody-else", function ()
                                             return lap.depracated==true
                                              end)
                   mst.a(c == 3, c)
-                   
+                  
 
                   pa:run()
                   mst.a(pa.usp:count() == 1, "usp mismatch")
@@ -444,16 +448,16 @@ describe("pa-nobody-else", function ()
                   mst.a(pa.lap:count() == 2, "lap mismatch", pa.lap)
 
 
-                   end)
+                                                             end)
 
             after_each(function ()
-                        -- make sure pa seems sane
-                        check_sanity()
-                        -- and kill it explicitly
-                        pa:done()
-                        mst.a(timeouts:is_empty(), timeouts)
+                          -- make sure pa seems sane
+                          check_sanity()
+                          -- and kill it explicitly
+                          pa:done()
+                          mst.a(timeouts:is_empty(), timeouts)
                        end)
-             end)
+                           end)
 
 describe("pa-net", function ()
             it("simple 3 pa #net", function ()
@@ -636,5 +640,5 @@ describe("pa-net", function ()
 
                   end
 
-                              end)
+                                   end)
                    end)
