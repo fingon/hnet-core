@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Oct  5 00:09:17 2012 mstenber
--- Last modified: Sun Nov  4 12:44:02 2012 mstenber
--- Edit time:     42 min
+-- Last modified: Tue Nov 13 16:43:09 2012 mstenber
+-- Edit time:     50 min
 --
 
 require 'mst'
@@ -23,7 +23,6 @@ delsa = dneigh.dneigh:new_subclass{class='delsa', mandatory={'hwf'}}
 function delsa:init()
    dneigh.dneigh.init(self)
    self.nodes = {}
-   self.connected = {}
    self.lsas = self.lsas or {}
 end
 
@@ -32,11 +31,9 @@ function delsa:clear_connections()
    self.connected = {}
 end
 
-function delsa:connect_neigh(...)
-   -- call parent
-   dneigh.dneigh.connect_neigh(self, ...)
-   -- reset connected cache
-   self.connected = {}
+function delsa:changed()
+   -- zap connected cache
+   self.connected = nil
 end
 
 function delsa:repr_data()
@@ -50,6 +47,7 @@ function delsa:repr_data()
 end
 
 function delsa:get_connected(rid)
+   if not self.connected then self.connected={} end
    local v = self.connected[rid]
    if v then return v end
    local t = mst.set:new{}
@@ -74,14 +72,19 @@ function delsa:get_hwf(rid)
    return self.hwf[rid]
 end
 
-function delsa:iterate_lsa(rid, f, criteria)
-   local c = self:get_connected(rid)
+function delsa:iterate_lsa(rid0, f, criteria)
+   local c = self:get_connected(rid0)
    self:a(c)
+   self:d('iterate_lsa', rid0)
+
    for rid, body in pairs(self.lsas)
    do
       if c[rid] or self.assume_connected
       then
+         self:d(' matched', rid)
          f{rid=rid, body=body}
+      else
+         self:d(' not reachable', rid)
       end
    end
 end
@@ -111,14 +114,18 @@ function delsa:originate_lsa(lsa)
    local old = self.lsas[lsa.rid]
    if old == lsa.body
    then
+      self:d('originate_lsa failed, same body', lsa.rid)
       return
    end
+
+   self:d('originate_lsa - new lsa for', lsa.rid)
 
    self.lsas[lsa.rid] = lsa.body
 
    -- notify self + others that the lsas changed
    for rid, _ in pairs(self:get_connected(lsa.rid))
    do
+      self:d(' notifying change', rid)
       self:notify_ospf_changed(rid)
    end
 end
