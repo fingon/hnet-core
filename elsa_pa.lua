@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Nov 13 13:07:20 2012 mstenber
--- Edit time:     500 min
+-- Last modified: Tue Nov 13 14:32:25 2012 mstenber
+-- Edit time:     503 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -23,7 +23,7 @@
 -- #define LSA_T_AC        0xBFF0 /* Auto-Configuration LSA */
 --  /* function code 8176(0x1FF0): experimental, U-bit=1, Area Scope */
 
--- XXX - document the API between elsa (wrapper), elsa_pa
+-- TODO - document the API between elsa (wrapper), elsa_pa
 
 -- => lsa_changed(lsa)
 -- => lsa_deleting(lsa)
@@ -104,7 +104,7 @@ LAP_EXPIRE_TIMEOUT=300
 ORIGINATE_MIN_INTERVAL=4 -- up to this point, we hold on spamming
 ORIGINATE_MAX_INTERVAL=300 -- even without changes
 
--- XXX - TERMINATE_ULA_PREFIX timeout is a 'SHOULD', but we ignore it
+-- TODO - TERMINATE_ULA_PREFIX timeout is a 'SHOULD', but we ignore it
 -- for simplicity's sake; getting rid of floating prefixes ASAP is
 -- probably good thing (and the individual interface-assigned prefixes
 -- will be depracated => will disappear soon anyway)
@@ -342,7 +342,7 @@ function elsa_pa:should_run(ac_changes)
       return true
    end
 
-   -- XXX - do we want to do this? shouldn't be _necessary_,
+   -- TODO - do we want to do this? shouldn't be _necessary_,
    -- but someday might be relevant?
    -- .. if (self.time() - self.last_pa_run) > FORCE_PA_RUN_INTERVAL
    -- .. self.last_pa_run = self.time()
@@ -355,7 +355,7 @@ function elsa_pa:should_publish(d)
    if d.r then return true end
 
    -- if the publish state representation has changed, we should
-   if d.s_repr and d.s_repr ~= self.s_repr then return true end
+   if d.s and d.s ~= self.s then return true end
    
    -- if ac or lsa changed, we should
    if d.ac_changes > 0 then return true end
@@ -364,6 +364,12 @@ function elsa_pa:should_publish(d)
    -- finally, if the FORCE_SKV_AC_CHECK_INTERVAL was passed, we do
    -- this (but this is paranoia, shouldn't be necessary)
    if  (self.time() - self.last_publish) > FORCE_SKV_AC_CHECK_INTERVAL then return true end
+end
+
+function elsa_pa:get_mutable_state()
+   local s = table.concat{mst.repr{self.pa.ridr}, self.skvp_repr}
+   if pa.hash_fast then s = pa.create_hash(s) end
+   return s
 end
 
 function elsa_pa:run()
@@ -409,16 +415,16 @@ function elsa_pa:run()
 
    local now = self.time()
 
-   local s_repr = table.concat{mst.repr{self.pa.ridr}, self.skvp_repr}
+   local s = self:get_mutable_state()
 
-   if self:should_publish{s_repr=s_repr, r=r, ac_changes=ac_changes, lsa_changes=lsa_changes}
+   if self:should_publish{s=s, r=r, ac_changes=ac_changes, lsa_changes=lsa_changes}
    then
       self.last_publish = self.time()
       
       self:d('run doing skv/lsa update',  r)
 
       -- store the current local state
-      self.s_repr = s_repr
+      self.s = s
 
       self:run_handle_new_lsa()
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Nov 13 13:37:39 2012 mstenber
--- Edit time:     807 min
+-- Last modified: Tue Nov 13 15:00:41 2012 mstenber
+-- Edit time:     828 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -72,14 +72,17 @@ IPV4_PA_LAST_ROUTER=64
 -- 2^IPV4_PA_ROUTER_BITS =~ IPV4_PA_LAST_ROUTER
 IPV4_PA_ROUTER_BITS=math.floor(math.log(IPV4_PA_LAST_ROUTER) / math.log(2))
 
--- wrapper we can override
+-- these are defaults, provided here just so strict.lua is happy
+-- (we override them anyway shortly)
 create_hash=false
 create_hash_type=false
+hash_fast=false
 
 pcall(function ()
          local md5 = require 'md5'
          create_hash = md5.sum
          create_hash_type = 'md5'
+         hash_fast = true
       end)
 
 if not create_hash
@@ -88,6 +91,7 @@ then
    require 'sha1'
    create_hash = sha1_binary
    create_hash_type = 'sha1'
+   hash_fast = false
    print('using sha1')
 end
 
@@ -185,20 +189,38 @@ function lap:error(s)
    self:d('got error', s)
 end
 
+function lap:find_usp()
+   -- this might be worth caching, perhaps..?
+
+   -- find the shortest (bit-mask-wise) usp which contains our prefix =>
+   -- that one is the one we belong to
+   local found 
+   for i, usp in ipairs(self.pa.usp:values())
+   do
+      if usp.prefix:contains(self.prefix)
+      then
+         if not found or found.prefix:get_binary_bits() > usp.prefix:get_binary_bits()
+         then
+            found = usp
+         end
+      end
+   end
+   return found
+end
+
 -- external API (which is just forwarded to the state machine)
 
 function lap:assign()
    if not self.assigned
    then
       -- depracate immediately any other prefix that is on this iid,
-      -- with same USP as us (self->asp->usp.prefix)
-      local usp = self.asp.usp
+      -- with same USP as us 
+      local usp = self:find_usp()
       local is_ipv4 = self.prefix:is_ipv4()
-      -- XXX - examine why this v4-only check is needed. chances
-      -- are, the algorithm is broken somehow horribly. 
+      -- XXX - add test case for this
       for i, lap2 in ipairs(self.pa.lap[self.iid])
       do
-         if lap ~= lap2 and (usp.prefix:contains(lap2.prefix) or (is_ipv4 and lap2.prefix:is_ipv4()))
+         if lap ~= lap2 and usp.prefix:contains(lap2.prefix)
          then
             lap2:depracate()
          end
@@ -289,7 +311,6 @@ function asp:find_lap(iid)
       if v.ascii_prefix == self.ascii_prefix
       then
          -- update the asp object, just in case..
-         v.asp = self
          return v
       end
    end
@@ -308,7 +329,6 @@ function asp:find_or_create_lap(iid)
 
    return self.pa.lap_class:new{prefix=self.prefix, 
                                 iid=iid,
-                                asp=self,
                                 pa=self.pa}
 end
 
@@ -532,7 +552,7 @@ pa = mst.create_class{class='pa', lap_class=lap, mandatory={'rid'},
 
 function pa:init()
    -- set the sps subclasses' random prefix #
-   -- XXX - this isn't very pretty
+   -- TODO - this isn't very pretty (but mostly works)
    sps.random_prefix_tries = self.random_prefix_tries
 
    -- locally assigned prefixes - iid => list
@@ -649,7 +669,7 @@ function pa:run_if_usp(iid, neigh, usp)
    -- 1. if some shorter prefix contains this usp, skip
    for i, v in ipairs(self.usp:values())
    do
-      -- XXX - complain that this seems broken
+      -- TODO-DRAFT - complain that this seems broken
       -- (BCP38 stuff might make it not-so-working?)
       if v.ascii_prefix ~= usp.ascii_prefix and v.prefix:contains(usp.prefix)
       then
@@ -698,7 +718,7 @@ function pa:run_if_usp(iid, neigh, usp)
    end
 
    -- (iii) no assignment by anyone, highest rid?
-   -- XXX - should we check for AC-enabled neighbors here only?
+   -- TODO-DRAFT - should we check for AC-enabled neighbors here only?
    local neigh_rids = neigh:keys()
    local highest_rid = mst.max(unpack(neigh_rids))
    self:a(not highest_rid or _valid_rid(highest_rid), 'invalid highest_rid', highest_rid)
@@ -783,7 +803,7 @@ function pa:assign_own(iid, usp)
    end
    
    -- 5. if none available, skip
-   -- (XXX in draft, the order is assign new + hysteresis + this)
+   -- (TODO-DRAFT in draft, the order is assign new + hysteresis + this)
    if not p
    then
       return
@@ -791,7 +811,6 @@ function pa:assign_own(iid, usp)
 
    -- 6. if assigned, mark as valid + send AC LSA
    local o = asp:new{prefix=p,
-                     usp=usp,
                      pa=self,
                      iid=iid,
                      rid=self.rid}
@@ -953,7 +972,9 @@ end
 function pa:get_ifs_neigh_state()
    -- XXX - determine if this should in truth use hash; but if sw fallback, it's _slow_
    self:update_ifs_neigh()
-   return mst.repr{self.ifs, self.neigh}
+   local s = mst.repr{self.ifs, self.neigh}
+   if hash_fast then s = create_hash(s) end
+   return s
 end
 
 function pa:busy_until(seconds_delta_from_start)
@@ -964,8 +985,6 @@ function pa:busy_until(seconds_delta_from_start)
 end
 
 function pa:should_run()
-   -- XXX - add test cases to make sure we do things 'correctly'
-   -- (empirically, we seem to, but having test cases is better)
    local rid = self.rid
    local h = self:get_ifs_neigh_state()
    if self.busy
@@ -1324,21 +1343,11 @@ function pa:add_or_update_asp(prefix, iid, rid)
    then
       self:d(' updated old asp', o:is_remote())
       -- mark it valid if it's remote
-      if o:is_remote()
-      then
-         self.vsa:set_valid(o)
-      else
-         self:a(o.rid == self.rid, o.rid, self.rid)
-
-         -- validity should be governed by PA alg
-         self:a(o.invalid)
-      end
-      return
-   elseif rid == self.rid
-   then
-      self:d(' skipping own asp (delete?)')
+      self:a(o:is_remote(), 'non-remote asp?!?')
+      self.vsa:set_valid(o)
       return
    end
+   self:a(rid ~= self.rid, 'should not get own asp')
    self:d(' adding new asp')
    asp:new{prefix=prefix, iid=iid, rid=rid, pa=self}
 end
