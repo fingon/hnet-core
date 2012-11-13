@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Tue Nov 13 13:33:49 2012 mstenber
--- Edit time:     169 min
+-- Last modified: Tue Nov 13 15:54:03 2012 mstenber
+-- Edit time:     170 min
 --
 
 require 'mst'
@@ -249,7 +249,7 @@ function binary_prefix_contains(b1, bits1, b2, bits2)
          --mst.d('full', bo)
          local v1 = string.sub(b1, ofs, ofs)
          local v2 = string.sub(b2, ofs, ofs)
-         mst.d(' considering full', ofs, v1, v2)
+         --mst.d(' considering full', ofs, v1, v2)
          return v1 == v2 and contains_rec(ofs+1)
       end
       local bits = bits1 - bo
