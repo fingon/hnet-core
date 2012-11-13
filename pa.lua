@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Thu Nov  8 17:57:51 2012 mstenber
--- Edit time:     800 min
+-- Last modified: Tue Nov 13 13:37:39 2012 mstenber
+-- Edit time:     807 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -66,6 +66,12 @@ module('pa', package.seeall)
 -- may surprise us at some point)
 IPV4_PA_LAST_ROUTER=64
 
+-- how many bits of the IPv4 prefix are dedicated to routers
+-- IPV4_PA_LAST_ROUTER overrides this, but this is used as initial
+-- search space; therefore, they should be ~correct - that is, 
+-- 2^IPV4_PA_ROUTER_BITS =~ IPV4_PA_LAST_ROUTER
+IPV4_PA_ROUTER_BITS=math.floor(math.log(IPV4_PA_LAST_ROUTER) / math.log(2))
+
 -- wrapper we can override
 create_hash=false
 create_hash_type=false
@@ -84,6 +90,8 @@ then
    create_hash_type = 'sha1'
    print('using sha1')
 end
+
+local _null = string.char(0)
 
 -- sanity checking
 function _valid_rid(s)
@@ -1217,15 +1225,16 @@ function pa:handle_ipv4_lap_address(lap)
       return
    end
 
+   local p = ipv6s.new_prefix_from_binary(lap.prefix:get_binary() .. _null,
+                                          128 - IPV4_PA_ROUTER_BITS)
+
    -- ok, we either don't have assignment, or someone with higher rid
    -- wants _our_ address. let's not fight. try to generate a new one.
-   local s = sps:new{prefix=lap.prefix, desired_bits=128, pa=self}
+   local s = sps:new{prefix=p, desired_bits=128, pa=self}
 
-   -- as we have 1/4 chance of hitting our window, do more randoms
-   -- than normally
-   s.random_prefix_tries = 20
-
-   -- this is rather sad algorithm.. :-p
+   -- we do this loop to make sure result is reasonable; typically
+   -- there should be just ~0-1 iterations (0 if pool full, 1
+   -- otherwise)
    while true
    do
       local p = s:find_new_from(lap.iid, assigned)
@@ -1253,7 +1262,7 @@ function pa:handle_ipv4_lap_address(lap)
          self:changed()
          return
       else
-            assigned[b] = true
+         assigned[b] = true
       end
    end
 end
