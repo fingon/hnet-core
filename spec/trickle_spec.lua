@@ -6,13 +6,12 @@
 -- Author: Markus Stenberg <fingon@iki.fi>
 --
 -- Created:       Mon Sep 17 13:13:02 2012 mstenber
--- Last modified: Tue Oct  2 13:50:26 2012 mstenber
+-- Last modified: Tue Nov 13 13:23:08 2012 mstenber
 -- Edit time:     34 min
 --
 
 -- Make sure that the trickle module is sane
 
-require 'strict'
 require "busted"
 require "trickle"
 
