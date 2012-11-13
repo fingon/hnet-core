@@ -8,14 +8,15 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:48:34 2012 mstenber
--- Last modified: Thu Nov  8 09:11:34 2012 mstenber
--- Edit time:     6 min
+-- Last modified: Tue Nov 13 14:13:55 2012 mstenber
+-- Edit time:     13 min
 --
 
 -- pm_v6_route is responsible for syncing the real state to ospf_lap/usp 
 -- by manipulating the routes
 
 require 'pm_handler'
+require 'ipv6s'
 
 module(..., package.seeall)
 
@@ -30,7 +31,7 @@ end
 
 function pm_v6_route:run()
    local valid_end='::/64'
-   local lap = self.pm.ospf_lap
+   local lap = self.pm:get_ipv6_lap()
    local rlap = self:get_real_lap()
    self:d('lap_changed - rlap/lap', #rlap, #lap)
    -- both are lists of map's, with prefix+ifname keys
@@ -43,16 +44,12 @@ function pm_v6_route:run()
       do
          local ov = t[v.prefix]
 
-         if not mst.string_endswith(v.prefix, ipv4_end)
-         then
-            -- if we don't have old value, or old one is 
-            -- depracated, we clearly prefer the new one
+         -- if we don't have old value, or old one is 
+         -- depracated, we clearly prefer the new one
 
-            -- XXX - add test cases for this
-            if not ov or ov.depracate
-            then
-               t[v.prefix] = v
-            end
+         if not ov or ov.depracate
+         then
+            t[v.prefix] = v
          end
       end
       return t
@@ -137,6 +134,7 @@ end
 
 
 function pm_v6_route:handle_ospf_prefix(prefix, po)
+   self:a(po.ifname, 'no ifname in lap', po)
    local hwaddr = self.pm.if_table:get_if(po.ifname):get_hwaddr()
    local addr = ipv6s.prefix_hwaddr_to_eui64(prefix, hwaddr)
    self:d('handle_ospf_prefix', po)

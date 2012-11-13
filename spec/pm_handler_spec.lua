@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Thu Nov  8 10:06:23 2012 mstenber
--- Edit time:     8 min
+-- Last modified: Tue Nov 13 14:16:04 2012 mstenber
+-- Edit time:     15 min
 --
 
 -- individual handler tests
@@ -17,6 +17,7 @@ require 'busted'
 require 'dpm'
 require 'pm_v6_nh'
 require 'pm_v6_listen_ra'
+require 'pm_v6_route'
 
 module("pm_handler_spec", package.seeall)
 
@@ -63,5 +64,37 @@ describe("pm_v6_listen_ra", function ()
                   o:run()
 
                   pm.ds:check_used()
+                   end)
+end)
+
+describe("pm_v6_route", function ()
+            it("works", function ()
+                  -- make sure that in a list with 3 prefixes, middle
+                  -- one not deprecated, we get the middle one..
+                  -- (found a bug, code review is fun(?))
+                  local pm = dpm.dpm:new{ipv6_laps={
+                                            {depracate=true,
+                                             ifname='eth2',
+                                             prefix='beef::/64'},
+                                            {prefix='beef::/64',
+                                             ifname='eth0',
+                                            },
+                                            {depracate=true,
+                                             ifname='eth1',
+                                             prefix='beef::/64'},
+
+                                                   }
+                                        }
+                  local o = pm_v6_route.pm_v6_route:new{pm=pm}
+                  pm.ds:set_array{
+                     {"ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary", ''},
+                     {'ifconfig eth0 | grep HWaddr', 
+                      'eth0      Link encap:Ethernet  HWaddr 00:1c:42:a7:f1:d9  '},
+                     {'ip -6 addr add beef::21c:42ff:fea7:f1d9/64 dev eth0', ''},
+
+                                 }
+                  o:run()
+                  pm.ds:check_used()
+                  
                    end)
 end)
