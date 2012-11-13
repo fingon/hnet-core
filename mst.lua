@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Nov  8 09:58:24 2012 mstenber
--- Edit time:     536 min
+-- Last modified: Tue Nov 13 13:23:51 2012 mstenber
+-- Edit time:     539 min
 --
 
 -- data structure abstractions provided:
@@ -19,7 +19,11 @@
 -- table_* = normal Python-style dictionary
 --  class called 'dict' to prevent conflicts
 
-require 'strict'
+-- allow prevention of loading strict (e.g. when dealing with luacov)
+if not os.getenv("DISABLE_MST_STRICT")
+then
+   require 'strict'
+end
 
 module(..., package.seeall)
 
