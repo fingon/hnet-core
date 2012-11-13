@@ -17,6 +17,8 @@ cov: clean test
 	busted -l "./run_lua_with_luacov.sh" spec
 	./run_luacov.sh
 
+stress: .stressed
+
 test: .tested
 
 %_sm.lua: %.sm
@@ -27,7 +29,10 @@ test: .tested
 debug:
 	ENABLE_MST_DEBUG=1 busted spec
 
-.tested: skv_sm.lua $(TESTS) $(wildcard *.lua)
+.stressed: $(LUA_SMS) $(TESTS) $(wildcard *.lua)
+	busted -p '_stress.lua$$' stress
+
+.tested: $(LUA_SMS) $(TESTS) $(wildcard *.lua)
 	busted spec
 #	ENABLE_MST_DEBUG=1 busted spec 2>&1 | grep successes
 #	touch $@

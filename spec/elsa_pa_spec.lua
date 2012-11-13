@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Nov  6 09:26:11 2012 mstenber
--- Edit time:     241 min
+-- Last modified: Tue Nov 13 16:44:56 2012 mstenber
+-- Edit time:     293 min
 --
 
 require 'mst'
@@ -20,8 +20,11 @@ require 'ssloop'
 
 module("elsa_pa_spec", package.seeall)
 
+local _dsm = require 'dsm'
+local dsm = _dsm.dsm
+
 local _delsa = require 'delsa'
-delsa = _delsa.delsa
+local delsa = _delsa.delsa
 
 local usp_dead_tlv = codec.usp_ac_tlv:encode{prefix='dead::/16'}
 local jari_tlv_type = codec.ac_tlv:new_subclass{tlv_type=123}
@@ -208,7 +211,7 @@ describe("elsa_pa [one node]", function ()
 
                   local v = s:get(elsa_pa.OSPF_DNS_SEARCH_KEY)
                   mst.a(not v or #v == 0, 'DNS search set?!?', v)
-                   end)
+                                                                     end)
 
             it("also works via skv configuration - but no ifs! #noi", function ()
                   -- in the beginning, should only get nothing
@@ -252,7 +255,7 @@ describe("elsa_pa [one node]", function ()
                   local v = s:get(elsa_pa.OSPF_DNS_SEARCH_KEY)
                   mst.a(mst.repr_equal(v, {FAKE_DNS_SEARCH}))
 
-                                                        end)
+                                                                      end)
 
             it("also works via skv configuration #skv", function ()
                   -- in the beginning, should only get nothing
@@ -319,7 +322,7 @@ describe("elsa_pa [one node]", function ()
                   mst.a(not asp_added)
                                                              end)
 
-            it("duplicate detection works - smaller", function ()
+            it("duplicate detection works - dupe smaller", function ()
                   e.lsas={mypid=rhf_low_tlv,
                           r1=usp_dead_tlv}
                   ep:ospf_changed()
@@ -328,49 +331,53 @@ describe("elsa_pa [one node]", function ()
                   mst.a(not asp_added)
                   mst.a(not e.rid_changed)
 
-                                                      end)
+                                                           end)
 
-            it("duplicate detection works - greater", function ()
+            it("duplicate detection works - dupe greater #dupe", function ()
                   e.lsas={mypid=rhf_high_tlv,
                           r1=usp_dead_tlv}
                   ep:ospf_changed()
                   ep:run()
+                  mst.a(e.rid_changed)
                   mst.a(not usp_added)
                   mst.a(not asp_added)
-                  mst.a(e.rid_changed)
-                                                      end)
+                                                                 end)
 
             it("duplicate detection works - greater, oob lsa", function ()
                   local dupe = {rid='mypid',
                                 body=rhf_high_tlv}
                   ep:check_conflict(dupe)
                   mst.a(e.rid_changed)
-                                                      end)
+                                                               end)
 
                                end)
 
 describe("elsa_pa 2-node", function ()
+            local sm
             local e, skv1, skv2, ep1, ep2
             
             before_each(function ()
-                  local base_lsas = {r1=usp_dead_tlv}
-                  e = delsa:new{iid={ep1={{index=42, name='eth0'},
-                                                {index=123, name='eth1'}}, 
-                                     ep2={{index=43,name='eth0'},
-                                          {index=124, name='eth1'}}},
-                                hwf={ep1='foo',
-                                     ep2='bar'},
-                                assume_connected=true,
-                                lsas=base_lsas}
-                  e:connect_neigh('ep1', 123, 'ep2', 124)
-                  skv1 = skv.skv:new{long_lived=true, port=31338}
-                  skv2 = skv.skv:new{long_lived=true, port=31339}
-                  ep1 = elsa_pa.elsa_pa:new{elsa=e, skv=skv1, rid='ep1'}
-                  ep2 = elsa_pa.elsa_pa:new{elsa=e, skv=skv2, rid='ep2'}
-                  e:add_router(ep1)
-                  e:add_router(ep2)
-
+                           local base_lsas = {r1=usp_dead_tlv}
+                           e = delsa:new{iid={ep1={{index=42, name='eth0'},
+                                                   {index=123, name='eth1'}}, 
+                                              ep2={{index=43,name='eth0'},
+                                                   {index=124, name='eth1'}}},
+                                         hwf={ep1='foo',
+                                              ep2='bar'},
+                                         assume_connected=true,
+                                         lsas=base_lsas}
+                           e:connect_neigh('ep1', 123, 'ep2', 124)
+                           sm = dsm:new{e=e, port_offset=31338}
+                           ep1 = sm:add_router('ep1')
+                           ep1.originate_min_interval=0
+                           skv1 = sm.skvs[1]
+                           ep2 = sm:add_router('ep2')
+                           ep2.originate_min_interval=0
+                           skv2 = sm.skvs[2]
                         end)
+            after_each(function ()
+                          sm:done()
+                       end)
             it("2 sync state ok #mn", function ()
                   --mst.d_xpcall(function ()
 
@@ -380,13 +387,9 @@ describe("elsa_pa 2-node", function ()
 
                   -- run once, and make sure we get to pa.add_or_update_usp
 
-                  for i=1,3
-                  do
-                     mst.d('running iter', i)
-                     ep1:run()
-                     ep2:run()
-                  end
+                  mst.a(sm:run_nodes(3), 'did not halt in time')
 
+                  mst.a(sm:run_nodes(3), 'did not halt in time')
 
                   -- 3 asps -> each should have 3 asps + 2 lap
                   -- (2 ifs per box)
@@ -397,7 +400,8 @@ describe("elsa_pa 2-node", function ()
                         mst.a(string.sub(asp.ascii_prefix, -#valid_end) == valid_end, 'invalid prefix', asp)
 
                      end
-                     mst.a(ep.pa.asp:count() == 3)
+                     mst.a(ep.pa.asp:count() == 3, 'invalid ep.pa.asp',  
+                           ep.pa.asp)
                      mst.a(ep.pa.lap:count() == 2)
                   end
 
@@ -407,174 +411,114 @@ describe("elsa_pa 2-node", function ()
                   local v = skv2:get(elsa_pa.OSPF_DNS_SEARCH_KEY)
                   mst.a(mst.repr_equal(v, {FAKE_DNS_SEARCH}))
 
-                  -- cleanup
-                  ep1:done()
-                  ep2:done()
-                  skv1:done()
-                  skv2:done()
-
-                  e:done()
-
-                  -- make sure cleanup really was clean
-                  local r = ssloop.loop():clear()
-                  mst.a(not r, 'event loop not clear')
-
-                                  end)
-            --                    end)
-                              end)
+                                      end)
+                           end)
 
 describe("elsa_pa bird7-ish", function ()
-            local e, skvs, eps, local_time
+            local e, sm
             function connect_nodes()
-                  -- wire up the routers like in bird7
-                  -- e.g. HOME = cpe[0], bird1[0], bird2[0]
-                  e:connect_neigh('bird0', 42, 
-                                  'bird1', 42,
-                                  'bird2', 42)
-                  -- BIRD1
-                  e:connect_neigh('bird1', 43, 
-                                  'bird3', 42)
-                  -- BIRD2, 3 aren't connected anywhere
-                  
+               -- wire up the routers like in bird7
+               -- e.g. HOME = cpe[0], bird1[0], bird2[0]
+               e:connect_neigh('bird0', 42, 
+                               'bird1', 42,
+                               'bird2', 42)
+               -- BIRD1
+               e:connect_neigh('bird1', 43, 
+                               'bird3', 42)
+               -- BIRD2, 3 aren't connected anywhere
+               
 
-                  -- sanity check - all 4 nodes should be connected
-                  local t = e:get_connected('bird0')
-                  mst.a(t:count() == 4, 'connect_neigh or get_connected not working', t)
-            end
-            function run_nodes(iters, clear_busy)
-               -- run nodes up to X iterations, or when none of them
-               -- don't want to run return true if stop condition was
-               -- encountered before iters iterations
-               for i=1,iters
-               do
-                  mst.d('iteration', i)
-                  for i, ep in ipairs(mst.array_randlist(eps))
-                  do
-                     ep:run()
-                     if clear_busy then ep.pa.busy = nil end
-                  end
-                  local l = 
-                     eps:filter(function (ep) return ep:should_run(ep.ospf_changes) end)
-                  if #l == 0
-                  then
-                     return true
-                  end
-               end
+               -- sanity check - all 4 nodes should be connected
+               local t = e:get_connected('bird0')
+               mst.a(t:count() == 4, 'connect_neigh or get_connected not working', t)
             end
             before_each(function ()
-                  -- it has 4 real bird nodes;
-                  -- [1] is the one connected to outside world
-                  -- (named bird0 to retain naming consistency)
-                  skvs = mst.array:new{}
-                  eps = mst.array:new{}
-                  iids = {}
-                  hwfs = {}
-                  e = delsa:new{iid=iids, hwf=hwfs}
-                  for i=0,3
-                  do
-                     local name = 'bird' .. tostring(i)
-                     iids[name] = {{index=42, name='eth0'},
-                                   {index=43, name='eth1'}}
-                     hwfs[name] = name
-                     local s = skv.skv:new{long_lived=true, port=42420+i}
-                     local ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid=name,
-                                                    originate_min_interval=0}
-                     skvs:insert(s)
-                     eps:insert(ep)
-                     e:add_router(ep)
-                  end
+                           -- it has 4 real bird nodes;
+                           -- [1] is the one connected to outside world
+                           -- (named bird0 to retain naming consistency)
+                           iids = {}
+                           hwfs = {}
+                           e = delsa:new{iid=iids, hwf=hwfs}
+                           sm = dsm:new{e=e, port_offset=42420}
+                           for i=0,3
+                           do
+                              local name = 'bird' .. tostring(i)
+                              iids[name] = {{index=42, name='eth0'},
+                                            {index=43, name='eth1'}}
+                              hwfs[name] = name
+                              local ep = sm:add_router(name)
+                              ep.originate_min_interval=0
+                           end
                         end)
 
-            function ensure_same()
-                  local ep1 = eps[4]
-                  local pa1 = ep1.pa
-                  for i, ep in ipairs(eps)
-                  do
-                     local pa = ep.pa
-                     mst.a(pa.usp:count() == pa1.usp:count(), 'usp', pa, pa1)
-                     mst.a(pa.asp:count() == pa1.asp:count(), 'asp', pa, pa1)
-
-                     -- lap count can be bigger, if there's redundant
-                     -- allocations
-                     --mst.a(pa.lap:count() == pa1.lap:count(), 'lap', pa, pa1)
-                  end
-            end
-
-            function ensure_counts()
-                  local ep1 = eps[4]
-                  local pa1 = ep1.pa
-                  -- make sure that view sounds sane
-                  -- 2 USP (ULA, IPv4)
-                  mst.a(pa1.usp:count() == 2, 'usp', pa1.usp)
-
-                  -- # links * 2 AF IPv4+USP
-                  -- BIRD1-3, HOME, ISP
-                  local links = 5
-                  mst.a(pa1.asp:count() == links * 2, 'wrong asp count', pa1, pa1.asp, pa1.asp:count())
-                  -- 2 if * USP,IPv4 [cannot be more, highest rid]
-                  local laps = pa1.lap:values()
-                  local alaps = laps:filter(function (lap) return lap.assigned end)
-                  mst.a(#alaps == 2 * 2, 'wrong lap count', pa1, alaps)
-            end
             after_each(function ()
-                          for i, ep in ipairs(eps)
-                          do
-                             ep:done()
-                          end
-                          for i, s in ipairs(skvs)
-                          do
-                             s:done()
-                          end
-
-                          -- make sure cleanup really was clean
-                          local r = ssloop.loop():clear()
-                          mst.a(not r, 'event loop not clear')
+                          sm:done()
                        end)
+            function ensure_counts()
+               mst.a(#sm.eps == 4, 'not 4 eps', sm.eps)
+
+               local ep1 = sm.eps[4]
+               mst.a(ep1)
+               
+               local pa1 = ep1.pa
+               -- make sure that view sounds sane
+               -- 2 USP (ULA, IPv4)
+               mst.a(pa1.usp:count() == 2, 'usp', pa1.usp)
+               
+               -- # links * 2 AF IPv4+USP
+               -- BIRD1-3, HOME, ISP
+               local links = 5
+               mst.a(pa1.asp:count() == links * 2, 'wrong asp count', pa1, pa1.asp, pa1.asp:count())
+               -- 2 if * USP,IPv4 [cannot be more, highest rid]
+               local laps = pa1.lap:values()
+               local alaps = laps:filter(function (lap) return lap.assigned end)
+               mst.a(#alaps == 2 * 2, 'wrong lap count', pa1, alaps)
+            end
             it("instant connection #inst", function ()
                   connect_nodes()
                   
-                  mst.a(run_nodes(10, true), 'did not halt in time')
+                  mst.a(sm:run_nodes(10, true), 'did not halt in time')
 
-                  ensure_same()
+                  sm:ensure_same()
 
                   ensure_counts()
                   
-                   end)
+                                           end)
 
             it("delayed connection #delay", function ()
                   
-                  mst.a(run_nodes(2, true), 'did not halt in time')
+                  mst.a(sm:run_nodes(2, true), 'did not halt in time')
 
                   connect_nodes()
                   
-                  mst.a(run_nodes(10), 'did not halt in time')
+                  mst.a(sm:run_nodes(10), 'did not halt in time')
 
-                  ensure_same()
+                  sm:ensure_same()
 
                   ensure_counts()
                   
-                   end)
+                                            end)
 
 
             it("survive net burps #burp", function ()
-                  mst.a(run_nodes(2, true), 'did not halt in time')
+                  mst.a(sm:run_nodes(2, true), 'did not halt in time')
 
                   for i=1,3
                   do
-                  connect_nodes()
-                  
-                  mst.a(run_nodes(10), 'did not halt in time')
+                     connect_nodes()
+                     
+                     mst.a(sm:run_nodes(10), 'did not halt in time')
 
-                  ensure_same()
+                     sm:ensure_same()
 
-                  ensure_counts()
-                  
-                  e:clear_connections()
+                     ensure_counts()
+                     
+                     e:clear_connections()
 
-                  mst.a(run_nodes(2), 'did not halt in time')
+                     mst.a(sm:run_nodes(2), 'did not halt in time')
 
                   end
 
-                   end)
+                                          end)
 
-                           end)
+                              end)

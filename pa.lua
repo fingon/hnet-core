@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Nov 13 15:00:41 2012 mstenber
--- Edit time:     828 min
+-- Last modified: Tue Nov 13 16:38:33 2012 mstenber
+-- Edit time:     831 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -194,14 +194,16 @@ function lap:find_usp()
 
    -- find the shortest (bit-mask-wise) usp which contains our prefix =>
    -- that one is the one we belong to
-   local found 
+   local found, found_bits, bits
    for i, usp in ipairs(self.pa.usp:values())
    do
       if usp.prefix:contains(self.prefix)
       then
-         if not found or found.prefix:get_binary_bits() > usp.prefix:get_binary_bits()
+         bits = usp.prefix:get_binary_bits()
+         if not found or found_bits > bits
          then
             found = usp
+            found_bits = bits
          end
       end
    end
@@ -217,7 +219,8 @@ function lap:assign()
       -- with same USP as us 
       local usp = self:find_usp()
       local is_ipv4 = self.prefix:is_ipv4()
-      -- XXX - add test case for this
+
+      -- (nondeterministic) test case for this in elsa_pa_stress.lua
       for i, lap2 in ipairs(self.pa.lap[self.iid])
       do
          if lap ~= lap2 and usp.prefix:contains(lap2.prefix)

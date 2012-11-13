@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Nov 13 14:32:25 2012 mstenber
--- Edit time:     503 min
+-- Last modified: Tue Nov 13 16:10:56 2012 mstenber
+-- Edit time:     505 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -195,7 +195,8 @@ function elsa_pa:init()
    -- create the actual abstract prefix algorithm object we wrap
    self.pa = pa.pa:new{rid=self.rid, client=self, lap_class=elsa_lap,
                        new_prefix_assignment=self.new_prefix_assignment,
-                       new_ula_prefix=self.new_ula_prefix}
+                       new_ula_prefix=self.new_ula_prefix,
+                       time=self.time}
 
    -- set of _all_ interface names we've _ever_ seen (used for
    -- checking SKV for tidbits)
