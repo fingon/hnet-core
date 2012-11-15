@@ -13,55 +13,24 @@ lsalib.c: 86 => what happens of time moves backwards?
 
 nothing good happens if time moves much forwards, _either_. *sigh*
 
+** rhf bit flaky
+
+- sometimes eth0, sometimes eth1 too.. depending on which if is up. correct
+  approach is to check _all_ interfaces that are configured, regardless of
+  addresses present (right now we seed it with IPv6)
+
 * Things to do
 
-** Package hnet package for OpenWRT
+** Test hnet package for OpenWRT on real hardware
 
-- also have dependency on bird6-elsa, do all the relevant init scripts etc
-=> ~plug-n-play
-
- a problem, however, lies in the fact that enabling this will probably
- imply disabling _lots_ of other things from being started
- automatically.. perhaps the enable script can do that?
-
- - provide big-ass warnings about this being bad for your system's security
-   as version #1 won't be compatible with using a firewall (.. sigh ..)
-
-contents:
-
- [/etc/bird4.conf - not needed? we auto-generate one anyway in the
- bird4 handler]
-
- /etc/bird6.conf
- /etc/dhclient-exit-hooks
- /etc/dhcp/dhcp/dhclient-exit-hooks.d/use-pd
- /etc/dhcp/dhcp/dhclient-exit-hooks.d/use-v4
- /sbin/dhclient-script
- /usr/share/hnet/*.sh
- /usr/share/lua/*.lua
-
- /etc/init.d/hnet
-(which fires up bird6-elsa, pm.lua)
-
+.. it works in the VM topology, but test what's needed to get it working on
+'pristine' source tree + router
 
 ** Cleanup BIRD changes
 
 - whitespace?
 + works with, without lua? with ipv6, without ipv6?
  - should automate these tests
-
-** Optimize memory usage
-
-- there's ~300kb of static stuff that isn't really needed in the LSA/etc
-
-.. but that's peanuts, 32MB router image ran out of memory when running
-primitive topology(!).. by default ~40MB used. OMG :p
-
-** rhf bit flaky
-
-- sometimes eth0, sometimes eth1 too.. depending on which if is up. correct
-  approach is to check _all_ interfaces that are configured, regardless of
-  addresses present (right now we seed it with IPv6)
 
 ** Recursive routing
 
@@ -267,6 +236,42 @@ does anyone care :p
 and make sure result is sane
 
 * Done (12.11.+)
+
+** Optimize memory usage
+
+- there's ~300kb of static stuff that isn't really needed in the LSA/etc
+
+.. but that's peanuts, 32MB router image ran out of memory when running
+primitive topology(!).. by default ~40MB used. OMG :p
+
+** Package hnet package for OpenWRT
+
+- also have dependency on bird6-elsa, do all the relevant init scripts etc
+=> ~plug-n-play
+
+ a problem, however, lies in the fact that enabling this will probably
+ imply disabling _lots_ of other things from being started
+ automatically.. perhaps the enable script can do that?
+
+ - provide big-ass warnings about this being bad for your system's security
+   as version #1 won't be compatible with using a firewall (.. sigh ..)
+
+contents:
+
+ [/etc/bird4.conf - not needed? we auto-generate one anyway in the
+ bird4 handler]
+
+ /etc/bird6.conf
+ /etc/dhclient-exit-hooks
+ /etc/dhcp/dhcp/dhclient-exit-hooks.d/use-pd
+ /etc/dhcp/dhcp/dhclient-exit-hooks.d/use-v4
+ /sbin/dhclient-script
+ /usr/share/hnet/*.sh
+ /usr/share/lua/*.lua
+
+ /etc/init.d/hnet
+(which fires up bird6-elsa, pm.lua)
+
 
 ** Duplicate lap's for v4
 
