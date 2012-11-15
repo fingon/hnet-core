@@ -2,86 +2,66 @@
 
 * Bugs to fix
 
-** duplicate lap's for v4 - more study
+** BIRD - dridd
 
-- boom2 log
-iid=7 has two addresses, all 'valid'
-
-10.164.106.0
-cr: 06-11-2012 22:04:46 (asp)
-rid: 3397908108
-
-10.66.160.0
-! seems to be the right onw
-cr: 06-11-2012 22:04:52 
-rid?: 1401178559
-
-** Try not to allocate stuff on if's that are bridged
-
-(two ports, same bridged network => need only one address/...?)
+Duplicate rid detection blows up if the router is connected to same
+switch/hub using multiple interfaces (when it receives packets from itself)
 
 ** BIRD - OSPFv3
 
 lsalib.c: 86 => what happens of time moves backwards?
 
-** findings
+nothing good happens if time moves much forwards, _either_. *sigh*
 
-- windows failed horribly
-- Lorenzo's Linux had same features - why?
+* Things to do
 
-** fun hack
+** Package hnet package for OpenWRT
 
-- instead of calculating the nh all the time
+- also have dependency on bird6-elsa, do all the relevant init scripts etc
+=> ~plug-n-play
 
- - make route to the BR ip => can be ~static! (win-win, kernel does the
-   ugly bits)
+ a problem, however, lies in the fact that enabling this will probably
+ imply disabling _lots_ of other things from being started
+ automatically.. perhaps the enable script can do that?
 
-** interesting point
+ - provide big-ass warnings about this being bad for your system's security
+   as version #1 won't be compatible with using a firewall (.. sigh ..)
 
-- default src+default dst = used for address selection
-=> we don't have global connectivity on homenet without!
+contents:
 
-** at some point someone 'stole' USP prefix ownership
+ [/etc/bird4.conf - not needed? we auto-generate one anyway in the
+ bird4 handler]
 
-=> routes broke
+ /etc/bird6.conf
+ /etc/dhclient-exit-hooks
+ /etc/dhcp/dhcp/dhclient-exit-hooks.d/use-pd
+ /etc/dhcp/dhcp/dhclient-exit-hooks.d/use-v4
+ /sbin/dhclient-script
+ /usr/share/hnet/*.sh
+ /usr/share/lua/*.lua
 
-= wtf ??
+ /etc/init.d/hnet
+(which fires up bird6-elsa, pm.lua)
 
-** identify why eth1 is only working PD interface on HW
 
-.. pd client on eth0.* does not work the same way (has some assumptions
-about IP aliases? started by hand=works, started at boot=does not work)
+** Cleanup BIRD changes
 
-** write testsuite which tests time changes
+- whitespace?
++ works with, without lua? with ipv6, without ipv6?
+ - should automate these tests
 
-- at least the *pa.lua should not be confused by time jumps
-  (or it should recover from them)
+** Optimize memory usage
 
-.. potential source of router #3(/6) hangup
+- there's ~300kb of static stuff that isn't really needed in the LSA/etc
 
-it cleared it's state and never recovered; it is also possible that somehow
-the pm process does something bad, but seems unlikely as all these fields
-are sourced from BIRD and are set to sensible-looking values
-
-root@inner:~# skvtool -l
-ospf-rid=24336807
-ospf-v4-dns={}
-ospf-v4-dns-search={}
-ospf-dns={}
-ospf-iflist={"eth0.2", "eth0.3", "eth0.4", "eth1", "eth0.1"}
-disable-pa-eth0="1"
-ospf-dns-search={}
-ospf-usp={}
-ospf-lap={{address="10.24.33.23/32", ifname="eth0.4", prefix="10.24.33.0/24"}, {ifname="eth0.4", prefix="fc60:574d:6f60:3468::/64"}}
-root@inner:~# 
+.. but that's peanuts, 32MB router image ran out of memory when running
+primitive topology(!).. by default ~40MB used. OMG :p
 
 ** rhf bit flaky
 
 - sometimes eth0, sometimes eth1 too.. depending on which if is up. correct
   approach is to check _all_ interfaces that are configured, regardless of
   addresses present (right now we seed it with IPv6)
-
-* Things to do
 
 ** Recursive routing
 
@@ -133,35 +113,37 @@ TODO codereview
 
 ** split mst.lua
 
-** Demo topology?
-
-[ - IETF v6? (/x?) ]
-
-ISP-CPE-N
-- HE tunnel (/48)
-- DHCPv6 PD server (delegating /56s from /48)
-
-via DHCP, provide Google DNS server address
-
-https://developers.google.com/speed/public-dns/docs/using
-
-8.8.8.8
-8.8.4.4
-
-2001:4860:4860::8888
-2001:4860:4860::8844
-
 ** Comprehensively test PA alg (2/2)
 
 - think more corner cases to test
- - _large_ topologies should still converge
+ - _large_ topologies should still converge (and they seem to; should set
+   up VMs to make sure, though, instead of just the stress test)
  
-- try to see if we can do again the DHCPv4 bug
- - some sort of mutating topology testcase? which runs long time?
++ try to see if we can do again the DHCPv4 bug
+ + some sort of mutating topology testcase? which runs long time?
    .. make sure every now and then that the design assertions hold,
    e.g. one IP address per interface per device, one prefix per link per USP
+ [ done, stress/elsa_pa_stress.lua ]
 
 * Things to do if I have time (hah)
+
+** Dynamic border handling (for real)
+
+.. actually configure firewall etc based on detection results.
+
+- run OSPF on all interfaces [trivial, we do that now too]
+
+- run PD on all interfaces [we do this now too, but could do it more
+  efficiently]
+
+- only OSPF (/nothing) = interior
+- only PD = exterior
+- rest = mixed, but I'd prefer to treat them as exterior for firewalling
+  purposes
+
+** Determine if two interfaces are bridged somehow
+
+(two ports, same bridged network => need only one address/...?)
 
 ** Design own routing protocol? :---p
 
@@ -190,26 +172,6 @@ https://developers.google.com/speed/public-dns/docs/using
 
 - packet loss more of a concern?
 
-
-** Convert the hnet Lua stuff to a single package-formatted thing
-
-** Package hnet package for OpenWRT
-
-- also have dependency on bird6-elsa, do all the relevant init scripts etc
-=> ~plug-n-play
-
-** Cleanup BIRD changes
-
-- whitespace?
-+ works with, without lua? with ipv6, without ipv6?
- - should automate these tests
-
-** Optimize memory usage
-
-- there's ~300kb of static stuff that isn't really needed in the LSA/etc
-
-.. but that's peanuts, 32MB router image ran out of memory when running
-primitive topology(!).. by default ~40MB used. OMG :p
 
 ** Optimize PA alg
 
@@ -303,6 +265,27 @@ does anyone care :p
 
 .. to do: write testcase which has 6rd+native with same assigned prefix,
 and make sure result is sane
+
+* Done (12.11.+)
+
+** Duplicate lap's for v4
+
+- boom2 log
+iid=7 has two addresses, all 'valid'
+
+10.164.106.0
+cr: 06-11-2012 22:04:46 (asp)
+rid: 3397908108
+
+10.66.160.0
+! seems to be the right onw
+cr: 06-11-2012 22:04:52 
+rid?: 1401178559
+
+[ this stuff was fixed in 9th commit, probably - there was a typo in the
+duplicate detection at least, leaving multiple assigned ones.. and improved
+on since, there's now a stress test too. and it still doesn't blow up,
+which is nice. ]
 
 * Done (5.11.+)
 
