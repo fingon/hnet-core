@@ -21,6 +21,13 @@ nothing good happens if time moves much forwards, _either_. *sigh*
 
 * Things to do
 
+** refactor skv fields to be more sensible
+
+- some sort of self-describing nested-table approach
+
+- skvtool may need some sort of better data structure manipulation tools?
+  (add/remove to list?)
+
 ** Test hnet package for OpenWRT on real hardware
 
 .. it works in the VM topology, but test what's needed to get it working on

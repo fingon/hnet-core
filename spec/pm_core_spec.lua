@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Tue Nov 13 13:36:08 2012 mstenber
--- Edit time:     168 min
+-- Last modified: Mon Nov 19 18:06:32 2012 mstenber
+-- Edit time:     201 min
 --
 
 -- testsuite for the pm_core
@@ -35,43 +35,99 @@ require 'dshell'
 
 local usp_dead_tlv = codec.usp_ac_tlv:encode{prefix='dead::/16'}
 
-local x = 
-   pa.create_hash_type == 'md5' and
-   {'ip -6 addr add dead:fa5:c92f:74db:21c:42ff:fea7:f1d9/64 dev eth2', ''} -- md5
-   or
-   {'ip -6 addr add dead:e9d2:a21b:5888:21c:42ff:fea7:f1d9/64 dev eth2', ''} -- sha1
--- XXX - probably broken after alg change
+assert(pa.create_hash_type == 'md5', 'we support only md5 based tests - code might or might not work with sha1 fallback')
 
-local v6_dhcpd=
-   {
-   {'killall -9 radvd', ''},
-   {'rm -f /var/run/radvd.pid', ''},
-   {'radvd -C /tmp/radvd.conf', ''},
-   {'/usr/share/hnet/dhcpd_handler.sh 4 0 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
-   {'/usr/share/hnet/dhcpd_handler.sh 6 1 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
-   }
+-- bits and pieces == fragments for each sub-handler
+-- (out of which we create the combined ones)
 
-local v46_dhcpd=
-   {
-   {'killall -9 radvd', ''},
-   {'rm -f /var/run/radvd.pid', ''},
-   {'radvd -C /tmp/radvd.conf', ''},
+local bird_start = {
+   {'/usr/share/hnet/bird4_handler.sh start 135.214.18.0', ''},
+}
+
+local bird_stop = {
+   {'/usr/share/hnet/bird4_handler.sh stop', ''},
+}
+
+local dhcp4_start = {
    {'/usr/share/hnet/dhcpd_handler.sh 4 1 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
-   {'/usr/share/hnet/dhcpd_handler.sh 6 1 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
-   }
+}
 
-local no_dhcpd=
-   {
+local dhcp4_stop = {
+   {'/usr/share/hnet/dhcpd_handler.sh 4 0 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
+
+}
+
+local dhcp6_start = {
+   {'/usr/share/hnet/dhcpd_handler.sh 6 1 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
+}
+
+local dhcp6_stop = {
+   {'/usr/share/hnet/dhcpd_handler.sh 6 0 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
+}
+
+
+local radvd_stop = mst.array:new{
    {'killall -9 radvd', ''},
    {'rm -f /var/run/radvd.pid', ''},
---   {'radvd -C /tmp/radvd.conf', ''},
-   {'/usr/share/hnet/dhcpd_handler.sh 4 0 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
-   {'/usr/share/hnet/dhcpd_handler.sh 6 0 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
-   }
+}
+
+local radvd_start = {
+   {'radvd -C /tmp/radvd.conf', ''},
+}
+
+local radvd_restart = mst.table_copy(radvd_stop)
+mst.array_extend(radvd_restart, radvd_start)
 
 
+local v4_addr_check = {
+   {'ip -4 addr', 
+    [[
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
+    inet 127.0.0.1/8 scope host lo
+2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    inet 10.211.55.3/24 brd 10.211.55.255 scope global eth2
+428: nk_tap_mstenber: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 500
+    inet 192.168.42.1/24 brd 192.168.42.255 scope global nk_tap_mstenber
+     ]]}
+}
 
-local lap_base = {                     
+local v4_addr_set = {
+   {'ifconfig eth2 10.171.21.15 netmask 255.255.255.0', ''},
+}
+
+local v4_dhclient_wrong_start = {
+   {'ls -1 /var/run', [[
+pm-pid-dhclient-eth1
+                       ]]},
+   {'/usr/share/hnet/dhclient_handler.sh stop eth1 /var/run/pm-pid-dhclient-eth1', ''},
+   {'/usr/share/hnet/dhclient_handler.sh start eth0 /var/run/pm-pid-dhclient-eth0', ''},
+}
+
+local v4_dhclient_stop = {
+   {'ls -1 /var/run', [[
+pm-pid-dhclient-eth0
+                       ]]},
+   {'/usr/share/hnet/dhclient_handler.sh stop eth0 /var/run/pm-pid-dhclient-eth0', ''},
+}
+
+local v6_dhclient_start = {
+   {'ls -1 /var/run', ''},
+   {'/usr/share/hnet/dhclient6_handler.sh start eth2 /var/run/pm-pid-dhclient6-eth2', ''},
+}
+
+local v6_dhclient_stop = {
+   {'ls -1 /var/run', [[
+pm-pid-dhclient6-eth2
+                       ]]},
+   -- we leave them running for now -> ignore
+   --{'/usr/share/hnet/dhclient6_handler.sh stop eth2 /var/run/pm-pid-dhclient6-eth2', ''},
+}
+
+local v6_listen_ra_start = {
+   {'/usr/share/hnet/listen_ra_handler.sh start eth0', ''},
+}
+
+local v6_route_start = {
    {"ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary",
     [[1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 
 2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
@@ -83,31 +139,23 @@ local lap_base = {
    {'ip -6 addr del dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 dev eth2', ''},
    {'ifconfig eth2 | grep HWaddr',
     'eth2      Link encap:Ethernet  HWaddr 00:1c:42:a7:f1:d9  '},
-   x,
-   {'ls -1 /var/run', [[
-pm-pid-dhclient-eth1
-                       ]]},
-   {'/usr/share/hnet/dhclient_handler.sh stop eth1 /var/run/pm-pid-dhclient-eth1', ''},
-   {'/usr/share/hnet/dhclient_handler.sh start eth0 /var/run/pm-pid-dhclient-eth0', ''},
+   {'ip -6 addr add dead:fa5:c92f:74db:21c:42ff:fea7:f1d9/64 dev eth2', ''},
 }
 
-local lap_end = {
-   {'ip -4 addr', 
-    [[
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
-    inet 127.0.0.1/8 scope host lo
-2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
-    inet 10.211.55.3/24 brd 10.211.55.255 scope global eth2
-428: nk_tap_mstenber: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 500
-    inet 192.168.42.1/24 brd 192.168.42.255 scope global nk_tap_mstenber
-     ]]},
+local v6_route_stop = {
+   {"ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary",
+    [[1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 
+2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+  inet6 fdb2:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic 
+  inet6 dead:e9d2:a21b:5888:21c:42ff:fea7:f1d9/64 scope global dynamic
+6: 6rd: <NOARP,UP,LOWER_UP> mtu 1480 
+  inet6 ::192.168.100.100/128 scope global 
+]]},
+   {'ip -6 addr del dead:e9d2:a21b:5888:21c:42ff:fea7:f1d9/64 dev eth2', ''},
 }
 
-local bird_on = {
-   {'/usr/share/hnet/bird4_handler.sh start 135.214.18.0', ''},
-}
 
-local rule_base = {
+local v6_rule_start = {
    {'ip -6 rule',
     [[
                           0:	from all lookup local 
@@ -122,8 +170,7 @@ local rule_base = {
    {'ip -6 rule add from all to dead::/16 table main pref 1000', ''},
 }
 
-local rule_no_nh = {
-   {'/usr/share/hnet/listen_ra_handler.sh start eth0', ''},
+local v6_rule_flush_no_nh = {
    {'ip -6 rule',
     [[
                           0:	from all lookup local 
@@ -133,6 +180,19 @@ local rule_no_nh = {
    -- delete old rule, even if it matches (almost - not same nh info)
    {'ip -6 rule del from dead::/16 table 1000 pref 1112', ''},
 }
+
+local v6_rule_stop = {
+   {'ip -6 rule',
+    [[
+                          0:	from all lookup local 
+                          0:	from all to beef::/16 lookup local 
+                             1112:	from dead::/16 lookup 1000 
+                          16383:	from all lookup main 
+                       ]]},
+   {'ip -6 rule del from dead::/16 table 1000 pref 1112', ''},
+}
+
+-- miscellaneous odds and ends
 
 nh_juggling = {{'ip -6 route', [[
 default via 1.2.3.4 dev eth0
@@ -149,34 +209,6 @@ default via 1.2.3.4 dev eth0
                {'ip -6 route', [[
 default via 1.2.3.4 dev eth0
                                                         ]]}
-
-}
-                                        
-
-
-cleanup = {
-   {"ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary",
-    [[1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 
-2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
-  inet6 fdb2:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic 
-  inet6 dead:e9d2:a21b:5888:21c:42ff:fea7:f1d9/64 scope global dynamic
-6: 6rd: <NOARP,UP,LOWER_UP> mtu 1480 
-  inet6 ::192.168.100.100/128 scope global 
-]]},
-   {'ip -6 addr del dead:e9d2:a21b:5888:21c:42ff:fea7:f1d9/64 dev eth2', ''},
-   {'ls -1 /var/run', [[
-pm-pid-dhclient-eth0
-                       ]]},
-   {'/usr/share/hnet/dhclient_handler.sh stop eth0 /var/run/pm-pid-dhclient-eth0', ''},
-   {'/usr/share/hnet/bird4_handler.sh stop', ''},
-   {'ip -6 rule',
-    [[
-                          0:	from all lookup local 
-                          0:	from all to beef::/16 lookup local 
-                             1112:	from dead::/16 lookup 1000 
-                          16383:	from all lookup main 
-                       ]]},
-   {'ip -6 rule del from dead::/16 table 1000 pref 1112', ''},
 
 }
 
@@ -229,11 +261,25 @@ describe("pm", function ()
                           s:done()
                        end)
             it("works #w", function ()
-                  local d = mst.table_copy(lap_base)
-                  --mst.array_extend(d, bird_on)
-                  mst.array_extend(d, rule_base)
-                  mst.array_extend(d, lap_end)
-                  mst.array_extend(d, v6_dhcpd)
+                  local d = mst.array:new{}
+
+                  d:extend(unpack{
+                              --bird_start, -- n/a, no v4?
+                              -- no v4 dhcpd either
+                              dhcp4_stop,
+
+                              dhcp6_start,
+                              v4_addr_check,
+                              -- no v4 addr
+                              --v4_addr_set,
+                              v4_dhclient_wrong_start,
+                              v6_dhclient_start,
+                              v6_route_start,
+                              v6_rule_start,
+                              radvd_restart,
+                                 }
+                          )
+
                   ds:set_array(d)
                   ep:run()
                   mst.a(pm:run())
@@ -247,13 +293,29 @@ describe("pm", function ()
 
                         end)
             it("works - but no nh => table should be empty", function ()
+                  local d = mst.array:new{}
+
                   -- get rid of the nh
                   s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.NH_KEY .. 'eth0', nil)
-                  local d = mst.table_copy(lap_base)
-                  --mst.array_extend(d, bird_on)
-                  mst.array_extend(d, rule_no_nh)
-                  mst.array_extend(d, lap_end)
-                  mst.array_extend(d, v6_dhcpd)
+
+                  d:extend(unpack{
+                              --bird_start, -- n/a, no v4?
+                              -- no v4 dhcpd either
+                              dhcp4_stop,
+
+                              dhcp6_start,
+                              v4_addr_check,
+                              -- no v4 addr
+                              --v4_addr_set,
+                              v4_dhclient_wrong_start,
+                              v6_dhclient_start,
+                              v6_listen_ra_start,
+                              v6_route_start,
+                              v6_rule_flush_no_nh, 
+                              radvd_restart,
+                                 }
+                          )
+
                   ds:set_array(d)
                   ep:run()
                   mst.a(pm:run())
@@ -262,24 +324,41 @@ describe("pm", function ()
                   
                                                              end)
             it("works - post-ULA period => v4 should occur #v4", function ()
-                  local d = mst.table_copy(lap_base)
-                  mst.array_extend(d, bird_on)
-                  mst.array_extend(d, rule_base)
-                  mst.array_extend(d, lap_end)
-                  mst.array_extend(d, {{'ifconfig eth2 10.171.21.15 netmask 255.255.255.0', ''}})
-                  mst.array_extend(d, v46_dhcpd)
+                  local d = mst.array:new{}
+
+                  d:extend(unpack{bird_start,
+                                  dhcp4_start,
+                                  dhcp6_start,
+                                  v4_addr_check,
+                                  v4_addr_set,
+                                  v4_dhclient_wrong_start,
+                                  v6_dhclient_start,
+                                  v6_route_start,
+                                  v6_rule_start,
+                                  radvd_restart,
+                                 }
+                          )
 
                   -- tick
                   -- => find that NH has changed
                   -- => should rewrite that
-                  mst.array_extend(d, nh_juggling)
+                  d:extend(nh_juggling)
 
-                  -- second run
+                  -- second run =~ nop
 
-                  mst.array_extend(d, cleanup)
-                  mst.array_extend(d, lap_end)
-                  mst.array_extend(d, no_dhcpd)
-
+                  -- then cleanup
+                  d:extend(unpack{
+                              bird_stop,
+                              dhcp4_stop,
+                              dhcp6_stop,
+                              v4_addr_check,
+                              v4_dhclient_stop,
+                              v6_dhclient_stop,
+                              v6_route_stop,
+                              v6_rule_stop,
+                              radvd_stop,
+                                 })
+                  -- XXX
                   ds:set_array(d)
 
                   local pa = ep.pa

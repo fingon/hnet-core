@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Tue Nov 13 14:16:04 2012 mstenber
--- Edit time:     15 min
+-- Last modified: Fri Nov 16 13:10:31 2012 mstenber
+-- Edit time:     20 min
 --
 
 -- individual handler tests
@@ -18,6 +18,7 @@ require 'dpm'
 require 'pm_v6_nh'
 require 'pm_v6_listen_ra'
 require 'pm_v6_route'
+require 'pm_v6_dhclient'
 
 module("pm_handler_spec", package.seeall)
 
@@ -96,5 +97,37 @@ describe("pm_v6_route", function ()
                   o:run()
                   pm.ds:check_used()
                   
+                   end)
+end)
+
+
+describe("pm_v6_dhclient", function ()
+            it("works", function ()
+                  local pm = dpm.dpm:new{ospf_iflist={"eth0"}}
+                  local o = pm_v6_dhclient.pm_v6_dhclient:new{pm=pm}
+                  pm.ds:set_array{
+                                 {'ls -1 /var/run', ''},
+{'/usr/share/hnet/dhclient6_handler.sh start eth0 /var/run/pm-pid-dhclient6-eth0', ''},
+                                 {'ls -1 /var/run', ''},
+{'/usr/share/hnet/dhclient6_handler.sh start eth0 /var/run/pm-pid-dhclient6-eth0', ''},
+                                 {'ls -1 /var/run', 'pm-pid-dhclient6-eth0'},
+                                 {'ls -1 /var/run', 'pm-pid-dhclient6-eth0'},
+}
+
+                  o:run()
+                  -- 2nd start - pid file disappeared - restart
+                  o:run()
+
+                  -- 3rd start - pid file exists - should be nop
+                  o:run()
+
+                  -- 4th start - make sure that getting rid of eth0
+                  -- will still not remove the dhclient6 (we have
+                  -- 'faith' that it will eventually pop back)
+                  pm.ospf_iflist = nil
+                  o:run()
+
+                  pm.ds:check_used()
+
                    end)
 end)

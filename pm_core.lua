@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Tue Nov 13 13:45:07 2012 mstenber
--- Edit time:     523 min
+-- Last modified: Mon Nov 19 15:13:45 2012 mstenber
+-- Edit time:     525 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -69,15 +69,21 @@ function pm:queue(name)
 end
 
 
-local _handlers = {'v6_route',
-                   'v4_dhclient',
-                   'bird4',
-                   'v6_listen_ra',
-                   'v6_rule',
-                   'v4_addr',
-                   'radvd',
-                   'dhcpd',
-                   'v6_nh',
+-- !!! These are in MOSTLY alphabetical order for the time being.
+-- DO NOT CHANGE THE ORDER (at least without fixing the pm_core_spec as well)
+local _handlers = {
+   'bird4',
+   'dhcpd',
+   'v4_addr',
+   'v4_dhclient',
+   'v6_dhclient',
+   'v6_listen_ra',
+   'v6_nh',
+   'v6_route',
+   'v6_rule',
+
+   -- radvd depends on v6_route => it is last
+   'radvd',
 }
 
 
@@ -153,6 +159,11 @@ function pm:kv_changed(k, v)
 
       -- may need to change if we listen to RAs or not
       self:queue('v6_listen_ra')
+   elseif k == elsa_pa.OSPF_IFLIST_KEY
+   then
+      self.ospf_iflist = v
+      -- may need to start/stop DHCPv6 PD clients
+      self:queue('v6_dhclient')
    elseif k == elsa_pa.OSPF_RID_KEY
    then
       --mst.a(v, 'empty rid not valid')
