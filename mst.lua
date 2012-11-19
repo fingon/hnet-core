@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Nov 13 15:52:09 2012 mstenber
+-- Last modified: Mon Nov 19 14:59:59 2012 mstenber
 -- Edit time:     540 min
 --
 
@@ -453,10 +453,13 @@ function array_slice(a, i1, i2)
    return t
 end
 
-function array_extend(self, l)
-   for i, v in ipairs(l)
+function array_extend(self, ...)
+   for i, l in ipairs({...})
    do
-      table.insert(self, v)
+      for i, v in ipairs(l)
+      do
+         table.insert(self, v)
+      end
    end
 end
 
