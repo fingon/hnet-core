@@ -2,6 +2,18 @@
 
 * Done (19.11.+)
 
+** Shouldn't run radvd on interfaces we listen on
+
+- have to check the checks are mutually exclusive
+
+.. in some cases, it seems they aren't, right now.
+
+Set-theoretically
+
+- radvd INTERSECTION listen_ra == null set
+- radvd UNION listen_ra IN all interfaces
+  (but there may be interfaces for which we don't do RA, or listen to RA)
+
 ** Deal with 2.6 kernels' broken accept_ra == 2
 
 That is, accept_ra won't work with them if forwarding, without kludging the

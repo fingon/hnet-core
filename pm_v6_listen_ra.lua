@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 09:13:53 2012 mstenber
--- Last modified: Tue Nov 13 13:09:46 2012 mstenber
--- Edit time:     19 min
+-- Last modified: Tue Nov 20 16:39:10 2012 mstenber
+-- Edit time:     21 min
 --
 
 -- pm_v6_listen_ra module turns on and off listening to router
@@ -65,18 +65,10 @@ function pm_v6_listen_ra:run()
       self:check_if(v)
    end
 
-   -- figure which ones we should listen to - get OSPF USP with
-   -- ifname set
-   local usps = self.pm:get_ipv6_usp()
-   local ospfif = mst.set:new{}
-   mst.array_foreach(usps, 
-                     function (usp)
-                        if usp.ifname and not usp.nh
-                        then
-                           ospfif:insert(usp.ifname)
-                        end
-                     end)
-   mst.sync_tables(self.clientif, ospfif,
+   -- figure which ones we should listen to - get those that are
+   -- external, and for which USP exists
+   local extif_set = self.pm:get_external_if_set()
+   mst.sync_tables(self.clientif, extif_set,
                    -- remove spurious
                    function (ifname)
                       self:disable_ra(ifname)

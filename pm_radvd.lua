@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:51:43 2012 mstenber
--- Last modified: Thu Nov  8 07:57:05 2012 mstenber
--- Edit time:     3 min
+-- Last modified: Tue Nov 20 16:34:02 2012 mstenber
+-- Edit time:     5 min
 --
 
 require 'pm_handler'
@@ -43,11 +43,14 @@ function pm_radvd:write_radvd_conf(fpath)
 
    local seen = {}
    local t = mst.array:new{}
+   local ext_set = self.pm:get_external_if_set()
 
-   -- this is O(n^2). oh well, number of local assignments should not
-   -- be insane
    function rec(ifname)
-      if seen[ifname]
+      -- We ignore interface if we try to dump it multiple times (just
+      -- one entry is enough), or if it's external interface; running
+      -- radvd on interface we also listen on results in really,
+      -- really bad things.
+      if seen[ifname] or ext_set[ifname]
       then
          return
       end

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Fri Nov 16 13:10:31 2012 mstenber
--- Edit time:     20 min
+-- Last modified: Tue Nov 20 16:39:45 2012 mstenber
+-- Edit time:     23 min
 --
 
 -- individual handler tests
@@ -48,10 +48,14 @@ end)
 describe("pm_v6_listen_ra", function ()
             it("works", function ()
                   -- we shouldn't do anything to interfaces with
-                  -- explicit next hop managed by OSPFv3
+                  -- explicit next hop managed by OSPFv3,
+                  -- or internal interfaces (eth2 not external)
                   local pm = dpm.dpm:new{ipv6_usps={{ifname='eth0'},
                                                     {ifname='eth1', nh='1'},
-                                                   }}
+                                                    {ifname='eth2'},
+                                                   },
+                                         external_ifs={eth0=true},
+                                        }
                   local o = pm_v6_listen_ra.pm_v6_listen_ra:new{pm=pm}
                   pm.ds:set_array{
                      {'/usr/share/hnet/listen_ra_handler.sh start eth0', ''},
@@ -60,8 +64,8 @@ describe("pm_v6_listen_ra", function ()
                   o:run()
                   -- make sure this is nop
                   o:run()
-                  -- then get rid of ipv6_usps, should get rid of it
-                  pm.ipv6_usps = {}
+                  -- then get rid of external interfaces -> should disappear
+                  pm.external_ifs={}
                   o:run()
 
                   pm.ds:check_used()

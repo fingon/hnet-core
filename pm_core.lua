@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Mon Nov 19 15:13:45 2012 mstenber
--- Edit time:     525 min
+-- Last modified: Tue Nov 20 16:34:30 2012 mstenber
+-- Edit time:     528 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -138,8 +138,9 @@ function pm:kv_changed(k, v)
    then
       self.ospf_usp = v or {}
       
-      -- reset cache
+      -- reset caches
       self.ipv6_ospf_usp = nil
+      self.external_if_set = nil
 
       -- update the all_ipv6_usp
       for i, v in ipairs(self:get_ipv6_usp())
@@ -272,3 +273,20 @@ function pm:repr_data()
    return mst.repr{ospf_lap=self.ospf_lap and #self.ospf_lap or 0}
 end
 
+function pm:get_external_if_set()
+   -- get the set of external interfaces
+   if not self.external_if_set
+   then
+      local usps = self.ospf_usp or {}
+      local s = mst.set:new{}
+      self.external_if_set = s
+      mst.array_foreach(usps, 
+                        function (usp)
+                           if usp.ifname and not usp.nh
+                           then
+                              s:insert(usp.ifname)
+                           end
+                        end)
+   end
+   return self.external_if_set
+end
