@@ -2,14 +2,12 @@
 
 * Bugs to fix
 
-** Sometimes the test topology takes awfully long to boot
+** BIRD - dridd p#2
 
-Analysis
-
-- seems to occur in abird7, not oabird7/15
-- skv looks ok
-- bird processes are up
-- OSPF topology: ? (not checked, should, next time it happens)
+Duplicate rid detected correctly even if router connected to ~self. But
+problem is, it won't behave consistently (=form neigh's with other
+routers), as the packets coming with different LL address using same RID on
+same link confuse the other party. 
 
 ** BIRD - OSPFv3
 
