@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Tue Nov 20 16:34:30 2012 mstenber
--- Edit time:     528 min
+-- Last modified: Wed Nov 21 17:08:14 2012 mstenber
+-- Edit time:     540 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -41,27 +41,21 @@ pm = mst.create_class{class='pm', mandatory={'skv', 'shell',
                                              'dhcpd6_conf_filename',
                                             }}
 
+function pm:service_name_to_service(name)
+   name = self.rewrite_service[name] or name
+   return self.h[name]
+end
+
 function pm:connect_changed(srcname, dstname)
-   local h = self.h[srcname]
-   if not h
-   then
-      return
-   end
-   local h2 = self.h[dstname]
-   if not h2
-   then
-      return
-   end
-   h:connect_method(h.changed, h2, h2.queue)
+   local o = self:service_name_to_service(srcname)
+   local o2 = self:service_name_to_service(dstname)
+   if not o or not o2 then return end
+   o:connect_method(o.changed, o2, o2.queue)
 end
 
 function pm:queue(name)
-   self:a(self.h)
-   local o = self.h[name]
-   if not o
-   then
-      return
-   end
+   local o = self:service_name_to_service(name)
+   if not o then return end
    if o:queue()
    then
       self:d('queued', o)
@@ -69,35 +63,43 @@ function pm:queue(name)
 end
 
 
--- !!! These are in MOSTLY alphabetical order for the time being.
--- DO NOT CHANGE THE ORDER (at least without fixing the pm_core_spec as well)
-local _handlers = {
-   'bird4',
-   'dhcpd',
-   'v4_addr',
-   'v4_dhclient',
-   'v6_dhclient',
-   'v6_listen_ra',
-   'v6_nh',
-   'v6_route',
-   'v6_rule',
-
-   -- radvd depends on v6_route => it is last
-   'radvd',
-}
-
-
 function pm:init()
    self.changes = 0
    self.f = function (k, v) self:kv_changed(k, v) end
    self.h = {}
+   self.rewrite_service = {}
+   -- !!! These are in MOSTLY alphabetical order for the time being.
+   -- DO NOT CHANGE THE ORDER (at least without fixing the pm_core_spec as well)
+   self.handlers = mst.array:new{
+      'bird4',
+      'dhcpd',
+      'v4_addr',
+      'v4_dhclient',
+      'v6_dhclient',
+      'v6_listen_ra',
+      'v6_nh',
+      'v6_route',
+      'v6_rule',
+      -- radvd depends on v6_route => it is last
+      'radvd',
+   }
+   if self.use_dnsmasq
+   then
+      -- remove whatever dnsmasq provides
+      self.handlers:remove('radvd')
+      self.handlers:remove('dhcpd')
+
+      -- and add dnsmasq to the end
+      self.handlers:insert('dnsmasq')
+   end
+
 
    -- shared datastructures
    self.if_table = linux_if.if_table:new{shell=self.shell} 
    -- IPv6 next hops - ifname => nh-list
    self.nh = mst.multimap:new{}
 
-   for i, v in ipairs(_handlers)
+   for i, v in ipairs(self.handlers)
    do
       local v2 = 'pm_' .. v
       local m = require(v2)
@@ -218,7 +220,7 @@ end
 function pm:run()
    -- fixed order, sigh :) some day would be nice to replace this with
    -- something better (requires refactoring of unit tests too)
-   for i, v in ipairs(_handlers)
+   for i, v in ipairs(self.handlers)
    do
       local o = self.h[v]
       -- conditionally run based on the queue() calls
@@ -234,7 +236,7 @@ end
 -- this should be called every now and then
 function pm:tick()
    self:d('tick')
-   for i, v in ipairs(_handlers)
+   for i, v in ipairs(self.handlers)
    do
       local o = self.h[v]
       o:tick()
