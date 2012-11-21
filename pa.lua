@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Nov 13 16:38:33 2012 mstenber
--- Edit time:     831 min
+-- Last modified: Wed Nov 21 18:57:34 2012 mstenber
+-- Edit time:     832 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -71,29 +71,6 @@ IPV4_PA_LAST_ROUTER=64
 -- search space; therefore, they should be ~correct - that is, 
 -- 2^IPV4_PA_ROUTER_BITS =~ IPV4_PA_LAST_ROUTER
 IPV4_PA_ROUTER_BITS=math.floor(math.log(IPV4_PA_LAST_ROUTER) / math.log(2))
-
--- these are defaults, provided here just so strict.lua is happy
--- (we override them anyway shortly)
-create_hash=false
-create_hash_type=false
-hash_fast=false
-
-pcall(function ()
-         local md5 = require 'md5'
-         create_hash = md5.sum
-         create_hash_type = 'md5'
-         hash_fast = true
-      end)
-
-if not create_hash
-then
-   print('using sha1')
-   require 'sha1'
-   create_hash = sha1_binary
-   create_hash_type = 'sha1'
-   hash_fast = false
-   print('using sha1')
-end
 
 local _null = string.char(0)
 
@@ -395,7 +372,7 @@ function sps:get_random_binary_prefix(iid, i)
    -- get the rest of the bytes from md5
    local s = string.format("%s-%s-%s-%d", 
                            self.pa:get_hwf(), self.pa.ifs[iid].name, self.ascii_prefix, i)
-   local sb = create_hash(s)
+   local sb = mst.create_hash(s)
 
    -- sub-byte handling of the bits available
    local v = string.byte(b, #b, #b)
@@ -976,7 +953,7 @@ function pa:get_ifs_neigh_state()
    -- XXX - determine if this should in truth use hash; but if sw fallback, it's _slow_
    self:update_ifs_neigh()
    local s = mst.repr{self.ifs, self.neigh}
-   if hash_fast then s = create_hash(s) end
+   s = mst.create_hash_if_fast(s)
    return s
 end
 
@@ -1107,7 +1084,7 @@ function pa:run(d)
          -- produce a new prefix
          function ()
             local hwf = self:get_hwf()
-            local bits = create_hash(hwf)
+            local bits = mst.create_hash(hwf)
             -- create binary prefix - first one 0xFC, 5 bytes from bits => /48
             local bp = ipv6s.ula_prefix .. string.sub(bits, 1, 5)
             local p = ipv6s.new_prefix_from_binary(bp)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Thu Nov  8 08:15:23 2012 mstenber
--- Edit time:     13 min
+-- Last modified: Wed Nov 21 19:24:11 2012 mstenber
+-- Edit time:     18 min
 --
 
 -- 'prefix manager' (name still temporary)
@@ -27,15 +27,25 @@ require 'pm_core'
 require 'skv'
 require 'ssloop'
 
--- where to put configuration files. /tmp is fairly safe, as it won't
--- cause flash wear on devices (.. not like it really mattered, wear
--- leveling is your friend)
-local PM_CONF_DIR='/tmp'
-
-
 local loop = ssloop.loop()
 
--- XXX - option processing
+_TEST = false
+
+function create_cli()
+   local cli = require "cliargs"
+
+   cli:set_name('pm.lua')
+   cli:add_flag("-m, --dnsmasq", "use dnsmasq instead of ISC dhcpd + radvd")
+   return cli
+end
+
+
+local args = create_cli():parse()
+if not args 
+then
+   -- something wrong happened and an error was printed
+   return
+end
 
 mst.d('initializing skv')
 local s = skv.skv:new{long_lived=true}
@@ -43,9 +53,7 @@ mst.d('initializing pm')
 
 local pm = pm_core.pm:new{shell=mst.execute_to_string, skv=s,
                           radvd='radvd -m logfile',
-                          radvd_conf_filename=PM_CONF_DIR .. '/pm-radvd.conf',
-                          dhcpd_conf_filename=PM_CONF_DIR .. '/pm-dhcpd.conf',
-                          dhcpd6_conf_filename=PM_CONF_DIR .. '/pm-dhcpd6.conf',
+                          use_dnsmasq=args.m,
                          }
 
 function pm:schedule_run()

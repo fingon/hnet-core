@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:17:26 2012 mstenber
--- Last modified: Thu Nov  8 07:57:25 2012 mstenber
+-- Last modified: Wed Nov 21 18:38:09 2012 mstenber
 -- Edit time:     4 min
 --
 
@@ -49,23 +49,23 @@ function pm_v4_dhclient:run()
                                                return usp.ifname 
                                             end)
    local ifs = mst.array_to_table(ifnames)
-   mst.sync_tables(running_ifnames, ifs, 
-                   -- remove
-                   function (ifname)
-                      local p = pm_core.PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
-                      local s = string.format('%s stop %s %s', DHCLIENT_SCRIPT, ifname, p)
-                      self.shell(s)
-                      self.pm.dhclient_ifnames:remove(ifname)
-                   end,
-                   -- add
-                   function (ifname)
-                      local p = pm_core.PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
-                      local s = string.format('%s start %s %s', DHCLIENT_SCRIPT, ifname, p)
-                      self.shell(s)
-                      self.pm.dhclient_ifnames:insert(ifname)
-                   end
-                   -- no equality - if it exists, it exists
-                  )
-   return 1
+   local c = mst.sync_tables(running_ifnames, ifs, 
+                             -- remove
+                             function (ifname)
+                                local p = pm_core.PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
+                                local s = string.format('%s stop %s %s', DHCLIENT_SCRIPT, ifname, p)
+                                self.shell(s)
+                                self.pm.dhclient_ifnames:remove(ifname)
+                             end,
+                             -- add
+                             function (ifname)
+                                local p = pm_core.PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
+                                local s = string.format('%s start %s %s', DHCLIENT_SCRIPT, ifname, p)
+                                self.shell(s)
+                                self.pm.dhclient_ifnames:insert(ifname)
+                             end
+                             -- no equality - if it exists, it exists
+                            )
+   return c
 end
 

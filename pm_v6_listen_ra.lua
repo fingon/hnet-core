@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 09:13:53 2012 mstenber
--- Last modified: Tue Nov 20 16:39:10 2012 mstenber
--- Edit time:     21 min
+-- Last modified: Wed Nov 21 18:38:50 2012 mstenber
+-- Edit time:     22 min
 --
 
 -- pm_v6_listen_ra module turns on and off listening to router
@@ -56,6 +56,7 @@ function pm_v6_listen_ra:check_if(ifname)
 end
 
 function pm_v6_listen_ra:run()
+   local c = 0
    -- look at actual files (NOTE: this should be somehow done only in
    -- real env, sigh)
 
@@ -68,15 +69,16 @@ function pm_v6_listen_ra:run()
    -- figure which ones we should listen to - get those that are
    -- external, and for which USP exists
    local extif_set = self.pm:get_external_if_set()
-   mst.sync_tables(self.clientif, extif_set,
-                   -- remove spurious
-                   function (ifname)
-                      self:disable_ra(ifname)
-                   end,
-                   -- add new
-                   function (ifname)
-                      self:enable_ra(ifname)
-                   end)
+   local c = mst.sync_tables(self.clientif, extif_set,
+                             -- remove spurious
+                             function (ifname)
+                                self:disable_ra(ifname)
+                             end,
+                             -- add new
+                             function (ifname)
+                                self:enable_ra(ifname)
+                             end)
+   return c
 end
 
 

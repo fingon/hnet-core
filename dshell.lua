@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct 29 16:06:24 2012 mstenber
--- Last modified: Mon Oct 29 16:14:20 2012 mstenber
--- Edit time:     2 min
+-- Last modified: Wed Nov 21 19:00:21 2012 mstenber
+-- Edit time:     3 min
 --
 
 -- dummy shell implementation, which has strict assumptions about
@@ -36,7 +36,7 @@ function dshell:get_shell()
       self.arri = self.arri + 1
       mst.a(self.arri <= #self.arr, 'tried to consume with array empty', s)
       local t, v = unpack(self.arr[self.arri])
-      mst.a(t == s, 'mismatch - expected', t, 'got', s)
+      mst.a(t == s, 'mismatch line ', self.arri, 'expected', t, 'got', s)
       return v
    end
    return fakeshell

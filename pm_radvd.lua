@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:51:43 2012 mstenber
--- Last modified: Tue Nov 20 16:34:02 2012 mstenber
--- Edit time:     5 min
+-- Last modified: Wed Nov 21 18:37:40 2012 mstenber
+-- Edit time:     9 min
 --
 
 require 'pm_handler'
@@ -18,28 +18,30 @@ module(..., package.seeall)
 
 pm_radvd = pm_handler.pm_handler:new_subclass{class='pm_radvd'}
 
-function pm_radvd:ready()
-   return true
-end
-
 function pm_radvd:run()
    local fpath = self.pm.radvd_conf_filename
    local c = self:write_radvd_conf(fpath)
+
+   -- no changes in status quo -> do nothing
+   if not c then return end
+
+   -- something DID change.. kill old radvd first
    self.shell('killall -9 radvd', true)
    self.shell('rm -f /var/run/radvd.pid', true)
+
+   -- and then start new one if it's warranted
    if c and c > 0
    then
       local radvd = self.pm.radvd or 'radvd'
       self.shell(radvd .. ' -C ' .. fpath)
    end
+   return 1
 end
 
 function pm_radvd:write_radvd_conf(fpath)
    local c = 0
    self:d('entered write_radvd_conf')
    -- write configuration on per-interface basis.. 
-   local f, err = io.open(fpath, 'w')
-   self:a(f, 'unable to open for writing', fpath, err)
 
    local seen = {}
    local t = mst.array:new{}
@@ -109,10 +111,6 @@ function pm_radvd:write_radvd_conf(fpath)
    do
       rec(v.ifname)
    end
-   f:write(t:join('\n'))
-   f:write('\n')
-   -- close the file
-   io.close(f)
-   return c
+   return self:write_to_file(fpath, t, '# ') and c
 end
 

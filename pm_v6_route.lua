@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:48:34 2012 mstenber
--- Last modified: Tue Nov 13 14:13:55 2012 mstenber
+-- Last modified: Wed Nov 21 18:39:30 2012 mstenber
 -- Edit time:     13 min
 --
 
@@ -81,13 +81,7 @@ function pm_v6_route:run()
                           local v2 = real_lap[prefix]
                           return v1.ifname == v2.ifname
                        end)
-
-   -- rewrite the radvd configuration
-   if c > 0
-   then
-      self:changed()
-   end
-   return 1
+   return c
 end
 
 function pm_v6_route:get_real_lap()

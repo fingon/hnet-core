@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Tue Nov 20 16:39:45 2012 mstenber
--- Edit time:     23 min
+-- Last modified: Wed Nov 21 20:05:22 2012 mstenber
+-- Edit time:     34 min
 --
 
 -- individual handler tests
@@ -19,6 +19,7 @@ require 'pm_v6_nh'
 require 'pm_v6_listen_ra'
 require 'pm_v6_route'
 require 'pm_v6_dhclient'
+require 'pm_dnsmasq'
 
 module("pm_handler_spec", package.seeall)
 
@@ -132,6 +133,58 @@ describe("pm_v6_dhclient", function ()
                   o:run()
 
                   pm.ds:check_used()
+
+                   end)
+end)
+
+describe("pm_dnsmasq", function ()
+            local conf = '/tmp/t-dnsmasq.conf'
+            it("works", function ()
+                  local pm = dpm.dpm:new{ospf_lap={{ifname='eth0',
+                                                    prefix='dead::/64',
+                                                    owner=true},
+                                                   {ifname='eth0',
+                                                    prefix='beef::/64',
+                                                    owner=true,
+                                                    depracate=true},
+                                                   {ifname='eth0',
+                                                    prefix='10.1.42.0/24',
+                                                    owner=true},
+                                                  },
+                                         dnsmasq_conf_filename=conf,
+                                        }
+                  local o = pm_dnsmasq.pm_dnsmasq:new{pm=pm}
+                  pm.ds:set_array{
+                     {'/usr/share/hnet/dnsmasq_handler.sh start /tmp/t-dnsmasq.conf', ''},
+                     {'/usr/share/hnet/dnsmasq_handler.sh reload /tmp/t-dnsmasq.conf', ''},
+                     {'/usr/share/hnet/dnsmasq_handler.sh stop', ''},
+                                 }
+
+                  -- first off, it should start
+                  o:run()
+
+                  local s = mst.read_filename_to_string(conf)
+                  mst.a(string.find(s, '10.1.42.6'), 'no valid ipv4 address?')
+                  mst.a(string.find(s, 'depre'), 'no depracated range')
+
+
+                  -- 2nd run should do nothing, as state hasn't changed
+                  o:run()
+
+                  -- then, we change state => should get called with reload
+                  pm.ospf_lap = {pm.ospf_lap[1]}
+                  o:run()
+
+                  -- v4 address should be gone as we zapped it
+                  local s = mst.read_filename_to_string(conf)
+                  mst.a(not string.find(s, '10.1.42.6'), 'valid ipv4 address?')
+
+                  -- get rid of state, make sure cleanup kills dnsmasq
+                  pm.ospf_lap = nil
+                  o:run()
+
+                  pm.ds:check_used()
+
 
                    end)
 end)

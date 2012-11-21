@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Mon Nov 19 18:06:32 2012 mstenber
--- Edit time:     201 min
+-- Last modified: Wed Nov 21 19:02:27 2012 mstenber
+-- Edit time:     217 min
 --
 
 -- testsuite for the pm_core
@@ -24,9 +24,10 @@ require 'pa'
 
 module("pm_core_spec", package.seeall)
 
-local TEMP_RADVD_CONF='/tmp/radvd.conf'
-local TEMP_DHCPD_CONF='/tmp/dhcpd.conf'
-local TEMP_DHCPD6_CONF='/tmp/dhcpd6.conf'
+local TEMP_RADVD_CONF='/tmp/t-radvd.conf'
+local TEMP_DHCPD_CONF='/tmp/t-dhcpd.conf'
+local TEMP_DHCPD6_CONF='/tmp/t-dhcpd6.conf'
+local TEMP_DNSMASQ_CONF='/tmp/t-dnsmasq.conf'
 
 local _delsa = require 'delsa'
 delsa = _delsa.delsa
@@ -35,7 +36,9 @@ require 'dshell'
 
 local usp_dead_tlv = codec.usp_ac_tlv:encode{prefix='dead::/16'}
 
-assert(pa.create_hash_type == 'md5', 'we support only md5 based tests - code might or might not work with sha1 fallback')
+assert(mst.create_hash_type == 'md5', 
+       'we support only md5 based tests -' .. 
+          ' code might or might not work with sha1 fallback')
 
 -- bits and pieces == fragments for each sub-handler
 -- (out of which we create the combined ones)
@@ -49,20 +52,28 @@ local bird_stop = {
 }
 
 local dhcp4_start = {
-   {'/usr/share/hnet/dhcpd_handler.sh 4 1 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
+   {'/usr/share/hnet/dhcpd_handler.sh 4 1 /var/run/pm-pid-dhcpd /tmp/t-dhcpd.conf', ''},
 }
 
 local dhcp4_stop = {
-   {'/usr/share/hnet/dhcpd_handler.sh 4 0 /var/run/pm-pid-dhcpd /tmp/dhcpd.conf', ''},
+   {'/usr/share/hnet/dhcpd_handler.sh 4 0 /var/run/pm-pid-dhcpd /tmp/t-dhcpd.conf', ''},
 
 }
 
 local dhcp6_start = {
-   {'/usr/share/hnet/dhcpd_handler.sh 6 1 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
+   {'/usr/share/hnet/dhcpd_handler.sh 6 1 /var/run/pm-pid-dhcpd6 /tmp/t-dhcpd6.conf', ''},
 }
 
 local dhcp6_stop = {
-   {'/usr/share/hnet/dhcpd_handler.sh 6 0 /var/run/pm-pid-dhcpd6 /tmp/dhcpd6.conf', ''},
+   {'/usr/share/hnet/dhcpd_handler.sh 6 0 /var/run/pm-pid-dhcpd6 /tmp/t-dhcpd6.conf', ''},
+}
+
+local dnsmasq_start = {
+   {'/usr/share/hnet/dnsmasq_handler.sh start /tmp/t-dnsmasq.conf', ''},
+}
+
+local dnsmasq_stop = {
+   {'/usr/share/hnet/dnsmasq_handler.sh stop', ''},
 }
 
 
@@ -72,7 +83,7 @@ local radvd_stop = mst.array:new{
 }
 
 local radvd_start = {
-   {'radvd -C /tmp/radvd.conf', ''},
+   {'radvd -C /tmp/t-radvd.conf', ''},
 }
 
 local radvd_restart = mst.table_copy(radvd_stop)
@@ -291,6 +302,39 @@ describe("pm", function ()
                   local s = mst.read_filename_to_string(TEMP_DHCPD6_CONF)
                   mst.a(string.find(s, 'subnet6'), 'subnet6 missing')
 
+                        end)
+            it("works w/ dnsmasq #wd", function ()
+                  local d = mst.array:new{}
+                  -- get rid of old pm
+                  pm:done()
+
+                  -- create new one, with dnsmasq enabled
+                  pm = pm_core.pm:new{skv=s, shell=ds:get_shell(),
+                                      dnsmasq_conf_filename=TEMP_DNSMASQ_CONF,
+                                      use_dnsmasq=true,
+                                     }
+
+                  d:extend(unpack{
+                              --bird_start, -- n/a, no v4?
+                              v4_addr_check,
+                              -- no v4 addr
+                              --v4_addr_set,
+                              v4_dhclient_wrong_start,
+                              v6_dhclient_start,
+                              v6_route_start,
+                              v6_rule_start,
+                              dnsmasq_start,
+                                 }
+                          )
+
+                  ds:set_array(d)
+                  ep:run()
+                  mst.a(pm:run())
+                  mst.a(not pm:run())
+                  ds:check_used()
+                  local s = mst.read_filename_to_string(TEMP_DNSMASQ_CONF)
+                  mst.a(string.find(s, 'server'), 'server missing')
+                  mst.a(string.find(s, 'range'), 'dhcp-range missing')
                         end)
             it("works - but no nh => table should be empty", function ()
                   local d = mst.array:new{}

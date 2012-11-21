@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Wed Nov 21 17:08:14 2012 mstenber
--- Edit time:     540 min
+-- Last modified: Wed Nov 21 19:05:26 2012 mstenber
+-- Edit time:     551 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -34,12 +34,16 @@ require 'pa'
 module(..., package.seeall)
 
 PID_DIR='/var/run'
+CONF_PREFIX='/tmp/pm-'
 
-pm = mst.create_class{class='pm', mandatory={'skv', 'shell', 
-                                             'radvd_conf_filename',
-                                             'dhcpd_conf_filename',
-                                             'dhcpd6_conf_filename',
-                                            }}
+-- if not provided to the pm class, these are used
+DEFAULT_FILENAMES={radvd_conf_filename='radvd.conf',
+                   dhcpd_conf_filename='dhcpd.conf',
+                   dhcpd6_conf_filename='dhcpd6.conf',
+                   dnsmasq_conf_filename='dnsmasq.conf',
+}
+
+pm = mst.create_class{class='pm', mandatory={'skv', 'shell'}}
 
 function pm:service_name_to_service(name)
    name = self.rewrite_service[name] or name
@@ -49,16 +53,32 @@ end
 function pm:connect_changed(srcname, dstname)
    local o = self:service_name_to_service(srcname)
    local o2 = self:service_name_to_service(dstname)
-   if not o or not o2 then return end
+   self:a(o, 'missing service (src)', srcname)
+   self:a(o2, 'missing service (dst)', dstname)
    o:connect_method(o.changed, o2, o2.queue)
 end
 
 function pm:queue(name)
    local o = self:service_name_to_service(name)
-   if not o then return end
+   self:a(o, 'missing service', name)
    if o:queue()
    then
       self:d('queued', o)
+   end
+end
+
+function pm:replace_handlers(d)
+   -- first off, create new list of handlers _without_ any in the d src
+   self.handlers = self.handlers:filter(function (x)
+                                           return not d[x]
+                                        end)
+   for k, v in pairs(d)
+   do
+      self.rewrite_service[k] = v
+      if not self.handlers:find(v)
+      then
+         self.handlers:insert(v)
+      end
    end
 end
 
@@ -68,6 +88,11 @@ function pm:init()
    self.f = function (k, v) self:kv_changed(k, v) end
    self.h = {}
    self.rewrite_service = {}
+
+   for k, v in pairs(DEFAULT_FILENAMES)
+   do
+      self[k] = self[k] or CONF_PREFIX .. v
+   end
    -- !!! These are in MOSTLY alphabetical order for the time being.
    -- DO NOT CHANGE THE ORDER (at least without fixing the pm_core_spec as well)
    self.handlers = mst.array:new{
@@ -85,12 +110,8 @@ function pm:init()
    }
    if self.use_dnsmasq
    then
-      -- remove whatever dnsmasq provides
-      self.handlers:remove('radvd')
-      self.handlers:remove('dhcpd')
-
-      -- and add dnsmasq to the end
-      self.handlers:insert('dnsmasq')
+      self:replace_handlers{radvd='dnsmasq',
+                            dhcpd='dnsmasq'}
    end
 
 
@@ -239,7 +260,9 @@ function pm:tick()
    for i, v in ipairs(self.handlers)
    do
       local o = self.h[v]
-      o:tick()
+      local v = o:tick()
+      -- if it did return value based change mgmt, allow that too
+      if v and v > 0 then o:changed() end
    end
    -- if there's pending changes, call run too
    if self.changes > 0

@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:10:48 2012 mstenber
--- Last modified: Thu Nov  8 09:34:52 2012 mstenber
+-- Last modified: Wed Nov 21 18:39:09 2012 mstenber
 -- Edit time:     7 min
 --
 
@@ -49,5 +49,5 @@ function pm_v6_nh:tick()
    -- ok, a change => we change pm.nh and call changed()
 
    self.pm.nh = nnh
-   self:changed()
+   return 1
 end

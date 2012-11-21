@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:14:12 2012 mstenber
--- Last modified: Thu Nov  8 07:57:13 2012 mstenber
--- Edit time:     2 min
+-- Last modified: Wed Nov 21 18:37:53 2012 mstenber
+-- Edit time:     3 min
 --
 
 require 'pm_handler'
@@ -83,6 +83,6 @@ function pm_v4_addr:run()
                              function (k, v1, v2)
                                 return v1 == v2
                              end)
-   if c then self:changed() end
+   return c
 end
 

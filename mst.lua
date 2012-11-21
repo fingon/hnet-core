@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Nov 19 14:59:59 2012 mstenber
--- Edit time:     540 min
+-- Last modified: Wed Nov 21 18:57:16 2012 mstenber
+-- Edit time:     542 min
 --
 
 -- data structure abstractions provided:
@@ -1443,4 +1443,25 @@ end
 function validity_sync:remove(k, v)
    -- hopewish it supports this api.. arrays don't have keys :p
    self.t:remove(k, v)
+end
+
+-- these are defaults, provided here just so strict.lua is happy
+-- (we override them anyway shortly)
+create_hash=false
+create_hash_type=false
+hash_fast=false
+
+pcall(function ()
+         local md5 = require 'md5'
+         create_hash = md5.sum
+         create_hash_type = 'md5'
+         create_hash_if_fast = create_hash
+      end)
+
+if not create_hash
+then
+   require 'sha1'
+   create_hash = sha1_binary
+   create_hash_type = 'sha1'
+   create_hash_if_fast = function (x) return x end
 end

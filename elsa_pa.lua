@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Nov 13 16:10:56 2012 mstenber
+-- Last modified: Wed Nov 21 18:57:29 2012 mstenber
 -- Edit time:     505 min
 --
 
@@ -369,7 +369,7 @@ end
 
 function elsa_pa:get_mutable_state()
    local s = table.concat{mst.repr{self.pa.ridr}, self.skvp_repr}
-   if pa.hash_fast then s = pa.create_hash(s) end
+   s = mst.create_hash_if_fast(s)
    return s
 end
 
