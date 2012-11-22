@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:10:48 2012 mstenber
--- Last modified: Wed Nov 21 18:39:09 2012 mstenber
--- Edit time:     7 min
+-- Last modified: Thu Nov 22 12:08:53 2012 mstenber
+-- Edit time:     8 min
 --
 
 -- pm_v6_nh is responsible for maintaining the structure of the pm.nh,
@@ -19,6 +19,7 @@
 
 require 'pm_handler'
 require 'linux_if'
+require 'pm_v6_rule'
 
 module(..., package.seeall)
 
@@ -33,7 +34,7 @@ function pm_v6_nh:tick()
    do
       -- we ignore dead routes, and non-default ones
       self:d('got', o)
-      if not o.dead and o.dst == 'default'
+      if not o.dead and o.dst == 'default' and o.metric ~= pm_v6_rule.DUMMY_METRIC
       then
          nnh:insert(o.dev, o.via)
       end

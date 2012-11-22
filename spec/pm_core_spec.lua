@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Thu Nov 22 10:22:29 2012 mstenber
--- Edit time:     222 min
+-- Last modified: Thu Nov 22 12:03:09 2012 mstenber
+-- Edit time:     229 min
 --
 
 -- testsuite for the pm_core
@@ -177,6 +177,8 @@ local v6_rule_start = {
    -- add the rule back + relevant route
    {'ip -6 route flush table 1000', ''},
    {'ip -6 route add default via fe80:1234:2345:3456:4567:5678:6789:789a dev eth0 table 1000', ''},
+   -- main table default
+   {'ip -6 route add default via fe80:1234:2345:3456:4567:5678:6789:789a dev eth0 metric 123456', ''},
    -- add the local routing rule
    {'ip -6 rule add from all to dead::/16 table main pref 1000', ''},
 }
@@ -192,7 +194,7 @@ local v6_rule_flush_no_nh = {
    {'ip -6 rule del from dead::/16 table 1000 pref 1112', ''},
 }
 
-local v6_rule_stop = {
+local v6_rule_stop_nh_juggled = {
    {'ip -6 rule',
     [[
                           0:	from all lookup local 
@@ -201,6 +203,9 @@ local v6_rule_stop = {
                           16383:	from all lookup main 
                        ]]},
    {'ip -6 rule del from dead::/16 table 1000 pref 1112', ''},
+   --{'ip -6 route del default via fe80:1234:2345:3456:4567:5678:6789:789a dev eth0 metric 123456', ''},
+   --taken care of in nh juggling?
+   {'ip -6 route del default via 1.2.3.4 dev eth0 metric 123456', ''},
 }
 
 -- miscellaneous odds and ends
@@ -215,8 +220,10 @@ default via 1.2.3.4 dev eth0
 1112:	from dead::/16 lookup 1000 
 16383:	from all lookup main 
 ]]},
+               {'ip -6 route del default via fe80:1234:2345:3456:4567:5678:6789:789a dev eth0 metric 123456', ''},
                {'ip -6 route flush table 1000'},
                {'ip -6 route add default via 1.2.3.4 dev eth0 table 1000'},
+               {'ip -6 route add default via 1.2.3.4 dev eth0 metric 123456'},
                {'ip -6 route', [[
 default via 1.2.3.4 dev eth0
                                                         ]]}
@@ -399,7 +406,7 @@ describe("pm", function ()
                               v4_dhclient_stop,
                               v6_dhclient_stop,
                               v6_route_stop,
-                              v6_rule_stop,
+                              v6_rule_stop_nh_juggled,
                               radvd_stop,
                                  })
                   -- XXX

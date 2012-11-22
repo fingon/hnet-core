@@ -8,13 +8,15 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:12:11 2012 mstenber
--- Last modified: Thu Nov  8 09:08:14 2012 mstenber
--- Edit time:     25 min
+-- Last modified: Thu Nov 22 12:08:22 2012 mstenber
+-- Edit time:     36 min
 --
 
 require 'pm_handler'
 
 module(..., package.seeall)
+
+DUMMY_METRIC=123456
 
 -- we use the (128-length of prefix as preference on top of the base => 128)
 RULE_PREF_MIN=1000
@@ -27,15 +29,18 @@ function pm_v6_rule:init()
    pm_handler.pm_handler.init(self)
 
    self.applied_usp = {}
+   self.defaults = mst.multimap:new{}
 
    local rt = linux_if.rule_table:new{shell=self.shell}
    self.rule_table = rt
    local vs = mst.validity_sync:new{t=self.rule_table, single=true}
    self.vsrt = vs
+   local parent = self
    function vs:remove(rule)
       if rule.pref >= RULE_PREF_MIN and rule.pref <= RULE_PREF_MAX
       then
          rule:del(rt.shell)
+         parent:removed_default(rule.table)
       end
       rt:remove(rule)
    end
@@ -43,6 +48,23 @@ end
 
 function pm_v6_rule:ready()
    return self.pm.ospf_usp
+end
+
+function pm_v6_rule:removed_default(table)
+   table = tonumber(table)
+   -- get rid of the defaults that are associated with the table
+   for i, v in ipairs(self.defaults[table] or {})
+   do
+      local nh, dev = unpack(v)
+      self.shell(string.format('ip -6 route del default via %s dev %s metric ' .. tostring(DUMMY_METRIC), nh, dev))
+   end
+   self.defaults[table] = nil
+end
+
+function pm_v6_rule:added_default(table, nh, dev)
+   table = tonumber(table)
+   self.defaults:insert(table, {nh, dev})
+   self.shell(string.format('ip -6 route add default via %s dev %s metric ' .. tostring(DUMMY_METRIC), nh, dev))
 end
 
 function pm_v6_rule:get_usp_nhl(usp)
@@ -115,6 +137,9 @@ function pm_v6_rule:run()
       then
          local table = update_table
          local nhl = self:get_usp_nhl(usp)
+
+         -- get rid of defaults, if any
+         self:removed_default(table)
          
          -- and flush the table
          self.shell('ip -6 route flush table ' .. table)
@@ -126,6 +151,7 @@ function pm_v6_rule:run()
          do
             self.shell(string.format('ip -6 route add default via %s dev %s table %s',
                                      nh, dev, table))
+            self:added_default(table, nh, dev)
          end
       end
    end

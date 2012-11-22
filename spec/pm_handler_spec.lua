@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Wed Nov 21 20:05:22 2012 mstenber
--- Edit time:     34 min
+-- Last modified: Thu Nov 22 12:09:37 2012 mstenber
+-- Edit time:     35 min
 --
 
 -- individual handler tests
@@ -32,11 +32,13 @@ describe("pm_v6_nh", function ()
 1.2.3.4 via 2.3.4.5 dev eth0
 default via 1.2.3.4 dev eth0
 default via 1.2.3.4 dev eth0
+default via 1.2.3.5 dev eth0 metric 123456
                                      ]]},                      
                      {'ip -6 route',[[
 1.2.3.4 via 2.3.4.5 dev eth0
 default via 1.2.3.4 dev eth0
 default via 1.2.3.4 dev eth0
+default via 1.2.3.5 dev eth0 metric 123456
                                      ]]},                      
                               }
                   o:tick()
