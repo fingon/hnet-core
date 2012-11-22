@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:12:11 2012 mstenber
--- Last modified: Thu Nov 22 12:08:22 2012 mstenber
--- Edit time:     36 min
+-- Last modified: Thu Nov 22 12:51:41 2012 mstenber
+-- Edit time:     39 min
 --
 
 require 'pm_handler'
@@ -52,6 +52,8 @@ end
 
 function pm_v6_rule:removed_default(table)
    table = tonumber(table)
+   -- if it wasn't numeric (or nil), probably not interesting
+   if not table then return end
    -- get rid of the defaults that are associated with the table
    for i, v in ipairs(self.defaults[table] or {})
    do
@@ -63,6 +65,7 @@ end
 
 function pm_v6_rule:added_default(table, nh, dev)
    table = tonumber(table)
+   self:a(table, 'no table in added_default?', nh, dev)
    self.defaults:insert(table, {nh, dev})
    self.shell(string.format('ip -6 route add default via %s dev %s metric ' .. tostring(DUMMY_METRIC), nh, dev))
 end
