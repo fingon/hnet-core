@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Wed Nov 21 19:02:27 2012 mstenber
--- Edit time:     217 min
+-- Last modified: Thu Nov 22 10:22:29 2012 mstenber
+-- Edit time:     222 min
 --
 
 -- testsuite for the pm_core
@@ -425,11 +425,13 @@ describe("pm", function ()
                   mst.a(pm.nh['eth0'])
 
                   local d = mst.read_filename_to_string(TEMP_RADVD_CONF)
-                  mst.a(not string.find(d, '10.'), 'IPv4 address?!?')
+                  local ipv4_match = '10[.]%d+[.]%d+[.]%d+'
+
+                  mst.a(not string.find(d, ipv4_match), 'IPv4 address?!?')
 
 
                   local d = mst.read_filename_to_string(TEMP_DHCPD_CONF)
-                  mst.a(string.find(d, '10.'), 'no IPv4 address?!?')
+                  mst.a(string.find(d, ipv4_match), 'no IPv4 address?!?')
 
 
                   -- make sure that explicitly clearing the SKV
