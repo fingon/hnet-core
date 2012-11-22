@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov 21 17:13:32 2012 mstenber
--- Last modified: Wed Nov 21 20:03:55 2012 mstenber
--- Edit time:     40 min
+-- Last modified: Thu Nov 22 09:54:40 2012 mstenber
+-- Edit time:     45 min
 --
 
 require 'pm_handler'
@@ -74,10 +74,20 @@ function pm_dnsmasq:write_dnsmasq_conf(fpath)
    t:insert([[
 # We want to use only servers we provide explicitly
 no-resolv
+
 # Hardcoded domain.. ugh.
 domain=lan
+
 # Enable RA
 enable-ra
+
+# Disable dynamic interfaces - because we know what to listen to
+
+# (And because dnsmasq doesn't use SO_REUSE* without
+# clever/bind-interfaces being set, so kill+restart sometimes fails at
+# booting dnsmasq :-p And the clever stuff sounds Linux specific..)
+
+bind-interfaces
 
 ]])
 
@@ -103,6 +113,7 @@ enable-ra
    -- XXX - DHCPv6 DNS search list?
 
    -- then the ranges for DHCPv4 / SLAAC
+   local ifset = mst.set:new{}
 
    for i, lap in ipairs(self.pm.ospf_lap or {})
    do
@@ -123,6 +134,7 @@ enable-ra
 
 
             local prefix_without_slash = mst.string_split(prefix, '/')[1]
+            ifset:insert(ifname)
             t:insert(string.format('dhcp-range=tag:%s,%s%s,%s',
                                    ifname, 
                                    prefix_without_slash,
@@ -143,6 +155,7 @@ enable-ra
             local enb = b .. string.char(254)
             local st = ipv6s.binary_address_to_address(stb)
             local en = ipv6s.binary_address_to_address(enb)
+            ifset:insert(ifname)
             t:insert(string.format('dhcp-range=tag:%s,%s,%s,%s',
                                    ifname,
                                    st,
@@ -150,6 +163,16 @@ enable-ra
                                    lease))
             c = c + 1
          end
+      end
+   end
+
+   -- explicit interfaces to listen to
+   -- (loopback is automatic)
+   if ifset:count() > 0
+   then
+      for ifname, _ in pairs(ifset)
+      do
+         t:insert('interface=' .. ifname)
       end
    end
 
