@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov 21 17:13:32 2012 mstenber
--- Last modified: Thu Nov 22 09:54:40 2012 mstenber
--- Edit time:     45 min
+-- Last modified: Thu Nov 22 10:18:10 2012 mstenber
+-- Edit time:     46 min
 --
 
 require 'pm_handler'
@@ -170,10 +170,7 @@ bind-interfaces
    -- (loopback is automatic)
    if ifset:count() > 0
    then
-      for ifname, _ in pairs(ifset)
-      do
-         t:insert('interface=' .. ifname)
-      end
+      t:insert('interface=' .. table.concat(ifset:keys(), ','))
    end
 
    -- special case - no change to file => do nothing
