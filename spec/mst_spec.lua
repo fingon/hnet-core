@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Nov  7 19:07:56 2012 mstenber
--- Edit time:     101 min
+-- Last modified: Thu Nov 22 17:16:39 2012 mstenber
+-- Edit time:     106 min
 --
 
 require "busted"
@@ -409,4 +409,35 @@ describe("validity_sync", function ()
                   mst.a(#a == 2)
                    end)
             -- XXX - add test for non-single key validity stuff
+end)
+
+describe("count_all and friends #count", function ()
+            describe("works", function ()
+                        local c1 = mst.count_all_types()
+                        local c2 = mst.count_all_types()
+
+                        mst.d('got', c1)
+
+                        local v = mst.debug_count_all_types_delta(c1, c2)
+                        mst.a(v == 0)
+                        local d = mst.array:new{}
+                        local o1 = {foo=d}
+                        local o2 = {foo=d, bar=d}
+                        local o3 = {}
+
+                        local c1 = mst.count_all_types(o1)
+                        local c2 = mst.count_all_types(o2)
+                        local v = mst.debug_count_all_types_delta(c1, c2)
+                        mst.a(v == 0)
+                        
+                        local c3 = mst.count_all_types(o3)
+                        mst.d('got c1', c1)
+                        mst.d('got c3', c3)
+                        mst.a(mst.table_count(c1) > 0)
+                        mst.a(mst.table_count(c3) == 2) -- just total count + 1 table
+                        local v = mst.debug_count_all_types_delta(c1, c3)
+                        mst.a(v > 0)
+
+
+                         end)
 end)

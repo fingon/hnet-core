@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Wed Nov 21 19:05:26 2012 mstenber
--- Edit time:     551 min
+-- Last modified: Thu Nov 22 17:10:15 2012 mstenber
+-- Edit time:     553 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -107,6 +107,8 @@ function pm:init()
       'v6_rule',
       -- radvd depends on v6_route => it is last
       'radvd',
+      -- this doesn't matter, it just has tick
+      'memory',
    }
    if self.use_dnsmasq
    then

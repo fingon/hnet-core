@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Nov 21 18:57:16 2012 mstenber
--- Edit time:     542 min
+-- Last modified: Thu Nov 22 17:15:49 2012 mstenber
+-- Edit time:     570 min
 --
 
 -- data structure abstractions provided:
@@ -242,7 +242,8 @@ function create_class(o, ...)
    h = o or {}
    -- created instances will index h, and have tostring
    local cmt = {__index = h,
-                __tostring = ts}
+                __tostring = ts,
+                __mstype = true}
    -- also, do inherited indexing of superclasses, and have tostring
    -- for class too
    setmetatable(h, {__index=scs[1],
@@ -1464,4 +1465,86 @@ then
    create_hash = sha1_binary
    create_hash_type = 'sha1'
    create_hash_if_fast = function (x) return x end
+end
+
+-- memory tracing ( inspired by
+-- http://bitsquid.blogspot.fi/2011/08/fixing-memory-issues-in-lua.html )
+
+function visit_table(t, f, g)
+   local seen = {}
+   function visit_table_rec(t, ...)
+      mst.a(type(t) == 'table')
+      for k, v in pairs(t)
+      do
+         visit_one_rec(v, k, ...)
+      end
+   end
+   function visit_one_rec(t, ...)
+      local type_name = type(t)
+      if type_name == 'table'
+      then
+         if seen[t] then return end
+         seen[t] = true
+         if g then g(t, ...) end
+         visit_table_rec(t, ...)
+      else
+         f(t, ...)
+      end
+   end
+   visit_one_rec(t)
+end
+
+function class_or_type_name(o)
+   local type_name = type(o)
+   if type_name == 'table'
+   then
+      local cmt = getmetatable(o)
+      if cmt and cmt.__mstype and type(o.class) == 'string'
+      then
+         return o.class
+      end
+   end
+   return type_name
+end
+
+function count_all_types(t)
+   local counts = {}
+   function count_one(o)
+      local tn = class_or_type_name(o)
+      mst.a(type(tn) == 'string', 'wierd type', tn)
+      local ov = counts[tn] or 0
+      mst.a(type(ov) == 'number', 'wierd number', ov)
+      counts[tn] = ov + 1
+   end
+   t = t or _G
+   visit_table(t, count_one, count_one)
+   local total = 0
+   for k, v in pairs(counts)
+   do
+      total = total + v
+   end
+   counts['ztotal'] = total
+   return counts, total
+end
+
+function debug_count_all_types_delta(c1, c2)
+   local c = 0
+   if not c1 or not c2
+   then
+      return
+   end
+   local all_keys = table_keys(set_union(c1, c2))
+   all_keys:sort()
+   mst.d('count_all_delta', all_keys)
+   for i, k in ipairs(all_keys)
+   do
+      local v1 = c1[k] or 0
+      local v2 = c2[k] or 0
+      if v1 ~= v2
+      then
+         mst.d(string.format(' %s: %d->%d [%d]', k, v1, v2, v2-v1))
+         c = c + 1
+      end
+   end
+   return c
 end

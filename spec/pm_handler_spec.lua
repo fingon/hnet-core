@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Thu Nov 22 12:09:37 2012 mstenber
--- Edit time:     35 min
+-- Last modified: Thu Nov 22 17:10:43 2012 mstenber
+-- Edit time:     36 min
 --
 
 -- individual handler tests
@@ -20,6 +20,7 @@ require 'pm_v6_listen_ra'
 require 'pm_v6_route'
 require 'pm_v6_dhclient'
 require 'pm_dnsmasq'
+require 'pm_memory'
 
 module("pm_handler_spec", package.seeall)
 
@@ -187,6 +188,20 @@ describe("pm_dnsmasq", function ()
 
                   pm.ds:check_used()
 
+
+                   end)
+end)
+
+describe("pm_memory", function ()
+            it("does nothing ;)", function ()
+                  local pm = dpm.dpm:new{}
+                  local o = pm_memory.pm_memory:new{pm=pm}
+                  -- run twice, just for fun
+                  o:run()
+                  o:run()
+                  -- tick twice, just for fun
+                  o:tick()
+                  o:tick()
 
                    end)
 end)
