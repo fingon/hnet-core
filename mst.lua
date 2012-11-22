@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Nov 22 17:15:49 2012 mstenber
--- Edit time:     570 min
+-- Last modified: Thu Nov 22 17:48:41 2012 mstenber
+-- Edit time:     577 min
 --
 
 -- data structure abstractions provided:
@@ -1470,8 +1470,8 @@ end
 -- memory tracing ( inspired by
 -- http://bitsquid.blogspot.fi/2011/08/fixing-memory-issues-in-lua.html )
 
-function visit_table(t, f, g)
-   local seen = {}
+function visit_table(t, f, g, seen)
+   local seen = seen or {}
    function visit_table_rec(t, ...)
       mst.a(type(t) == 'table')
       for k, v in pairs(t)
@@ -1507,7 +1507,7 @@ function class_or_type_name(o)
    return type_name
 end
 
-function count_all_types(t)
+function count_all_types(...)
    local counts = {}
    function count_one(o)
       local tn = class_or_type_name(o)
@@ -1516,8 +1516,12 @@ function count_all_types(t)
       mst.a(type(ov) == 'number', 'wierd number', ov)
       counts[tn] = ov + 1
    end
-   t = t or _G
-   visit_table(t, count_one, count_one)
+   tl = {...}
+   local seen = {}
+   for i, t in ipairs(tl)
+   do
+      visit_table(t, count_one, count_one, seen)
+   end
    local total = 0
    for k, v in pairs(counts)
    do
@@ -1535,7 +1539,7 @@ function debug_count_all_types_delta(c1, c2)
    end
    local all_keys = table_keys(set_union(c1, c2))
    all_keys:sort()
-   mst.d('count_all_delta', all_keys)
+   mst.d('debug_count_all_types_delta', all_keys)
    for i, k in ipairs(all_keys)
    do
       local v1 = c1[k] or 0
@@ -1548,3 +1552,9 @@ function debug_count_all_types_delta(c1, c2)
    end
    return c
 end
+
+-- by default, we assume memory constrained environment -> 20% of
+-- memory waste is the most we want to deal with
+-- given 2x stepmul (assumed), that means ~1,1 multiplier
+-- (given the ~cap memory waste is stepmul * pause orso?)
+collectgarbage('setpause', 110)
