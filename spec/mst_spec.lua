@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Thu Nov 22 17:16:39 2012 mstenber
--- Edit time:     106 min
+-- Last modified: Thu Nov 22 17:30:00 2012 mstenber
+-- Edit time:     107 min
 --
 
 require "busted"
@@ -413,8 +413,8 @@ end)
 
 describe("count_all and friends #count", function ()
             describe("works", function ()
-                        local c1 = mst.count_all_types()
-                        local c2 = mst.count_all_types()
+                        local c1 = mst.count_all_types(_G)
+                        local c2 = mst.count_all_types(_G)
 
                         mst.d('got', c1)
 
