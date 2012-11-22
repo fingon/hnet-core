@@ -1,4 +1,4 @@
-#!/bin/bash -ue
+#!/bin/sh
 #-*-sh-*-
 #
 # $Id: dnsmasq_handler.sh $
@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Wed Nov 21 19:17:00 2012 mstenber
-# Last modified: Wed Nov 21 19:19:24 2012 mstenber
-# Edit time:     2 min
+# Last modified: Thu Nov 22 09:31:35 2012 mstenber
+# Edit time:     6 min
 #
 
 # start CONFIG
@@ -29,13 +29,21 @@ start() {
     fi
 }
 
-reload() {
-    CONF=$1
-    killall -HUP dnsmasq || start $CONF
+stop() {
+    killall -9q dnsmasq || true
 }
 
-stop() {
-    killall dnsmasq
+reload() {
+    CONF=$1
+    # In ideal world, we would use SIGHUP and dnsmasq would read it's
+    # config again. But it doesn't, it just re-reads lease DB and some other
+    # stuff. sigh.
+    #
+    #killall -HUP dnsmasq || start $CONF
+
+    # So..
+    stop 
+    start $CONF
 }
 
 CMD=$1
