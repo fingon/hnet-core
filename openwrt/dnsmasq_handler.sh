@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Wed Nov 21 19:17:00 2012 mstenber
-# Last modified: Thu Nov 22 09:31:35 2012 mstenber
-# Edit time:     6 min
+# Last modified: Thu Nov 22 10:46:06 2012 mstenber
+# Edit time:     11 min
 #
 
 # start CONFIG
@@ -21,7 +21,9 @@ UML_DNSMASQ=/hosthome/uml/dnsmasq/dnsmasq
 
 start() {
     CONF=$1
-    if [ -f $UML_DNSMASQ ]
+    # Use dnsmasq binary on non-OpenWRT,
+    # with /hosthome available
+    if [ -f $UML_DNSMASQ -a ! -d /etc/config ]
     then
         $UML_DNSMASQ -C $CONF
     else
@@ -30,7 +32,8 @@ start() {
 }
 
 stop() {
-    killall -9q dnsmasq || true
+    # -q would be nice, but not in busybox.. oh well.
+    killall -9 dnsmasq || true
 }
 
 reload() {
