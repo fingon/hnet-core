@@ -1,0 +1,17 @@
+-- Set this option, same as if user specified
+-- '--executable' on the command-line. Can be 
+-- disabled by user with '--no-executable'
+Option "executable"
+
+-- Output filename
+Output "temp"
+
+Module "mst"
+Module "vstruct"
+Module "pm_core"
+Module "statemap"
+Module "skv"
+Module "codec"
+
+-- This is normal/main script
+Main "temp.lua"
