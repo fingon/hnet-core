@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Nov 22 17:48:41 2012 mstenber
--- Edit time:     577 min
+-- Last modified: Tue Nov 27 15:05:21 2012 mstenber
+-- Edit time:     586 min
 --
 
 -- data structure abstractions provided:
@@ -19,13 +19,34 @@
 -- table_* = normal Python-style dictionary
 --  class called 'dict' to prevent conflicts
 
+local os = require 'os'
+local table = require 'table'
+local string = require 'string'
+local math = require 'math'
+local io = require 'io'
+
+local assert = assert
+local setmetatable = setmetatable
+local getmetatable = getmetatable
+local ipairs = ipairs
+local pcall = pcall
+local xpcall = xpcall
+local require = require
+local collectgarbage = collectgarbage
+local tostring = tostring
+local type = type
+local pairs = pairs
+local unpack = unpack
+
+
 -- allow prevention of loading strict (e.g. when dealing with luacov)
 if not os.getenv("DISABLE_MST_STRICT")
 then
    require 'strict'
 end
 
-module(..., package.seeall)
+--module(..., package.seeall)
+module(...)
 
 -- global debug switch
 enable_debug=os.getenv("ENABLE_MST_DEBUG") or false
@@ -50,6 +71,60 @@ function check_parameters(fname, o, l, depth)
       end
    end
 end
+
+-- debugging (class stuff depends on this -> must be first)
+function debug_print(...)
+   -- rewrite all table's to have metatable which has tostring => repr wrapper, if they don't have metatable
+   local tl = {}
+   local al = {...}
+   local sm = {}
+   --print('handling arguments', #al)
+   for i, v in ipairs(al)
+   do
+      --print(type(v), getmetatable(v))
+      if type(v) == 'table' and (not getmetatable(v) or not getmetatable(v).__tostring)
+      then
+         --print(' setting metatable', v)
+         sm[v] = getmetatable(v)
+         setmetatable(v, _repr_metatable)
+         table.insert(tl, v)
+      end
+   end
+   if enable_debug_date
+   then
+      print(os.date(), ...)
+   else
+      print(...)
+   end
+   for i, v in ipairs(tl)
+   do
+      setmetatable(v, sm[v])
+      --print(' reverted metatable', v)
+   end
+end
+
+function a(stmt, ...)
+   if not enable_assert
+   then
+      assert(stmt, ...)
+      return
+   end
+   if not stmt
+   then
+      print(debug.traceback())
+      debug_print(...)
+      error('assertion failed', 2)
+   end
+end
+
+function d(...)
+   if enable_debug
+   then
+      debug_print(...)
+   end
+end
+
+mst = {a=a, d=d}
 
 -- baseclass used as base for all classes
 
@@ -253,58 +328,6 @@ function create_class(o, ...)
 end
 
 _repr_metatable = {__tostring=function (self) return repr(self) end}
-
-function debug_print(...)
-   -- rewrite all table's to have metatable which has tostring => repr wrapper, if they don't have metatable
-   local tl = {}
-   local al = {...}
-   local sm = {}
-   --print('handling arguments', #al)
-   for i, v in ipairs(al)
-   do
-      --print(type(v), getmetatable(v))
-      if type(v) == 'table' and (not getmetatable(v) or not getmetatable(v).__tostring)
-      then
-         --print(' setting metatable', v)
-         sm[v] = getmetatable(v)
-         setmetatable(v, _repr_metatable)
-         table.insert(tl, v)
-      end
-   end
-   if enable_debug_date
-   then
-      print(os.date(), ...)
-   else
-      print(...)
-   end
-   for i, v in ipairs(tl)
-   do
-      setmetatable(v, sm[v])
-      --print(' reverted metatable', v)
-   end
-end
-
-function a(stmt, ...)
-   if not enable_assert
-   then
-      assert(stmt, ...)
-      return
-   end
-   if not stmt
-   then
-      print(debug.traceback())
-      debug_print(...)
-      error('assertion failed', 2)
-   end
-end
-
-function d(...)
-   if enable_debug
-   then
-      debug_print(...)
-   end
-end
-
 
 function pcall_and_finally(fun1, fun2)
    -- error propagation doesn't really matter as much.. as good tracebacks do
@@ -607,7 +630,7 @@ end
 
 function string_to_hex(s)
    local t = {}
-   for i, c in mst.string_ipairs(s)
+   for i, c in string_ipairs(s)
    do
       table.insert(t, string.format('%02x', string.byte(c)))
    end
@@ -1222,7 +1245,7 @@ end
 function array_randlist(t)
    -- make a copy (we mutate it)
    t = table_copy(t)
-   local r = mst.array:new{}
+   local r = array:new{}
    while #t > 0
    do
       local idx = array_randindex(t)
@@ -1253,7 +1276,7 @@ function event:init()
 end
 
 function event:uninit()
-   self:a(mst.table_is_empty(self.observers), "observers not gone when event is!")
+   self:a(table_is_empty(self.observers), "observers not gone when event is!")
 end
 
 function event:add_observer(o)
@@ -1364,8 +1387,7 @@ end
 -- it is a wrapper around a container (which obeys these mst.* APIs),
 -- with few methods to invalidate/validate individual objects
 
-validity_sync = mst.create_class{'validity_sync', 
-                                 mandatory={'t', 'single'}}
+validity_sync = create_class{'validity_sync', mandatory={'t', 'single'}}
 
 function validity_sync:clear_all_valid(key)
    key = key or true
@@ -1558,3 +1580,4 @@ end
 -- given 2x stepmul (assumed), that means ~1,1 multiplier
 -- (given the ~cap memory waste is stepmul * pause orso?)
 collectgarbage('setpause', 110)
+
