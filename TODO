@@ -23,6 +23,12 @@ nothing good happens if time moves much forwards, _either_. *sigh*
 
 * Things to do
 
+** update README's
+
+.. few things not correct, I think
+
+- add memory usage caveats
+
 ** refactor skv fields to be more sensible
 
 - some sort of self-describing nested-table approach
@@ -238,4 +244,12 @@ does anyone care :p
 
 .. to do: write testcase which has 6rd+native with same assigned prefix,
 and make sure result is sane
+
+** Memory usage optimization
+
+One LUA in system is probably acceptable memory hit; two+ might not be. If
+so, have to consider how to slim the count to 1..
+
+Currently ~2MB per process (pm.lua, bird6-elsa), which results in 4MB
+memory overheard compared to system with 0 Lua in it.
 
