@@ -17,6 +17,9 @@ cov: clean test
 	busted -l "./run_lua_with_luacov.sh" spec
 	./run_luacov.sh
 
+mem:
+	./run_lua_memory_stats.sh | sort -n
+
 stress: .stressed
 
 test: .tested
