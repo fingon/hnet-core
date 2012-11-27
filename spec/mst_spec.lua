@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Thu Nov 22 17:30:00 2012 mstenber
--- Edit time:     107 min
+-- Last modified: Tue Nov 27 15:05:09 2012 mstenber
+-- Edit time:     108 min
 --
 
 require "busted"
@@ -29,10 +29,10 @@ describe("check_parameters", function ()
                                            end)
             it("works with provided parameters", function ()
                   mst.check_parameters("test", {foo=1}, {"foo"})
-                                           end)
+                                                 end)
             it("blows if skipped parameters", function ()
                   assert.error(function ()
-                  mst.check_parameters("test", {}, {"foo"})
+                                  mst.check_parameters("test", {}, {"foo"})
                                end)
                   
                                               end)
@@ -102,7 +102,7 @@ describe("table_copy", function ()
                   assert(t1.foo == t2.foo)
                   assert(t1.bar ~= t2.bar)
                                             end)
-        end)
+                       end)
 
 describe("table_deep_copy", function ()
             it("copies tables (deep)", function ()
@@ -110,8 +110,8 @@ describe("table_deep_copy", function ()
                   t1['bar'] = t1
                   local t2 = mst.table_deep_copy(t1)
                   assert(t2.bar == t2)
-                                            end)
-        end)
+                                       end)
+                            end)
 
 describe("repr", function()
             it("works", function ()
@@ -132,8 +132,8 @@ describe("array_to_table", function ()
                   local a = {1, 2, 3, 'z'}
                   local t = mst.array_to_table(a)
                   assert(t.z)
-                                            end)
-        end)
+                        end)
+                           end)
 
 describe('string_split', function()
             it("works", function()
@@ -151,7 +151,7 @@ describe('string_split', function()
                      local expected = mst.repr(output) 
                      assert.are.same(expected, got)
                   end
-                     
+                  
                         end)
                          end)
 
@@ -177,7 +177,7 @@ describe("set", function ()
                   mst.a(s['bar'])
                   mst.a(not s:is_empty())
 
-                   end)
+                                 end)
                 end)
 
 describe("array", function ()
@@ -199,8 +199,8 @@ describe("array", function ()
                   mst.a(mst.repr_equal(a:slice(1, -3), {1}))
                   a:clear()
                   mst.a(#a == 0)
-                   end)
-             end)
+                                 end)
+                  end)
 
 describe("map", function ()
             it("can be created", function ()
@@ -238,7 +238,7 @@ describe("bits", function ()
                   local t7 = mst.bitv_xor_bit(t5, 9)
                   mst.d(t7 == 129+256)
                         end)
-end)
+                 end)
 
 describe("execute_to_string", function ()
             it("successful cmd works", function ()
@@ -264,7 +264,7 @@ describe("execute_to_string", function ()
                   local s, err = mst.execute_to_string('true')
                   mst.a(s)
                                        end)
-end)
+                              end)
 
 describe("min/max", function ()
             it("min", function ()
@@ -272,14 +272,14 @@ describe("min/max", function ()
                   mst.a(mst.min(5,2,3) == 2)
                   mst.a(mst.min(4) == 4)
                   mst.a(mst.min() == nil)
-                   end)
+                      end)
             it("max", function ()
                   mst.a(mst.max(1,2,3) == 3)
                   mst.a(mst.max(1,5,3) == 5)
                   mst.a(mst.max(4) == 4)
                   mst.a(mst.max() == nil)
-                   end)
-end)
+                      end)
+                    end)
 
 describe("cache", function ()
             it("works #cache", function ()
@@ -294,7 +294,7 @@ describe("cache", function ()
                                            get_callback=function (k)
                                               t[2] = t[2] + 1
                                               return k and true or nil
-                                              end}
+                                           end}
                   -- test with defaults
                   mst.d('initial')
 
@@ -346,8 +346,8 @@ describe("cache", function ()
                   
                   
 
-                   end)
-end)
+                               end)
+                  end)
 
 describe("string_find_one", function ()
             it("t1", function ()
@@ -363,19 +363,19 @@ describe("string_find_one", function ()
                                       function (x)
                                          mst.a(x == 'oo')
                                       end)
-                   end)
-end)
+                     end)
+                            end)
 
 describe("string misc", function ()
             it("endswith", function ()
                   mst.a(mst.string_endswith('foobar', 'bar'))
                   mst.a(not mst.string_endswith('fooba', 'bar'))
-                   end)
+                           end)
             it("startswith", function ()
                   mst.a(mst.string_startswith('foobar', 'foo'))
                   mst.a(not mst.string_startswith('oobar', 'foo'))
                              end)
-end)
+                        end)
 
 describe("validity_sync", function ()
             it("it works with map", function ()
@@ -392,7 +392,7 @@ describe("validity_sync", function ()
                   vs:set_valid(o2)
                   vs:remove_all_invalid()
                   mst.a(m:count() == 2)
-                   end)
+                                    end)
             it("it works with array", function ()
                   local a = mst.array:new{}
                   local o1 = {}
@@ -407,9 +407,9 @@ describe("validity_sync", function ()
                   vs:set_valid(o2)
                   vs:remove_all_invalid()
                   mst.a(#a == 2)
-                   end)
+                                      end)
             -- XXX - add test for non-single key validity stuff
-end)
+                          end)
 
 describe("count_all and friends #count", function ()
             describe("works", function ()
@@ -439,5 +439,33 @@ describe("count_all and friends #count", function ()
                         mst.a(v > 0)
 
 
-                         end)
-end)
+                              end)
+                                         end)
+
+describe("d_xpcall", function ()
+            it("works", function ()
+                  mst.d_xpcall(function ()
+
+                               end)
+                        end)
+                     end)
+
+describe("string_to_hex", function ()
+            it("works", function ()
+                  local r = mst.string_to_hex('foo')
+                  mst.a(#r == 6)
+                        end)
+                          end)
+
+describe("array_randlist", function ()
+            it("works", function ()
+                  local r = {1,2,3}
+                  local ra = mst.array_randlist(r)
+                  mst.a(#ra == 3)
+                  mst.a(mst.array_find(ra, 1))
+                  mst.a(mst.array_find(ra, 2))
+                  mst.a(mst.array_find(ra, 3))
+                  mst.a(not mst.array_find(ra, 4))
+                        end)
+
+                           end)
