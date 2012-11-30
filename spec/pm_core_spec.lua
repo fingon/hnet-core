@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Thu Nov 22 12:03:09 2012 mstenber
+-- Last modified: Fri Nov 30 11:10:48 2012 mstenber
 -- Edit time:     229 min
 --
 
@@ -19,7 +19,7 @@ require 'busted'
 require 'elsa_pa'
 require 'pm_core'
 require 'skv'
-require 'codec'
+require 'ospfcodec'
 require 'pa'
 
 module("pm_core_spec", package.seeall)
@@ -34,7 +34,7 @@ delsa = _delsa.delsa
 
 require 'dshell'
 
-local usp_dead_tlv = codec.usp_ac_tlv:encode{prefix='dead::/16'}
+local usp_dead_tlv = ospfcodec.usp_ac_tlv:encode{prefix='dead::/16'}
 
 assert(mst.create_hash_type == 'md5', 
        'we support only md5 based tests -' .. 

@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Nov 21 18:57:29 2012 mstenber
+-- Last modified: Fri Nov 30 11:09:28 2012 mstenber
 -- Edit time:     505 min
 --
 
@@ -30,7 +30,7 @@
 -- <= ???
 
 require 'mst'
-require 'codec'
+require 'ospfcodec'
 require 'ssloop'
 
 local pa = require 'pa'
@@ -261,7 +261,7 @@ end
 function elsa_pa:get_padded_hwf(rid)
    local hwf = self:get_hwf(rid)
    mst.a(hwf, 'unable to get hwf')
-   local d = codec.MINIMUM_AC_TLV_RHF_LENGTH
+   local d = ospfcodec.MINIMUM_AC_TLV_RHF_LENGTH
    if #hwf < d
    then
       hwf = hwf .. string.rep('1', d - #hwf)
@@ -279,10 +279,10 @@ function elsa_pa:check_conflict(bonus_lsa)
       lsas = lsas + 1
       if lsa.rid ~= self.rid then return end
       local found = nil
-      for i, tlv in ipairs(codec.decode_ac_tlvs(lsa.body))
+      for i, tlv in ipairs(ospfcodec.decode_ac_tlvs(lsa.body))
       do
          tlvs = tlvs + 1
-         if tlv.type == codec.AC_TLV_RHF
+         if tlv.type == ospfcodec.AC_TLV_RHF
          then
             found = tlv.body
          end
@@ -568,7 +568,7 @@ function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
          return
       end
       xpcall(function ()
-                for i, tlv in ipairs(codec.decode_ac_tlvs(lsa.body))
+                for i, tlv in ipairs(ospfcodec.decode_ac_tlvs(lsa.body))
                 do
                    if not criteria or mst.table_contains(tlv, criteria)
                    then
@@ -615,7 +615,7 @@ function elsa_pa:iterate_asp(rid, f)
                               self:a(lsa and asp)
                               self:a(rid ~= lsa.rid, 'own asp in iterate?')
                               f{prefix=asp.prefix, iid=asp.iid, rid=lsa.rid}
-                           end, {type=codec.AC_TLV_ASP})
+                           end, {type=ospfcodec.AC_TLV_ASP})
 end
 
 --  iterate_asa(rid, f) => callback with {prefix=, rid=}
@@ -642,7 +642,7 @@ function elsa_pa:iterate_usp(rid, f)
                               self:a(lsa and usp)
                               self:a(rid ~= lsa.rid, 'own asp in iterate?')
                               f{prefix=usp.prefix, rid=lsa.rid}
-                           end, {type=codec.AC_TLV_USP})
+                           end, {type=ospfcodec.AC_TLV_USP})
 end
 
 --  iterate_if(rid, f) => callback with ifo
@@ -764,7 +764,7 @@ function elsa_pa:get_field_array(locala, jsonfield)
                               do
                                  s:insert(v)
                               end
-                           end, {type=codec.AC_TLV_JSONBLOB})
+                           end, {type=ospfcodec.AC_TLV_JSONBLOB})
 
 
    -- return set as array
@@ -832,7 +832,7 @@ function elsa_pa:generate_ac_lsa()
    local hwf = self:get_padded_hwf(self.rid)
    self:d(' hwf', hwf)
 
-   a:insert(codec.rhf_ac_tlv:encode{body=hwf})
+   a:insert(ospfcodec.rhf_ac_tlv:encode{body=hwf})
 
    -- generate local USP-based TLVs
 
@@ -840,7 +840,7 @@ function elsa_pa:generate_ac_lsa()
    for i, usp in ipairs(uspl)
    do
       self:d(' usp', self.rid, usp.prefix)
-      a:insert(codec.usp_ac_tlv:encode{prefix=usp.prefix})
+      a:insert(ospfcodec.usp_ac_tlv:encode{prefix=usp.prefix})
    end
 
    -- generate (local) ASP-based TLVs
@@ -848,7 +848,7 @@ function elsa_pa:generate_ac_lsa()
    for i, asp in ipairs(aspl)
    do
       self:d(' asp', self.rid, asp.iid, asp.prefix)
-      a:insert(codec.asp_ac_tlv:encode{prefix=asp.prefix, iid=asp.iid})
+      a:insert(ospfcodec.asp_ac_tlv:encode{prefix=asp.prefix, iid=asp.iid})
    end
 
    -- generate 'FYI' blob out of local SKV state; right now, just the
@@ -865,7 +865,7 @@ function elsa_pa:generate_ac_lsa()
    if t:count() > 0
    then
       self:d(' json', t)
-      a:insert(codec.json_ac_tlv:encode{table=t})
+      a:insert(ospfcodec.json_ac_tlv:encode{table=t})
    end
 
    if #a

@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Nov 13 16:44:56 2012 mstenber
+-- Last modified: Fri Nov 30 11:10:22 2012 mstenber
 -- Edit time:     293 min
 --
 
@@ -26,12 +26,12 @@ local dsm = _dsm.dsm
 local _delsa = require 'delsa'
 local delsa = _delsa.delsa
 
-local usp_dead_tlv = codec.usp_ac_tlv:encode{prefix='dead::/16'}
-local jari_tlv_type = codec.ac_tlv:new_subclass{tlv_type=123}
+local usp_dead_tlv = ospfcodec.usp_ac_tlv:encode{prefix='dead::/16'}
+local jari_tlv_type = ospfcodec.ac_tlv:new_subclass{tlv_type=123}
 local broken_jari_tlv = jari_tlv_type:new{}:encode{body=''}
 
-local rhf_low_tlv = codec.rhf_ac_tlv:encode{body=string.rep("a", 32)}
-local rhf_high_tlv = codec.rhf_ac_tlv:encode{body=string.rep("z", 32)}
+local rhf_low_tlv = ospfcodec.rhf_ac_tlv:encode{body=string.rep("a", 32)}
+local rhf_high_tlv = ospfcodec.rhf_ac_tlv:encode{body=string.rep("z", 32)}
 local valid_end='::/64'
 
 local FAKE_DNS_ADDRESS='dead::1'
