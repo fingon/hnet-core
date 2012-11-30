@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 12:06:56 2012 mstenber
--- Last modified: Fri Nov 30 14:47:23 2012 mstenber
--- Edit time:     25 min
+-- Last modified: Fri Nov 30 14:56:52 2012 mstenber
+-- Edit time:     26 min
 --
 
 require "busted"
@@ -106,6 +106,14 @@ describe("test dnscodec", function ()
                      do
                         mst.a(#o[k] == v, 'count mismatch', k)
                      end
+                     -- make sure we can encode it too
+                     local s2 = dns_message:encode(o)
+                     -- and decode again!
+                     local o2 = dns_message:encode(o)
+
+                     -- XXX - compare that the results are similar.. that
+                     -- is bit painful, so omitted for now
+                     mst.d('size change', #s, #s2)
                   end
                    end)
 end)
