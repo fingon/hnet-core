@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Tue Nov 27 15:05:09 2012 mstenber
--- Edit time:     108 min
+-- Last modified: Fri Nov 30 10:46:11 2012 mstenber
+-- Edit time:     112 min
 --
 
 require "busted"
@@ -469,3 +469,23 @@ describe("array_randlist", function ()
                         end)
 
                            end)
+describe("hash_set", function ()
+            it("works", function ()
+                  mst.array.__eq = function (o1, o2)
+                     return #o1 == #o2
+                  end
+                  local hs = mst.hash_set:new{hash_callback=
+                                              function (f)
+                                                 return 0
+                                              end}
+                  local a1 = mst.array:new{1, 2, 3}
+                  local a2 = mst.array:new{1, 2}
+                  local a3 = mst.array:new{1, 2}
+                  local a4 = mst.array:new{1}
+                  hs:insert(a1)
+                  hs:insert(a2)
+                  mst.a(hs:get(a3) == a2)
+                  mst.a(hs:get(a4) == nil)
+                  mst.array.__eq = nil
+                   end)
+end)

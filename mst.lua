@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Fri Nov 30 10:25:38 2012 mstenber
--- Edit time:     592 min
+-- Last modified: Fri Nov 30 10:42:18 2012 mstenber
+-- Edit time:     606 min
 --
 
 -- data structure abstractions provided:
@@ -1337,6 +1337,42 @@ function cache:set(k, v, t)
    t = t or (v and self.positive_timeout) or self.negative_timeout or self.default_timeout
    local now = self.time_callback()
    self.map[k] = {t + now, v}
+end
+
+-- hash_set - like set, but with Lua key != real key;
+
+-- instead, hash function _has_ to be provided, and then the
+-- underlying values must implement __eq so that the 'matching' one is
+-- found
+
+hash_set = create_class{class='hash_set', mandatory={'hash_callback'}}
+
+function hash_set:init()
+   self.mmap = multimap:new{}
+end
+
+
+function hash_set:get(o)
+   local h = self.hash_callback(o)
+   mst.a(h ~= nil, 'hash_callback result must not be nil')
+   for i, v in ipairs(self.mmap[h] or {})
+   do
+      if v == o
+      then
+         return v
+      end
+   end
+end
+
+function hash_set:insert(o)
+   local h = self.hash_callback(o)
+   self.mmap:insert(h, o)
+end
+
+
+function hash_set:remove(o)
+   local h = self.hash_callback(o)
+   self.mmap:remove(h, o)
 end
 
 -- sync algorithm; assumption is that both are _tables_, with
