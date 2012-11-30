@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Fri Nov 30 11:02:35 2012 mstenber
--- Edit time:     607 min
+-- Last modified: Fri Nov 30 11:17:51 2012 mstenber
+-- Edit time:     608 min
 --
 
 -- data structure abstractions provided:
@@ -1348,7 +1348,7 @@ end
 -- underlying values must implement __eq so that the 'matching' one is
 -- found
 
-hash_set = create_class{class='hash_set', mandatory={'hash_callback'}}
+hash_set = create_class{class='hash_set', mandatory={'hash_callback', 'equal_callback'}}
 
 function hash_set:init()
    self.mmap = multimap:new{}
@@ -1360,7 +1360,7 @@ function hash_set:get(o)
    mst.a(h ~= nil, 'hash_callback result must not be nil')
    for i, v in ipairs(self.mmap[h] or {})
    do
-      if v == o
+      if self.equal_callback(v, o)
       then
          return v
       end
