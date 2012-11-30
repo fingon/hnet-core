@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Fri Nov 30 11:18:16 2012 mstenber
--- Edit time:     114 min
+-- Last modified: Fri Nov 30 14:04:17 2012 mstenber
+-- Edit time:     115 min
 --
 
 require "busted"
@@ -456,6 +456,15 @@ describe("string_to_hex", function ()
                   mst.a(#r == 6)
                         end)
                           end)
+
+describe("hex_to_string", function ()
+            it("works", function ()
+                  local o = 'foo'
+                  local h = mst.string_to_hex(o)
+                  local o2 = mst.hex_to_string(h)
+                  mst.a(o == o2, 'broken', o, o2, h)
+                   end)
+             end)
 
 describe("array_randlist", function ()
             it("works", function ()

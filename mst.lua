@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Fri Nov 30 11:17:51 2012 mstenber
--- Edit time:     608 min
+-- Last modified: Fri Nov 30 14:05:04 2012 mstenber
+-- Edit time:     610 min
 --
 
 -- data structure abstractions provided:
@@ -36,6 +36,7 @@ local pcall = pcall
 local print = print
 local require = require
 local setmetatable = setmetatable
+local tonumber = tonumber
 local tostring = tostring
 local type = type
 local unpack = unpack
@@ -628,6 +629,19 @@ function string_to_hex(s)
    for i, c in string_ipairs(s)
    do
       table.insert(t, string.format('%02x', string.byte(c)))
+   end
+   return table.concat(t)
+end
+
+function hex_to_string(s)
+   local t = {}
+   mst.a(#s % 2 == 0, 'not even # of hex data? odd')
+   for i=1, #s/2
+   do
+      local st = i * 2 - 1
+      local en = st + 1
+      local ss = string.sub(s, st, en)
+      table.insert(t, string.char(tonumber(ss, 16)))
    end
    return table.concat(t)
 end
