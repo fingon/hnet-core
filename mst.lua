@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Nov 27 15:05:21 2012 mstenber
--- Edit time:     586 min
+-- Last modified: Fri Nov 30 10:25:38 2012 mstenber
+-- Edit time:     592 min
 --
 
 -- data structure abstractions provided:
@@ -181,16 +181,12 @@ end
 function baseclass:new(o)
    o = o or {}
 
-   local cmt = getmetatable(self).cmt
-
-   mst.a(cmt, "missing child-metatable", self)
-
    -- make sure it isn't already set with this metatable - would
    -- indicate reuse of table for multiple objects, which is a no-no
    self:a(getmetatable(o) == nil, ':new with table that has non-empty metatable', o)
 
    -- set the child metatable
-   setmetatable(o, cmt)
+   setmetatable(o, self)
 
    mst.a(o.init, "missing init method?", self)
    if o.mandatory
@@ -315,15 +311,11 @@ function create_class(o, ...)
    end
    mst.a(#scs == 1, "no support for > 1 superclass for now", #scs)
    h = o or {}
-   -- created instances will index h, and have tostring
-   local cmt = {__index = h,
-                __tostring = ts,
-                __mstype = true}
-   -- also, do inherited indexing of superclasses, and have tostring
-   -- for class too
+   h.__index = h
+   h.__tostring = ts
+   h.__mstype = true
    setmetatable(h, {__index=scs[1],
-                    __tostring=ts,
-                    cmt=cmt})
+                    __tostring=ts})
    return h
 end
 
@@ -1296,7 +1288,7 @@ function event:update(...)
 end
 
 -- event instances' __call should map directly to event.update
-getmetatable(event).cmt.__call = event.update
+event.__call = event.update
 
 --- cache class (with custom optional lifetime for replies, and
 --- external time source)
