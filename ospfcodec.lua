@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:07:43 2012 mstenber
--- Last modified: Fri Nov 30 11:11:33 2012 mstenber
--- Edit time:     1 min
+-- Last modified: Fri Nov 30 11:40:57 2012 mstenber
+-- Edit time:     3 min
 --
 
 require 'codec'
@@ -35,13 +35,6 @@ AC_TLV_JSONBLOB=42
 MINIMUM_AC_TLV_RHF_LENGTH=32
 
 local _null = string.char(0)
-
-local function raw_has_left(cur, n)
-   mst.a(type(n) == 'number')
-   mst.a(type(cur) == 'table')
-
-   return (#cur.str - cur.pos) >= n
-end
 
 --- ac_tlv _instance_ of abstract_data (but we override class for debugging)
 
@@ -251,7 +244,7 @@ function decode_ac_tlvs(s)
    --mst.d('minimum_size', minimum_size)
 
    local t = {}
-   while raw_has_left(cur, minimum_size)
+   while codec.cursor_has_left(cur, minimum_size)
    do
       local found = false
       for i, v in ipairs(_tlv_decoders)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Fri Nov 30 11:11:29 2012 mstenber
--- Edit time:     207 min
+-- Last modified: Fri Nov 30 12:25:15 2012 mstenber
+-- Edit time:     213 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -84,12 +84,13 @@ end
 
 function abstract_data:try_decode()
    --self:d('try_decode', cur)
+   local cur = self._cur
    if not self:has_left(self.header_length) 
    then
       return nil, string.format('not enough left for header (%d<%d+%d)',
                                 #cur.str, self.header_length, cur.pos)
    end
-   local o = self.header.unpack(self._cur)
+   local o = self.header.unpack(cur)
    return o
 end
                                  
@@ -129,6 +130,14 @@ function abstract_data:has_left(n)
    local cur = self._cur
 
    -- cur.pos is indexed by 'last read' position => 0 = start of file
+   mst.a(type(n) == 'number')
+   mst.a(type(cur) == 'table')
+
+   return (#cur.str - cur.pos) >= n
+end
+
+
+function cursor_has_left(cur, n)
    mst.a(type(n) == 'number')
    mst.a(type(cur) == 'table')
 
