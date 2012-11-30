@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Wed Nov  7 10:22:20 2012 mstenber
--- Edit time:     193 min
+-- Last modified: Fri Nov 30 11:07:04 2012 mstenber
+-- Edit time:     205 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -77,12 +77,20 @@ function abstract_data:repr_data()
 end
 
 function abstract_data:decode(cur)
+   mst.a(not self._cur, '_cur left?!?', self, self._cur)
    if type(cur) == 'string'
    then
       cur = vstruct.cursor(cur)
    end
+   self._cur = cur
    local pos = cur.pos
-   local o, err = self:try_decode(cur)
+   local o, err
+   mst.pcall_and_finally(function ()
+                            o, err = self:try_decode()
+                         end,
+                         function ()
+                            self._cur = nil
+                         end)
    if o
    then
       return o
@@ -92,14 +100,14 @@ function abstract_data:decode(cur)
    return nil, err
 end
 
-function abstract_data:try_decode(cur)
+function abstract_data:try_decode()
    --self:d('try_decode', cur)
-   if not has_left(cur, self.header_length) 
+   if not self:has_left(self.header_length) 
    then
       return nil, string.format('not enough left for header (%d<%d+%d)',
                                 #cur.str, self.header_length, cur.pos)
    end
-   local o = self.header.unpack(cur)
+   local o = self.header.unpack(self._cur)
    return o
 end
                                  
@@ -135,7 +143,9 @@ function abstract_data:encode(o)
    return self:do_encode(o)
 end
 
-function has_left(cur, n)
+function abstract_data:has_left(n)
+   local cur = self._cur
+
    -- cur.pos is indexed by 'last read' position => 0 = start of file
    mst.a(type(n) == 'number')
    mst.a(type(cur) == 'table')
@@ -143,6 +153,12 @@ function has_left(cur, n)
    return (#cur.str - cur.pos) >= n
 end
 
+local function raw_has_left(cur, n)
+   mst.a(type(n) == 'number')
+   mst.a(type(cur) == 'table')
+
+   return (#cur.str - cur.pos) >= n
+end
 
 --- ac_tlv _instance_ of abstract_data (but we override class for debugging)
 
@@ -162,16 +178,18 @@ function ac_tlv:init()
    abstract_data.init(self)
 end
 
-function ac_tlv:try_decode(cur)
+function ac_tlv:try_decode()
    -- do superclass decoding of the header
-   local o, err = abstract_data.try_decode(self, cur)
+   local o, err = abstract_data.try_decode(self)
    if not o then return o, err end
+
+   local cur = self._cur
 
    local header_length = self.header_length
    local body_length = o.length - header_length
 
    -- then make sure there's also enough space left for the body
-   if not has_left(cur, body_length) 
+   if not self:has_left(body_length) 
    then 
       return nil, 'not enough for body' 
    end
@@ -218,12 +236,13 @@ prefix_body = abstract_data:new{class='prefix_body',
                                 header_default={prefix_length=0, 
                                                 r1=0, r2=0, r3=0}}
 
-function prefix_body:try_decode(cur)
-   local o, err = abstract_data.try_decode(self, cur)
+function prefix_body:try_decode()
+   local o, err = abstract_data.try_decode(self)
    if not o then return o, err end
    s = math.floor((o.prefix_length + 31) / 32)
    s = s * 4
-   if not has_left(cur, s) then return nil, 'not enough for prefix' end
+   if not self:has_left(s) then return nil, 'not enough for prefix' end
+   local cur = self._cur
    local r = cur:read(s)
    mst.a(r, 'read failed despite having enough left?', cur)
    --o.prefix = ipv6s.binary_to_ascii(r)
@@ -252,8 +271,8 @@ end
 prefix_ac_tlv = ac_tlv:new_subclass{class='prefix_ac_tlv',
                                     tlv_type=AC_TLV_USP}
 
-function prefix_ac_tlv:try_decode(cur)
-   local o, err = ac_tlv.try_decode(self, cur)
+function prefix_ac_tlv:try_decode()
+   local o, err = ac_tlv.try_decode(self)
    if not o then return o, err end
    local r, err = prefix_body:decode(o.body)
    if not r then return r, err end
@@ -283,8 +302,8 @@ end
 
 rhf_ac_tlv = ac_tlv:new{class='rhf_ac_tlv', tlv_type=AC_TLV_RHF}
 
-function rhf_ac_tlv:try_decode(cur)
-   local o, err = ac_tlv.try_decode(self, cur)
+function rhf_ac_tlv:try_decode()
+   local o, err = ac_tlv.try_decode(self)
    if not o then return o, err end
    -- only constraint we have is that the length >= 32 (according 
    -- to draft-acee-ospf-ospfv3-autoconfig-03)
@@ -313,8 +332,8 @@ asp_ac_tlv = prefix_ac_tlv:new{class='asp_ac_tlv',
 
 json_ac_tlv = ac_tlv:new{class='json_ac_tlv', tlv_type=AC_TLV_JSONBLOB}
 
-function json_ac_tlv:try_decode(cur)
-   local o, err = ac_tlv.try_decode(self, cur)
+function json_ac_tlv:try_decode()
+   local o, err = ac_tlv.try_decode(self)
    if not o then return o, err end
    -- 'body' should be valid json
    self:a(o.body)
@@ -349,7 +368,7 @@ function decode_ac_tlvs(s)
    --mst.d('minimum_size', minimum_size)
 
    local t = {}
-   while has_left(cur, minimum_size)
+   while raw_has_left(cur, minimum_size)
    do
       local found = false
       for i, v in ipairs(_tlv_decoders)

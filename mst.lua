@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Fri Nov 30 10:42:18 2012 mstenber
--- Edit time:     606 min
+-- Last modified: Fri Nov 30 11:02:35 2012 mstenber
+-- Edit time:     607 min
 --
 
 -- data structure abstractions provided:
@@ -19,24 +19,27 @@
 -- table_* = normal Python-style dictionary
 --  class called 'dict' to prevent conflicts
 
-local os = require 'os'
-local table = require 'table'
-local string = require 'string'
-local math = require 'math'
+local debug = require 'debug'
 local io = require 'io'
+local math = require 'math'
+local os = require 'os'
+local string = require 'string'
+local table = require 'table'
 
 local assert = assert
-local setmetatable = setmetatable
+local collectgarbage = collectgarbage
+local error = error
 local getmetatable = getmetatable
 local ipairs = ipairs
+local pairs = pairs
 local pcall = pcall
-local xpcall = xpcall
+local print = print
 local require = require
-local collectgarbage = collectgarbage
+local setmetatable = setmetatable
 local tostring = tostring
 local type = type
-local pairs = pairs
 local unpack = unpack
+local xpcall = xpcall
 
 
 -- allow prevention of loading strict (e.g. when dealing with luacov)
