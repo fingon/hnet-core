@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Fri Nov 30 14:24:19 2012 mstenber
--- Edit time:     94 min
+-- Last modified: Fri Nov 30 14:55:16 2012 mstenber
+-- Edit time:     114 min
 --
 
 -- Functionality for en-decoding various DNS structures;
@@ -32,9 +32,6 @@
 -- in RFC1035 compliant format => has to be _prior_ occurence of the
 -- name. If it's subsequent one, all bets are off..
 
--- XXX - add sub-type decoding (PTR, SRV); we don't 'do' expansion
--- from unknown record types (although perhaps we should?)
-
 -- XXX - implement name compression for encoding too!
 
 require 'codec'
@@ -45,6 +42,15 @@ local abstract_data = codec.abstract_data
 local cursor_has_left = codec.cursor_has_left
 
 CLASS_IN=1
+
+TYPE_A=1
+TYPE_NS=2
+TYPE_CNAME=5
+TYPE_PTR=12
+TYPE_HINFO=13
+TYPE_MX=15
+TYPE_TXT=16
+TYPE_SRV=33
 
 --- general utilities to deal with FQDN en/decode
 
@@ -172,6 +178,56 @@ function dns_query:do_encode(o, context)
 end
 
 
+rdata_srv = abstract_data:new{class='rdata_srv',
+                              format='priority:u2 weight:u2 port:u2',
+                              header_default={priority=0,
+                                              weight=0,
+                                              port=0}}
+
+function rdata_srv:try_decode(cur, context)
+   -- first off, get the base struct
+   local o, err = abstract_data.try_decode(self, cur)
+   if not o then return nil, err end
+
+   -- and then 'target', which is FQDN
+   local n, err = try_decode_name_rec(cur, context)
+   if not n then return nil, err end
+   
+   o.target = n
+   return o
+end
+
+function rdata_srv:do_encode(o, context)
+   local t = encode_name_rec(o.target, context)
+   -- ugh, but oh well :p
+   return abstract_data.do_encode(self, o) .. table.concat(t)
+end
+
+local rtype_map = {[TYPE_PTR]={
+                      encode=function (self, o, context)
+                         mst.a(o.rdata_ptr)
+                         return table.concat(encode_name_rec(o.rdata_ptr, context))
+                      end,
+                      decode=function (self, o, cur, context)
+                         local name, err = try_decode_name_rec(cur, context)
+                         if not name then return nil, err end
+                         o.rdata_ptr = name
+                         return true
+                      end,
+                            },
+                   [TYPE_SRV]={
+                      encode=function (self, o, context)
+                         return rdata_srv:encode(o.rdata_srv, context)
+                      end,
+                      decode=function (self, o, cur, context)
+                         local r, err = rdata_srv:decode(cur, context)
+                         if not r then return nil, err end
+                         o.rdata_srv = r
+                         return true
+                      end,
+                   }
+}
+
 
 dns_rr = abstract_data:new{class='dns_rr',
                            format='rtype:u2 rclass:u2 ttl:u4 rdlength:u2',
@@ -197,22 +253,37 @@ function dns_rr:try_decode(cur, context)
    -- copy the header fields
    mst.table_copy(o, r)
 
-   local l = r.rdlength
-   if l > 0
-   then
-      if not cursor_has_left(cur, l)
-      then
-         return nil, 'not enough bytes for body'
-      end
-      r.rdata = cur:read(l)
+   local handler = rtype_map[r.rtype]
+   if handler 
+   then 
+      self:d('using handler')
+      ok, err = handler:decode(r, cur, context)
+      if not ok then return nil, err end
    else
-      r.rdata = ''
+      self:d('default rdata handling (as-is)', r.rtype)
+      local l = r.rdlength
+      if l > 0
+      then
+         if not cursor_has_left(cur, l)
+         then
+            return nil, 'not enough bytes for body'
+         end
+         r.rdata = cur:read(l)
+      else
+         r.rdata = ''
+      end
    end
    return r
 end
 
 function dns_rr:do_encode(o, context)
    local t = encode_name_rec(o.name, context)
+   local handler = rtype_map[o.rtype or -1]
+   if handler 
+   then 
+      o.rdata, err = handler:encode(o, context) 
+      if not o.rdata then return nil, err end
+   end
    o.rdlength = #o.rdata
    table.insert(t, abstract_data.do_encode(self, o))
    table.insert(t, o.rdata)
@@ -274,7 +345,7 @@ function dns_message:do_encode(o)
    -- finally concat result together and return it
    return table.concat(t)
 end
-                                      
+
 function dns_message:try_decode(cur)
    local o = {}
 
