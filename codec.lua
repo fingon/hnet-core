@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Fri Nov 30 12:25:15 2012 mstenber
--- Edit time:     213 min
+-- Last modified: Fri Nov 30 13:33:59 2012 mstenber
+-- Edit time:     221 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -31,8 +31,42 @@ module(..., package.seeall)
 
 --mst.enable_debug = true
 
-abstract_data = mst.create_class{class='abstract_data',
-                                 copy_on_encode=false}
+-- abstract_base = base class, which just defines encode/decode API
+-- but leaves do_encode/try_decode entirely up to subclasses
+abstract_base = mst.create_class{class='abstract_base'}
+
+function abstract_base:decode(cur, context)
+   mst.a(not self._cur, '_cur left?!?', self, self._cur)
+   if type(cur) == 'string'
+   then
+      cur = vstruct.cursor(cur)
+   end
+   local old_pos = cur.pos
+   local o, err = self:try_decode(cur, context)
+   if o
+   then
+      return o
+   end
+   -- decode failed => restore cursor to wherever it was
+   cur.pos = old_pos
+   return nil, err
+end
+
+function abstract_base:encode(o, context)
+   --self:d('encode', o)
+
+   -- work on shallow copy if required
+   if self.copy_on_encode
+   then
+      o = mst.table_copy(o)
+   end
+
+   -- call do_encode to do real things (with the optional context parameter)
+   return self:do_encode(o, context)
+end
+
+-- abstract_data = data with at least one thing from vstruct
+abstract_data = abstract_base:new_subclass{class='abstract_data'}
 
 --- abstract_data baseclass
 
@@ -58,34 +92,8 @@ function abstract_data:repr_data()
                    header_default=self.header_default}
 end
 
-function abstract_data:decode(cur)
-   mst.a(not self._cur, '_cur left?!?', self, self._cur)
-   if type(cur) == 'string'
-   then
-      cur = vstruct.cursor(cur)
-   end
-   self._cur = cur
-   local pos = cur.pos
-   local o, err
-   mst.pcall_and_finally(function ()
-                            o, err = self:try_decode()
-                         end,
-                         function ()
-                            self._cur = nil
-                         end)
-   if o
-   then
-      return o
-   end
-   -- decode failed => restore cursor to wherever it was
-   cur.pos = pos
-   return nil, err
-end
-
-function abstract_data:try_decode()
-   --self:d('try_decode', cur)
-   local cur = self._cur
-   if not self:has_left(self.header_length) 
+function abstract_data:try_decode(cur)
+   if not cursor_has_left(cur, self.header_length) 
    then
       return nil, string.format('not enough left for header (%d<%d+%d)',
                                 #cur.str, self.header_length, cur.pos)
@@ -95,6 +103,8 @@ function abstract_data:try_decode()
 end
                                  
 function abstract_data:do_encode(o)
+   self:a(self.header, 'header missing - using class method instead of instance?')
+
    -- copy in defaults if they haven't been filled in by someone yet
    if self.header_default
    then
@@ -111,36 +121,9 @@ function abstract_data:do_encode(o)
    return r
 end
 
-function abstract_data:encode(o)
-   --self:d('encode', o)
-
-   self:a(self.header, 'header missing - using class method instead of instance?')
-
-   -- work on shallow copy if required
-   if self.copy_on_encode
-   then
-      o = mst.table_copy(o)
-   end
-
-   -- call do_encode to do real things
-   return self:do_encode(o)
-end
-
-function abstract_data:has_left(n)
-   local cur = self._cur
-
-   -- cur.pos is indexed by 'last read' position => 0 = start of file
-   mst.a(type(n) == 'number')
-   mst.a(type(cur) == 'table')
-
-   return (#cur.str - cur.pos) >= n
-end
-
-
 function cursor_has_left(cur, n)
    mst.a(type(n) == 'number')
-   mst.a(type(cur) == 'table')
-
+   mst.a(type(cur) == 'table', 'got wierd cursor', cur)
    return (#cur.str - cur.pos) >= n
 end
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:07:43 2012 mstenber
--- Last modified: Fri Nov 30 11:40:57 2012 mstenber
--- Edit time:     3 min
+-- Last modified: Fri Nov 30 12:58:23 2012 mstenber
+-- Edit time:     7 min
 --
 
 require 'codec'
@@ -18,6 +18,7 @@ local json = require "dkjson"
 module(..., package.seeall)
 
 local abstract_data = codec.abstract_data
+local cursor_has_left = codec.cursor_has_left
 
 -- from acee autoconfig draft
 AC_TLV_RHF=1
@@ -54,18 +55,16 @@ function ac_tlv:init()
    abstract_data.init(self)
 end
 
-function ac_tlv:try_decode()
+function ac_tlv:try_decode(cur)
    -- do superclass decoding of the header
-   local o, err = abstract_data.try_decode(self)
+   local o, err = abstract_data.try_decode(self, cur)
    if not o then return o, err end
-
-   local cur = self._cur
 
    local header_length = self.header_length
    local body_length = o.length - header_length
 
    -- then make sure there's also enough space left for the body
-   if not self:has_left(body_length) 
+   if not cursor_has_left(cur, body_length) 
    then 
       return nil, 'not enough for body' 
    end
@@ -112,13 +111,12 @@ prefix_body = abstract_data:new{class='prefix_body',
                                 header_default={prefix_length=0, 
                                                 r1=0, r2=0, r3=0}}
 
-function prefix_body:try_decode()
-   local o, err = abstract_data.try_decode(self)
+function prefix_body:try_decode(cur)
+   local o, err = abstract_data.try_decode(self, cur)
    if not o then return o, err end
    s = math.floor((o.prefix_length + 31) / 32)
    s = s * 4
-   if not self:has_left(s) then return nil, 'not enough for prefix' end
-   local cur = self._cur
+   if not cursor_has_left(cur, s) then return nil, 'not enough for prefix' end
    local r = cur:read(s)
    mst.a(r, 'read failed despite having enough left?', cur)
    --o.prefix = ipv6s.binary_to_ascii(r)
@@ -147,8 +145,8 @@ end
 prefix_ac_tlv = ac_tlv:new_subclass{class='prefix_ac_tlv',
                                     tlv_type=AC_TLV_USP}
 
-function prefix_ac_tlv:try_decode()
-   local o, err = ac_tlv.try_decode(self)
+function prefix_ac_tlv:try_decode(cur)
+   local o, err = ac_tlv.try_decode(self, cur)
    if not o then return o, err end
    local r, err = prefix_body:decode(o.body)
    if not r then return r, err end
@@ -178,8 +176,8 @@ end
 
 rhf_ac_tlv = ac_tlv:new{class='rhf_ac_tlv', tlv_type=AC_TLV_RHF}
 
-function rhf_ac_tlv:try_decode()
-   local o, err = ac_tlv.try_decode(self)
+function rhf_ac_tlv:try_decode(cur)
+   local o, err = ac_tlv.try_decode(self, cur)
    if not o then return o, err end
    -- only constraint we have is that the length >= 32 (according 
    -- to draft-acee-ospf-ospfv3-autoconfig-03)
@@ -208,8 +206,8 @@ asp_ac_tlv = prefix_ac_tlv:new{class='asp_ac_tlv',
 
 json_ac_tlv = ac_tlv:new{class='json_ac_tlv', tlv_type=AC_TLV_JSONBLOB}
 
-function json_ac_tlv:try_decode()
-   local o, err = ac_tlv.try_decode(self)
+function json_ac_tlv:try_decode(cur)
+   local o, err = ac_tlv.try_decode(self, cur)
    if not o then return o, err end
    -- 'body' should be valid json
    self:a(o.body)
