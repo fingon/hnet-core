@@ -1,0 +1,210 @@
+-*- outline -*-
+
+* MDNS design choices
+
+* Implementation language considerations
+
+** Implementation: C
+--------------------
+
++ can reuse bits of avahi
++ low-level code not an issue
+- data structures tedious (classes, hashes, even lists)
+- unit testing requires much work (low reusability of testware)
+
+** Implementation: Lua
+----------------------
+
+++ faster to do
+- pain of dealing with lowlevel stuff (socket ops may need luasocket
+changes, etc)
+- memory usage efficiency
+
+** => Choice
+
+.. but despite that, probably going with Lua, as project lifetime is
+limited and we don't have good spec => ability to change code rapidly, and
+make sure it's still correct (based on _our_ vision of correct) is crucial.
+
+* Design choices
+
+** Changing records on the wire
+
+- we more or less have to omit linklocal addresses of services
+
+=> rrsets change => uniqueness and priority in conflict resolution changes
+
+Reason:
+
+linklocal addresses, and draft 10.4 based active detection of failed
+services => problems
+
+** Conflict resolution
+
+Conceptually, there are unique and shared records
+
+Two alternative appraoches (thanks, Ole ;>)
+
+[1] pretend they aren't really unique on other links
+
+[2] force uniqueness
+
+[1] has a major issue though, same-named hosts can't see each other though,
+which is a bummer, as the DNS SRV definition (RFC2782) is such that it
+points at specific FQDN; and if FQDN is foo.local for both machines, no way
+to uniquely identify them. *sigh*
+
+[2] is painful (requires ~full draft implementation)
+
+There's also workaround to facilitate [1]; we could generate parallel
+'guaranteed-unique' A/AAAA records, that would look like
+e.g. name.p-IFID.r-RID.local and provide those in SRV records.. Hmmh. mDNS
+spec doesn't forbid this, which I find interesting. Or if we don't feel
+like treading on thin ice, name-ifid-rid.local is _probably_ unique
+too. But as the service names _themselves_ may also be unique, this leads
+to a rathole. So [1] is the way to go.
+
+
+** Who has right to name
+
+- we can't use the normal mDNS conlict resolution (lexicographic ordering
+of the rr set) across multiple links, due to us needing to change things
+
+- but due to same-name problem, we have to do something _anyway_
+
+** TTL considerations
+
+- what is in OSPF, stays in OSPF, is the assumption
+
+- therefore, when necessary, pretend that valid stuff still exists, if we
+  don't have contrantry evidence
+
+- use TTL's that are MIN(draft-specified TTL for that RR type, OSPF AC age left)
+
+* Modules
+
+** DNS record handling (what mdns also uses)
+
+- DNS RR
+- DNS message (header, queries, various RRs)
+[draft 18 specifies mDNS variation/fixed bits]
+
+tricky bits:
+- message compression (compsci-wise, not really painless operation)
+
+Guesstimate: 1-2k LoC Lua
+
+** socket I/O on 5353
+
+- may require luasocket changes to do multicast things correctly
+
+- wonder if we should do IPv4, IPv6, or both?
+
+- kinda leaning towards IPv6-only initially, just to make a point ('my home
+is my IPv6 fortress')
+
+Guesstimate: <1k LoC Lua (perhaps some C changes to luasocket)
+
+*** look at what avahi does (socket.c)
+
+- has IPv4/IPv6 MDNS group definitions (mdns_mcast_group_ipv?)
+
+- ipv?_address_to_sockaddr
+
+- avahi_mdns_mcast_join_ipv?
+ - join/leave
+ - interface index
+ - address on interface
+ .. uses IP_{DROP,ADD}_MEMBERSHIP in IPv4
+ .. and IPV6_{DROP,ADD}_MEMBERSHIP in IPv6
+
+- ipv?_pktinfo
+ - sets desired flags
+ - ipv4
+  IP_PKTINFO, IP_RECVINTERFACE/IP_RECVIF, IP_RECVDSTADDR, IP_RECVTTL
+ - ipv6
+  IPV6_RECVPKTINFO/IPV6_PKTINFO, IPV6_RECVHOPS/IPV6_RECVHOPLIMIT/IPV6_HOPLIMIT
+
+- avahi_open_socket_ipv?
+ - ipv4
+  - IP_MULTICAST_TTL, IP_TTL, IP_MULTICAST_LOOP
+  - bind-warn (first exclusive, then not if reuse allowed)
+  - pktinfo, nonblock, cloexec(?)
+ - ipv6
+  - IPV6_MULTICAST_HOPS, IPV6_UNICAST_HOPS, IPV6_V6ONLY, IPV6_MULTICAST_LOOP
+  - bind-warn (first exclusive, then not if reuse allowed)
+  - pktinfo, cloexec, nonblock
+
+- avahi_send_dns_packet_ipv?
+ - ipv4 has various odd cases
+ - ipv6 has to deal with in6_pktinfo
+  .. sendmsg_loop, which deals with oddities of OS (.. sigh)
+  [ luasocket's socket_sendto seems to do the same stuff ]
+
+- avahi_recv_dns_packet_ipv?
+ - recvmsg + then look at CMSG_*
+ - mainly IPV6_HOPLIMIT, IPV6_PKTINFO
+
+.. luasocket would need:
+- IPv6 multicast membership handling (it already has IPv4)
+- somewhat different receive/send API (sigh)
+  
+**** options
+
+- use avahi-core
+
+ => but it's not configurable enough (fundamentally all about _one_ server,
+   when we want to pretend to be _bunch_ of them)
+
+ - writing all of this stuff by hand not an option either, too much C
+   (avahi core+common > 20k LoC)
+
+- wrap avahi_socket and it's dependencies in Lua
+
+ depends:
+ - avahi_log_* [safe?]
+ - avahi_address_from_sockaddr, avahi_port_from_sockaddr (addr-util)
+  - avahi_af_to_proto (common/address)
+ - avahi_dns_packet_*  (dns) [nested dependencies not checked]
+  - avahi_hashmap_*
+  - avahi_key_*
+  - avahi_record*
+  - avahi_string*
+  - avahi_{un,}escape_label
+ - avahi_set_{cloexec,nonblock}
+ - avahi_wait_for_write
+ ... probably not _really_ what we want
+
+ => not an option, one option would be just to make small library out of
+ the relevant bits, and then write Lua wrapper that uses it..
+
+- write own utility wrapper Lua-C
+ - based on avahi_socket, luasocket
+
+ => not enough time
+
+- game-breakingly change luasocket API
+
+ - need to get/set stuff - hoplimit, pktinfo (interface at least)
+
+ ! for the time being, this seems like the path of least resistance?
+
+** Per-router state, mDNS state machine, caching, ..
+
+- some way of storing per-link state of DNS records
+
+- on each link, provide all local links' data as non-unique + additionally
+  'cloud state'
+
+- must honor TTL's, and follow all other stuff required
+
+Guesstimate: 1-3k LoC?
+
+** Per-network system state (in OSPF-ish)
+
+- JSONblob with the data
+
+Guesstimate: ~free (<0,5k LoC)
+
+=> ~5k LoC Lua +- tests
+
