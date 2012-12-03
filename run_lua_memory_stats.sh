@@ -8,14 +8,34 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Tue Nov 27 14:21:37 2012 mstenber
-# Last modified: Tue Nov 27 14:55:22 2012 mstenber
-# Edit time:     10 min
+# Last modified: Mon Dec  3 14:21:39 2012 mstenber
+# Edit time:     13 min
 #
 
 # Run lua for 'require X, check memory stats' for various things, and
 # print results (suitable for e.g. sort -n)
 
-INTERESTING_MODULES="string mst scb cliargs pa skv elsa_pa pm_core vstruct md5 ipv6s pa_lap_sm statemap skv_sm io codec"
+INTERESTING_MODULES="
+io 
+string
+
+cliargs
+md5
+socket
+statemap 
+vstruct
+
+codec
+elsa_pa
+ipv6s
+mst
+pa
+pa_lap_sm 
+pm_core
+scb
+skv
+skv_sm 
+"
 
 for MODULE in $INTERESTING_MODULES
 do

@@ -18,6 +18,9 @@ cov: clean test
 	./run_luacov.sh
 
 mem:
+	./run_lua_memory_stats.sh
+
+mems:
 	./run_lua_memory_stats.sh | sort -n
 
 stress: .stressed
