@@ -4,14 +4,53 @@
 Option "executable"
 
 -- Output filename
-Output "temp"
+Output "temp.squish"
 
-Module "mst"
+-- Third-party dependencies
+Module "strict" "squishstrict.lua"
+
 Module "vstruct"
-Module "pm_core"
+Module "vstruct.io.u"
+Module "vstruct.cursor"
+Module "vstruct.ast"
+Module "vstruct.lexer"
+Module "vstruct.io"
+Module "vstruct.pack"
+Module "vstruct.io.defaults"
+Module "vstruct.io.bigendian"
+Module "vstruct.io.littleendian"
+Module "vstruct.io.endianness"
+Module "vstruct.ast.Bitpack"
+Module "vstruct.ast.Generator"
+Module "vstruct.ast.IO"
+Module "vstruct.ast.List"
+Module "vstruct.ast.Name"
+Module "vstruct.ast.Repeat"
+Module "vstruct.ast.Repeat"
+Module "vstruct.ast.Root"
+Module "vstruct.ast.Table"
+Module "vstruct.unpack"
+
+Module "dkjson"
+Module "md5"
+Module "socket"
 Module "statemap"
-Module "skv"
+
+-- Local stuff
+Module "linux_if"
+Module "skv_sm"
+Module "skv_const"
+Module "pa_lap_sm"
 Module "codec"
+Module "elsa_pa"
+Module "ipv6s"
+Module "mst"
+Module "pa"
+Module "pm_core"
+Module "skv"
+Module "scb"
+Module "jsoncodec"
+Module "ssloop"
 
 -- This is normal/main script
 Main "temp.lua"

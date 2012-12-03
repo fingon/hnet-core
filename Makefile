@@ -10,6 +10,20 @@ SMC=../smc/bin/smc.jar
 
 all: test
 
+mems: temp.luac
+	@echo 'temp.lua'
+	@lua temp.lua
+	@echo 'temp.squish'
+	@lua temp.squish
+	@echo 'temp.luac'
+	@lua temp.luac
+
+temp.squish: Makefile temp.lua squishy
+	~/x/hg/squish/squish
+
+temp.luac: temp.squish
+	luac -s -o temp.luac temp.squish
+
 clean:
 	rm -f luacov.stats.out luacov.report.out
 

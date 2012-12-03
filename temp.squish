@@ -1,0 +1,7607 @@
+#!/usr/bin/env lua
+package.preload['strict']=(function(...)
+end)
+package.preload['vstruct']=(function(...)
+local s,t,n,e,i,a=table,math,type,require,assert,unpack
+local a=debug
+local a=print
+module"vstruct"
+_VERSION="1.1"
+cursor=e"vstruct.cursor"
+local a=e"vstruct.ast"
+cache=true
+if not t.trunc then
+function t.trunc(e)
+if e<0 then
+return t.ceil(e)
+else
+return t.floor(e)
+end
+end
+end
+function explode(e,a)
+i(e,"vstruct.explode: missing argument")
+a=a or 0
+local o={}
+while e~=0 or#o<a do
+s.insert(o,e%2~=0)
+e=t.trunc(e/2)
+end
+return o
+end
+function implode(a,t)
+t=t or#a
+local e=0
+for t=t,1,-1 do
+e=e*2+((a[t]and 1)or 0)
+end
+return e
+end
+function unpack(e,...)
+i(n(e)=="string","invalid first argument to vstruct.unpack")
+local e=a.parse(e)
+return e.unpack(...)
+end
+function pack(e,...)
+local e=a.parse(e)
+return e.pack(...)
+end
+function compile(e)
+return a.parse(e)
+end
+return _M
+end)
+package.preload['vstruct.io.u']=(function(...)
+local n=require"vstruct.io"
+local e={}
+function e.unpack(t,e)
+local t=0
+local n=n("endianness","get")
+local o,i,a
+if n=="big"then
+o,i,a=1,#e,1
+else
+o,i,a=#e,1,-1
+end
+for a=o,i,a do
+t=t*256+e:byte(a,a)
+end
+return t
+end
+function e.unpackbits(t,a)
+local e=0
+for a=1,a do
+e=e*2+t()
+end
+return e
+end
+function e.pack(e,t,a)
+local e=""
+local o=n("endianness","get")
+for a=1,a do
+if o=="big"then
+e=string.char(t%256)..e
+else
+e=e..string.char(t%256)
+end
+t=math.trunc(t/256)
+end
+return e
+end
+function e.packbits(e,a,t)
+for t=t-1,0,-1 do
+e(math.floor(a/2^t)%2)
+end
+end
+return e
+end)
+package.preload['vstruct.cursor']=(function(...)
+local e={}
+function e:seek(e,t)
+e=e or"cur"
+t=t or 0
+if e=="set"then
+self.pos=t
+elseif e=="cur"then
+self.pos=self.pos+t
+elseif e=="end"then
+self.pos=#self.str+t
+else
+error"bad argument #1 to seek"
+end
+if self.pos<0 then
+self.pos=0
+return nil,"attempt to seek prior to start of file"
+end
+return self.pos
+end
+function e:read(e)
+if self.pos>=#self.str then
+return nil,"eof"
+end
+if e=="*a"then
+e=#self.str
+end
+local t=self.str:sub(self.pos+1,self.pos+e)
+self.pos=math.min(self.pos+e,#self.str)
+return t
+end
+function e:write(t)
+if self.pos>#self.str then
+self.str=self.str..string.char(0):rep(self.pos-#self.str)
+end
+self.str=self.str:sub(1,self.pos)
+..t
+..self.str:sub(self.pos+#t+1,-1)
+self.pos=self.pos+#t
+return self
+end
+e.__index=e
+setmetatable(e,{
+__call=function(a,t)
+assert(type(t)=="string","invalid first argument to cursor()")
+return setmetatable(
+{str=t,pos=0},
+e)
+end;
+})
+return e
+end)
+package.preload['vstruct.ast']=(function(...)
+local i=require"vstruct"
+local n=require"vstruct.lexer"
+local e={}
+local o={}
+for a,t in ipairs{"IO","List","Name","Table","Repeat","Generator","Root","Bitpack"}do
+e[t]=require((...).."."..t)
+end
+function e.parse(a)
+if i.cache~=nil and o[a]then
+return o[a]
+end
+local n=n(a)
+local t=e.Root(e.List())
+for e in(function()return e.next(n)end)do
+t:append(e)
+end
+t=t:gen(e.Generator())
+if i.cache==true then
+o[a]=t
+end
+return t
+end
+function e.error(e,t)
+error("vstruct: parsing format string at "..e.where()..": expected "..t..", got "..e.peek().type)
+end
+function e.name(t)
+local o=t.next().text
+local a=t.peek()
+if a and a.type=="number"and not t.whitespace()then
+return e.IO(o,t.next().text)
+else
+return e.IO(o,nil)
+end
+end
+function e.key(a)
+local o=a.next().text
+local t=a.peek()
+t=e.next(a)
+if t.tag=="io"or t.tag=="table"then
+return e.Name(o,t)
+else
+e.error(a,"value (field or table)")
+end
+end
+function e.next(t)
+local a=t.peek()
+if not a then
+return nil
+end
+if a.type=='('then
+return e.group(t)
+elseif a.type=='{'then
+return e.table(t)
+elseif a.type=='['then
+return e.bitpack(t)
+elseif a.type=="name"then
+return e.name(t)
+elseif a.type=="key"then
+return e.key(t)
+elseif a.type=="number"then
+return e.repetition(t)
+elseif a.type=="control"then
+return e.control(t)
+else
+e.error(t,"'(', '{', '[', name, number, control, or io specifier")
+end
+end
+function e.repetition(t)
+local a=tonumber(t.next().text)
+e.require(t,"*");
+return e.Repeat(a,e.next(t))
+end
+function e.group(t)
+e.require(t,'(')
+local a=e.List()
+a.tag="group"
+while t.peek().type~=')'do
+a:append(e.next(t))
+end
+e.require(t,')')
+return a
+end
+function e.table(t)
+e.require(t,'{')
+local a=e.Table()
+while t.peek().type~='}'do
+a:append(e.next(t))
+end
+e.require(t,'}')
+return a
+end
+function e.bitpack(t)
+e.require(t,"[")
+local a=e.Bitpack(tonumber(e.require(t,"number").text))
+e.require(t,"|")
+while t.peek().type~="]"do
+a:append(e.next(t))
+end
+e.require(t,"]")
+a:finalize()
+return a
+end
+function e.require(a,t)
+local o=a.next()
+if o.type~=t then
+e.error(a,t)
+end
+return o
+end
+return e
+end)
+package.preload['vstruct.lexer']=(function(...)
+local a={}
+local function e(t)
+return function(e)
+a[#a+1]={name=t,pattern="^"..e}
+end
+end
+e(false)"%s+"
+e(false)"%-%-[^\n]*"
+e"key""([%a_][%w_.]*):"
+e"name""([-+@<>=])"
+e"name""([%a_]+)"
+e"number""([%d.,]+)"
+e"{""%{"
+e"}""%}"
+e"(""%("
+e")""%)"
+e"*""%*"
+e"[""%["
+e"]""%]"
+e"|""%|"
+return function(e)
+local t=e
+local t=1
+local o=false
+local function n()
+return("character %d ('%s')."):format(t,e:sub(1,4))
+end
+local function i()
+for a,t in ipairs(a)do
+if e:match(t.pattern)then
+return t,select(2,e:find(t.pattern))
+end
+end
+error(("Lexical error in format string at %s."):format(n()))
+end
+local function a()
+local function a()
+if#e==0 then return end
+local n,i=i()
+if not n.name then
+o=true
+e=e:sub(i+1,-1)
+t=t+i
+return a()
+end
+end
+o=false
+return a()
+end
+local function h()
+return o
+end
+local function o()
+a()
+if#e==0 then return nil end
+local i,a,o=i()
+e=e:sub(a+1,-1)
+t=t+a
+return{text=o,type=i.name}
+end
+local function s()
+a()
+if#e==0 then return nil end
+local t,a,e=i()
+return{text=e,type=t.name}
+end
+return{
+next=o;
+peek=s;
+where=n;
+whitespace=h;
+tokens=function()return o end;
+}
+end
+end)
+package.preload['vstruct.io']=(function(...)
+local o=require"vstruct.io.defaults"
+local i={}
+local function a(e)
+local a,t=pcall(require,"vstruct.io."..e)
+if not a then
+error("vstruct: no support for format '"..e.."':\n"..tostring(t))
+end
+return t
+end
+local e={
+seekf="+";
+seekb="-";
+seekto="@";
+bigendian=">";
+littleendian="<";
+hostendian="=";
+}
+for e,t in pairs(e)do
+package.preload["vstruct.io."..t]=function()return a(e)end
+end
+return function(e,t,...)
+local a=i[e]
+or setmetatable(a(e),{__index=o})
+assert(a[t],"No support for method '"..tostring(t).."' in IO module '"..e.."'")
+return a[t](...)
+end
+end)
+package.preload['vstruct.pack']=(function(...)
+local u=require"vstruct.io"
+return function(w)
+local e={}
+local d,n,l,r,s,t,h,i,o
+local a,f
+local function c()
+local t
+if not h then
+t=s[i]
+i=i+1
+else
+local e=s
+for a in h:gmatch("([^%.]+)%.")do
+e=assert(e[a],"malformed table passed to pack")
+end
+t=e[h:match("[^%.]+$")]
+h=nil
+end
+return t
+end
+local function m(e)
+if not n then
+d:write(e)
+else
+r=r+#e
+n[#n+1]=e
+if r==l then
+d:write(table.concat(n))
+n=nil
+end
+end
+end
+function e.ref(e)
+return unpack(w[e])
+end
+function e.initialize(e,a)
+d=e
+n,l,r=nil,0,0
+s=a
+t={}
+i=1
+o={}
+h=nil
+u("endianness","host")
+end
+function e.readahead(e)
+assert(r==l,"internal consistency failure: overlapping readahead")
+n={}
+l=e
+r=0
+end
+function e.name(e)
+h=e
+end
+function e.push()
+local e=c()
+t[#t+1]=s
+s=e
+o[#o+1]=i
+i=1
+end
+function e.pop()
+s=t[#t]
+t[#t]=nil
+i=o[#o]
+o[#o]=nil
+end
+function e.io(a,e,t,...)
+local e=u(a,"pack",d,e and c()or nil,...)
+if e then
+assert((not t)or#e==t,"pack format '"..a.."' lied about its width!")
+m(e)
+end
+end
+function e.bpio(e,t,a,...)
+return u(e,"packbits",f,t and c()or nil,...)
+end
+function e.bitpack(e)
+if e then
+a={}
+for e=1,e do
+a[e]=0
+end
+local o=u("endianness","get")
+local e=7
+local t=o=="big"and 1 or#a
+local i=o=="big"and 1 or-1
+function f(o)
+a[t]=a[t]+o*2^e
+e=(e-1)%8
+if e==7 then
+t=t+i
+end
+end
+else
+m(string.char(unpack(a)))
+a=nil
+end
+end
+function e.finalize()
+assert(#t==0,"mismatched push/pop in execution")
+return d
+end
+return e
+end end)
+package.preload['vstruct.io.defaults']=(function(...)
+local e={}
+function e.width(e)
+assert(tonumber(e),"format requires a width")
+return tonumber(e)
+end
+function e.validate()
+return true
+end
+function e.hasvalue()
+return true
+end
+return e
+end)
+package.preload['vstruct.io.bigendian']=(function(...)
+local t=require"vstruct.io"
+local e={}
+function e.hasvalue()
+return false
+end
+function e.width(e)
+assert(e==nil,"'>' is an endianness control, and does not have width")
+return 0
+end
+function e.unpack()
+t("endianness","big")
+end
+e.pack=e.unpack
+return e
+end)
+package.preload['vstruct.io.littleendian']=(function(...)
+local t=require"vstruct.io"
+local e={}
+function e.hasvalue()
+return false
+end
+function e.width(e)
+assert(e==nil,"'<' is an endianness control, and does not have width")
+return 0
+end
+function e.unpack()
+t("endianness","little")
+end
+e.pack=e.unpack
+return e
+end)
+package.preload['vstruct.io.endianness']=(function(...)
+local e={}
+local t;
+function e.hasvalue()
+return false
+end
+function e.big()
+t="big"
+end
+function e.little()
+t="little"
+end
+function e.host()
+if string.byte(string.dump(function()end))==0 then
+e.big()
+else
+e.little()
+end
+end
+function e.get()
+return t
+end
+return e
+end)
+package.preload['vstruct.ast.Bitpack']=(function(...)
+local e=require"vstruct.ast.List"
+return function(t)
+local a={
+tag="bitpack";
+width=t;
+}
+local e=e();
+function a:show()
+print("bitpack",t)
+e:show()
+end
+function a:append(a)
+e:append(a)
+assert(e.width,"bitpacks cannot contain variable-width fields")
+assert(e.width<=t*8,"bitpack contents are larger than containing bitpack")
+end
+function a:finalize()
+assert(e.width==t*8,"bitpack contents are smaller than containing bitpack")
+end
+function a:gen(a)
+a:bitpack(t)
+e:gen(a)
+a:bitpack()
+end
+return a
+end end)
+package.preload['vstruct.ast.Generator']=(function(...)
+local l=require"vstruct.unpack"
+local u=require"vstruct.pack"
+local d=require"vstruct.cursor"
+return function()
+local a={}
+local r={}
+local s={}
+local i=nil
+local t=nil
+local o=0
+local h=false
+local n=1
+local function e(...)
+r[#r+1]=string.rep(" ",o)..string.format(...)
+end
+local function c(e)
+s[#s+1]=e
+return#s
+end
+function a:init()
+e('initialize(...)')
+e('')
+end
+function a:finalize()
+e('')
+e('return finalize()')
+local i=table.concat(r,"\n")
+local t,e=loadstring(i)
+if not t then
+error(e.."\n--- internal error in code generator ---\n--- report this as a bug in vstruct ---\n"..i.."\n--- internal error in code generator ---\n")
+end
+local o=l(s)
+local n=u(s)
+local h=unpack
+local function s(e,a)
+if type(e)=="string"then
+e=d(e)
+end
+assert(e.read,"invalid fd argument to vstruct.unpack: must be a string or file-like object")
+assert(a==nil or type(a)=="boolean"or type(a)=="table"
+,"invalid data argument to vstruct.unpack: if present, must be table or boolean")
+setfenv(t,o)
+if a==true then
+return h(t(e,{}))
+else
+return t(e,a or{})
+end
+end
+local function h(e,a)
+if e and not a then
+a,e=e,nil
+end
+assert(type(a)=="table","invalid data argument to vstruct.pack: must be a table")
+local o
+if not e or type(e)=="string"then
+o=d(e or"")
+else
+o=e
+end
+setfenv(t,n)
+local t=t(o,a)
+if o==e then
+return t
+else
+return t.str
+end
+end
+return{pack=h,unpack=s,source=i}
+end
+function a:io(r,s,o,a)
+e('%sio(%q, %s, %s%s%s)'
+,h and"bp"or""
+,r
+,tostring(s)
+,tostring(o)
+,a and", "or""
+,a or"")
+if i then
+t=t-o*n
+assert(t>=0
+,string.format("code generation consistency failure: readahead=%d, left=%f"
+,i
+,t))
+if t==0 then
+i=nil
+t=nil
+e('-- end readahead')
+end
+end
+end
+function a:readahead(a)
+if a and a>0 and not i then
+i=a
+t=a*n
+e('readahead(%d)',a)
+end
+end
+function a:startloop(t)
+e('for _=1,%d do',t)
+o=o+2
+n=n*t
+end
+function a:endloop(t)
+n=n/t
+o=o-2
+e('end')
+end
+function a:starttable()
+e('push()')
+o=o+2
+end
+function a:endtable()
+o=o-2
+e('pop()')
+end
+function a:name(t)
+e('name %q',t)
+end
+function a:bitpack(a)
+if a then
+if h then
+error("nested bitpacks are not permitted")
+end
+e('bitpack(%d)',a)
+h=a
+if i then
+t=t*8
+end
+else
+e('bitpack(nil)')
+h=false
+if i then
+t=t/8
+end
+end
+end
+return a
+end
+end)
+package.preload['vstruct.ast.IO']=(function(...)
+local i=require"vstruct.io"
+local function n(e)
+local t={}
+for a=1,e.n do
+t[a]=tostring(e[a])
+end
+return table.concat(t,", ")
+end
+return function(a,t)
+local e={n=0}
+if t then
+local t=t..","
+local a=1
+for t in t:gmatch("([^,]*),")do
+if#t==0 then t=nil
+elseif tonumber(t)then t=tonumber(t)
+end
+e.n=e.n+1
+e[e.n]=t
+end
+end
+local o=i(a,"width",unpack(e,1,e.n))
+local t={
+tag="io";
+width=o;
+}
+function t:show()
+print("io",a,o)
+end
+function t:gen(t)
+t:io(a,i(a,"hasvalue"),o,e.n>0 and n(e))
+end
+return t
+end
+end)
+package.preload['vstruct.ast.List']=(function(...)
+return function()
+local a={
+tag="list";
+width=0;
+}
+local e
+function a:append(t)
+if t.width then
+if not e then
+e={
+tag="sublist";
+width=0;
+show=self.show;
+unpack=self.unpack;
+pack=self.pack;
+gen=self.gen;
+}
+self[#self+1]=e
+end
+if self.width then
+self.width=self.width+t.width
+end
+e[#e+1]=t
+e.width=e.width+t.width
+else
+e=nil
+self.width=nil
+self[#self+1]=t
+end
+end
+function a:show(e)
+for t,e in ipairs(self)do
+if e.show then
+e:show()
+end
+end
+end
+function a:gen(e)
+if self.width then
+e:readahead(self.width)
+end
+for a,t in ipairs(self)do
+t:gen(e)
+end
+if self.width then
+e:readahead(nil)
+end
+end
+return a
+end
+end)
+package.preload['vstruct.ast.Name']=(function(...)
+return function(t,e)
+local a={
+tag="name";
+width=e.width;
+key=t;
+value=e;
+}
+function a:show()
+io.write("name\t"..t.."\t")
+e:show()
+end
+function a:gen(a)
+a:name(t)
+e:gen(a)
+end
+return a
+end
+end)
+package.preload['vstruct.ast.Repeat']=(function(...)
+return function(e,t)
+local a={
+tag="repeat";
+width=(t.width and e*t.width)or nil;
+count=e;
+value=t;
+}
+function a:show()
+io.write("repeat\t"..tostring(e).."\t")
+t:show()
+end
+function a:gen(a)
+if e>0 then
+a:startloop(e)
+t:gen(a)
+a:endloop(e)
+end
+end
+return a
+end
+end)
+package.preload['vstruct.ast.Root']=(function(...)
+return function(t)
+local e={}
+function e:gen(e)
+e:init()
+t:gen(e)
+return e:finalize()
+end
+function e:append(...)
+return t:append(...)
+end
+function e:show()
+return t:show()
+end
+return e
+end
+end)
+package.preload['vstruct.ast.Table']=(function(...)
+local e=require"vstruct.ast.List"
+local o={}
+return function()
+local e={
+tag="table";
+list=e();
+}
+setmetatable(e,{__index=e.list})
+function e:append(...)
+return e.list:append(...)
+end
+function e:show()
+print("table",e.width,#e.list)
+self.list:show()
+end
+function e:unpack(a,t,e)
+local e={}
+self.list:unpack(a,t,e)
+return e
+end
+function e:pack(n,t,h)
+local function s(i)
+local e=nil
+local t=1
+local function n()
+local a
+if e~=nil then
+a,e=i[e],nil
+else
+a,t=i[t],t+1
+end
+return a
+end
+local function t(a,t)
+e=t
+end
+return setmetatable({next=n,key=t},o)
+end
+if getmetatable(t)==o then
+return self.list:pack(n,s(t:next()),h)
+else
+return self.list:pack(n,s(t),h)
+end
+end
+function e:gen(e)
+e:starttable()
+self.list:gen(e)
+e:endtable()
+end
+return e
+end
+end)
+package.preload['vstruct.unpack']=(function(...)
+local r=require"vstruct.io"
+return function(c)
+local t={}
+local l,h,n,e,a,o,i
+local s,u
+local function d(o)
+if not i then
+a[#a+1]=o
+else
+local e=a
+for t in i:gmatch("([^%.]+)%.")do
+if e[t]==nil then
+e[t]={}
+end
+e=e[t]
+end
+e[i:match("[^%.]+$")]=o
+i=nil
+end
+end
+function t.ref(e)
+return unpack(c[e])
+end
+function t.initialize(t,s)
+l=t
+h,n,e=nil,0,0
+a=s
+o={}
+i=nil
+r("endianness","host")
+end
+function t.readahead(t)
+assert(e==n,"internal consistency failure: overlapping readahead")
+h=l:read(t)
+n=t
+e=0
+end
+function t.name(e)
+i=e
+end
+function t.push()
+local e={}
+d(e)
+o[#o+1]=a
+a=e
+end
+function t.pop()
+a=o[#o]
+o[#o]=nil
+end
+function t.io(o,a,t,...)
+local a
+if e<n and t then
+a=h:sub(e+1,e+t)
+e=e+t
+end
+local e=r(o,"unpack",l,a,...)
+if e~=nil then
+d(e)
+end
+end
+function t.bitpack(t)
+if t then
+assert(e+t<=n,"not enough bytes in buffer to expand bitpack")
+s={string.byte(h,e+1,e+t)}
+local a=r("endianness","get")
+local e=7
+local t=a=="big"and 1 or#s
+local o=a=="big"and 1 or-1
+function u()
+local a=math.floor(s[t]/(2^e))%2
+e=(e-1)%8
+if e==7 then
+t=t+o
+end
+return a
+end
+else
+e=e+#s
+s=nil
+end
+end
+function t.bpio(e,t,t,...)
+local e=r(e,"unpackbits",u,...)
+if e~=nil then
+d(e)
+end
+end
+function t.finalize()
+assert(#o==0,"mismatched push/pop in execution")
+return a
+end
+return t
+end end)
+package.preload['dkjson']=(function(...)
+local z=true
+local m,s,x,r,j,u,e=
+pairs,type,tostring,tonumber,getmetatable,setmetatable,rawset
+local _,q,k,E=error,require,pcall,select
+local n,b=math.floor,math.huge
+local l,c,o,w,f,h,v,d=
+string.rep,string.gsub,string.sub,string.byte,string.char,
+string.find,string.len,string.format
+local g=table.concat
+local e=nil
+local i={version="dkjson 2.2"}
+k(function()
+local e=q"debug".getmetatable
+if e then j=e end
+end)
+i.null=u({},{
+__tojson=function()return"null"end
+})
+local function T(t)
+local e,o,i=0,0,0
+for t,a in m(t)do
+if t=='n'and s(a)=='number'then
+i=a
+if a>e then
+e=a
+end
+else
+if s(t)~='number'or t<1 or n(t)~=t then
+return false
+end
+if t>e then
+e=t
+end
+o=o+1
+end
+end
+if e>10 and e>i and e>o*2 then
+return false
+end
+return true,e
+end
+local e={
+["\""]="\\\"",["\\"]="\\\\",["\b"]="\\b",["\f"]="\\f",
+["\n"]="\\n",["\r"]="\\r",["\t"]="\\t"
+}
+local function a(t)
+local e=e[t]
+if e then
+return e
+end
+local t,a,o,i=w(t,1,4)
+t,a,o,i=t or 0,a or 0,o or 0,i or 0
+if t<=127 then
+e=t
+elseif 192<=t and t<=223 and a>=128 then
+e=(t-192)*64+a-128
+elseif 224<=t and t<=239 and a>=128 and o>=128 then
+e=((t-224)*64+a-128)*64+o-128
+elseif 240<=t and t<=247 and a>=128 and o>=128 and i>=128 then
+e=(((t-240)*64+a-128)*64+o-128)*64+i-128
+else
+return""
+end
+if e<=65535 then
+return d("\\u%.4x",e)
+elseif e<=1114111 then
+e=e-65536
+local e,t=55296+n(e/1024),56320+(e%1024)
+return d("\\u%.4x\\u%.4x",e,t)
+else
+return""
+end
+end
+local function t(e,t,a)
+if h(e,t)then
+return c(e,t,a)
+else
+return e
+end
+end
+local function y(e)
+e=t(e,"[%z\1-\31\"\\\127]",a)
+if h(e,"[\194\216\220\225\226\239]")then
+e=t(e,"\194[\128-\159\173]",a)
+e=t(e,"\216[\128-\132]",a)
+e=t(e,"\220\143",a)
+e=t(e,"\225\158[\180\181]",a)
+e=t(e,"\226\128[\140-\143\168\175]",a)
+e=t(e,"\226\129[\160-\175]",a)
+e=t(e,"\239\187\191",a)
+e=t(e,"\239\191[\176\191]",a)
+end
+return"\""..e.."\""
+end
+i.quotestring=y
+local function p(a,t,e)
+t[e+1]="\n"
+t[e+2]=l("  ",a)
+e=e+2
+return e
+end
+function i.addnewline(e)
+if e.indent then
+e.bufferlen=p(e.level or 0,
+e.buffer,e.bufferlen or#(e.buffer))
+end
+end
+local c
+local function w(o,l,d,i,n,t,e,r,h)
+local a=s(o)
+if a~='string'and a~='number'then
+return nil,"type '"..a.."' is not supported as a key by JSON."
+end
+if d then
+e=e+1
+t[e]=","
+end
+if i then
+e=p(n,t,e)
+end
+t[e+1]=y(o)
+t[e+2]=":"
+return c(l,i,n,t,e+2,r,h)
+end
+c=function(t,d,n,a,e,o,h)
+local l=s(t)
+local i=j(t)
+i=s(i)=='table'and i
+local r=i and i.__tojson
+if r then
+if o[t]then
+return nil,"reference cycle"
+end
+o[t]=true
+local n={
+indent=d,level=n,buffer=a,
+bufferlen=e,tables=o,keyorder=h
+}
+local i,h=r(t,n)
+if not i then return nil,h end
+o[t]=nil
+e=n.bufferlen
+if s(i)=='string'then
+e=e+1
+a[e]=i
+end
+elseif t==nil then
+e=e+1
+a[e]="null"
+elseif l=='number'then
+local o
+if t~=t or t>=b or-t>=b then
+o="null"
+else
+o=x(t)
+end
+e=e+1
+a[e]=o
+elseif l=='boolean'then
+e=e+1
+a[e]=t and"true"or"false"
+elseif l=='string'then
+e=e+1
+a[e]=y(t)
+elseif l=='table'then
+if o[t]then
+return nil,"reference cycle"
+end
+o[t]=true
+n=n+1
+local r,l=T(t)
+if l==0 and i and i.__jsontype=='object'then
+r=false
+end
+local s
+if r then
+e=e+1
+a[e]="["
+for i=1,l do
+e,s=c(t[i],d,n,a,e,o,h)
+if not e then return nil,s end
+if i<l then
+e=e+1
+a[e]=","
+end
+end
+e=e+1
+a[e]="]"
+else
+local r=false
+e=e+1
+a[e]="{"
+local i=i and i.__jsonorder or h
+if i then
+local u={}
+l=#i
+for l=1,l do
+local i=i[l]
+local t=t[i]
+if t then
+u[i]=true
+e,s=w(i,t,r,d,n,a,e,o,h)
+r=true
+end
+end
+for t,i in m(t)do
+if not u[t]then
+e,s=w(t,i,r,d,n,a,e,o,h)
+if not e then return nil,s end
+r=true
+end
+end
+else
+for i,t in m(t)do
+e,s=w(i,t,r,d,n,a,e,o,h)
+if not e then return nil,s end
+r=true
+end
+end
+if d then
+e=p(n-1,a,e)
+end
+e=e+1
+a[e]="}"
+end
+o[t]=nil
+else
+return nil,"type '"..l.."' is not supported by JSON."
+end
+return e
+end
+function i.encode(a,e)
+e=e or{}
+local o=e.buffer
+local t=o or{}
+local a,i=c(a,e.indent,e.level or 0,
+t,e.bufferlen or 0,e.tables or{},e.keyorder)
+if not a then
+_(i,2)
+elseif o then
+e.bufferlen=a
+return true
+else
+return g(t)
+end
+end
+local function m(i,o)
+local t,e,a=1,1,0
+while true do
+e=h(i,"\n",e,true)
+if e and e<o then
+t=t+1
+a=e
+e=e+1
+else
+break
+end
+end
+return"line "..t..", column "..(o-a)
+end
+local function d(e,t,a)
+return nil,v(e)+1,"unterminated "..t.." at "..m(e,a)
+end
+local function l(t,e)
+while true do
+e=h(t,"%S",e)
+if not e then return nil end
+if o(t,e,e+2)=="\239\187\191"then
+e=e+3
+else
+return e
+end
+end
+end
+local b={
+["\""]="\"",["\\"]="\\",["/"]="/",["b"]="\b",["f"]="\f",
+["n"]="\n",["r"]="\r",["t"]="\t"
+}
+local function p(e)
+if e<0 then
+return nil
+elseif e<=127 then
+return f(e)
+elseif e<=2047 then
+return f(192+n(e/64),
+128+(n(e)%64))
+elseif e<=65535 then
+return f(224+n(e/4096),
+128+(n(e/64)%64),
+128+(n(e)%64))
+elseif e<=1114111 then
+return f(240+n(e/262144),
+128+(n(e/4096)%64),
+128+(n(e/64)%64),
+128+(n(e)%64))
+else
+return nil
+end
+end
+local function j(i,t)
+local a=t+1
+local s,n={},0
+while true do
+local e=h(i,"[\"\\]",a)
+if not e then
+return d(i,"string",t)
+end
+if e>a then
+n=n+1
+s[n]=o(i,a,e-1)
+end
+if o(i,e,e)=="\""then
+a=e+1
+break
+else
+local h=o(i,e+1,e+1)
+local t
+if h=="u"then
+t=r(o(i,e+2,e+5),16)
+if t then
+local n
+if 55296<=t and t<=56319 then
+if o(i,e+6,e+7)=="\\u"then
+n=r(o(i,e+8,e+11),16)
+if n and 56320<=n and n<=57343 then
+t=(t-55296)*1024+(n-56320)+65536
+else
+n=nil
+end
+end
+end
+t=t and p(t)
+if t then
+if n then
+a=e+12
+else
+a=e+6
+end
+end
+end
+end
+if not t then
+t=b[h]or h
+a=e+2
+end
+n=n+1
+s[n]=t
+end
+end
+if n==1 then
+return s[1],a
+elseif n>1 then
+return g(s),a
+else
+return"",a
+end
+end
+local c
+local function g(h,a,t,s,p,y,f)
+local e=v(t)
+local n,w={},0
+local e=s+1
+if h=='object'then
+u(n,y)
+else
+u(n,f)
+end
+while true do
+e=l(t,e)
+if not e then return d(t,h,s)end
+local i=o(t,e,e)
+if i==a then
+return n,e+1
+end
+local r,a
+r,e,a=c(t,e,p,y,f)
+if a then return nil,e,a end
+e=l(t,e)
+if not e then return d(t,h,s)end
+i=o(t,e,e)
+if i==":"then
+if r==nil then
+return nil,e,"cannot use nil as table index (at "..m(t,e)..")"
+end
+e=l(t,e+1)
+if not e then return d(t,h,s)end
+local u
+u,e,a=c(t,e,p,y,f)
+if a then return nil,e,a end
+n[r]=u
+e=l(t,e)
+if not e then return d(t,h,s)end
+i=o(t,e,e)
+else
+w=w+1
+n[w]=r
+end
+if i==","then
+e=e+1
+end
+end
+end
+c=function(t,e,n,i,s)
+e=e or 1
+e=l(t,e)
+if not e then
+return nil,v(t)+1,"no valid JSON value (reached the end)"
+end
+local a=o(t,e,e)
+if a=="{"then
+return g('object',"}",t,e,n,i,s)
+elseif a=="["then
+return g('array',"]",t,e,n,i,s)
+elseif a=="\""then
+return j(t,e)
+else
+local i,a=h(t,"^%-?[%d%.]+[eE]?[%+%-]?%d*",e)
+if i then
+local e=r(o(t,i,a))
+if e then
+return e,a+1
+end
+end
+i,a=h(t,"^%a%w*",e)
+if i then
+local e=o(t,i,a)
+if e=="true"then
+return true,a+1
+elseif e=="false"then
+return false,a+1
+elseif e=="null"then
+return n,a+1
+end
+end
+return nil,e,"no valid JSON value at "..m(t,e)
+end
+end
+local function f(...)
+if E("#",...)>0 then
+return...
+else
+return{__jsontype='object'},{__jsontype='array'}
+end
+end
+function i.decode(e,i,o,...)
+local a,t=f(...)
+return c(e,i,o,a,t)
+end
+function i.use_lpeg()
+local e=q("lpeg")
+local d=e.match
+local t,n,s,a=e.P,e.S,e.R,e.V
+local function a(a,t,o,e)
+if not e.msg then
+e.msg=o.." at "..m(a,t)
+e.pos=t
+end
+return false
+end
+local function o(t)
+return e.Cmt(e.Cc(t)*e.Carg(2),a)
+end
+local a=(n" \n\r\t"+t"\239\187\191")^0
+local m=1-n"\"\\\n\r"
+local w=(t"\\"*e.C(n"\"\\/bfnrt"+o"unsupported escape sequence"))/b
+local h=s("09","af","AF")
+local function c(a,a,t,e)
+t,e=r(t,16),r(e,16)
+if 55296<=t and t<=56319 and 56320<=e and e<=57343 then
+return true,p((t-55296)*1024+(e-56320)+65536)
+else
+return false
+end
+end
+local function l(e)
+return p(r(e,16))
+end
+local h=(t"\\u"*e.C(h*h*h*h))
+local h=e.Cmt(h*h,c)+h/l
+local h=h+w+m
+local h=t"\""*e.Cs(h^0)*(t"\""+o"unterminated string")
+local c=t"-"^(-1)*(t"0"+(s"19"*s"09"^0))
+local l=t"."*s"09"^0
+local n=(n"eE")*(n"+-")^(-1)*s"09"^1
+local s=(c*l^(-1)*n^(-1))/r
+local n=t"true"*e.Cc(true)+t"false"*e.Cc(false)+t"null"*e.Carg(1)
+local c=s+h+n
+local r,l
+local function m(l,e,h,s)
+local i,n
+local t
+local o,a={},0
+repeat
+i,n,t=d(r,l,e,h,s)
+if not t then break end
+e=t
+a=a+1
+o[a]=i
+until n=='last'
+return e,u(o,s.arraymeta)
+end
+local function w(r,t,h,i)
+local a,o,s
+local e
+local n={}
+repeat
+o,a,s,e=d(l,r,t,h,i)
+if not e then break end
+t=e
+n[o]=a
+until s=='last'
+return t,u(n,i.objectmeta)
+end
+local n=t"["*e.Cmt(e.Carg(1)*e.Carg(2),m)*a*(t"]"+o"']' expected")
+local s=t"{"*e.Cmt(e.Carg(1)*e.Carg(2),w)*a*(t"}"+o"'}' expected")
+local s=a*(n+s+c)
+local n=s+a*o"value expected"
+r=s*a*(t","*e.Cc'cont'+e.Cc'last')*e.Cp()
+local o=e.Cg(a*h*a*(t":"+o"colon expected")*n)
+l=o*a*(t","*e.Cc'cont'+e.Cc'last')*e.Cp()
+local t=n*e.Cp()
+function i.decode(a,n,o,...)
+local e={}
+e.objectmeta,e.arraymeta=f(...)
+local a,t=d(t,a,n,o,e)
+if e.msg then
+return nil,e.pos,e.msg
+else
+return a,t
+end
+end
+i.use_lpeg=function()return i end
+i.using_lpeg=true
+return i
+end
+if z then
+k(i.use_lpeg)
+end
+return i
+end)
+package.preload['md5']=(function(...)
+local a=require"md5.core"
+local e=require"string"
+module("md5")
+function sumhexa(t)
+t=a.sum(t)
+return(e.gsub(t,".",function(t)
+return e.format("%02x",e.byte(t))
+end))
+end
+end)
+package.preload['socket']=(function(...)
+local e=_G
+local h=require("string")
+local s=require("math")
+local a=require("socket.core")
+module("socket")
+function connect(o,i,t,n)
+local e,a=a.tcp()
+if not e then return nil,a end
+if t then
+local t,e=e:bind(t,n,-1)
+if not t then return nil,e end
+end
+local a,t=e:connect(o,i)
+if not a then return nil,t end
+return e
+end
+function bind(n,i,o)
+local e,t=a.tcp()
+if not e then return nil,t end
+e:setoption("reuseaddr",true)
+local t,a=e:bind(n,i)
+if not t then return nil,a end
+t,a=e:listen(o)
+if not t then return nil,a end
+return e
+end
+try=newtry()
+function choose(i)
+return function(t,a,o)
+if e.type(t)~="string"then
+t,a,o="default",t,a
+end
+local i=i[t or"nil"]
+if not i then e.error("unknown key ("..e.tostring(t)..")",3)
+else return i(a,o)end
+end
+end
+sourcet={}
+sinkt={}
+BLOCKSIZE=2048
+sinkt["close-when-done"]=function(t)
+return e.setmetatable({
+getfd=function()return t:getfd()end,
+dirty=function()return t:dirty()end
+},{
+__call=function(a,e,a)
+if not e then
+t:close()
+return 1
+else return t:send(e)end
+end
+})
+end
+sinkt["keep-open"]=function(t)
+return e.setmetatable({
+getfd=function()return t:getfd()end,
+dirty=function()return t:dirty()end
+},{
+__call=function(a,e,a)
+if e then return t:send(e)
+else return 1 end
+end
+})
+end
+sinkt["default"]=sinkt["keep-open"]
+sink=choose(sinkt)
+sourcet["by-length"]=function(o,t)
+return e.setmetatable({
+getfd=function()return o:getfd()end,
+dirty=function()return o:dirty()end
+},{
+__call=function()
+if t<=0 then return nil end
+local e=s.min(a.BLOCKSIZE,t)
+local a,e=o:receive(e)
+if e then return nil,e end
+t=t-h.len(a)
+return a
+end
+})
+end
+sourcet["until-closed"]=function(t)
+local o
+return e.setmetatable({
+getfd=function()return t:getfd()end,
+dirty=function()return t:dirty()end
+},{
+__call=function()
+if o then return nil end
+local a,e,i=t:receive(a.BLOCKSIZE)
+if not e then return a
+elseif e=="closed"then
+t:close()
+o=1
+return i
+else return nil,e end
+end
+})
+end
+sourcet["default"]=sourcet["until-closed"]
+source=choose(sourcet)
+end)
+package.preload['statemap']=(function(...)
+local o=assert
+local i=error
+local h=pairs
+local t=setmetatable
+local n=type
+local s=require'io'.stderr
+_ENV=nil
+local a={}
+function a.class()
+return t({},{__index=a})
+end
+function a:new(a,e)
+local e={
+name=a,
+id=e,
+}
+t(e,{__index=self})
+return e
+end
+local e={}
+function e.class()
+return t({},{__index=e})
+end
+function e:new(a)
+local e={}
+for a,t in h(a)do
+e[a]=t
+end
+e._state_stack={}
+e.debugStream=s
+t(e,{__index=self})
+e:_init()
+return e
+end
+function e:_init()
+i"FSMContext can't be instantiated"
+end
+function e:getDebugFlag()
+return self.debugFlag
+end
+function e:setDebugFlag(e)
+self.debugFlag=e
+end
+function e:getDebugStream()
+return self.debugStream
+end
+function e:setDebugStream(e)
+self.debugStream=e
+end
+function e:isInTransition()
+return self._state==nil
+end
+function e:clearState()
+self.previousState=self._state
+self._state=nil
+end
+function e:getPreviousState()
+return self.previousState
+end
+function e:getState()
+if self._state==nil then
+i"State Undefined"
+end
+return self._state
+end
+function e:setState(e)
+o(e~=nil,"undefined state.")
+o(n(e)=='table')
+self._state=e
+if self.debugFlag then
+self.debugStream:write("ENTER STATE     : ",self._state.name,"\n")
+end
+end
+function e:isStateStackEmpty()
+return#self._state_stack==0
+end
+function e:getStackDepth()
+return#self._state_stack
+end
+function e:pushState(e)
+o(e~=nil,"undefined state.")
+o(n(e)=='table')
+if self._state then
+local e=self._state_stack;e[#e+1]=self._state
+end
+self._state=e
+if self.debugFlag then
+self.debugStream:write("PUSH TO STATE   : ",self._state.name,"\n")
+end
+end
+function e:popState()
+local e=self._state_stack
+if#e==0 then
+if self.debugFlag then
+self.debugStream:write("POPPING ON EMPTY STATE STACK.\n")
+end
+i("empty state stack.")
+else
+self._state=e[#e];e[#e]=nil
+if self.debugFlag then
+self.debugStream:write("POP TO STATE    : ",self._state.name,"\n")
+end
+end
+end
+function e:emptyStateStack()
+self._state_stack={}
+end
+return{
+State=a,
+FSMContext=e,
+}
+end)
+package.preload['linux_if']=(function(...)
+local e=require'mst'
+module(...,package.seeall)
+if_object=e.create_class{class='if_object',mandatory={'name'}}
+function if_object:get_hwaddr()
+local t=self.name
+if self.hwaddr
+then
+return self.hwaddr
+end
+local t=self.parent.shell(string.format('ifconfig %s | grep HWaddr',t))
+if not t
+then
+return nil,'unable to get'
+end
+t=e.string_strip(t)
+local a,a,e=string.find(t,'HWaddr ([0-9a-fA-F:]+)%s*$')
+if not e
+then
+return nil,'unable to parse '..t
+end
+self.hwaddr=e
+return e
+end
+function if_object:add_ipv6(e)
+self.ipv6_valid=false
+return self.parent.shell(string.format('ip -6 addr add %s dev %s',e,self.name))
+end
+function if_object:del_ipv6(e)
+self.ipv6_valid=false
+return self.parent.shell(string.format('ip -6 addr del %s dev %s',e,self.name))
+end
+function if_object:set_ipv4(t,e)
+self.ipv4_valid=false
+return self.parent.shell(string.format('ifconfig %s %s netmask %s',self.name,t,e))
+end
+if_table=e.create_class{class='if_table',mandatory={'shell'}}
+function if_table:init()
+self.map=e.map:new{}
+self.vs=e.validity_sync:new{t=self.map,single=false}
+end
+function if_table:get_if(t)
+self:a(t,'get_if nil if!')
+t=e.string_split(t,'@')[1]
+local e=self.map[t]
+if not e
+then
+e=if_object:new{name=t,parent=self}
+self.map[t]=e
+end
+return e
+end
+local i='ipv4'
+local o='ipv6'
+function if_table:read_ip_ipv6()
+self.vs:clear_all_valid(o)
+local a,t=self.shell("ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary")
+e.a(a,'unable to execute ip -6 addr',t)
+local t=nil
+local a=e.string_split(a,'\n')
+a=a:filter(function(t)return#e.string_strip(t)>0 end)
+for i,a in ipairs(a)
+do
+e.string_find_one(a,
+'^%d+: (%S+): ',
+function(a)
+t=self:get_if(a)
+t.ipv6=e.array:new{}
+t.ipv6_valid=true
+self.vs:set_valid(t,o)
+end,
+'^%s+inet6 (%S+/64)%s',
+function(e)
+t.ipv6:insert(e)
+end,
+'^%s+inet6',
+nil
+)
+end
+self.vs:remove_all_invalid()
+return self.map
+end
+function if_table:read_ip_ipv4()
+self.vs:clear_all_valid(i)
+local a,t=self.shell("ip -4 addr")
+e.a(a,'unable to execute ip -4 addr',t)
+local t=nil
+local a=e.string_split(a,'\n')
+a=a:filter(function(t)return#e.string_strip(t)>0 end)
+for o,a in ipairs(a)
+do
+e.string_find_one(a,
+'^%d+: (%S+): ',
+function(e)
+t=self:get_if(e)
+t.ipv4=nil
+t.ipv4_valid=true
+self.vs:set_valid(t,i)
+end,
+'^%s+inet (%S+/%d+)%s',
+function(e)
+t.ipv4=e
+end
+)
+end
+self.vs:remove_all_invalid()
+return self.map
+end
+function parse_routes(t)
+local n=e.array:new()
+for a,t in ipairs(e.string_split(t,'\n'))
+do
+t=e.string_strip(t)
+if#t>0
+then
+local o={}
+o.dst=e.string_split(t,' ')[1]
+for a,i in pairs{via=1,dev=1,metric=2,expires=1,dead=0}
+do
+if i==1
+then
+local e={string.find(t,'%s'..a..' (%S+)')}
+if e and#e>2
+then
+o[a]=e[3]
+end
+elseif i==2
+then
+local e={string.find(t,'%s'..a..' (%S+)')}
+if e and#e>2
+then
+o[a]=tonumber(e[3])
+end
+else
+e.a(i==0)
+local e={string.find(t,'%s'..a)}
+if e and#e==2
+then
+o[a]=true
+end
+end
+end
+n:insert(o)
+end
+end
+return n
+end
+function get_ip6_routes(t,e)
+e=e and(' table '..e)or''
+return parse_routes(t('ip -6 route'..e))
+end
+rule=e.create_class{class='rule',mandatory={'pref','sel','table'}}
+function rule:del(e)
+self:apply(e,'del')
+end
+function rule:add(e)
+self:apply(e,'add')
+end
+function rule:apply(e,t)
+e(string.format('ip -6 rule %s %s table %s pref %d',
+t,self.sel,self.table,self.pref))
+end
+rule_table=e.array:new_subclass{class='rule_table',mandatory={'shell'},
+start_table=1e3}
+function rule_table:init()
+self.vs=e.validity_sync:new{t=self,single=true}
+end
+function rule_table:find(a)
+for o,t in ipairs(self)
+do
+if e.table_contains(t,a)then return t end
+end
+end
+function rule_table:parse()
+self.vs:clear_all_valid()
+local t,a=self.shell("ip -6 rule")
+e.a(t,'unable to execute ip -6 rule',a)
+local t=e.string_split(t,'\n')
+t=t:filter(function(t)return#e.string_strip(t)>0 end)
+self:d('parsing lines',#t)
+for t,a in ipairs(t)
+do
+a=e.string_strip(a)
+function handle_line(t,o,a)
+t=tonumber(t)
+local a={pref=t,sel=o,table=a}
+local t=self:find(a)
+if not t
+then
+t=self:add_rule(a)
+else
+self:d('already had?',t)
+end
+self.vs:set_valid(t)
+end
+e.string_find_one(a,
+'^(%d+):%s+(from %S+)%s+lookup (%S+)$',
+handle_line,
+'^(%d+):%s+(from all to %S+)%s+lookup (%S+)$',
+handle_line)
+end
+self.vs:remove_all_invalid()
+end
+function rule_table:add_rule(e)
+local e=rule:new(e)
+self:d('adding rule',e)
+self:insert(e)
+return e
+end
+function rule_table:get_free_table()
+local e=self.start_table
+while self:find{table=tostring(e)}
+do
+e=e+1
+end
+return tostring(e)
+end
+end)
+package.preload['skv_sm']=(function(...)
+local t=error
+local n=pcall
+local a=tostring
+local o=require'string'.format
+local h=require'statemap'
+require'skv_const'
+_ENV=nil
+local i=h.State.class()
+local function e()
+end
+i.Entry=e
+i.Exit=e
+local function e(e,t)
+e:Default(t)
+end
+i.BindFailed=e
+i.Bound=e
+i.ConnectFailed=e
+i.Connected=e
+i.ConnectionClosed=e
+i.HaveUpdate=e
+i.Initialized=e
+i.ReceiveUpdate=e
+i.ReceiveUpdate=e
+i.ReceiveVersion=e
+i.Timeout=e
+function i:Default(e)
+if e.debugFlag then
+e.debugStream:write("TRANSITION   : Default\n")
+end
+local e=o("Undefined Transition\nState: %s\nTransition: %s\n",
+e:getState().name,
+e.transition)
+t(e)
+end
+local e={}
+local o={}
+local s={}
+e.Default=i:new('Client.Default',-1)
+function e.Default:HaveUpdate(t,o,i)
+local s=t.owner
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : Client.Default\n")
+end
+local h=t:getState()
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.Default:HaveUpdate(k="..a(o)..", v="..a(i)..")\n")
+end
+t:clearState()
+local n,n=n(
+function()
+s:store_local_update(o,i)
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.Default:HaveUpdate(k="..a(o)..", v="..a(i)..")\n")
+end
+t:setState(h)
+end
+e.Init=e.Default:new('Client.Init',0)
+function e.Init:Entry(e)
+local e=e.owner
+e:init_client(skv_const.INITIAL_LISTEN_TIMEOUT)
+end
+function e.Init:Initialized(t)
+local a=t.owner
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : Client.Init\n")
+end
+if a:is_server()then
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.Init:Initialized()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.Init:Initialized()\n")
+end
+t:setState(o.Init)
+t:getState():Entry(t)
+else
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.Init:Initialized()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.Init:Initialized()\n")
+end
+t:setState(e.Connecting)
+t:getState():Entry(t)
+end
+end
+e.Connecting=e.Default:new('Client.Connecting',1)
+function e.Connecting:Entry(e)
+local e=e.owner
+e:start_retry_timer(skv_const.CONNECT_TIMEOUT)
+e:socket_connect()
+end
+function e.Connecting:Exit(e)
+local e=e.owner
+e:clear_timeout_maybe()
+end
+function e.Connecting:ConnectFailed(t)
+local a=t.owner
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : Client.Connecting\n")
+end
+if a:is_long_lived()then
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.Connecting:ConnectFailed()\n")
+end
+t:clearState()
+local e,e=n(
+function()
+a:clear_socket_maybe()
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.Connecting:ConnectFailed()\n")
+end
+t:setState(o.Init)
+t:getState():Entry(t)
+elseif a:should_auto_retry()then
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.Connecting:ConnectFailed()\n")
+end
+t:clearState()
+local a,a=n(
+function()
+a:clear_socket_maybe()
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.Connecting:ConnectFailed()\n")
+end
+t:setState(e.ClientFailRetry)
+t:getState():Entry(t)
+else
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.Connecting:ConnectFailed()\n")
+end
+t:clearState()
+local e,e=n(
+function()
+a:clear_socket_maybe()
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.Connecting:ConnectFailed()\n")
+end
+t:setState(s.ClientFailConnect)
+t:getState():Entry(t)
+end
+end
+function e.Connecting:Connected(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : Client.Connecting\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.Connecting:Connected()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.Connecting:Connected()\n")
+end
+t:setState(e.WaitVersion)
+t:getState():Entry(t)
+end
+function e.Connecting:Timeout(t)
+local a=t.owner
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : Client.Connecting\n")
+end
+if a:is_long_lived()then
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.Connecting:Timeout()\n")
+end
+t:clearState()
+local e,e=n(
+function()
+a:clear_socket_maybe()
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.Connecting:Timeout()\n")
+end
+t:setState(o.Init)
+t:getState():Entry(t)
+elseif a:should_auto_retry()then
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.Connecting:Timeout()\n")
+end
+t:clearState()
+local a,a=n(
+function()
+a:clear_socket_maybe()
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.Connecting:Timeout()\n")
+end
+t:setState(e.ClientFailRetry)
+t:getState():Entry(t)
+else
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.Connecting:Timeout()\n")
+end
+t:clearState()
+local e,e=n(
+function()
+a:clear_socket_maybe()
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.Connecting:Timeout()\n")
+end
+t:setState(s.ClientFailConnect)
+t:getState():Entry(t)
+end
+end
+e.WaitVersion=e.Default:new('Client.WaitVersion',2)
+function e.WaitVersion:Entry(e)
+local e=e.owner
+e:wrap_socket_json()
+end
+function e.WaitVersion:ConnectionClosed(t)
+local a=t.owner
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : Client.WaitVersion\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.WaitVersion:ConnectionClosed()\n")
+end
+t:clearState()
+local a,a=n(
+function()
+a:clear_json()
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.WaitVersion:ConnectionClosed()\n")
+end
+t:setState(e.Connecting)
+t:getState():Entry(t)
+end
+function e.WaitVersion:ReceiveVersion(t,o)
+local i=t.owner
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : Client.WaitVersion\n")
+end
+if i:protocol_is_current_version(o)then
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.WaitVersion:ReceiveVersion(v="..a(o)..")\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.WaitVersion:ReceiveVersion(v="..a(o)..")\n")
+end
+t:setState(e.WaitUpdates)
+t:getState():Entry(t)
+else
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.WaitVersion:ReceiveVersion(v="..a(o)..")\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.WaitVersion:ReceiveVersion(v="..a(o)..")\n")
+end
+t:setState(s.ClientFailConnect)
+t:getState():Entry(t)
+end
+end
+e.WaitUpdates=e.Default:new('Client.WaitUpdates',3)
+function e.WaitUpdates:Entry(e)
+local e=e.owner
+e:send_local_state()
+end
+function e.WaitUpdates:Exit(e)
+local e=e.owner
+e:clear_json()
+end
+function e.WaitUpdates:ConnectionClosed(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : Client.WaitUpdates\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.WaitUpdates:ConnectionClosed()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.WaitUpdates:ConnectionClosed()\n")
+end
+t:setState(e.Connecting)
+t:getState():Entry(t)
+end
+function e.WaitUpdates:HaveUpdate(e,t,o)
+local i=e.owner
+if e.debugFlag then
+e.debugStream:write("LEAVING STATE   : Client.WaitUpdates\n")
+end
+local s=e:getState()
+if e.debugFlag then
+e.debugStream:write("ENTER TRANSITION: Client.WaitUpdates:HaveUpdate(k="..a(t)..", v="..a(o)..")\n")
+end
+e:clearState()
+local i,i=n(
+function()
+i:store_local_update(t,o)
+i:send_update_kv(t,o)
+end
+)
+if e.debugFlag then
+e.debugStream:write("EXIT TRANSITION : Client.WaitUpdates:HaveUpdate(k="..a(t)..", v="..a(o)..")\n")
+end
+e:setState(s)
+end
+function e.WaitUpdates:ReceiveUpdate(t,o,s,i)
+local r=t.owner
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : Client.WaitUpdates\n")
+end
+local h=t:getState()
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.WaitUpdates:ReceiveUpdate(json="..a(o)..", k="..a(s)..", v="..a(i)..")\n")
+end
+t:clearState()
+local n,n=n(
+function()
+r:client_remote_update(o,s,i)
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.WaitUpdates:ReceiveUpdate(json="..a(o)..", k="..a(s)..", v="..a(i)..")\n")
+end
+t:setState(h)
+end
+e.ClientFailRetry=e.Default:new('Client.ClientFailRetry',4)
+function e.ClientFailRetry:Entry(e)
+local e=e.owner
+e:increase_retry_timer()
+e:start_retry_timer()
+end
+function e.ClientFailRetry:Exit(e)
+local e=e.owner
+e:clear_timeout()
+end
+function e.ClientFailRetry:Timeout(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : Client.ClientFailRetry\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Client.ClientFailRetry:Timeout()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Client.ClientFailRetry:Timeout()\n")
+end
+t:setState(e.Connecting)
+t:getState():Entry(t)
+end
+o.Default=i:new('Server.Default',-1)
+function o.Default:HaveUpdate(e,i,t)
+local h=e.owner
+if e.debugFlag then
+e.debugStream:write("LEAVING STATE   : Server.Default\n")
+end
+local s=e:getState()
+if e.debugFlag then
+e.debugStream:write("ENTER TRANSITION: Server.Default:HaveUpdate(k="..a(i)..", v="..a(t)..")\n")
+end
+e:clearState()
+local n,n=n(
+function()
+h:store_local_update(i,t)
+end
+)
+if e.debugFlag then
+e.debugStream:write("EXIT TRANSITION : Server.Default:HaveUpdate(k="..a(i)..", v="..a(t)..")\n")
+end
+e:setState(s)
+end
+o.Init=o.Default:new('Server.Init',0)
+function o.Init:Entry(e)
+local e=e.owner
+e:init_server()
+end
+function o.Init:Initialized(e)
+if e.debugFlag then
+e.debugStream:write("LEAVING STATE   : Server.Init\n")
+end
+e:getState():Exit(e)
+if e.debugFlag then
+e.debugStream:write("ENTER TRANSITION: Server.Init:Initialized()\n")
+end
+if e.debugFlag then
+e.debugStream:write("EXIT TRANSITION : Server.Init:Initialized()\n")
+end
+e:setState(o.Binding)
+e:getState():Entry(e)
+end
+o.Binding=o.Default:new('Server.Binding',1)
+function o.Binding:Entry(e)
+local e=e.owner
+e:bind()
+end
+function o.Binding:BindFailed(e)
+local t=e.owner
+if e.debugFlag then
+e.debugStream:write("LEAVING STATE   : Server.Binding\n")
+end
+if t:is_server()then
+e:getState():Exit(e)
+if e.debugFlag then
+e.debugStream:write("ENTER TRANSITION: Server.Binding:BindFailed()\n")
+end
+if e.debugFlag then
+e.debugStream:write("EXIT TRANSITION : Server.Binding:BindFailed()\n")
+end
+e:setState(s.ServerBindFailed)
+e:getState():Entry(e)
+else
+e:getState():Exit(e)
+if e.debugFlag then
+e.debugStream:write("ENTER TRANSITION: Server.Binding:BindFailed()\n")
+end
+if e.debugFlag then
+e.debugStream:write("EXIT TRANSITION : Server.Binding:BindFailed()\n")
+end
+e:setState(o.InitWait)
+e:getState():Entry(e)
+end
+end
+function o.Binding:Bound(e)
+if e.debugFlag then
+e.debugStream:write("LEAVING STATE   : Server.Binding\n")
+end
+e:getState():Exit(e)
+if e.debugFlag then
+e.debugStream:write("ENTER TRANSITION: Server.Binding:Bound()\n")
+end
+if e.debugFlag then
+e.debugStream:write("EXIT TRANSITION : Server.Binding:Bound()\n")
+end
+e:setState(o.WaitConnections)
+e:getState():Entry(e)
+end
+o.InitWait=o.Default:new('Server.InitWait',2)
+function o.InitWait:Entry(e)
+local e=e.owner
+e:increase_retry_timer()
+e:start_retry_timer()
+end
+function o.InitWait:Exit(e)
+local e=e.owner
+e:clear_timeout()
+end
+function o.InitWait:Timeout(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : Server.InitWait\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: Server.InitWait:Timeout()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : Server.InitWait:Timeout()\n")
+end
+t:setState(e.Connecting)
+t:getState():Entry(t)
+end
+o.WaitConnections=o.Default:new('Server.WaitConnections',3)
+function o.WaitConnections:HaveUpdate(e,o,t)
+local i=e.owner
+if e.debugFlag then
+e.debugStream:write("LEAVING STATE   : Server.WaitConnections\n")
+end
+local s=e:getState()
+if e.debugFlag then
+e.debugStream:write("ENTER TRANSITION: Server.WaitConnections:HaveUpdate(k="..a(o)..", v="..a(t)..")\n")
+end
+e:clearState()
+local i,i=n(
+function()
+i:store_local_update(o,t)
+i:send_update_to_clients(o,t)
+end
+)
+if e.debugFlag then
+e.debugStream:write("EXIT TRANSITION : Server.WaitConnections:HaveUpdate(k="..a(o)..", v="..a(t)..")\n")
+end
+e:setState(s)
+end
+function o.WaitConnections:ReceiveUpdate(e,i,o,t)
+local h=e.owner
+if e.debugFlag then
+e.debugStream:write("LEAVING STATE   : Server.WaitConnections\n")
+end
+local r=e:getState()
+if e.debugFlag then
+e.debugStream:write("ENTER TRANSITION: Server.WaitConnections:ReceiveUpdate(json="..a(i)..", k="..a(o)..", v="..a(t)..")\n")
+end
+e:clearState()
+local n,n=n(
+function()
+h:server_remote_update(i,o,t)
+end
+)
+if e.debugFlag then
+e.debugStream:write("EXIT TRANSITION : Server.WaitConnections:ReceiveUpdate(json="..a(i)..", k="..a(o)..", v="..a(t)..")\n")
+end
+e:setState(r)
+end
+s.Default=i:new('Terminal.Default',-1)
+s.ClientFailConnect=s.Default:new('Terminal.ClientFailConnect',0)
+function s.ClientFailConnect:Entry(e)
+local e=e.owner
+e:fail("unable to connect to SKV")
+end
+s.ServerBindFailed=s.Default:new('Terminal.ServerBindFailed',1)
+function s.ServerBindFailed:Entry(e)
+local e=e.owner
+e:fail("unable to listen on selected port")
+end
+local t=h.FSMContext.class()
+function t:_init()
+self:setState(e.Init)
+end
+function t:BindFailed()
+self.transition='BindFailed'
+self:getState():BindFailed(self)
+self.transition=nil
+end
+function t:Bound()
+self.transition='Bound'
+self:getState():Bound(self)
+self.transition=nil
+end
+function t:ConnectFailed()
+self.transition='ConnectFailed'
+self:getState():ConnectFailed(self)
+self.transition=nil
+end
+function t:Connected()
+self.transition='Connected'
+self:getState():Connected(self)
+self.transition=nil
+end
+function t:ConnectionClosed()
+self.transition='ConnectionClosed'
+self:getState():ConnectionClosed(self)
+self.transition=nil
+end
+function t:HaveUpdate(...)
+self.transition='HaveUpdate'
+self:getState():HaveUpdate(self,...)
+self.transition=nil
+end
+function t:Initialized()
+self.transition='Initialized'
+self:getState():Initialized(self)
+self.transition=nil
+end
+function t:ReceiveUpdate(...)
+self.transition='ReceiveUpdate'
+self:getState():ReceiveUpdate(self,...)
+self.transition=nil
+end
+function t:ReceiveUpdate(...)
+self.transition='ReceiveUpdate'
+self:getState():ReceiveUpdate(self,...)
+self.transition=nil
+end
+function t:ReceiveVersion(...)
+self.transition='ReceiveVersion'
+self:getState():ReceiveVersion(self,...)
+self.transition=nil
+end
+function t:Timeout()
+self.transition='Timeout'
+self:getState():Timeout(self)
+self.transition=nil
+end
+function t:enterStartState()
+self:getState():Entry(self)
+end
+return
+t
+end)
+package.preload['skv_const']=(function(...)
+module(...)
+CONNECT_TIMEOUT=3
+INITIAL_LISTEN_TIMEOUT=5
+end)
+package.preload['pa_lap_sm']=(function(...)
+local s=error
+local a=pcall
+local i=tostring
+local o=require'string'.format
+local n=require'statemap'
+_ENV=nil
+local t=n.State.class()
+local function e()
+end
+t.Entry=e
+t.Exit=e
+local function e(e,a)
+e:Default(a)
+end
+t.Assign=e
+t.Depracate=e
+t.Done=e
+t.Error=e
+t.Timeout=e
+t.UnInit=e
+t.Unassign=e
+function t:Default(e)
+if e.debugFlag then
+e.debugStream:write("TRANSITION   : Default\n")
+end
+local e=o("Undefined Transition\nState: %s\nTransition: %s\n",
+e:getState().name,
+e.transition)
+s(e)
+end
+local e={}
+e.Default=t:new('LAP.Default',-1)
+function e.Default:Error(t,o)
+local n=t.owner
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Default\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Default:Error(s="..i(o)..")\n")
+end
+t:clearState()
+local a,a=a(
+function()
+n:error(o)
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Default:Error(s="..i(o)..")\n")
+end
+t:setState(e.Error)
+t:getState():Entry(t)
+end
+function e.Default:UnInit(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Default\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Default:UnInit()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Default:UnInit()\n")
+end
+t:setState(e.FinishedNoState)
+t:getState():Entry(t)
+end
+function e.Default:Default(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Default\n")
+end
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Default:Default()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Default:Default()\n")
+end
+end
+e.Init=e.Default:new('LAP.Init',0)
+function e.Init:Assign(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Init\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Init:Assign()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Init:Assign()\n")
+end
+t:setState(e.Assigning)
+t:getState():Entry(t)
+end
+e.Assigning=e.Default:new('LAP.Assigning',1)
+function e.Assigning:Entry(e)
+local e=e.owner
+e:do_assign()
+end
+function e.Assigning:Depracate(t)
+local o=t.owner
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Assigning\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Assigning:Depracate()\n")
+end
+t:clearState()
+local a,a=a(
+function()
+o:stop_assign()
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Assigning:Depracate()\n")
+end
+t:setState(e.Depracating)
+t:getState():Entry(t)
+end
+function e.Assigning:Done(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Assigning\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Assigning:Done()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Assigning:Done()\n")
+end
+t:setState(e.Live)
+t:getState():Entry(t)
+end
+function e.Assigning:Unassign(t)
+local o=t.owner
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Assigning\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Assigning:Unassign()\n")
+end
+t:clearState()
+local a,a=a(
+function()
+o:stop_assign()
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Assigning:Unassign()\n")
+end
+t:setState(e.Unassigning)
+t:getState():Entry(t)
+end
+e.Unassigning=e.Default:new('LAP.Unassigning',2)
+function e.Unassigning:Entry(e)
+local e=e.owner
+e:do_unassign()
+end
+function e.Unassigning:Assign(t)
+local o=t.owner
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Unassigning\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Unassigning:Assign()\n")
+end
+t:clearState()
+local a,a=a(
+function()
+o:stop_unassign()
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Unassigning:Assign()\n")
+end
+t:setState(e.Assigning)
+t:getState():Entry(t)
+end
+function e.Unassigning:Depracate(t)
+local o=t.owner
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Unassigning\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Unassigning:Depracate()\n")
+end
+t:clearState()
+local a,a=a(
+function()
+o:stop_unassign()
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Unassigning:Depracate()\n")
+end
+t:setState(e.Depracating)
+t:getState():Entry(t)
+end
+function e.Unassigning:Done(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Unassigning\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Unassigning:Done()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Unassigning:Done()\n")
+end
+t:setState(e.Standby)
+t:getState():Entry(t)
+end
+e.Depracating=e.Default:new('LAP.Depracating',3)
+function e.Depracating:Entry(e)
+local e=e.owner
+e:do_depracate()
+end
+function e.Depracating:Assign(t)
+local o=t.owner
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Depracating\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Depracating:Assign()\n")
+end
+t:clearState()
+local a,a=a(
+function()
+o:stop_depracate()
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Depracating:Assign()\n")
+end
+t:setState(e.Assigning)
+t:getState():Entry(t)
+end
+function e.Depracating:Done(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Depracating\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Depracating:Done()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Depracating:Done()\n")
+end
+t:setState(e.Zombie)
+t:getState():Entry(t)
+end
+function e.Depracating:Unassign(t)
+local o=t.owner
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Depracating\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Depracating:Unassign()\n")
+end
+t:clearState()
+local a,a=a(
+function()
+o:stop_depracate()
+end
+)
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Depracating:Unassign()\n")
+end
+t:setState(e.Unassigning)
+t:getState():Entry(t)
+end
+e.Live=e.Default:new('LAP.Live',4)
+function e.Live:Depracate(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Live\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Live:Depracate()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Live:Depracate()\n")
+end
+t:setState(e.Depracating)
+t:getState():Entry(t)
+end
+function e.Live:Unassign(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Live\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Live:Unassign()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Live:Unassign()\n")
+end
+t:setState(e.Unassigning)
+t:getState():Entry(t)
+end
+e.Standby=e.Default:new('LAP.Standby',5)
+function e.Standby:Entry(e)
+local e=e.owner
+e:start_depracate_timeout()
+end
+function e.Standby:Exit(e)
+local e=e.owner
+e:stop_depracate_timeout()
+end
+function e.Standby:Assign(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Standby\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Standby:Assign()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Standby:Assign()\n")
+end
+t:setState(e.Assigning)
+t:getState():Entry(t)
+end
+function e.Standby:Depracate(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Standby\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Standby:Depracate()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Standby:Depracate()\n")
+end
+t:setState(e.Depracating)
+t:getState():Entry(t)
+end
+function e.Standby:Timeout(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Standby\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Standby:Timeout()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Standby:Timeout()\n")
+end
+t:setState(e.Depracating)
+t:getState():Entry(t)
+end
+e.Zombie=e.Default:new('LAP.Zombie',6)
+function e.Zombie:Entry(e)
+local e=e.owner
+e:start_expire_timeout()
+end
+function e.Zombie:Exit(e)
+local e=e.owner
+e:stop_expire_timeout()
+end
+function e.Zombie:Assign(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Zombie\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Zombie:Assign()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Zombie:Assign()\n")
+end
+t:setState(e.Assigning)
+t:getState():Entry(t)
+end
+function e.Zombie:Timeout(t)
+if t.debugFlag then
+t.debugStream:write("LEAVING STATE   : LAP.Zombie\n")
+end
+t:getState():Exit(t)
+if t.debugFlag then
+t.debugStream:write("ENTER TRANSITION: LAP.Zombie:Timeout()\n")
+end
+if t.debugFlag then
+t.debugStream:write("EXIT TRANSITION : LAP.Zombie:Timeout()\n")
+end
+t:setState(e.Finish)
+t:getState():Entry(t)
+end
+e.Error=e.Default:new('LAP.Error',7)
+function e.Error:Entry(t)
+local t=t.owner
+t:done()
+end
+e.Finish=e.Default:new('LAP.Finish',8)
+function e.Finish:Entry(t)
+local t=t.owner
+t:done()
+end
+e.FinishedNoState=e.Default:new('LAP.FinishedNoState',9)
+local t=n.FSMContext.class()
+function t:_init()
+self:setState(e.Init)
+end
+function t:Assign()
+self.transition='Assign'
+self:getState():Assign(self)
+self.transition=nil
+end
+function t:Depracate()
+self.transition='Depracate'
+self:getState():Depracate(self)
+self.transition=nil
+end
+function t:Done()
+self.transition='Done'
+self:getState():Done(self)
+self.transition=nil
+end
+function t:Error(...)
+self.transition='Error'
+self:getState():Error(self,...)
+self.transition=nil
+end
+function t:Timeout()
+self.transition='Timeout'
+self:getState():Timeout(self)
+self.transition=nil
+end
+function t:UnInit()
+self.transition='UnInit'
+self:getState():UnInit(self)
+self.transition=nil
+end
+function t:Unassign()
+self.transition='Unassign'
+self:getState():Unassign(self)
+self.transition=nil
+end
+function t:enterStartState()
+self:getState():Entry(self)
+end
+return
+t
+end)
+package.preload['codec']=(function(...)
+local e=require'mst'
+local i=require'vstruct'
+local n=require'ipv6s'
+local h=require"dkjson"
+module(...,package.seeall)
+AC_TLV_RHF=1
+AC_TLV_USP=2
+AC_TLV_ASP=3
+AC_TLV_JSONBLOB=42
+MINIMUM_AC_TLV_RHF_LENGTH=32
+local r=string.char(0)
+abstract_data=e.create_class{class='abstract_data',
+copy_on_encode=false}
+function abstract_data:init()
+if not self.header
+then
+self:a(self.format,"no header AND no format?!?")
+self.header=i.compile('>'..self.format)
+end
+if not self.header_length
+then
+self:a(self.header,'header missing')
+self:a(self.header_default,'header_default missing')
+self.header_length=#self.header.pack(self.header_default)
+end
+end
+function abstract_data:repr_data()
+return e.repr{format=self.format,
+header_length=self.header_length,
+header_default=self.header_default}
+end
+function abstract_data:decode(e)
+if type(e)=='string'
+then
+e=i.cursor(e)
+end
+local o=e.pos
+local t,a=self:try_decode(e)
+if t
+then
+return t
+end
+e.pos=o
+return nil,a
+end
+function abstract_data:try_decode(e)
+if not has_left(e,self.header_length)
+then
+return nil,string.format('not enough left for header (%d<%d+%d)',
+#e.str,self.header_length,e.pos)
+end
+local e=self.header.unpack(e)
+return e
+end
+function abstract_data:do_encode(e)
+if self.header_default
+then
+for t,a in pairs(self.header_default)
+do
+if not e[t]
+then
+e[t]=a
+end
+end
+end
+local e=self.header.pack(e)
+return e
+end
+function abstract_data:encode(t)
+self:a(self.header,'header missing - using class method instead of instance?')
+if self.copy_on_encode
+then
+t=e.table_copy(t)
+end
+return self:do_encode(t)
+end
+function has_left(t,a)
+e.a(type(a)=='number')
+e.a(type(t)=='table')
+return(#t.str-t.pos)>=a
+end
+ac_tlv=abstract_data:new_subclass{class='ac_tlv',
+format='type:u2 length:u2',
+mandatory={'tlv_type'},
+}
+function ac_tlv:init()
+if not self.header_default
+then
+self.header_default={type=self.tlv_type,length=0}
+end
+abstract_data.init(self)
+end
+function ac_tlv:try_decode(o)
+local t,a=abstract_data.try_decode(self,o)
+if not t then return t,a end
+local a=self.header_length
+local a=t.length-a
+if not has_left(o,a)
+then
+return nil,'not enough for body'
+end
+if self.tlv_type and t.type~=self.tlv_type
+then
+return nil,string.format("wrong type - expected %d, got %d",self.tlv_type,t.type)
+end
+t.body=o:read(a)
+self:a(#t.body==a)
+if t.length%4~=0
+then
+local a=4-t.length%4
+local t,o=o:read(a)
+if not t
+then
+return nil,string.format('error reading padding: %s',e.repr(o))
+end
+e.a(t,'unable to read padding',a)
+if#t~=a
+then
+return nil,string.format('eof while reading padding')
+end
+e.a(#t==a)
+end
+return t
+end
+function ac_tlv:do_encode(e)
+self:a(self.tlv_type,'self.tlv_type not set')
+e.length=#e.body+self.header_length
+local t=(4-e.length%4)%4
+local t=string.rep(r,t)
+local e={abstract_data.do_encode(self,e),e.body,t}
+return table.concat(e)
+end
+prefix_body=abstract_data:new{class='prefix_body',
+format='prefix_length:u1 r1:u1 r2:u1 r3:u1',
+header_default={prefix_length=0,
+r1=0,r2=0,r3=0}}
+function prefix_body:try_decode(a)
+local t,o=abstract_data.try_decode(self,a)
+if not t then return t,o end
+s=math.floor((t.prefix_length+31)/32)
+s=s*4
+if not has_left(a,s)then return nil,'not enough for prefix'end
+local o=a:read(s)
+e.a(o,'read failed despite having enough left?',a)
+local e=math.floor((t.prefix_length+7)/8)
+local e=string.sub(o,1,e)
+t.prefix=n.new_prefix_from_binary(e,t.prefix_length)
+return t
+end
+function prefix_body:do_encode(t)
+e.a(t.prefix,'prefix missing',t)
+local a=t.prefix
+local e=a:get_binary()
+local a=a:get_binary_bits()
+t.prefix_length=a
+s=math.floor((a+31)/32)
+s=s*4
+pad=string.rep(r,s-#e)
+return abstract_data.do_encode(self,t)..e..pad
+end
+prefix_ac_tlv=ac_tlv:new_subclass{class='prefix_ac_tlv',
+tlv_type=AC_TLV_USP}
+function prefix_ac_tlv:try_decode(e)
+local e,t=ac_tlv.try_decode(self,e)
+if not e then return e,t end
+local t,a=prefix_body:decode(e.body)
+if not t then return t,a end
+e.body=nil
+e.prefix=t.prefix
+return e
+end
+function prefix_ac_tlv:do_encode(e)
+local t
+if type(e.prefix)=='string'
+then
+t=n.new_prefix_from_ascii(e.prefix)
+else
+t=e.prefix
+end
+local t={prefix=t}
+local t=prefix_body:do_encode(t)
+e.body=t
+return ac_tlv.do_encode(self,e)
+end
+rhf_ac_tlv=ac_tlv:new{class='rhf_ac_tlv',tlv_type=AC_TLV_RHF}
+function rhf_ac_tlv:try_decode(e)
+local e,t=ac_tlv.try_decode(self,e)
+if not e then return e,t end
+if e.length<MINIMUM_AC_TLV_RHF_LENGTH
+then
+return nil,'too short RHF payload'
+end
+return e
+end
+usp_ac_tlv=prefix_ac_tlv:new{class='usp_ac_tlv',
+tlv_type=AC_TLV_USP}
+asp_ac_tlv=prefix_ac_tlv:new{class='asp_ac_tlv',
+format='type:u2 length:u2 iid:u4',
+tlv_type=AC_TLV_ASP,
+header_default={type=AC_TLV_ASP,
+length=0,iid=0}}
+json_ac_tlv=ac_tlv:new{class='json_ac_tlv',tlv_type=AC_TLV_JSONBLOB}
+function json_ac_tlv:try_decode(e)
+local e,t=ac_tlv.try_decode(self,e)
+if not e then return e,t end
+self:a(e.body)
+local t=h.decode(e.body)
+e.table=t
+return e
+end
+function json_ac_tlv:do_encode(e)
+self:a(e.table,'no table specified for json_ac_tlv')
+local t=h.encode(e.table)
+e.body=t
+return ac_tlv.do_encode(self,e)
+end
+local a={rhf_ac_tlv,usp_ac_tlv,asp_ac_tlv,json_ac_tlv}
+function decode_ac_tlvs(t)
+local t=i.cursor(t)
+local o=e.array_map(a,
+function(e)
+return e.header_length
+end)
+local o=e.min(unpack(o))
+local e={}
+while has_left(t,o)
+do
+local o=false
+for i,a in ipairs(a)
+do
+local t,a=a:decode(t)
+if t
+then
+table.insert(e,t)
+o=true
+break
+end
+end
+assert(o,'unable to decode',t)
+end
+return e,t.pos
+end
+end)
+package.preload['elsa_pa']=(function(...)
+require'mst'
+require'codec'
+require'ssloop'
+local e=require'pa'
+module(...,package.seeall)
+AC_TYPE=44047
+FORCE_SKV_AC_CHECK_INTERVAL=60
+PD_SKVPREFIX='pd-'
+SIXRD_SKVPREFIX='6rd-'
+SIXRD_DEV='6rd'
+DHCPV4_SKVPREFIX='dhcp-'
+DISABLE_SKVPREFIX='disable-pa-'
+DISABLE_V4_SKVPREFIX='disable-pa-v4-'
+PREFIX_KEY='prefix.'
+DNS_KEY='dns.'
+DNS_SEARCH_KEY='dns-search.'
+NH_KEY='nh.'
+PD_IFLIST_KEY='pd-iflist'
+OSPF_RID_KEY='ospf-rid'
+OSPF_LAP_KEY='ospf-lap'
+OSPF_USP_KEY='ospf-usp'
+OSPF_DNS_KEY='ospf-dns'
+OSPF_DNS_SEARCH_KEY='ospf-dns-search'
+OSPF_IFLIST_KEY='ospf-iflist'
+OSPF_IPV4_DNS_KEY='ospf-v4-dns'
+OSPF_IPV4_DNS_SEARCH_KEY='ospf-v4-dns-search'
+JSON_ASA_KEY='asa'
+JSON_DNS_KEY='dns'
+JSON_DNS_SEARCH_KEY='dns-search'
+JSON_IPV4_DNS_KEY='ipv4-dns'
+JSON_IPV4_DNS_SEARCH_KEY='ipv4-dns-search'
+NEW_PREFIX_ASSIGNMENT=20
+NEW_ULA_PREFIX=20
+LAP_DEPRACATE_TIMEOUT=240
+LAP_EXPIRE_TIMEOUT=300
+ORIGINATE_MIN_INTERVAL=4
+ORIGINATE_MAX_INTERVAL=300
+elsa_lap=e.lap:new_subclass{class='elsa_lap',
+}
+local h={[JSON_DNS_KEY]={prefix=PD_SKVPREFIX,
+key=DNS_KEY,
+ospf=OSPF_DNS_KEY},
+[JSON_DNS_SEARCH_KEY]={prefix=PD_SKVPREFIX,
+key=DNS_SEARCH_KEY,
+ospf=OSPF_DNS_SEARCH_KEY},
+[JSON_IPV4_DNS_KEY]={prefix=DHCPV4_SKVPREFIX,
+key=DNS_KEY,
+ospf=OSPF_IPV4_DNS_KEY},
+[JSON_IPV4_DNS_SEARCH_KEY]={prefix=DHCPV4_SKVPREFIX,
+key=DNS_SEARCH_KEY,
+ospf=OSPF_IPV4_DNS_SEARCH_KEY},
+}
+function elsa_lap:start_depracate_timeout()
+local e=ssloop.loop()
+self:d('start_depracate_timeout')
+self.timeout=e:new_timeout_delta(LAP_DEPRACATE_TIMEOUT,
+function()
+self.sm:Timeout()
+end)
+self.timeout:start()
+end
+function elsa_lap:stop_depracate_timeout()
+self:d('stop_depracate_timeout')
+mst.a(self.timeout,'stop_depracate_timeout without timeout?!?')
+self.timeout:done()
+self.timeout=nil
+end
+function elsa_lap:start_expire_timeout()
+local e=ssloop.loop()
+self:d('start_expire_timeout')
+self.timeout=e:new_timeout_delta(LAP_EXPIRE_TIMEOUT,
+function()
+self.sm:Timeout()
+end)
+self.timeout:start()
+end
+function elsa_lap:stop_expire_timeout()
+self:d('stop_expire_timeout')
+mst.a(self.timeout,'stop_depracate_timeout without timeout?!?')
+self.timeout:done()
+self.timeout=nil
+end
+elsa_pa=mst.create_class{class='elsa_pa',
+mandatory={'skv','elsa'},
+new_prefix_assignment=NEW_PREFIX_ASSIGNMENT,
+new_ula_prefix=NEW_ULA_PREFIX,
+time=os.time,
+originate_min_interval=ORIGINATE_MIN_INTERVAL,
+}
+function elsa_pa:init()
+self.ac_changes=1
+self.lsa_changes=1
+self.check_skvp=true
+self.last_publish=0
+self.last_originate=0
+self.last_body=''
+self.pa=e.pa:new{rid=self.rid,client=self,lap_class=elsa_lap,
+new_prefix_assignment=self.new_prefix_assignment,
+new_ula_prefix=self.new_ula_prefix,
+time=self.time}
+self.all_seen_if_names=mst.set:new{}
+self.f=function(t,e)self:kv_changed(t,e)end
+self.skv:add_change_observer(self.f)
+end
+function elsa_pa:uninit()
+self.skv:remove_change_observer(self.f)
+self.pa:done()
+end
+function elsa_pa:kv_changed(e,e)
+self.check_skvp=true
+end
+function elsa_pa:lsa_changed(e)
+local t=e.type
+if e.rid==self.rid
+then
+return
+end
+if t==AC_TYPE
+then
+self.ac_changes=self.ac_changes+1
+else
+self.lsa_changes=self.lsa_changes+1
+end
+end
+function elsa_pa:lsa_deleting(e)
+self:lsa_changed(e)
+end
+function elsa_pa:ospf_changed()
+self:d('deprecated ospf_changed called')
+self.ac_changes=self.ac_changes+1
+self.lsa_changes=self.lsa_changes+1
+end
+function elsa_pa:repr_data()
+return'-'
+end
+function elsa_pa:get_hwf(e)
+e=e or self.rid
+local e=self.elsa:get_hwf(e)
+mst.a(e)
+return e
+end
+function elsa_pa:get_padded_hwf(e)
+local e=self:get_hwf(e)
+mst.a(e,'unable to get hwf')
+local t=codec.MINIMUM_AC_TLV_RHF_LENGTH
+if#e<t
+then
+e=e..string.rep('1',t-#e)
+end
+mst.a(#e>=t)
+return e
+end
+function elsa_pa:check_conflict(s)
+local i=self:get_padded_hwf()
+local t=nil
+local a=0
+local o=0
+function consider_lsa(n)
+a=a+1
+if n.rid~=self.rid then return end
+local e=nil
+for a,t in ipairs(codec.decode_ac_tlvs(n.body))
+do
+o=o+1
+if t.type==codec.AC_TLV_RHF
+then
+e=t.body
+end
+end
+if e and e~=i
+then
+t=e
+end
+end
+if s then consider_lsa(s)end
+self:iterate_ac_lsa(consider_lsa)
+self:d('check_conflict considered',a,o)
+if not t then return end
+self:d('found conflict',i,t)
+if i>t
+then
+self:d('we have precedence, wait for other to renumber')
+return
+end
+self:d('trying to change local rid, as we lack precedence')
+self.elsa:change_rid(self.rid)
+self.ac_changes=0
+self.lsa_changes=0
+self.had_conflict=true
+return true
+end
+function elsa_pa:should_run(e)
+e=e or self.ac_changes
+if self.pa:should_run()
+then
+return true
+end
+if e>0
+then
+mst.d('should run - ac changes pending',self.ac_changes)
+return true
+end
+end
+function elsa_pa:should_publish(e)
+if e.r then return true end
+if e.s and e.s~=self.s then return true end
+if e.ac_changes>0 then return true end
+if e.lsa_changes>0 then return true end
+if(self.time()-self.last_publish)>FORCE_SKV_AC_CHECK_INTERVAL then return true end
+end
+function elsa_pa:get_mutable_state()
+local e=table.concat{mst.repr{self.pa.ridr},self.skvp_repr}
+e=mst.create_hash_if_fast(e)
+return e
+end
+function elsa_pa:run()
+self:d('run starting')
+if self.ac_changes==0
+then
+if self.had_conflict
+then
+self:d('had conflict, no changes => still have conflict')
+return
+end
+else
+if self:check_conflict()then return end
+end
+local a=self.ac_changes
+local o=self.lsa_changes
+self.ac_changes=0
+self.lsa_changes=0
+if self.check_skvp
+then
+self:update_skvp()
+end
+self.pa.rid=self.rid
+local e
+if self:should_run(a)
+then
+e=self.pa:run{checked_should=true}
+self:d('pa.run result',e)
+end
+local t=self.time()
+local t=self:get_mutable_state()
+if self:should_publish{s=t,r=e,ac_changes=a,lsa_changes=o}
+then
+self.last_publish=self.time()
+self:d('run doing skv/lsa update',e)
+self.s=t
+self:run_handle_new_lsa()
+self:run_handle_skv_publish()
+end
+self:d('run done')
+end
+function elsa_pa:run_handle_new_lsa()
+local e=self:generate_ac_lsa()
+mst.a(e and#e,'empty generated LSA?!?')
+local t=self.time()
+local a=t-self.last_originate
+if a<self.originate_min_interval
+then
+self.last_publish=0
+return
+end
+if e==self.last_body
+then
+if a<ORIGINATE_MAX_INTERVAL
+then
+return
+end
+end
+self.last_originate=t
+self.last_body=e
+self.elsa:originate_lsa{type=AC_TYPE,
+rid=self.rid,
+body=e}
+end
+function elsa_pa:run_handle_skv_publish()
+self.skv:set(OSPF_RID_KEY,self.rid)
+local o=mst.array:new()
+local a={}
+for t,e in ipairs(self.pa.lap:values())
+do
+local t=self.pa.ifs[e.iid]
+if not t
+then
+self:d('zombie interface',e)
+t={}
+end
+if e.address
+then
+self:a(not a[e.ifname],
+'system state somehow screwed up [>1 v4 address per if] ',
+self.pa.usp,self.pa.asp,self.pa.lap)
+a[e.ifname]=true
+end
+o:insert({ifname=e.ifname,
+prefix=e.ascii_prefix,
+depracate=e.depracated and 1 or nil,
+owner=e.owner,
+address=e.address and e.address:get_ascii()or nil,
+external=t.external,
+})
+end
+self.skv:set(OSPF_LAP_KEY,o)
+local e=mst.array:new{}
+for a,t in pairs(self.pa.ifs)
+do
+e:insert(t.name)
+end
+self.skv:set(OSPF_IFLIST_KEY,e)
+for t,e in pairs(h)
+do
+local a=self:get_local_field_array(e.prefix,e.key)
+self.skv:set(e.ospf,self:get_field_array(a,t))
+end
+local o=mst.array:new{}
+local i=mst.set:new{}
+self:d('creating usp list')
+for e,t in ipairs(self.pa.usp:values())
+do
+local a=t.rid
+local e=t.ascii_prefix
+if not i[e]
+then
+self:d(' usp',e)
+i:insert(e)
+if t.prefix:is_ula()or t.prefix:is_ipv4()
+then
+o:insert({prefix=e,rid=a})
+else
+local t=self.skvp[e]
+if not t or not t.ifname
+then
+t=self:route_to_rid(a)or{}
+end
+o:insert({prefix=e,rid=a,nh=t.nh,ifname=t.ifname})
+end
+end
+end
+self.skv:set(OSPF_USP_KEY,o)
+end
+function elsa_pa:iterate_ac_lsa(t,e)
+e=e or{}
+mst.a(not e.type)
+e.type=AC_TYPE
+self.elsa:iterate_lsa(self.rid,t,e)
+end
+function elsa_pa:iterate_ac_lsa_tlv(o,a)
+function inner_f(e)
+if e.rid==self.rid
+then
+return
+end
+xpcall(function()
+for i,t in ipairs(codec.decode_ac_tlvs(e.body))
+do
+if not a or mst.table_contains(t,a)
+then
+o(t,e)
+end
+end
+end,
+function(...)
+if mst.enable_debug
+then
+print(debug.traceback())
+mst.debug_print('!!! lsa body handling failed',...)
+end
+if not _TEST
+then
+mst.debug_print('invalid lsa in hex',e.rid,e.type,mst.string_to_hex(e.body))
+end
+end)
+end
+self:iterate_ac_lsa(inner_f)
+end
+function elsa_pa:route_to_rid(e)
+local e=self.elsa:route_to_rid(self.rid,e)or{}
+return e
+end
+function elsa_pa:iterate_rid(t,e)
+e{rid=t}
+self:iterate_ac_lsa(function(t)
+e{rid=t.rid}
+end)
+end
+function elsa_pa:iterate_asp(a,o)
+self:iterate_ac_lsa_tlv(function(t,e)
+self:a(e and t)
+self:a(a~=e.rid,'own asp in iterate?')
+o{prefix=t.prefix,iid=t.iid,rid=e.rid}
+end,{type=codec.AC_TLV_ASP})
+end
+function elsa_pa:iterate_asa(e,t)
+for a,e in ipairs(self:get_asa_array())
+do
+t{rid=e.rid,prefix=ipv6s.new_prefix_from_ascii(e.prefix)}
+end
+end
+function elsa_pa:iterate_usp(o,t)
+self:iterate_skv_prefix(function(e)
+t{prefix=e.prefix,
+rid=o,
+}
+end)
+self:iterate_ac_lsa_tlv(function(a,e)
+self:a(e and a)
+self:a(o~=e.rid,'own asp in iterate?')
+t{prefix=a.prefix,rid=e.rid}
+end,{type=codec.AC_TLV_USP})
+end
+function elsa_pa:iterate_if(o,a)
+local t=mst.set:new{}
+self:iterate_skv_prefix(function(e)
+local e=e.ifname
+self:d('in use ifname',e)
+t:insert(e)
+end)
+self.elsa:iterate_if(o,function(e)
+self.all_seen_if_names:insert(e.name)
+self:a(e)
+if t[e.name]
+then
+e.external=true
+end
+e.disable=self.skv:get(DISABLE_SKVPREFIX..e.name)
+e.disable_v4=self.skv:get(DISABLE_V4_SKVPREFIX..e.name)
+a(e)
+end)
+end
+function elsa_pa:iterate_ifo_neigh(t,e,a)
+self.elsa:iterate_ifo_neigh(t,e,a)
+end
+function elsa_pa:iterate_skv_prefix(t)
+for a,e in pairs(self.skvp)
+do
+t(e)
+end
+end
+function elsa_pa:update_skvp()
+self.check_skvp=nil
+self.skvp=mst.map:new()
+self:iterate_skv_prefix_real(function(e)
+self.skvp[e.prefix]=e
+end)
+self.skvp_repr=mst.repr(self.skvp)
+end
+function elsa_pa:iterate_skv_if_real(t,i,s,h)
+local a=self.skv:get(string.format('%s%s%s',
+i,PREFIX_KEY,t))
+if not a
+then
+return
+end
+self.all_seen_if_names:insert(t)
+local o,e
+if type(a)=='string'
+then
+o=a
+e=nil
+else
+o,e=unpack(a)
+end
+local n
+local a=self.skv:get(string.format('%s%s%s',
+i,NH_KEY,t))
+if a
+then
+self:a(type(a)=='string')
+n=a
+end
+if not e or e>=self.time()
+then
+h{prefix=o,ifname=t,nh=n,metric=s}
+end
+end
+function elsa_pa:iterate_skv_pd_prefix_real(t)
+local e=self.skv:get(PD_IFLIST_KEY)
+for a,e in ipairs(e or self.all_seen_if_names:keys())
+do
+self:iterate_skv_if_real(e,PD_SKVPREFIX,1e3,t)
+end
+end
+function elsa_pa:iterate_skv_prefix_real(e)
+self:iterate_skv_pd_prefix_real(e)
+self:iterate_skv_if_real(SIXRD_DEV,SIXRD_SKVPREFIX,2e3,e)
+end
+function elsa_pa:get_field_array(a,t)
+local e=mst.set:new{}
+for a,t in ipairs(a or{})
+do
+e:insert(t)
+end
+self:iterate_ac_lsa_tlv(function(a,o)
+for a,t in ipairs(a.table[t]or{})
+do
+e:insert(t)
+end
+end,{type=codec.AC_TLV_JSONBLOB})
+return e:keys()
+end
+function elsa_pa:get_local_field_array(o,a)
+local e
+for i,t in ipairs(self.all_seen_if_names:keys())
+do
+local t=self.skv:get(string.format('%s%s%s',
+o,a,t))
+if t
+then
+if not e then e=mst.array:new{}end
+e:insert(t)
+end
+end
+return e
+end
+function elsa_pa:get_local_asa_array()
+local t=mst.array:new{}
+local e=self.pa.lap:values():filter(function(e)return e.address end)
+self:ph_list_sorted(e)
+for a,e in ipairs(e)
+do
+t:insert({rid=self.rid,prefix=e.address:get_ascii()})
+end
+return t
+end
+function elsa_pa:get_asa_array()
+return self:get_field_array(self:get_local_asa_array(),JSON_ASA_KEY)
+end
+function elsa_pa:ph_list_sorted(e)
+local e=mst.table_copy(e or{})
+table.sort(e,function(e,t)
+return e.prefix:get_binary()<t.prefix:get_binary()
+end)
+return e
+end
+function elsa_pa:generate_ac_lsa()
+self:d('generate_ac_lsa')
+local e=mst.array:new()
+local t=self:get_padded_hwf(self.rid)
+self:d(' hwf',t)
+e:insert(codec.rhf_ac_tlv:encode{body=t})
+local t=self:ph_list_sorted(self.pa.usp[self.rid])
+for a,t in ipairs(t)
+do
+self:d(' usp',self.rid,t.prefix)
+e:insert(codec.usp_ac_tlv:encode{prefix=t.prefix})
+end
+local t=self:ph_list_sorted(self.pa:get_local_asp_values())
+for a,t in ipairs(t)
+do
+self:d(' asp',self.rid,t.iid,t.prefix)
+e:insert(codec.asp_ac_tlv:encode{prefix=t.prefix,iid=t.iid})
+end
+local t=mst.map:new{}
+for a,e in pairs(h)
+do
+local e=self:get_local_field_array(e.prefix,e.key)
+t[a]=e
+end
+t[JSON_ASA_KEY]=self:get_local_asa_array()
+if t:count()>0
+then
+self:d(' json',t)
+e:insert(codec.json_ac_tlv:encode{table=t})
+end
+if#e
+then
+local e=table.concat(e)
+self:d('generated ac lsa of length',#e)
+return e
+end
+end
+end)
+package.preload['ipv6s']=(function(...)
+require'mst'
+module(...,package.seeall)
+ula_prefix=string.char(252)
+local i=string.char(0)
+local s=string.rep(i,10)..string.rep(string.char(255),2)
+function address_cleanup(e)
+function address_cleanup_sub(e,a,t,o)
+for t=a,t
+do
+table.insert(o,string.format("%x",e[t]))
+end
+end
+local e=mst.string_split(e,':')
+local t=mst.array_map(e,function(e)return tonumber(e,16)end)
+local e=false
+for o,a in ipairs(t)
+do
+if a==0
+then
+local a=1
+for e=o+1,#t
+do
+if t[e]==0
+then
+a=a+1
+else
+break
+end
+end
+if not e or e[1]<a
+then
+e={a,o}
+end
+end
+end
+local a={}
+if e
+then
+if e[2]>=2
+then
+address_cleanup_sub(t,1,e[2]-1,a)
+else
+table.insert(a,'')
+end
+table.insert(a,'')
+if e[1]+e[2]>#t
+then
+table.insert(a,'')
+else
+address_cleanup_sub(t,e[1]+e[2],#t,a)
+end
+else
+address_cleanup_sub(t,1,#t,a)
+end
+return table.concat(a,":")
+end
+function binary_address_to_address(e)
+if binary_address_is_ipv4(e)and#e==16
+then
+local e={string.byte(e,13,16)}
+local e=mst.array_map(e,tostring)
+return table.concat(e,"."),96
+end
+mst.a(type(e)=='string','non-string input to binary_address_to_address',e)
+local t={}
+for e,a in mst.string_ipairs(e)
+do
+local a=string.byte(a)
+if e%2==1 and e>1
+then
+table.insert(t,':')
+end
+table.insert(t,string.format('%02x',a))
+end
+return address_cleanup(table.concat(t))
+end
+function address_to_binary_address(e)
+mst.a(type(e)=='string','non-string input to address_to_binary',e)
+if e=='::'
+then
+return string.rep(i,16)
+end
+local a=mst.string_split(e,":")
+if#a==1 and string.find(e,".")
+then
+local e=mst.string_split(e,".")
+if#e==4
+then
+local e=s..table.concat(e:map(string.char))
+return e,96
+end
+end
+mst.a(#a<=8)
+local t=false
+for a,o in ipairs(a)
+do
+if#o==0
+then
+mst.a(not t or(t==a-1),"multiple ::s",e,t,a)
+if not t
+then
+t=a
+end
+end
+end
+local e={}
+for n,o in ipairs(a)
+do
+if n==t
+then
+local t=(8+2-#a)
+for t=1,t
+do
+table.insert(e,i..i)
+end
+elseif#o>0
+then
+local t,a=tonumber(o,16)
+local a=string.char(math.floor(t/256))
+local t=string.char(t%256)
+table.insert(e,a..t)
+else
+end
+end
+return table.concat(e)
+end
+function binary_prefix_to_binary_address(e)
+if#e<16
+then
+return e..string.rep(i,16-#e)
+end
+mst.a(#e==16)
+return e
+end
+function prefix_to_binary_prefix(e)
+local t=mst.string_split(e,'/')
+mst.a(#t==2,'invalid prefix (no prefix length)',e)
+local e=tonumber(t[2])
+local t,a=address_to_binary_address(t[1])
+e=e+(a or 0)
+return string.sub(t,1,math.floor((e+7)/8)),e
+end
+function binary_prefix_to_prefix(t,e)
+local e=e or#t*8
+local t=binary_prefix_to_binary_address(t)
+local a,t=binary_address_to_address(t)
+e=e-(t or 0)
+return string.format('%s/%d',a,e)
+end
+function binary_prefix_contains(a,o,t,e)
+mst.a(type(a)=='string','non-string arg')
+mst.a(type(t)=='string','non-string arg')
+mst.a(a and t,'invalid arguments to binary_prefix_contains',a,t)
+if#a>#t
+then
+return false
+end
+mst.a(o and e)
+if o>e
+then
+return false
+end
+mst.a(#a==math.floor((o+7)/8))
+mst.a(#t==math.floor((e+7)/8))
+mst.d('binary_prefix_contains',#a,o,#t,e)
+function contains_rec(e)
+local i=(e-1)*8
+if i>=o
+then
+mst.d('yep, all bits done')
+return true
+end
+if o>=(i+8)
+then
+local a=string.sub(a,e,e)
+local t=string.sub(t,e,e)
+return a==t and contains_rec(e+1)
+end
+local o=o-i
+local a=string.byte(string.sub(a,e,e))
+local t=string.byte(string.sub(t,e,e))
+a=math.floor(a/2^(8-o))
+t=math.floor(t/2^(8-o))
+mst.d(' considering',e,a,t)
+return a==t
+end
+return contains_rec(1)
+end
+function prefix_contains(t,e)
+mst.a(t and e,'invalid arguments to prefix_contains',t,e)
+local t,a=prefix_to_binary_prefix(t)
+local e,o=prefix_to_binary_prefix(e)
+return binary_prefix_contains(t,a,e,o)
+end
+function binary_prefix_next_from_usp(a,s,e,o)
+mst.a(type(a)=='string',a)
+mst.a(type(e)=='string',e)
+local t={string.byte(e,1,#e)}
+local n=(8-o%8)%8
+for e=o/8,1,-1
+do
+local a=2^n
+mst.d('changing',e,n,a)
+t[e]=(t[e]+a)%256
+if t[e]>0
+then
+mst.d('did not yet overflow',t[e])
+break
+else
+n=0
+end
+end
+local e=string.char(unpack(t))
+if binary_prefix_contains(a,s,e,o)
+then
+return e
+end
+local e=math.floor((o+7)/8)
+return a..string.rep(i,e-#a)
+end
+function prefix_hwaddr_to_eui64(e,t)
+local a=prefix_to_binary_prefix(e)
+mst.a(#a==8,'invalid base prefix')
+local e=mst.string_split(t,':')
+mst.a(#e==6,'invalid hwaddr',#e,t)
+local e=e:map(function(e)return tonumber(e,16)end)
+e[1]=mst.bitv_xor_bit(e[1],2)
+local t=e:slice(1,3)
+t:extend({255,254})
+t:extend(e:slice(4,6))
+local e=string.char(unpack(t))
+local e=a..e
+return binary_address_to_address(e)..'/64'
+end
+function prefix_bits(e)
+local t=mst.string_split(e,'/')
+mst.a(#t==2)
+local e=tonumber(t[2])
+mst.a(e,'failed to convert',t[2])
+mst.a(e>=0 and e<=128)
+return e
+end
+ipv6_prefix=mst.create_class{class='ipv6_prefix'}
+function ipv6_prefix:init()
+self:a(self.ascii or self.binary)
+self:a(not self.binary_bits or(self.binary_bits>=0 and self.binary_bits<=128))
+end
+function ipv6_prefix:get_ascii()
+if not self.ascii
+then
+self:a(self.binary)
+self.ascii=binary_prefix_to_prefix(self.binary,
+self:get_binary_bits())
+end
+return self.ascii
+end
+function ipv6_prefix:clear_tailing_bits()
+self:get_binary()
+self.ascii=nil
+end
+function ipv6_prefix:get_binary()
+if not self.binary
+then
+self:a(self.ascii)
+self.binary,self.binary_bits=prefix_to_binary_prefix(self.ascii)
+self:a(self.binary_bits>=0 and self.binary_bits<=128)
+end
+return self.binary
+end
+function ipv6_prefix:get_binary_bits()
+if self.binary_bits then return self.binary_bits end
+return#self:get_binary()*8
+end
+function binary_address_is_ula(e)
+return string.sub(e,1,#ula_prefix)==ula_prefix
+end
+function ipv6_prefix:is_ula()
+return binary_address_is_ula(self:get_binary())
+end
+function binary_address_is_ipv4(e)
+return string.sub(e,1,#s)==s
+end
+function ipv6_prefix:is_ipv4()
+return binary_address_is_ipv4(self:get_binary())
+end
+function ipv6_prefix:repr()
+return mst.repr(self:get_ascii())
+end
+function ipv6_prefix:next_from_usp(t)
+local a=self:get_binary()
+local e=self:get_binary_bits()
+local o=t:get_binary()
+local t=t:get_binary_bits()
+local t=binary_prefix_next_from_usp(o,t,a,e)
+return new_prefix_from_binary(t,e)
+end
+function ipv6_prefix:contains(e)
+local a=self:get_binary()
+local o=self:get_binary_bits()
+local t=e:get_binary()
+local e=e:get_binary_bits()
+return binary_prefix_contains(a,o,t,e)
+end
+function new_prefix_from_ascii(e)
+return ipv6_prefix:new{ascii=e}
+end
+function new_prefix_from_binary(e,t)
+return ipv6_prefix:new{binary=e,binary_bits=t}
+end
+end)
+package.preload['mst']=(function(...)
+local m=require'os'
+local e=require'table'
+local r=require'string'
+local w=require'math'
+local j=require'io'
+local v=assert
+local f=setmetatable
+local u=getmetatable
+local s=ipairs
+local g=pcall
+local k=xpcall
+local b=require
+local q=collectgarbage
+local p=tostring
+local o=type
+local l=pairs
+local y=unpack
+if not m.getenv("DISABLE_MST_STRICT")
+then
+b'strict'
+end
+module(...)
+enable_debug=m.getenv("ENABLE_MST_DEBUG")or false
+enable_debug_date=true
+enable_assert=true
+array=nil
+map=nil
+set=nil
+function check_parameters(o,a,t,e)
+e=e or 2
+v(a and t)
+for i,t in s(t)do
+if a[t]==nil
+then
+error(t.." is mandatory parameter to "..o,e)
+end
+end
+end
+function debug_print(...)
+local i={}
+local t={...}
+local a={}
+for n,t in s(t)
+do
+if o(t)=='table'and(not u(t)or not u(t).__tostring)
+then
+a[t]=u(t)
+f(t,_repr_metatable)
+e.insert(i,t)
+end
+end
+if enable_debug_date
+then
+print(m.date(),...)
+else
+print(...)
+end
+for t,e in s(i)
+do
+f(e,a[e])
+end
+end
+function a(e,...)
+if not enable_assert
+then
+v(e,...)
+return
+end
+if not e
+then
+print(debug.traceback())
+debug_print(...)
+error('assertion failed',2)
+end
+end
+function d(...)
+if enable_debug
+then
+debug_print(...)
+end
+end
+mst={a=a,d=d}
+baseclass={}
+function baseclass:init()
+end
+function baseclass:uninit()
+end
+function baseclass:done()
+if self._is_done
+then
+return
+end
+self._is_done=true
+self:uninit()
+for e,t in l(self._observers or{})
+do
+for a,t in s(t)
+do
+e:remove_observer(t)
+end
+end
+self._observers=nil
+for e,t in s(self.events or{})
+do
+local e=self[t]
+self:a(e,"event missing")
+e:done()
+self[t]=nil
+end
+end
+function baseclass:new_subclass(e)
+return create_class(e,self)
+end
+function baseclass:new(e)
+e=e or{}
+local t=u(self).cmt
+mst.a(t,"missing child-metatable",self)
+self:a(u(e)==nil,':new with table that has non-empty metatable',e)
+f(e,t)
+mst.a(e.init,"missing init method?",self)
+if e.mandatory
+then
+check_parameters(p(e)..':new()',e,e.mandatory,3)
+end
+for a,t in s(e.events or{})
+do
+e[t]=event:new()
+end
+e:init()
+return e
+end
+function baseclass:connect(t,a)
+self:a(t,'null event')
+self:a(a,'null fun')
+self:a(o(t)=='table','event not table',o(t),t,a)
+if not self._observers
+then
+self._observers={}
+end
+local o=self._observers[t]or{}
+self._observers[t]=o
+e.insert(o,a)
+t:add_observer(a)
+end
+function baseclass:connect_method(a,t,e)
+self:connect(a,function(...)
+e(t,...)
+end)
+end
+function baseclass:repr_data(e)
+return nil
+end
+function baseclass:repr(t)
+local e=u(self)
+f(self,{})
+local a=p(self)
+f(self,e)
+local e=self:repr_data(t)
+if e
+then
+reprs=' - '..e
+else
+reprs=table_repr(self,t)
+end
+return r.format('<%s %s%s>',
+self.class or p(u(self)),
+a,
+reprs)
+end
+function baseclass:tostring()
+return self:repr()
+end
+function baseclass:d(...)
+self:a(o(self)=='table',"wrong self type ",o(self))
+if self.debug or enable_debug
+then
+debug_print(self:tostring(),...)
+end
+end
+function baseclass:a(e,...)
+if not enable_assert
+then
+v(e,...)
+return
+end
+if not e
+then
+print(debug.traceback())
+debug_print(self:tostring(),...)
+error(self:tostring()..' assertion failed',2)
+end
+end
+function baseclass:call_callback(e,...)
+if self[e]
+then
+self[e](...)
+end
+end
+function baseclass:call_callback_once(e,...)
+if self[e]
+then
+self[e](...)
+self[e]=nil
+end
+end
+function create_class(a,...)
+local t=function(e)
+return e.tostring(e)
+end
+local e={...}
+if#e==0
+then
+e={baseclass}
+end
+mst.a(#e==1,"no support for > 1 superclass for now",#e)
+h=a or{}
+local a={__index=h,
+__tostring=t,
+__mstype=true}
+f(h,{__index=e[1],
+__tostring=t,
+cmt=a})
+return h
+end
+_repr_metatable={__tostring=function(e)return repr(e)end}
+function pcall_and_finally(e,t)
+if enable_debug
+then
+e()
+t()
+return
+end
+local a,e=g(e)
+t()
+if not a
+then
+error(e)
+end
+end
+function array_find(e,a)
+for t,e in s(e)
+do
+if a==e
+then
+return t
+end
+end
+end
+function array_remove(a,t)
+local t=array_find(a,t)
+if t
+then
+e.remove(a,t)
+return true
+end
+end
+function array_is(e)
+if not table_is(e)
+then
+return
+end
+local t=table_count(e)
+for t=1,t
+do
+if e[t]==nil
+then
+return
+end
+end
+return true
+end
+function array_repr(i,n)
+local t={}
+local h=true
+a(o(i)=='table','non-table to table_repr',i)
+n=n or{}
+e.insert(t,"{")
+if n[i]
+then
+return'...'
+end
+n[i]=true
+for a,o in s(i)
+do
+if a>1
+then
+e.insert(t,", ")
+end
+e.insert(t,repr(o,n))
+end
+e.insert(t,"}")
+return e.concat(t)
+end
+function array_to_table(t,a,e)
+local e=e or map:new()
+local a=a or true
+for o,t in s(t)
+do
+e[t]=a
+end
+return e
+end
+function array_foreach(t,e)
+for a,t in s(t)
+do
+e(t)
+end
+end
+function array_map(e,t)
+return table_map(e,function(a,e)
+return t(e)
+end)
+end
+function array_filter(t,a)
+local e=array:new()
+for o,t in s(t)
+do
+if a(t)
+then
+e:insert(t)
+end
+end
+return e
+end
+function array_slice(a,t,e)
+function convert_real(e)
+if e<0
+then
+e=1+#a+e
+end
+return e
+end
+t=t or 1
+e=e or#a
+t=convert_real(t)
+e=convert_real(e)
+local o=array:new{}
+for e=t,e
+do
+o:insert(a[e])
+end
+return o
+end
+function array_extend(a,...)
+for o,t in s({...})
+do
+for o,t in s(t)
+do
+e.insert(a,t)
+end
+end
+end
+array=create_class{class='array',
+filter=array_filter,
+find=array_find,
+foreach=array_foreach,
+insert=e.insert,
+join=e.concat,
+map=array_map,
+remove=array_remove,
+remove_index=e.remove,
+repr=array_repr,
+slice=array_slice,
+sort=e.sort,
+to_table=array_to_table,
+extend=array_extend,
+}
+function array:clear()
+while#self>0
+do
+self[#self]=nil
+end
+end
+function array:count()
+return#self
+end
+function array:is_empty()
+return#self==0
+end
+function array:to_set()
+return array_to_table(self,nil,set:new())
+end
+function string_ipairs_iterator(t,e)
+e=e+1
+if e>#t
+then
+return
+end
+local t=r.sub(t,e,e)
+return e,t
+end
+function string_ipairs(t,e)
+mst.a(o(t)=="string","non-string input",t)
+e=e or 1
+return string_ipairs_iterator,t,e-1
+end
+function string_to_set(t)
+local e=set:new()
+for a,t in string_ipairs(t)
+do
+e:insert(t)
+end
+return e
+end
+function string_strip(e)
+return(e:gsub("^%s*(.-)%s*$","%1"))
+end
+function string_rstrip(e)
+return(e:gsub("^(.-)%s*$","%1"))
+end
+function string_endswith(t,e)
+return r.sub(t,-#e)==e
+end
+function string_startswith(t,e)
+return r.sub(t,1,#e)==e
+end
+local h=false
+function string_is_varok(t)
+local e=h
+if not e
+then
+e=string_to_set("1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
+h=e
+end
+mst.a(o(t)=='string','string_is_varok with non-string',t)
+mst.a(e~=nil,'_my_varok_table not set')
+for a,t in string_ipairs(t)
+do
+if not e[t]
+then
+return false
+end
+end
+return true
+end
+function string_is_ascii(e)
+for t,e in string_ipairs(e)
+do
+local e=r.byte(e)
+if e<32 or e>=128
+then
+return false
+end
+end
+return true
+end
+function string_split_rec(e,t,o,i)
+mst.a(e and t and o and i)
+for a=o,#e
+do
+if r.sub(e,a,a+#t-1)==t
+then
+i:insert(r.sub(e,o,a-1))
+string_split_rec(e,t,a+#t,i)
+return
+end
+end
+i:insert(r.sub(e,o))
+end
+function string_split(e,t)
+mst.a(o(e)=='string','non-string to string_split',e)
+t=t or' '
+mst.a(e,'undefined argument to string_split',e,t)
+local a=array:new()
+string_split_rec(e,t,1,a)
+return a
+end
+function string_to_hex(a)
+local t={}
+for o,a in string_ipairs(a)
+do
+e.insert(t,r.format('%02x',r.byte(a)))
+end
+return e.concat(t)
+end
+function string_find_one(t,...)
+local e={...}
+for a=1,#e,2
+do
+local o=e[a]
+local e=e[a+1]
+local t={r.find(t,o)}
+if#t>=2
+then
+if e
+then
+return e(y(array_slice(t,3)))
+end
+return
+end
+end
+mst.a(false,'no match for string',t,e)
+end
+function table_is(e)
+return o(e)=='table'
+end
+function table_contains(t,e)
+mst.a(t and e,"missing parameters to table_contains")
+for e,a in l(e)
+do
+local e=t[e]
+if not repr_equal(e,a)
+then
+return false
+end
+end
+return true
+end
+function table_deep_copy(t,e)
+mst.a(o(t)=="table")
+e=e or{}
+local a=e[t]
+if a
+then
+return a
+end
+n={}
+f(n,u(t))
+e[t]=n
+for t,a in l(t)
+do
+nk=deep_copy(t,e)
+nv=deep_copy(a,e)
+n[nk]=nv
+end
+return n
+end
+function deep_copy(e,t)
+t=t or{}
+if table_is(e)
+then
+return table_deep_copy(e,t)
+end
+return e
+end
+function table_copy(t,e)
+mst.a(o(t)=="table")
+e=e or{}
+for t,a in l(t)
+do
+e[t]=a
+end
+return e
+end
+function table_count(e)
+c=0
+for e,e in l(e)
+do
+c=c+1
+end
+return c
+end
+function table_is_empty(e)
+for e,e in l(e)
+do
+return false
+end
+return true
+end
+function table_map(t,i)
+mst.a(o(t)=="table","invalid input to table_map",t)
+local a=array:new{}
+for o,t in l(t)
+do
+local t=i(o,t)
+e.insert(a,t)
+end
+return a
+end
+function table_keys(e)
+return table_map(e,function(e,t)
+return e
+end)
+end
+function table_values(e)
+return table_map(e,function(t,e)
+return e
+end)
+end
+_not_comparable_type={userdata=true,table=true,boolean=true}
+function first_before_cmp(t,e)
+local a=o(t)
+local o=o(e)
+if t==e
+then
+return false
+end
+if a~=o
+then
+return a<o
+end
+if _not_comparable_type[a]
+then
+t=repr(t)
+e=repr(e)
+end
+return t<e
+end
+function table_sorted_keys(t)
+local t=table_keys(t)
+e.sort(t,first_before_cmp)
+return t
+end
+function table_sorted_pairs_iterator(e,t)
+local a,e,o=y(e)
+if not t
+then
+i=0
+else
+i=o[t]
+end
+i=i+1
+if e[i]
+then
+return e[i],a[e[i]]
+end
+end
+function table_sorted_pairs(t)
+local e=table_sorted_keys(t)
+local a={}
+for e,t in s(e)
+do
+a[t]=e
+end
+local e={t,e,a}
+return table_sorted_pairs_iterator,e,nil
+end
+function table_repr(i,t)
+local n={}
+local s=true
+a(o(i)=='table','non-table to table_repr',i)
+t=t or{}
+e.insert(n,"{")
+if t[i]
+then
+return'...'
+end
+t[i]=true
+for a,i in table_sorted_pairs(i)
+do
+if not s then e.insert(n,", ")end
+if o(a)=='string'and string_is_varok(a)
+then
+ks=a
+else
+ks=r.format('[%s]',repr(a,t))
+end
+e.insert(n,ks.."="..repr(i,t))
+s=false
+end
+e.insert(n,"}")
+return e.concat(n)
+end
+function table_clear(e)
+local t=e:keys()
+for a,t in s(t)
+do
+e[t]=nil
+end
+end
+map=create_class{class='map',
+clear=table_clear,
+contains=table_contains,
+copy=table_copy,
+count=table_count,
+deep_copy=table_deep_copy,
+is_empty=table_is_empty,
+keys=table_keys,
+sorted_keys=table_sorted_keys,
+sorted_pairs=table_sorted_pairs,
+map=table_map,
+repr=table_repr,
+sorted_keys=table_sorted_keys,
+sorted_pairs=table_sorted_pairs,
+values=table_values,
+}
+function map:foreach(a)
+for t,e in l(self)
+do
+a(t,e)
+end
+end
+function map:remove(e,t)
+self[e]=nil
+end
+function set_intersection(t,a)
+local e=set:new{}
+for t,o in l(t)
+do
+if a[t]
+then
+e:insert(t)
+end
+end
+return e
+end
+function set_difference(e,a)
+local t=set:new{}
+for e,o in l(e)
+do
+if not a[e]
+then
+t:insert(e)
+end
+end
+return t
+end
+function set_union(e,t)
+local e=table_copy(e)
+table_copy(t,e)
+return e
+end
+set=map:new_subclass{class='set',
+intersection=set_intersection,
+difference=set_difference,
+union=set_union,
+}
+function set:insert(e)
+self[e]=true
+end
+function set:remove(e)
+self[e]=nil
+end
+multimap=map:new_subclass{class='multimap'}
+function multimap:insert(t,a)
+self:a(self.class)
+local e=self[t]
+if e==nil
+then
+e=array:new{}
+self[t]=e
+end
+local t=e:find(a)
+e:insert(a)
+return not t
+end
+function multimap:remove(a,e)
+self:a(self.class)
+local t=self[a]
+mst.a(t,'nonexistent key',a,e)
+local o=t:remove(e)
+mst.a(o,'nonexistent value in list',e)
+if#t==0
+then
+self[a]=nil
+end
+return o
+end
+function multimap:foreach(a)
+self:a(self.class)
+for t,e in l(self)
+do
+for o,e in s(e)
+do
+a(t,e)
+end
+end
+end
+function multimap:values()
+self:a(self.class)
+local e=array:new()
+self:foreach(function(a,t)e:insert(t)end)
+return e
+end
+function multimap:count()
+self:a(self.class)
+local e=0
+self:foreach(function(t,t)e=e+1 end)
+return e
+end
+function repr_equal(e,t)
+if o(e)~='userdata'and e==t
+then
+return true
+end
+local e=repr(e)
+local t=repr(t)
+return e==t
+end
+local i=array_to_table{'number','function','boolean','userdata'}
+function repr(e,a)
+local t=o(e)
+if t=='table'
+then
+a=a or{}
+local t=e.repr
+if t
+then
+return t(e,a)
+end
+if array_is(e)
+then
+return array_repr(e,a)
+end
+return table_repr(e,a)
+elseif t=='string'
+then
+if string_is_ascii(e)then
+return r.format('%q',e)
+else
+local t=array:new()
+t:insert('"')
+for a=1,#e
+do
+local e=r.sub(e,a,a)
+if string_is_ascii(e)
+then
+t:insert(e)
+else
+t:insert(r.format('\\%03o',r.byte(e)))
+end
+end
+t:insert('"')
+return t:join()
+end
+elseif t=='nil'
+then
+return'nil'
+elseif i[t]
+then
+return p(e)
+else
+error("unknown type "..t,2)
+end
+end
+function count(e)
+if not e
+then
+return 0
+end
+mst.a(o(e)=='table')
+return table_count(e)
+end
+function min(...)
+local e=nil
+local t={...}
+array_foreach(t,function(t)
+if not e or t<e
+then
+e=t
+end
+end)
+return e
+end
+function max(...)
+local e=nil
+local t={...}
+array_foreach(t,function(t)
+if not e or t>e
+then
+e=t
+end
+end)
+return e
+end
+function d_xpcall(t)
+local t={k(t,
+function(...)
+print(debug.traceback())
+debug_print('!!! d_xpcall failed',...)
+end)}
+e.remove(t,1)
+return y(t)
+end
+function bitv_is_set_bit(e,t)
+mst.a(e and t)
+if t>1
+then
+e=w.floor(e/2^(t-1))
+end
+return e%2>0
+end
+function bitv_set_bit(e,t)
+mst.a(e and t)
+if not bitv_is_set_bit(e,t)
+then
+local t=2^(t-1)
+e=e+t
+end
+return e
+end
+function bitv_clear_bit(e,t)
+mst.a(e and t)
+if bitv_is_set_bit(e,t)
+then
+local t=2^(t-1)
+e=e-t
+end
+return e
+end
+function bitv_xor_bit(e,t)
+mst.a(e and t)
+if bitv_is_set_bit(e,t)
+then
+return bitv_clear_bit(e,t)
+else
+return bitv_set_bit(e,t)
+end
+end
+function bitv_highest_bit(e)
+mst.a(e)
+local t=w.floor(w.log(e)/w.log(2))+1
+mst.d('bitv_highest_bit',e,t)
+return t
+end
+function execute_to_string(e,t)
+mst.d('system',e)
+if t
+then
+e=e.." 2>&1"
+end
+local t=m.tmpname()
+e=e.." > "..t
+local e=m.execute(e)
+if e~=0
+then
+return nil,'os.execute returned '..repr(e)
+end
+local e=read_filename_to_string(t)
+mst.d('got',e)
+m.remove(t)
+return e
+end
+function read_filename_to_string(t)
+local e=j.open(t)
+if e
+then
+local t=e:read('*a')
+e:close()
+return t
+end
+return nil,'no such file '..t
+end
+function randint(t,e)
+mst.a(t<=e)
+local e=e-t
+local a=w.floor(w.random()*(e+1))
+if a>e
+then
+a=e
+end
+return t+a
+end
+function array_randindex(e)
+if#e==0
+then
+return
+end
+local t=randint(1,#e)
+mst.a(t>=1 and t<=#e)
+return t
+end
+function array_randitem(t)
+local e=array_randindex(t)
+if e
+then
+return t[e]
+end
+end
+function array_randlist(t)
+t=table_copy(t)
+local o=array:new{}
+while#t>0
+do
+local a=array_randindex(t)
+o:insert(t[a])
+e.remove(t,a)
+end
+return o
+end
+event=create_class{class='event'}
+function event:init()
+self.observers={}
+end
+function event:uninit()
+self:a(table_is_empty(self.observers),"observers not gone when event is!")
+end
+function event:add_observer(e)
+self.observers[e]=true
+end
+function event:remove_observer(e)
+self:a(self.observers[e],'observer missing',e)
+self.observers[e]=nil
+end
+function event:update(...)
+for e,t in l(self.observers)
+do
+e(...)
+end
+end
+u(event).cmt.__call=event.update
+cache=create_class{class='cache',mandatory={'get_callback'},
+time_callback=m.time,
+default_timeout=1}
+function cache:init()
+self:clear()
+end
+function cache:clear()
+self.map=map:new{}
+end
+function cache:get(e)
+self:a(e~=nil,'no key')
+local t=self.map[e]
+if not t
+then
+return self:create(e)
+end
+local o=t[1]
+local a=t[2]
+local t=self.time_callback()
+self:d('get',t,o,e,a)
+if t<=o
+then
+return a
+end
+return self:create(e)
+end
+function cache:create(e)
+local t,a=self.get_callback(e)
+self:set(e,t,a)
+return t
+end
+function cache:set(t,a,e)
+self.map[t]=nil
+e=e or(a and self.positive_timeout)or self.negative_timeout or self.default_timeout
+local o=self.time_callback()
+self.map[t]={e+o,a}
+end
+function sync_tables(o,a,
+h,
+n,
+i)
+local e=set_difference(o,a):sorted_keys()
+local d=set_intersection(o,a):sorted_keys()
+local r=set_difference(a,o):sorted_keys()
+local t=0
+for a,e in s(e)
+do
+h(e,o[e])
+t=t+1
+end
+for s,e in s(d)
+do
+if i and not i(e,o[e],a[e])
+then
+h(e,o[e])
+n(e,a[e])
+t=t+1
+end
+end
+for o,e in s(r)
+do
+n(e,a[e])
+t=t+1
+end
+return t
+end
+validity_sync=create_class{'validity_sync',mandatory={'t','single'}}
+function validity_sync:clear_all_valid(e)
+e=e or true
+self:a(not self.single==(e~=true))
+if e==true
+then
+self.t:foreach(function(t,e)
+local e=e or t
+e.invalid=true
+end)
+else
+self.t:foreach(function(a,t)
+local t=t or a
+if not t.valid
+then
+return
+end
+t.valid[e]=nil
+if table_count(t)==0
+then
+t.valid=nil
+end
+end)
+end
+end
+function validity_sync:set_valid(t,e)
+e=e or true
+self:a(not self.single==(e~=true))
+if e==true
+then
+t.invalid=nil
+else
+if not t.valid
+then
+t.valid={}
+end
+t.valid[e]=true
+end
+end
+function validity_sync:remove_all_invalid()
+t={}
+local a=0
+if self.single
+then
+self.t:foreach(function(o,i)
+local n=i or o
+if n.invalid
+then
+e.insert(t,{o,i})
+else
+a=a+1
+end
+end)
+else
+self.t:foreach(function(i,o)
+local n=o or i
+if not n.valid
+then
+e.insert(t,{i,o})
+else
+a=a+1
+end
+end)
+end
+self:d('remove_all_invalid - ok/zapping',a,#t)
+for t,e in s(t)
+do
+local t,e=y(e)
+self:remove(t,e)
+end
+end
+function validity_sync:remove(e,t)
+self.t:remove(e,t)
+end
+create_hash=false
+create_hash_type=false
+hash_fast=false
+g(function()
+local e=b'md5'
+create_hash=e.sum
+create_hash_type='md5'
+create_hash_if_fast=create_hash
+end)
+if not create_hash
+then
+b'sha1'
+create_hash=sha1_binary
+create_hash_type='sha1'
+create_hash_if_fast=function(e)return e end
+end
+function visit_table(i,n,a,e)
+local t=e or{}
+function visit_table_rec(e,...)
+mst.a(o(e)=='table')
+for t,e in l(e)
+do
+visit_one_rec(e,t,...)
+end
+end
+function visit_one_rec(e,...)
+local o=o(e)
+if o=='table'
+then
+if t[e]then return end
+t[e]=true
+if a then a(e,...)end
+visit_table_rec(e,...)
+else
+n(e,...)
+end
+end
+visit_one_rec(i)
+end
+function class_or_type_name(e)
+local t=o(e)
+if t=='table'
+then
+local t=u(e)
+if t and t.__mstype and o(e.class)=='string'
+then
+return e.class
+end
+end
+return t
+end
+function count_all_types(...)
+local e={}
+function count_one(t)
+local t=class_or_type_name(t)
+mst.a(o(t)=='string','wierd type',t)
+local a=e[t]or 0
+mst.a(o(a)=='number','wierd number',a)
+e[t]=a+1
+end
+tl={...}
+local t={}
+for a,e in s(tl)
+do
+visit_table(e,count_one,count_one,t)
+end
+local t=0
+for o,a in l(e)
+do
+t=t+a
+end
+e['ztotal']=t
+return e,t
+end
+function debug_count_all_types_delta(o,a)
+local e=0
+if not o or not a
+then
+return
+end
+local t=table_keys(set_union(o,a))
+t:sort()
+mst.d('debug_count_all_types_delta',t)
+for i,t in s(t)
+do
+local o=o[t]or 0
+local a=a[t]or 0
+if o~=a
+then
+mst.d(r.format(' %s: %d->%d [%d]',t,o,a,a-o))
+e=e+1
+end
+end
+return e
+end
+q('setpause',110)
+end)
+package.preload['pa']=(function(...)
+require'mst'
+require'ipv6s'
+local e=pcall
+function pcall(e)
+e()
+end
+local a=require'pa_lap_sm'
+pcall=e
+module('pa',package.seeall)
+IPV4_PA_LAST_ROUTER=64
+IPV4_PA_ROUTER_BITS=math.floor(math.log(IPV4_PA_LAST_ROUTER)/math.log(2))
+local h=string.char(0)
+function _valid_rid(e)
+return type(e)=='string'or type(e)=='number'
+end
+function _valid_iid(e)
+return type(e)=='number'
+end
+function _valid_local_iid(e,t)
+mst.a(e and t)
+return e.ifs[t]
+end
+ph=mst.create_class{class='ph'}
+function ph:init()
+self:a(self.prefix)
+if type(self.prefix)=='string'
+then
+self.prefix=ipv6s.new_prefix_from_ascii(self.prefix)
+end
+self.ascii_prefix=self.prefix:get_ascii()
+self.binary_prefix=self.prefix:get_binary()
+end
+lap=ph:new_subclass{class='lap',mandatory={'prefix','iid','pa'},
+assigned=false,
+depracated=false}
+function lap:init()
+ph.init(self)
+local e=self.pa.ifs[self.iid]
+self:a(e,'non-existent interface iid',self.iid)
+self.ifname=e.name
+self.pa.lap:insert(self.iid,self)
+self.sm=a:new{owner=self}
+self.sm.debugFlag=true
+self.sm.debugStream={write=function(t,e)
+self:d(mst.string_strip(e))
+end}
+self.sm:enterStartState()
+self:assign()
+self.pa:changed()
+end
+function lap:uninit()
+self:d('uninit')
+self.sm:UnInit()
+self.pa.lap:remove(self.iid,self)
+self.pa:changed()
+end
+function lap:repr_data()
+return mst.repr{prefix=self.ascii_prefix,
+iid=self.iid,
+za=self.assigned,
+zd=self.depracated,
+}
+end
+function lap:start_depracate_timeout()
+end
+function lap:stop_depracate_timeout()
+end
+function lap:start_expire_timeout()
+end
+function lap:stop_expire_timeout()
+end
+function lap:error(e)
+self:d('got error',e)
+end
+function lap:find_usp()
+local a,o,t
+for i,e in ipairs(self.pa.usp:values())
+do
+if e.prefix:contains(self.prefix)
+then
+t=e.prefix:get_binary_bits()
+if not a or o>t
+then
+a=e
+o=t
+end
+end
+end
+return a
+end
+function lap:assign()
+if not self.assigned
+then
+local t=self:find_usp()
+local e=self.prefix:is_ipv4()
+for a,e in ipairs(self.pa.lap[self.iid])
+do
+if lap~=e and t.prefix:contains(e.prefix)
+then
+e:depracate()
+end
+end
+end
+self.sm:Assign()
+end
+function lap:unassign()
+self.sm:Unassign()
+end
+function lap:depracate()
+self.sm:Depracate()
+end
+function lap:do_assign()
+self:a(not self._is_done,'called when done')
+self.pa:changed()
+self.assigned=true
+self.depracated=false
+self.sm:Done()
+end
+function lap:do_depracate()
+self:a(not self._is_done,'called when done')
+self.pa:changed()
+self.assigned=false
+self.depracated=true
+self.address=nil
+self.sm:Done()
+end
+function lap:do_unassign()
+self:a(not self._is_done,'called when done')
+self.pa:changed()
+self.assigned=false
+self.address=nil
+self.sm:Done()
+end
+asp=ph:new_subclass{class='asp',mandatory={'prefix',
+'iid',
+'rid',
+'pa'}}
+function asp:init()
+ph.init(self)
+local e=self.pa.asp:insert(self.rid,self)
+self:a(e,"already existed?",self)
+self:d('init')
+self.pa:changed()
+end
+function asp:uninit()
+self:d('uninit')
+self:unassign_lap()
+self.pa.asp:remove(self.rid,self)
+self.pa:changed()
+end
+function asp:repr_data()
+return mst.repr{prefix=self.ascii_prefix,iid=self.iid,rid=self.rid}
+end
+function asp:find_lap(e)
+self:d('find_lap')
+self:a(_valid_local_iid(self.pa,e))
+self:a(self.class)
+self:a(self.pa,'no pa?!?')
+local e=self.pa.lap[e]
+for t,e in ipairs(e or{})
+do
+if e.ascii_prefix==self.ascii_prefix
+then
+return e
+end
+end
+end
+function asp:find_or_create_lap(e)
+self:d('find_or_create_lap')
+self:a(_valid_local_iid(self.pa,e))
+local t=self:find_lap(e)
+if t then return t end
+self:d(' not found => creating')
+self.pa:changed()
+return self.pa.lap_class:new{prefix=self.prefix,
+iid=e,
+pa=self.pa}
+end
+function asp:assign_lap(e)
+self:a(_valid_local_iid(self.pa,e))
+self:a(self.class=='asp')
+local e=self:find_or_create_lap(e)
+e:assign()
+e.owner=self.rid==self.pa.rid and true or nil
+end
+function asp:depracate_lap(e)
+local e=self:find_lap(e)
+if not e then return end
+e:depracate()
+end
+function asp:unassign_lap(e)
+for t,e in ipairs(self.pa.lap:values())
+do
+if e.ascii_prefix==self.ascii_prefix
+then
+e:unassign()
+return
+end
+end
+end
+function asp:is_remote()
+return self.rid~=self.pa.rid
+end
+sps=ph:new_subclass{class='sps',mandatory={'prefix','pa'}}
+function sps:repr_data()
+return mst.repr{prefix=self.ascii_prefix,desired_bits=self.desired_bits}
+end
+function sps:get_desired_bits()
+local e=self.desired_bits
+self:a(e,'desired_bits not set')
+return e
+end
+function sps:get_random_binary_prefix(i,o)
+local e=self.binary_prefix
+local a=self.prefix:get_binary_bits()
+local t=self:get_desired_bits()
+mst.a(a>(#e-1)*8 and a<=#e*8,"weird b<>bl",#e,a)
+mst.a(a<=t,'invalid prefix length prefix<>wanted',self,t)
+o=o or 0
+local o=string.format("%s-%s-%s-%d",
+self.pa:get_hwf(),self.pa.ifs[i].name,self.ascii_prefix,o)
+local i=mst.create_hash(o)
+local o=string.byte(e,#e,#e)
+local n=string.byte(i,1,1)
+for e=1,(8-a%8)%8
+do
+if mst.bitv_is_set_bit(n,e)
+then
+o=mst.bitv_xor_bit(o,e)
+end
+end
+local a=string.char(o)
+p=string.sub(e,1,#e-1)..a..string.sub(i,#e+1,t/8)
+local e=#p*8
+self:a(e==t,'mismatch',e,t)
+return p
+end
+function sps:create_prefix_freelist(s)
+if self.freelist then return self.freelist end
+local o=self.binary_prefix
+local t=mst.array:new()
+local a=self:get_desired_bits()
+local n=self.prefix:get_binary_bits()
+mst.a(a>0)
+self.freelist=t
+if#o>=a/8
+then
+return t
+end
+local e=o..string.rep(string.char(0),a/8-#o)
+local i=e
+while true
+do
+e=ipv6s.binary_prefix_next_from_usp(o,n,e,a)
+self:a(#e==a/8,"binary_prefix_next_from_usp bugs?")
+if not s[e]
+then
+local e=ipv6s.new_prefix_from_binary(e)
+self:a(self.prefix:contains(e))
+t:insert(e)
+end
+if i==e
+then
+self:d('created freelist',#t)
+return t
+end
+end
+end
+function sps:find_new_from(o,t)
+local e=self.binary_prefix
+local a
+self:a(t,'assigned missing')
+self:a(e)
+local e=self.freelist
+if not e
+then
+for a=1,self.random_prefix_tries
+do
+local e=self:get_random_binary_prefix(o,a)
+if not t[e]
+then
+local e=ipv6s.new_prefix_from_binary(e)
+self:d('find_new_from random worked iteration',a,self.pa.rid,o,e)
+self:a(self.prefix:contains(e))
+return e
+end
+end
+e=self:create_prefix_freelist(t)
+end
+self:a(e)
+local t=mst.array_randindex(e)
+if not t
+then
+self:d('not found in freelist',self.prefix,#e)
+return
+end
+local a=e[t]
+e:remove_index(t)
+self:d('find_new_from picked index',t,a)
+return a
+end
+usp=sps:new_subclass{class='usp',mandatory={'prefix','rid','pa'}}
+function usp:init()
+sps.init(self)
+local e=self.pa.usp:insert(self.rid,self)
+self:a(e,'already existed?',self)
+self.pa:changed()
+end
+function usp:uninit()
+self:d('uninit')
+self.pa.usp:remove(self.rid,self)
+self.pa:changed()
+end
+function usp:repr_data()
+return mst.repr{prefix=self.ascii_prefix,rid=self.rid}
+end
+function usp:get_desired_bits()
+if self.prefix:is_ipv4()
+then
+return 96+24
+else
+return 64
+end
+end
+pa=mst.create_class{class='pa',lap_class=lap,mandatory={'rid'},
+new_prefix_assignment=0,
+new_ula_prefix=0,
+random_prefix_tries=5,
+time=os.time,
+}
+function pa:init()
+sps.random_prefix_tries=self.random_prefix_tries
+self.lap=mst.multimap:new()
+self.ridr=mst.map:new()
+self.asp=mst.multimap:new()
+self.vsa=mst.validity_sync:new{t=self.asp,single=true}
+self.usp=mst.multimap:new()
+self.vsu=mst.validity_sync:new{t=self.usp,single=true}
+self.changes=0
+self.start_time=self.time()
+end
+function pa:uninit()
+self:d('uninit')
+self:filtered_values_done(self.lap)
+self:filtered_values_done(self.asp)
+self:filtered_values_done(self.usp)
+end
+function pa:filtered_values_done(e,t)
+self:a(e.class=='multimap')
+for a,e in ipairs(e:values())
+do
+if not t or t(e)
+then
+self:d('done with',e)
+e:done()
+end
+end
+end
+function pa:get_local_asp_values()
+self:a(self)
+self:a(self.class=='pa')
+local e=self.asp[self.rid]
+if e then e=mst.table_copy(e)end
+return e or{}
+end
+function pa:get_local_usp_values()
+self:a(self)
+self:a(self.class=='pa')
+local e=self.usp[self.rid]
+if e then e=mst.table_copy(e)end
+return e or{}
+end
+function pa:repr_data()
+if not self.asp
+then
+return'?'
+end
+local t=self.asp:values()
+local e=self:get_local_asp_values()
+return string.format('rid:%s #lap:%d #ridr:%d #asp:%d[%d] #usp:%d #if:%d',
+self.rid,
+#self.lap:values(),
+#self.ridr:values(),
+#t,
+#e,
+#self.usp:values(),
+self.ifs and#self.ifs:values()or-1)
+end
+function pa:run_if_usp(o,s,t)
+local i=self.rid
+self:a(_valid_rid(i))
+self:a(i,'no rid')
+self:d('run_if_usp',o,t.prefix,s)
+local e=self.ifs[o]
+if e.disable
+then
+self:d(' PA disabled')
+return
+end
+if t.prefix:is_ipv4()and(e.disable_v4 or e.external)
+then
+self:d(' v4 PA disabled')
+return
+end
+if t.prefix:is_ula()and e.external
+then
+self:d(' ULA disabled (external)')
+return
+end
+for a,e in ipairs(self.usp:values())
+do
+if e.ascii_prefix~=t.ascii_prefix and e.prefix:contains(t.prefix)
+then
+self:d('skipped, containing prefix found')
+return
+end
+end
+local n
+local a
+for h,e in ipairs(self.asp:values())
+do
+if((e.rid==i and o==e.iid)or s[e.rid]==e.iid)and t.prefix:contains(e.prefix)
+then
+self:d(' fitting',e)
+if not a or a.rid<e.rid
+then
+a=e
+end
+if e.rid==i
+then
+n=e
+end
+end
+end
+if n and n==a
+then
+n.usp=t
+self:check_asp_conflicts(o,n)
+return
+end
+if a
+then
+a.usp=t
+self:assign_other(o,a)
+return
+end
+local e=s:keys()
+local e=mst.max(unpack(e))
+self:a(not e or _valid_rid(e),'invalid highest_rid',e)
+if not e or e<=i
+then
+self:assign_own(o,t)
+return
+end
+self:d('no assignments, lower rid than',e)
+end
+function pa:assign_own(t,a)
+self:d('6.3.1 assign_own',t,a)
+self:a(_valid_local_iid(self,t))
+assigned=self:find_assigned(a)
+a.freelist=nil
+local e
+for i,o in ipairs(self.lap:values())
+do
+if o.iid==t and o.depracated and a.prefix:contains(o.prefix)
+then
+if not assigned[o.binary_prefix]
+then
+e=o.prefix
+end
+end
+end
+if not e
+then
+local o=self:get_old_assignments()
+if o
+then
+self:d('considering old assignments',a.prefix)
+for o,a in ipairs(o[a.ascii_prefix]or{})
+do
+local o,a=unpack(a)
+self:d('  ',o,a)
+if o==t
+then
+if not assigned[a]
+then
+self:d(' found in old assignments',a)
+e=a
+else
+self:d(' found in old assignments, but reserved',a)
+end
+end
+end
+end
+end
+if not e and self.new_prefix_assignment>0 and self:time_since_start()<self.new_prefix_assignment
+then
+if self.ridr:count()==1
+then
+self:busy_until(self.new_prefix_assignment)
+self:d('hysteresis criteria filled - not assigning anything yet')
+return
+end
+end
+if not e
+then
+e=a:find_new_from(t,assigned)
+end
+if not e
+then
+return
+end
+local e=asp:new{prefix=e,
+pa=self,
+iid=t,
+rid=self.rid}
+e:assign_lap(t)
+end
+function pa:time_since_start()
+return self.time()-self.start_time
+end
+function pa:get_old_assignments()
+return self.old_assignments
+end
+function pa:find_assigned(o)
+local e=mst.set:new()
+for a,t in ipairs(self.asp:values())
+do
+local a=t.binary_prefix
+self:a(a,'no asp.binary_prefix')
+if o.prefix:contains(t.prefix)
+then
+e:insert(a)
+end
+end
+return e
+end
+function pa:check_asp_conflicts(a,e)
+self:d('6.3.2 check_asp_conflicts',e)
+for o,t in ipairs(self.asp:values())
+do
+if t.ascii_prefix==e.ascii_prefix and t.rid>e.rid
+then
+e:depracate_lap(a)
+return
+end
+end
+self.vsa:set_valid(e)
+end
+function pa:assign_other(t,e)
+self:d('6.3.4 assign_other',e)
+self.vsa:set_valid(e)
+e:assign_lap(t)
+end
+function pa:matching_prefix_exists(e)
+for a,t in ipairs(self.usp:values())
+do
+if e(t)then return true end
+end
+end
+function pa:generate_ulaish(t,i,o,e)
+if self:matching_prefix_exists(t)
+then
+self:d('something exists, generate_ulaish skipped',e)
+return
+end
+self:d('generate_ulaish',e)
+local a=self.ridr:keys()
+local e=mst.max(unpack(a))
+local t=self.rid
+if t<e
+then
+self:d(' higher rid exists, skipping')
+return
+end
+local e=self.usp[self.rid]or{}
+if#e>0
+then
+for t,e in ipairs(e)
+do
+if i(e)
+then
+self:d(' keeping',e)
+self.vsu:set_valid(e)
+return
+end
+end
+end
+if#a==1
+then
+if self.new_ula_prefix>0 and self:time_since_start()<self.new_ula_prefix
+then
+self:busy_until(self.new_ula_prefix)
+return
+end
+end
+local e=o()
+self:d(' generated prefix',e)
+usp:new{prefix=e,rid=t,pa=self}
+end
+function pa:update_ifs_neigh()
+local t=self.client
+local a=self.rid
+self:a(t,'no client')
+self.ifs=mst.map:new()
+self.neigh=mst.map:new()
+t:iterate_if(a,function(e)
+self:d('got if',e)
+self.ifs[e.index]=e
+local o=mst.map:new{}
+t:iterate_ifo_neigh(a,e,function(e)
+local t=e.iid
+local a=e.rid
+self:d(' got neigh',e)
+self:a(_valid_rid(a))
+self:a(_valid_iid(t))
+o[a]=t
+end)
+self.neigh[e.index]=o
+end
+)
+end
+function pa:get_ifs_neigh_state()
+self:update_ifs_neigh()
+local e=mst.repr{self.ifs,self.neigh}
+e=mst.create_hash_if_fast(e)
+return e
+end
+function pa:busy_until(e)
+if not self.busy or self.busy>e
+then
+self.busy=e
+end
+end
+function pa:should_run()
+local e=self.rid
+local e=self:get_ifs_neigh_state()
+if self.busy
+then
+if self.busy<=self:time_since_start()
+then
+self:d('no longer busy - should run')
+self.busy=nil
+else
+self:d('still busy - should run')
+end
+return true
+end
+if e~=self.last_ifs_neigh_state
+then
+self:d('should run - ifs/neighs changed')
+self.last_ifs_neigh_state=e
+return true
+end
+if self.changes>0
+then
+self:d('should run - changes > 0 (timeouts)')
+return true
+end
+end
+function pa:get_hwf()
+if not self.hwf
+then
+self.hwf=self.client:get_hwf(self.rid)
+end
+return self.hwf
+end
+function pa:run(e)
+self:d('run called')
+local t=self.client
+local a=self.rid
+self:a(t,'no client')
+e=e or{}
+if not e.checked_should
+then
+self:should_run()
+end
+mst.a(self.ifs)
+self.vsu:clear_all_valid()
+self.vsa:clear_all_valid()
+self.ridr:keys():map(function(e)self.ridr[e]=false end)
+t:iterate_rid(a,function(e)
+local t=e.rid
+self:d('got rid',e)
+self:a(_valid_rid(t),'invalid rid',e)
+self.ridr[t]=e
+end)
+t:iterate_usp(a,function(e)
+local t=e.prefix
+local a=e.rid
+self:d('got usp',e)
+self:a(_valid_rid(a))
+self:a(t)
+self:add_or_update_usp(t,a)
+end)
+if not self.disable_ula
+then
+self:generate_ulaish(
+function(e)
+if e.prefix:is_ipv4()
+then
+return
+end
+if not self.disable_always_ula
+then
+if not e.prefix:is_ula()
+then
+return
+end
+end
+if e.rid~=self.rid
+then
+return true
+elseif not e.prefix:is_ula()
+then
+return true
+end
+end,
+function(e)
+return e.rid==self.rid and e.prefix:is_ula()
+end,
+function()
+local e=self:get_hwf()
+local e=mst.create_hash(e)
+local e=ipv6s.ula_prefix..string.sub(e,1,5)
+local e=ipv6s.new_prefix_from_binary(e)
+return e
+end,
+'ULA')
+end
+if not self.disable_ipv4
+then
+self:generate_ulaish(
+function(e)
+if e.rid~=self.rid and e.prefix:is_ipv4()
+then
+return true
+end
+end,
+function(e)
+return e.rid==self.rid and e.prefix:is_ipv4()
+end,
+function()
+local e=ipv6s.new_prefix_from_ascii('10.0.0.0/8')
+return e
+end,
+'V4 USP')
+end
+self:filtered_values_done(self.usp,
+function(e)return e.invalid end)
+t:iterate_asp(a,function(e)
+local o=e.prefix
+local t=e.iid
+local a=e.rid
+self:d('got asp',e)
+self:a(o)
+self:a(_valid_rid(a))
+self:a(_valid_iid(t),'invalid iid',t)
+self:add_or_update_asp(o,t,a)
+end)
+self:filtered_values_done(self.asp,
+function(e)
+self:a(e.class=='asp',e,e.class)
+return e:is_remote()and e.invalid
+end)
+for a,e in pairs(self.ifs)
+do
+for t,e in ipairs(self.usp:values())
+do
+self:a(e.class=='usp',e,e.class)
+local t=self.neigh[a]
+self:a(t)
+self:run_if_usp(a,t,e)
+end
+end
+for t,e in ipairs(self:get_local_asp_values())
+do
+if e.invalid
+then
+e:done()
+end
+end
+if not self.disable_ipv4
+then
+for t,e in ipairs(self.lap:values())
+do
+if e.assigned and e.prefix:is_ipv4()
+then
+self:handle_ipv4_lap_address(e)
+end
+end
+end
+self:d('run done',self.changes)
+if self.changes>0
+then
+local e=self.changes
+self.changes=0
+return e
+end
+end
+function pa:handle_ipv4_lap_address(e)
+local a=self.rid
+self:d('handle_ipv4_lap_address',e)
+local t=mst.map:new{}
+self.client:iterate_asa(a,function(e)
+local o=e.prefix:get_binary()
+local a=t[o]
+if not a or a<e.rid
+then
+t[o]=e.rid
+end
+end)
+if e.address and t[e.address:get_binary()]
+then
+self:d(' happy with existing one')
+return
+end
+local a=ipv6s.new_prefix_from_binary(e.prefix:get_binary()..h,
+128-IPV4_PA_ROUTER_BITS)
+local a=sps:new{prefix=a,desired_bits=128,pa=self}
+while true
+do
+local o=a:find_new_from(e.iid,t)
+if not o
+then
+if e.address
+then
+self:d(' cleared old, unable to allocate new')
+e.address=nil
+self:changed()
+end
+return
+end
+local a=o:get_binary()
+mst.a(#a==16,'invalid result?',#a)
+local i=string.byte(a,16,16)
+if i>=1 and i<=IPV4_PA_LAST_ROUTER
+then
+e.address=o
+self:d(' assigned',o)
+self:changed()
+return
+else
+t[a]=true
+end
+end
+end
+local function o(e)
+if type(e)=='table'
+then
+return e:get_ascii()
+end
+mst.a(type(e)=='string','wierd prefix - should be ascii')
+return e
+end
+function pa:add_or_update_usp(a,e)
+local o=o(a)
+self:a(self.ridr[e],'sanity-check failed - rid not reachable',e)
+for a,t in ipairs(self.usp[e]or{})
+do
+if t.ascii_prefix==o
+then
+if e~=self.rid or(not t.prefix:is_ula()and not t.prefix:is_ipv4())
+then
+self:d(' updated old usp')
+self.vsu:set_valid(t)
+end
+return
+end
+end
+self:d(' adding new usp')
+usp:new{prefix=a,rid=e,pa=self}
+end
+function pa:get_asp(e,t,a)
+local o=o(e)
+for a,e in ipairs(self.asp[a]or{})
+do
+if e.ascii_prefix==o and e.iid==t
+then
+return e
+end
+end
+end
+function pa:add_or_update_asp(a,o,e)
+self:a(self.ridr[e],'sanity-check failed - rid not reachable',e)
+local t=self:get_asp(a,o,e)
+if t
+then
+self:d(' updated old asp',t:is_remote())
+self:a(t:is_remote(),'non-remote asp?!?')
+self.vsa:set_valid(t)
+return
+end
+self:a(e~=self.rid,'should not get own asp')
+self:d(' adding new asp')
+asp:new{prefix=a,iid=o,rid=e,pa=self}
+end
+function pa:changed()
+self.changes=self.changes+1
+end
+end)
+package.preload['pm_core']=(function(...)
+require'mst'
+require'skv'
+require'elsa_pa'
+require'linux_if'
+require'os'
+require'pa'
+module(...,package.seeall)
+PID_DIR='/var/run'
+CONF_PREFIX='/tmp/pm-'
+DEFAULT_FILENAMES={radvd_conf_filename='radvd.conf',
+dhcpd_conf_filename='dhcpd.conf',
+dhcpd6_conf_filename='dhcpd6.conf',
+dnsmasq_conf_filename='dnsmasq.conf',
+}
+pm=mst.create_class{class='pm',mandatory={'skv','shell'}}
+function pm:service_name_to_service(e)
+e=self.rewrite_service[e]or e
+return self.h[e]
+end
+function pm:connect_changed(a,o)
+local t=self:service_name_to_service(a)
+local e=self:service_name_to_service(o)
+self:a(t,'missing service (src)',a)
+self:a(e,'missing service (dst)',o)
+t:connect_method(t.changed,e,e.queue)
+end
+function pm:queue(t)
+local e=self:service_name_to_service(t)
+self:a(e,'missing service',t)
+if e:queue()
+then
+self:d('queued',e)
+end
+end
+function pm:replace_handlers(e)
+self.handlers=self.handlers:filter(function(t)
+return not e[t]
+end)
+for t,e in pairs(e)
+do
+self.rewrite_service[t]=e
+if not self.handlers:find(e)
+then
+self.handlers:insert(e)
+end
+end
+end
+function pm:init()
+self.changes=0
+self.f=function(e,t)self:kv_changed(e,t)end
+self.h={}
+self.rewrite_service={}
+for e,t in pairs(DEFAULT_FILENAMES)
+do
+self[e]=self[e]or CONF_PREFIX..t
+end
+self.handlers=mst.array:new{
+'bird4',
+'dhcpd',
+'v4_addr',
+'v4_dhclient',
+'v6_dhclient',
+'v6_listen_ra',
+'v6_nh',
+'v6_route',
+'v6_rule',
+'radvd',
+'memory',
+}
+if self.use_dnsmasq
+then
+self:replace_handlers{radvd='dnsmasq',
+dhcpd='dnsmasq'}
+end
+self.if_table=linux_if.if_table:new{shell=self.shell}
+self.nh=mst.multimap:new{}
+for e,t in ipairs(self.handlers)
+do
+local e='pm_'..t
+local a=require(e)
+local e=a[e]:new{pm=self}
+self.h[t]=e
+e:connect(e.changed,function()
+self.changes=self.changes+1
+end)
+end
+self:connect_changed('v6_route','radvd')
+self:connect_changed('v6_nh','v6_rule')
+self.dhclient_ifnames=mst.set:new{}
+self.all_ipv6_binary_prefixes=mst.map:new{}
+self.skv:add_change_observer(self.f)
+for t,e in pairs(self.skv:get_combined_state())
+do
+self:kv_changed(t,e)
+end
+end
+function pm:uninit()
+self.skv:remove_change_observer(self.f)
+end
+function pm:kv_changed(e,t)
+self:d('kv_changed',e,t)
+if e==elsa_pa.OSPF_USP_KEY
+then
+self.ospf_usp=t or{}
+self.ipv6_ospf_usp=nil
+self.external_if_set=nil
+for t,e in ipairs(self:get_ipv6_usp())
+do
+local e=ipv6s.new_prefix_from_ascii(e.prefix)
+local t=e:get_binary()
+self.all_ipv6_binary_prefixes[t]=e
+end
+self:queue('v4_dhclient')
+self:queue('v6_route')
+self:queue('v6_rule')
+self:queue('v6_listen_ra')
+elseif e==elsa_pa.OSPF_IFLIST_KEY
+then
+self.ospf_iflist=t
+self:queue('v6_dhclient')
+elseif e==elsa_pa.OSPF_RID_KEY
+then
+self.rid=t
+self:queue('bird4')
+elseif e==elsa_pa.OSPF_LAP_KEY
+then
+self.ipv6_ospf_lap=nil
+self.ospf_lap=t or{}
+self:queue('v6_route')
+self:queue('v4_addr')
+self:queue('radvd')
+self:queue('dhcpd')
+self:queue('bird4')
+elseif e==elsa_pa.OSPF_IPV4_DNS_KEY
+then
+self.ospf_v4_dns=t or{}
+self:queue('dhcpd')
+elseif e==elsa_pa.OSPF_IPV4_DNS_SEARCH_KEY
+then
+self.ospf_v4_dns_search=t or{}
+self:queue('dhcpd')
+elseif e==elsa_pa.OSPF_DNS_KEY
+then
+self.ospf_dns=t or{}
+self:queue('dhcpd')
+self:queue('radvd')
+elseif e==elsa_pa.OSPF_DNS_SEARCH_KEY
+then
+self.ospf_dns_search=t or{}
+self:queue('dhcpd')
+self:queue('radvd')
+else
+end
+self:schedule_run()
+end
+function pm:schedule_run()
+end
+function pm:run()
+for t,e in ipairs(self.handlers)
+do
+local e=self.h[e]
+if e then e:maybe_run()end
+end
+self:d('run result',self.changes)
+local e=self.changes>0 and self.changes
+self.changes=0
+return e
+end
+function pm:tick()
+self:d('tick')
+for t,e in ipairs(self.handlers)
+do
+local t=self.h[e]
+local e=t:tick()
+if e and e>0 then t:changed()end
+end
+if self.changes>0
+then
+self:run()
+end
+end
+local function e(e)
+return mst.array_filter(e,function(e)
+local e=ipv6s.new_prefix_from_ascii(e.prefix)
+return not e:is_ipv4()
+end)
+end
+function pm:get_ipv6_usp()
+if not self.ipv6_ospf_usp
+then
+self.ipv6_ospf_usp=e(self.ospf_usp)
+end
+return self.ipv6_ospf_usp
+end
+function pm:get_ipv6_lap()
+if not self.ipv6_ospf_lap
+then
+self.ipv6_ospf_lap=e(self.ospf_lap)
+end
+return self.ipv6_ospf_lap
+end
+function pm:repr_data()
+return mst.repr{ospf_lap=self.ospf_lap and#self.ospf_lap or 0}
+end
+function pm:get_external_if_set()
+if not self.external_if_set
+then
+local e=self.ospf_usp or{}
+local t=mst.set:new{}
+self.external_if_set=t
+mst.array_foreach(e,
+function(e)
+if e.ifname and not e.nh
+then
+t:insert(e.ifname)
+end
+end)
+end
+return self.external_if_set
+end
+end)
+package.preload['skv']=(function(...)
+require'mst'
+require'ssloop'
+require'scb'
+require'jsoncodec'
+module(...,package.seeall)
+local t=pcall
+function pcall(e)
+e()
+end
+sm=require'skv_sm'
+pcall=t
+skv=mst.create_class{mandatory={"long_lived"},class="skv"}
+skvconnection=mst.create_class{mandatory={"s","parent"},class="skvconnection"}
+skv.__index=skv
+local e='127.0.0.1'
+local t=12345
+local n='version'
+local o='id'
+local a='update'
+local i='id-ack'
+local s='1.0'
+function skv:init()
+self.change_events=mst.multimap:new{}
+self.local_state=mst.map:new{}
+self.remote_state={}
+self.host=self.host or e
+self.port=self.port or t
+self.fsm=sm:new({owner=self})
+self.fsm.debugFlag=true
+self.fsm.debugStream={write=function(t,e)
+self:d(mst.string_strip(e))
+end}
+self.sent_update_id=0
+self.acked_id=0
+self.fsm:enterStartState()
+self:d('init done')
+end
+function skv:uninit()
+self:d('uninit started')
+self:clear_socket_maybe()
+self:clear_timeout_maybe()
+if self.json
+then
+self:clear_json()
+end
+for e,t in pairs(self.connections or{})
+do
+e:done()
+end
+self:a(not self.connections or self.connections:is_empty())
+end
+function skv:add_change_observer(t,e)
+e=e or true
+self.change_events:insert(e,t)
+end
+function skv:remove_change_observer(t,e)
+e=e or true
+self.change_events:remove(e,t)
+end
+function skv:change_occured(e,t)
+assert(e and e~=true)
+for o,a in ipairs(self.change_events[e]or{})
+do
+a(e,t)
+end
+for o,a in ipairs(self.change_events[true]or{})
+do
+a(e,t)
+end
+end
+function skv:fail(e)
+self.error=e
+if self.debug
+then
+error(e)
+end
+end
+function skv:repr_data()
+if self.fsm
+then
+r,err=pcall(function()self.fsm:getState()end)
+if not r
+then
+r="?"
+else
+r=self.fsm:getState().name
+end
+else
+r="!"
+end
+local e=self._is_done
+return mst.repr{h=self.host,
+p=self.port,
+st=r,
+d=e,
+}
+end
+function skv:init_client(e)
+self.listen_timeout=e
+self.fsm:Initialized()
+end
+function skv:is_long_lived()
+return self.long_lived
+end
+function skv:is_server()
+return self.server
+end
+function skv:should_auto_retry()
+return not self:is_long_lived()and self.auto_retry
+end
+function skv:socket_connect()
+self.client=true
+self.connected=false
+self:d('skv:socket_connect')
+self:a(not self.s)
+self.s=scb.new_connect{p=self,
+host=self.host,port=self.port,
+debug=self.debug,
+callback=function(e)
+self:d('connect callback')
+if e
+then
+self.connected=true
+self:a(self.s~=e)
+if self.s
+then
+self.s:detach()
+self:clear_socket()
+end
+self:d('set new socket [connect]')
+self.s=e
+e.close_callback=function(e)
+self.fsm:ConnectionClosed()
+end
+self.fsm:Connected()
+else
+self.fsm:ConnectFailed()
+end
+end}
+self:d('leaving connect',self.s)
+end
+function skv:clear_timeout()
+self:a(self.timeout)
+self.timeout:done()
+self.timeout=nil
+end
+function skv:clear_timeout_maybe()
+if self.timeout
+then
+self:clear_timeout()
+end
+end
+function skv:clear_socket()
+self:d('cleared socket')
+self:a(self.s)
+self.s:done()
+self.s=nil
+end
+function skv:clear_socket_maybe()
+if self.s
+then
+self:clear_socket()
+end
+end
+function skv:clear_json()
+self:a(self.json)
+self.json:done()
+self.json=nil
+end
+function skv:get_combined_state()
+local e=mst.table_copy(self.remote_state)
+mst.table_copy(self.local_state,e)
+return e
+end
+function skv:send_update(e)
+self.sent_update_id=self.sent_update_id+1
+self.json:write{[a]=e,[o]=self.sent_update_id}
+end
+function skv:send_local_state()
+if not mst.table_is_empty(self.local_state)
+then
+self:send_update(self.local_state)
+end
+end
+function skv:protocol_is_current_version(e)
+return e==s
+end
+function skv:handle_received_json(e)
+self:d('handle_received_json',e)
+if type(e)~='table'
+then
+self:d('got wierd typed data',type(e))
+return
+end
+local t=e[n]
+if t
+then
+self:d('got version',t)
+self.fsm:ReceiveVersion(t)
+end
+local t=e[a]
+if t
+then
+for t,e in pairs(t)
+do
+self.fsm:ReceiveUpdate(self.json,t,e)
+end
+end
+local t=e[o]
+if t
+then
+self:a(not self.last_id or self.last_id==(t-1),'not monotonically increasing',self.last_id,t)
+self.last_id=t
+self.json:write{[i]=t}
+end
+local e=e[i]
+if e
+then
+self.acked_id=e
+end
+end
+function skv:clear()
+for t,e in ipairs(self.local_state:keys())
+do
+self:set(e,false)
+end
+end
+function skv:get(t)
+local e=self.local_state[t]
+if e~=nil
+then
+return e
+end
+return self.remote_state[t]
+end
+function skv:set(e,t)
+self:d('set',e,t)
+if mst.repr_equal(self.local_state[e],t)
+then
+self:d(' .. redundant, local state already matches')
+return
+end
+self.fsm:HaveUpdate(e,t)
+self:change_occured(e,t)
+return true
+end
+function skv:store_local_update(t,e)
+self:d('store_local_update',t,e)
+self.local_state[t]=e
+end
+function skv:send_update_kv(e,t)
+self:d('send_update',e,t)
+self:send_update{[e]=t}
+end
+function skv:send_update_to_clients(t,i,n)
+self:d('send_update_to_clients',t,i)
+for e,s in pairs(self.connections)
+do
+if e.json~=n
+then
+e.sent_update_id=e.sent_update_id+1
+e.json:write{[a]={[t]=i},[o]=e.sent_update_id}
+end
+end
+end
+function skv:client_remote_update(a,e,t)
+local o=self:get(e)
+self.remote_state[e]=t
+local a=self.local_state[e]
+if a~=nil and not mst.repr_equal(a,t)
+then
+mst.d('remote server attempted to update with old value - sending back',e)
+self:send_update{[e]=a}
+return
+end
+if not mst.repr_equal(o,t)
+then
+self:change_occured(e,t)
+end
+end
+function skv:server_remote_update(o,e,t)
+local i=self:get(e)
+if mst.repr_equal(self.remote_state[e],t)
+then
+return
+end
+lv=self.local_state[e]
+if self.local_state[e]~=nil
+then
+if not mst.repr_equal(lv,t)
+then
+mst.d('remote client attempted to update with old value - sending back',e)
+o:write{[a]={[e]=lv}}
+end
+self.remote_state[e]=nil
+return
+end
+if not mst.repr_equal(i,t)
+then
+self:change_occured(e,t)
+end
+self.remote_state[e]=t
+self:send_update_to_clients(e,t,o)
+end
+function skv:wrap_socket_json()
+self:d('wrap_socket_json',self.s)
+self:a(not self.json,'already have json')
+self:a(self.s,'no socket to wrap')
+self.json=jsoncodec.wrap_socket{s=self.s,
+debug=self.debug,
+callback=function(e)
+self:handle_received_json(e)
+end,
+close_callback=function()
+self.fsm:ConnectionClosed()
+end}
+self.s=nil
+end
+function skv:get_jsoncodecs()
+if self.json
+then
+return{self.json}
+end
+local e={}
+for t,a in pairs(self.connections or{})
+do
+table.insert(e,t.json)
+end
+return e
+end
+function skv:connect(o)
+self:a(not self.long_lived)
+local a=ssloop.loop()
+local t,e
+local a=a:loop_until(function()
+local a=self.fsm:getState().name
+if a=='Client.WaitUpdates'
+then
+t=true
+return true
+elseif a=='Terminal.ClientFailConnect'
+then
+e='unable to connect'
+return true
+end
+end,o)
+if not a
+then
+e='timeout'
+end
+return t,e
+end
+function skv:wait_in_sync(e)
+self:a(not self.long_lived)
+local t=ssloop.loop()
+local e=t:loop_until(function()
+return self.acked_id==self.sent_update_id
+end,e)
+if not e then return nil,'timeout'end
+return e
+end
+function skv:init_server()
+self.fsm:Initialized()
+self.client=false
+self.connections=mst.set:new()
+end
+function skv:bind()
+local e,t=scb.new_listener{p=self,
+host=self.host,port=self.port,
+debug=self.debug,
+callback=function(e)
+self:new_client(e)
+end}
+if e
+then
+self:a(not self.s)
+self.s=e
+self.fsm:Bound()
+return
+else
+self.fsm:BindFailed()
+end
+end
+function skv:new_client(e)
+skvconnection:new{s=e,parent=self,debug=self.debug}
+end
+function skv:increase_retry_timer()
+self.listen_timeout=self.listen_timeout*3/2
+end
+function skv:start_retry_timer(e)
+e=e or self.listen_timeout
+local t=ssloop.loop()
+self:a(not self.timeout,'previous timeout around')
+self.timeout=t:new_timeout_delta(e,
+function()
+self.fsm:Timeout()
+end):start()
+end
+function skvconnection:init()
+assert(self)
+self.parent.connections[self]=true
+self:a(not self.json)
+self.json=jsoncodec.wrap_socket{s=self.s,
+debug=self.debug,
+callback=function(e)
+self:handle_received_json(e)
+end,
+close_callback=function()
+self:handle_close()
+end
+}
+self.sent_update_id=0
+self.s=nil
+local e=self.parent:get_combined_state()
+self.json:write{[n]=s,
+[a]=e}
+end
+function skvconnection:uninit()
+self:a(self.parent.connections[self]~=nil,":done - not in parent table")
+self.parent.connections[self]=nil
+self.json:done()
+end
+function skvconnection:handle_received_json(e)
+self:d('handle_received_json',e)
+local t=e[a]
+if t
+then
+for e,t in pairs(t)
+do
+self.parent.fsm:ReceiveUpdate(self.json,e,t)
+end
+end
+local e=e[o]
+if e
+then
+self:a(not self.last_id or self.last_id==(e-1),'not monotonically increasing',self.last_id,e)
+self.last_id=e
+self.json:write{[i]=e}
+end
+end
+function skvconnection:handle_close()
+self:d('handle_close')
+self:done()
+end
+function skvconnection:repr_data()
+return'?'
+end
+end)
+package.preload['scb']=(function(...)
+require'mst'
+require'ssloop'
+require'socket'
+local i="connection refused"
+local n='timeout'
+module(...,package.seeall)
+local e=mst.create_class{required={"s"},class="ScbBase"}
+function e:init()
+self:d('init')
+local e=ssloop.loop()
+if self.listen_write
+then
+self.s_w=e:new_writer(self.s,function()
+self:d('write callback')
+self:handle_io_write()end,self)
+self.wq={}
+end
+if self.listen_read
+then
+local t=self.s:getfd()
+self:d('registering for read',t)
+self.s_r=e:new_reader(self.s,function()
+self:d('read callback')
+self:handle_io_read()end,self)
+end
+end
+function e:uninit()
+self:d('uninit')
+self:stop()
+self:call_callback_once('done_callback')
+if self.s
+then
+self:d('closing',self.s)
+self.s:close()
+self.s=nil
+end
+self.s_r=nil
+self.s_w=nil
+end
+function e:repr_data()
+return mst.repr{s=self.s,p=self.p}
+end
+function e:start()
+if self.s_r
+then
+self.s_r:start()
+end
+if self.s_w
+then
+self.s_w:start()
+end
+end
+function e:stop()
+if self.s_r
+then
+self.s_r:stop()
+end
+if self.s_w
+then
+self.s_w:stop()
+end
+end
+ScbIO=e:new_subclass{listen_read=true,listen_write=true,
+class="ScbIO"}
+function e:detach()
+self:stop()
+self.s=nil
+end
+function ScbIO:handle_io_read()
+self:d('handle_io_read')
+local e,t,a=self.s:receive(2^10)
+local e=e or a
+if not e or#e==0
+then
+self:d('got read',e,#e,t)
+if t=='closed'
+then
+else
+end
+self:call_callback_once('close_callback')
+self:done()
+else
+self.callback(e)
+end
+end
+function ScbIO:handle_io_write()
+while true
+do
+if#self.wq==0
+then
+self:d("handle_io_write - queue empty")
+self.s_w:stop()
+self:d('done write-stop')
+return
+end
+self:d("handle_io_write - sending")
+local t,e=self.wq[1]
+e=e or 1
+local e,a=self.s:send(t,e)
+self:d("handle_io_write - send done",e,a)
+if not e and a=='closed'
+then
+self:call_callback_once('close_callback')
+self:done()
+return
+end
+self:a(e,a)
+if e==#t
+then
+self:d("handle_io_write removing from queue")
+table.remove(self.wq,1)
+else
+self:a(e<#t,"too many bytes written")
+self.wq[1]={t,e+1}
+return
+end
+end
+end
+function ScbIO:write(e)
+self:d('write',#e)
+table.insert(self.wq,e)
+self.s_w:start()
+end
+local a=e:new_subclass{listen_read=true,listen_write=false,class="ScbListen"}
+function a:handle_io_read()
+self:d(' --accept--')
+local e=self.s:accept()
+self:d(' --accept--',e,e:getfd())
+self:a(self.callback,"no callback in handle_io_read")
+if e
+then
+e:settimeout(0)
+evio=ScbIO:new{s=e,p=self}
+self:a(evio.listen_read,'listen_read disappeared')
+self:a(evio.listen_write,'listen_write disappeared')
+evio:start()
+self.callback(evio)
+end
+end
+local o=e:new_subclass{listen_write=true,class="ScbConnect"}
+function o:handle_io_write()
+self:d('handle_io_write')
+local t,e=self.s:connect(self.host,self.port)
+self:d('connect result',t,e)
+self:a(self.callback,'missing callback from ScbConnect')
+if e==i
+then
+self.callback(nil,e)
+return
+end
+if e==n
+then
+return
+end
+self:stop()
+evio=wrap_socket(self.evio_d)
+self.callback(evio)
+self.s=nil
+self:done()
+end
+function new(...)
+return Scb:new(...)
+end
+function wrap_socket(e)
+mst.check_parameters("scb:wrap_socket",e,{"s"},3)
+local t=e.s
+t:settimeout(0)
+evio=ScbIO:new(e)
+assert(evio.listen_read)
+assert(evio.listen_write)
+evio:start()
+return evio
+end
+function new_listener(t)
+mst.check_parameters("scb:new_listener",t,{"host","port","callback"},3)
+local e=socket.tcp()
+e:settimeout(0)
+e:setoption('reuseaddr',true)
+e:setoption('tcp-nodelay',true)
+local i,o=e:bind(t.host,t.port)
+if i
+then
+e:listen(10)
+t.s=e
+l=a:new(t)
+l:start()
+return l
+end
+return nil,o
+end
+function new_connect(e)
+mst.check_parameters("scb:new_connect",e,{"host","port","callback"},3)
+local t=socket.tcp()
+t:settimeout(0)
+t:setoption('tcp-nodelay',true)
+local a,i=t:connect(e.host,e.port)
+e.s=t
+if a==1
+then
+evio=wrap_socket(e)
+connected_callback(evio)
+return evio
+end
+e.evio_d=mst.table_copy(e)
+c=o:new(e)
+c:start()
+return c
+end
+end)
+package.preload['jsoncodec']=(function(...)
+require'mst'
+local i=require'vstruct'
+local o=require"dkjson"
+HEADER_MAGIC=1234567
+local a=i.compile('< magic:u4 size:u4')
+local t=#a.pack({magic=HEADER_MAGIC,size=0})
+module(...,package.seeall)
+jsoncodec=mst.create_class{class='jsoncodec',mandatory={'s'}}
+function jsoncodec:init()
+self.rq={}
+self.rql=0
+self.read=0
+self.written=0
+self.s.callback=function(e)
+self:handle_data(e)
+end
+self.s.close_callback=function()
+self:handle_close()
+end
+end
+function jsoncodec:uninit()
+self:call_callback_once('done_callback')
+self.s:done()
+end
+function jsoncodec:repr_data()
+return string.format('s:%s #rq:%d rql:%d',
+mst.repr(self.s),
+self.rq and#self.rq or-1,
+self.rql and self.rql or-1)
+end
+function jsoncodec:write(e)
+self:d('write',e)
+local e=o.encode(e)
+local e=a.pack{magic=HEADER_MAGIC,size=string.len(e)}..e
+self.s:write(e)
+self.written=self.written+#e
+self:d('wrote',#e,self.written)
+end
+function jsoncodec:rq_join()
+self:a(#self.rq>1)
+self.rq={table.concat(self.rq)}
+self:a(#self.rq==1)
+end
+function jsoncodec:handle_close()
+self:call_callback_once('close_callback')
+self:done()
+end
+function jsoncodec:handle_data(e)
+self:d('handle_data',#e)
+table.insert(self.rq,e)
+self.rql=self.rql+#e
+local e=1
+while true
+do
+local t=e+t-1
+if self.rql<t
+then
+self:d('too short read queue',self.rql,e,t)
+break
+end
+if#self.rq[1]<t
+then
+self:d('not enough in first packet - joining')
+self:rq_join()
+end
+self:a(#self.rq[1]>=t)
+local i=i.cursor(e==1 and self.rq[1]or
+string.sub(self.rq[1],e))
+local a=a.unpack(i)
+local i=a.magic
+local a=a.size
+if i~=HEADER_MAGIC
+then
+self:d('invalid magic')
+self:handle_close()
+return
+end
+local a=t+a
+if self.rql<a
+then
+self:d('too short read queue[2]',self.rql,a)
+break
+end
+if#self.rq[1]<a
+then
+self:d('not enough in first packet - joining[2]')
+self:rq_join()
+end
+self:a(#self.rq[1]>=a)
+local t=string.sub(self.rq[1],t+1,a)
+local t=o.decode(t)
+self:a(self.callback,'no callback?!?')
+self:d('providing callback to client',t)
+self.callback(t)
+e=a+1
+self:d('handle_data iter',e)
+end
+local e=e-1
+if e>0
+then
+self:d('consuming some bytes',e)
+self.read=self.read+e
+self.rq[1]=string.sub(self.rq[1],e+1)
+self.rql=self.rql-e
+mst.a(self.rql>=0,"invalid rql",self)
+end
+end
+function wrap_socket(e)
+local e=jsoncodec:new(e)
+return e
+end
+end)
+package.preload['ssloop']=(function(...)
+require'mst'
+require'socket'
+module(...,package.seeall)
+local e=mst.create_class{started=false,class='mstwrapper'}
+function e:uninit()
+self:d('uninit')
+self:stop()
+end
+function e:start()
+if not self.started
+then
+self.started=true
+self:raw_start()
+end
+return self
+end
+function e:stop()
+if self.started
+then
+self.started=false
+self:raw_stop()
+end
+return self
+end
+local t=e:new_subclass{mandatory={'reader','s','callback'},
+class='mstio'}
+function t:raw_start()
+local e=loop()
+local t=self.reader and e.r or e.w
+local e=self.reader and e.rh or e.wh
+local a=mst.array_find(t,self.s)
+self:a(not a,"we should be missing from event loop socket list")
+table.insert(t,self.s)
+e[self.s]=self
+self:d('started')
+end
+function t:raw_stop()
+local e=loop()
+local t=self.reader and e.r or e.w
+local e=self.reader and e.rh or e.wh
+local t=mst.array_remove(t,self.s)
+self:a(t,"we were missing from event loop socket list")
+self:a(e[self.s]~=nil,"we're missing from event loop hash")
+e[self.s]=nil
+self:d('stopped')
+end
+function t:repr_data()
+local e=self.s:getfd()
+local e=mst.repr{fd=e,
+p=self.p,
+started=self.started}
+if self.reader
+then
+return'reader '..e
+end
+return'writer '..e
+end
+local a=e:new_subclass{mandatory={'timeout','callback'},
+class='msttimeout'}
+function a:init()
+local e=loop()
+self.started=false
+table.insert(e.t,self)
+self:d('init')
+end
+function a:uninit()
+self:d('uninit')
+local e=loop()
+mst.array_remove(e.t,self)
+end
+function a:raw_start()
+end
+function a:raw_stop()
+end
+local e=mst.create_class{class='ssloop'}
+local o=false
+function e:init()
+self.r={}
+self.w={}
+self.rh={}
+self.wh={}
+self.t={}
+end
+function e:uninit()
+self:d('uninit')
+self:clear()
+end
+function e:repr_data()
+return string.format('#r:%d #w:%d #t:%d',#self.r,#self.w,#self.t)
+end
+function e:clear()
+self:d('clear')
+local e=mst.array:new()
+for a,t in ipairs(self.r)
+do
+e:insert(self.rh[t])
+end
+for a,t in ipairs(self.w)
+do
+e:insert(self.wh[t])
+end
+for a,t in ipairs(self.t)
+do
+e:insert(t)
+end
+if e:is_empty()
+then
+return
+end
+self:d('clearing',e)
+for t,e in ipairs(e)
+do
+e:done()
+end
+self:a('unable to clear r',not#self.r)
+self:a('unable to clear w',not#self.w)
+self:a('unable to clear t',not#self.t)
+return e
+end
+function e:new_reader(a,e,o)
+local e=t:new{s=a,callback=e,reader=true,p=o}
+self:d('added new reader',e)
+return e
+end
+function e:new_writer(a,o,e)
+local e=t:new{s=a,callback=o,reader=false,p=e}
+self:d('added new writer',e)
+return e
+end
+local function i()
+return socket.gettime()
+end
+function e:new_timeout_delta(e,t)
+local e=a:new{timeout=i()+e,
+callback=t}
+self:d('added new timeout',e)
+return e
+end
+function e:poll(t)
+self:d('poll')
+local e=i()
+if self:run_timeouts(e)>0
+then
+return
+end
+local e=self:next_timeout(e)
+if t and(not e or e>t)
+then
+e=t
+end
+self:d('select()',#self.r,#self.w,e)
+r,w,err=socket.select(self.r,self.w,e)
+for t,e in ipairs(r)
+do
+local e=self.rh[e]
+if e
+then
+self:d('providing read callback to',e)
+self:a(e.callback,'no callback for',e)
+e:callback()
+end
+end
+for t,e in ipairs(w)
+do
+local e=self.wh[e]
+if e
+then
+self:d('providing write callback to',e)
+self:a(e.callback,'no callback for',e)
+e:callback()
+end
+end
+local e=i()
+self:run_timeouts(e)
+end
+function e:loop()
+self:d('loop')
+self:a(not self.running,'already running')
+self.stopping=false
+self.running=true
+mst.pcall_and_finally(function()
+while not self.stopping
+do
+self:poll()
+end
+end,
+function()
+self.running=false
+end)
+end
+function e:loop_until(t,a)
+local o=false
+local e
+if t()
+then
+return true
+end
+if a
+then
+e=self:new_timeout_delta(a,function()timedout=true end)
+e:start()
+end
+while not o
+do
+self:poll()
+if t()
+then
+break
+end
+end
+if e
+then
+e:done()
+end
+return not o
+end
+function e:unloop()
+self.stopping=true
+end
+function e:run_timeouts(o)
+local t=0
+self:a(o,'now mandatory in run_timeouts')
+local a={}
+for t,e in ipairs(self.t)
+do
+if e.started and e.timeout<=o
+then
+table.insert(a,e)
+end
+end
+for a,e in ipairs(a)
+do
+self:d('running timeout',e)
+self:a(e.callback,'no callback for',e)
+e.callback()
+e:done()
+t=t+1
+end
+return t
+end
+function e:next_timeout(a)
+local e=0
+local e=nil
+self:a(a,'now mandatory in next_timeout')
+for o,t in ipairs(self.t)
+do
+if t.started
+then
+self:a(t.timeout,'timeout not set')
+self:a(t.timeout>a,"timeout in past?")
+local t=t.timeout-a
+if not e or e>t
+then
+e=t
+end
+end
+end
+return e
+end
+function loop()
+if not o
+then
+o=e:new()
+end
+return o
+end
+TEST_TIMEOUT_INVALID=15
+function run_loop_awhile(e)
+local t=loop()
+e=e or TEST_TIMEOUT_INVALID
+local e=t:new_timeout_delta(e,
+function()
+t:unloop()
+end,e)
+e:start()
+t:loop()
+e:done()
+end
+function run_loop_until(t,e)
+local a=loop()
+local e=a:loop_until(t,e or TEST_TIMEOUT_INVALID)
+if not e
+then
+error("timeout expired")
+end
+end
+function inject_snitch(t,e,o)
+local a=t[e]
+t[e]=function(...)
+o(...)
+a(...)
+end
+end
+function inject_refcounted_terminator(o,a,e)
+local t=loop()
+local e=function()
+e[1]=e[1]-1
+if e[1]==0
+then
+t:unloop()
+end
+end
+inject_snitch(o,a,e)
+end
+function add_eventloop_terminator(t,e)
+local a={1}
+inject_refcounted_terminator(t,e,a)
+end
+end)
+local e='pm_core'
+require(e)
+collectgarbage('collect')
+print(math.floor(collectgarbage('count')),e)
