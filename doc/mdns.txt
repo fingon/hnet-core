@@ -205,36 +205,6 @@ linklocal scoping of addresses)
 
 + use of getaddr/nameinfo in luasocket, instead of inet_pton/ntop
 
-
-- socket_sendmsg [usocket]
-- socket_recvmsg [usocket]
-
-- add meth_sendmsg
- args: 
- - array of stuff to send (strings) OR just string?
- [- ~sendto style name]
- [- array of options]
- returns:
-   # of bytes sent?
- or nil + error message
-
-- add meth_recvmsg
- args:
- - receive buffer size [ Lua doesn't have really mutable buffer objects ]
- returns:
- - message
- - srcaddr
- - srcport
- - option array (name, decoded_data)
-   ttl = # (IPv4)
-   pktinfo = ifindex, address
-
-   ipv6_hoplimit = #
-   ipv6_pktinfo = ifindex, address
-
- or nil + error message 
- 
-
 ** Per-router state, mDNS state machine, caching, ..
 
 - some way of storing per-link state of DNS records
