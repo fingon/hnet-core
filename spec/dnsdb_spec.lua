@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:37:02 2012 mstenber
--- Last modified: Mon Dec 17 14:44:47 2012 mstenber
--- Edit time:     3 min
+-- Last modified: Mon Dec 17 14:47:14 2012 mstenber
+-- Edit time:     4 min
 --
 
 require "busted"
@@ -29,16 +29,21 @@ local fake2 = {rclass = dnscodec.CLASS_IN,
 describe("ns", function ()
             it("works", function ()
                   local ns = dnsdb.ns:new{}
+                  -- add two items (one twice, just to make sure it
+                  -- doesn't get added again)
                   mst.a(ns:count() == 0)
                   ns:upsert_rr(fake1)
                   ns:upsert_rr(fake1)
                   mst.a(ns:count() == 1)
                   ns:upsert_rr(fake2)
                   mst.a(ns:count() == 2)
-                  local s = {name = fake1.name,
-                             rtype = fake1.rtype}
+
+                  -- test that we can also find fake1 based on synthetic entry
+                  local s = {name = fake1.name, rtype = fake1.rtype}
                   local o = ns:find_rr(s)
                   mst.a(o == fake1)
+
+                  -- make sure that removing items works too
                   ns:remove_rr(fake1)
                   ns:remove_rr(fake2)
                   mst.a(ns:count() == 0)
