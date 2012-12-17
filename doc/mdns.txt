@@ -237,3 +237,39 @@ Guesstimate: ~free (<0,5k LoC)
 
 => ~5k LoC Lua +- tests
 
+
+* Protocol delays
+
+probe
+ - when sending probes, first one 0-250ms
+  - then every 250ms
+ - if losing probe, wait second, try again (not relevant for us)
+ - 15 conflicts in 10 seconds => 5 seconds until next probe
+
+query (not relevant for us)
+ - initial 20-120ms
+ - further exponential backoff
+
+response
+ - 20-120ms if non-unique
+ - TC (=truncated) => wait more known answers => 400-500ms
+ - should aggregate up to 500ms MORE if possible
+
+cannot multicast a record more than 1x/second (exception: answering probe
+queries, but even then at least 250ms delay)
+
+* Data structures
+
+- per-dst (also per-link?) pending responses
+
+ - queries we haven't responded to, _yet_ (due to TC, some queries may be
+   around 'awhile')
+
+ - dns payloads + when was first/last one received
+
+- per link
+
+ - 'seen on link' [rrs-ns]
+
+ - publishing [rrs-ns]
+
