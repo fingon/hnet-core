@@ -1,6 +1,6 @@
 -*- outline -*-
 
-* Bugs to fix
+* PA - Bugs to fix
 
 ** BIRD - dridd p#2
 
@@ -105,6 +105,10 @@ TODO codereview
  [ done, stress/elsa_pa_stress.lua ]
 
 * Things to do if I have time (hah)
+
+** More effective handling of multimap memory usage
+
+If just 1 entry, shouldn't use list, but instead just single entry.
 
 ** Dynamic border handling (for real)
 
