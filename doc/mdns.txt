@@ -64,6 +64,8 @@ like treading on thin ice, name-ifid-rid.local is _probably_ unique
 too. But as the service names _themselves_ may also be unique, this leads
 to a rathole. So [1] is the way to go.
 
+Yet another choice is just to pretend unique records aren't, if there's
+someone on the local network claiming they own the unique record..
 
 ** Who has right to name
 
@@ -208,17 +210,28 @@ linklocal scoping of addresses)
 ** Per-router state, mDNS state machine, caching, ..
 
 - some way of storing per-link state of DNS records
+ - per link
+   r/w DNS state of local entities
+ - label tree to find by name (leaf nodes can be single entities or lists)
+ - some kind of timeout list (if really needed) to handle records' r/w
+   state, timeouts, etc [ optional, but iterating through _all_ entries
+   every time is _very_ inefficient ]
 
-- on each link, provide all local links' data as non-unique + additionally
-  'cloud state'
+- on each link, provide all other local links' data as not-really-unique
+  (=pretend it is, but also if someone starts probing for it, omit that
+  from further advertisements and don't contend conflict resolution) +
+  additionally 'cloud state'
 
-- must honor TTL's, and follow all other stuff required
+- must honor TTL's, and follow all other stuff required (_but_ pretend
+  cloud state has always max TTL, until it disappears)
 
 Guesstimate: 1-3k LoC?
 
 ** Per-network system state (in OSPF-ish)
 
 - JSONblob with the data
+
+r/o, for most part (we provide summary of local state too, of course)
 
 Guesstimate: ~free (<0,5k LoC)
 
