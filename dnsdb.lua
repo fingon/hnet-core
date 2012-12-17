@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Mon Dec 17 14:44:23 2012 mstenber
--- Edit time:     27 min
+-- Last modified: Mon Dec 17 14:58:12 2012 mstenber
+-- Edit time:     28 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -34,7 +34,8 @@ function name2ll(name)
    mst.a(ntype == 'string', 'unsupported type', ntype, name)
    -- use '.' as separator, and pray hard that there isn't . within the labels
    local t = mst.string_split(name, '.')
-   table.insert(t, '')
+   -- we don't include the last empty label in the label lists we use
+   --table.insert(t, '')
    return t
 end
 
