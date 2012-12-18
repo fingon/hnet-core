@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Mon Dec 17 14:58:12 2012 mstenber
--- Edit time:     28 min
+-- Last modified: Tue Dec 18 20:46:42 2012 mstenber
+-- Edit time:     72 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -18,6 +18,11 @@
 
 -- The data is stored in a multimap based on hash of the name;
 -- collisions are handled by the multimap lists.
+
+-- What is _unique_? As this mdns-oriented, there's two cases:
+
+-- cache_flush=true => name + rtype + rclass
+-- cache_flush=false => name + rtypr + rclass + rdata (=~ whole rr, -ttl)
 
 require 'mst'
 require 'dnscodec'
@@ -49,7 +54,8 @@ end
 
 -- class used for handling single RR record (whether it's from
 -- dnscodec, or synthetic created by us)
-rr = mst.create_class{class='rr'}
+--rr = mst.create_class{class='rr'}
+-- XXX - will this be really needed? just raw dicts seem enough
 
 -- namespace of RR records; it has ~fast access to RRs by name
 ns = mst.create_class{class='ns'}
@@ -64,7 +70,9 @@ end
 function ns:ll_key(ll)
    -- just in case, make sure it's ll
    ll = name2ll(ll)
-   return mst.create_hash(mst.repr(ll))
+   local lowercase_ll = mst.array_map(ll, string.lower)
+   local s = mst.repr(lowercase_ll)
+   return mst.create_hash(s)
 end
 
 function ns:find_rr_list_for_ll(ll)
@@ -90,39 +98,57 @@ function ll_equal(ll1, ll2)
    end
    for i=1,#ll1
    do
-      if ll1[i] ~= ll2[i] then return false end
+      local s1 = string.lower(ll1[i])
+      local s2 = string.lower(ll2[i])
+      if  s1 ~= s2 then return false end
    end
    return true
 end
 
+function rr_equals(rr, o)
+   return rr.rtype == o.rtype and rr.rclass == o.rclass and ll_equal(rr.name, o.name) and rr.rdata == o.rdata
+end
+
+function rr_contains(rr, o)
+   -- fast check - if rtype different, no, it won't
+   if rr.rtype ~= o.rtype then return false end
+
+   local rclass = o.rclass or dnscodec.CLASS_IN
+   local cache_flush = o.cache_flush or false
+   local rdata = o.rdata
+
+   -- consider name, rtype, rclass always
+   -- and rdata, if the cache_flsuh is not set within o
+   return rr.rclass == rclass and 
+      ll_equal(rr.name, o.name) and 
+      (not rdata or cache_flush or rr.rdata == rdata)
+end
+
 function ns:find_rr(o)
    self:a(o.name, 'missing name', o)
-   local rtype = o.rtype
-   local rclass = o.rclass or dnscodec.CLASS_IN
    self:a(o.rtype, 'missing rtype', o)
-
-   for i, v in ipairs(self:find_rr_list_for_ll(o.name))
+   for i, rr in ipairs(self:find_rr_list_for_ll(o.name))
    do
-      if v.rclass == rclass and v.rtype == rtype and ll_equal(v.name, o.name)
+      if rr_contains(rr, o)
       then
-         return v
+         return rr
       end
    end
 end
 
-function ns:upsert_rr(o)
-   local old_rr = self:find_rr(o)
-   -- if found, just update the old rr
-   if old_rr
-   then
-      mst.table_copy(o, old_rr)
-      return 
-   end
+function ns:insert_rr(o)
+   -- zap anything matching (clearly old information which is out of date)
+   while self:remove_rr(o) do end
+
+   o = mst.table_copy(o)
+   
    -- not found - have to add
    local ll = o.name
    local key = self:ll_key(ll)
-   setmetatable(o, rr)
+   --setmetatable(o, rr)
    self.nh2rr:insert(key, o)
+
+   return o, true
 end
 
 function ns:remove_rr(o)
@@ -131,8 +157,13 @@ function ns:remove_rr(o)
    local ll = o.name
    local key = self:ll_key(ll)
    self.nh2rr:remove(key, old_rr)
+   return true
 end
 
 function ns:count()
    return self.nh2rr:count()
+end
+
+function ns:values()
+   return self.nh2rr:values()
 end
