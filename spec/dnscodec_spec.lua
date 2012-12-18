@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 12:06:56 2012 mstenber
--- Last modified: Fri Nov 30 14:56:52 2012 mstenber
--- Edit time:     26 min
+-- Last modified: Wed Dec 19 00:53:05 2012 mstenber
+-- Edit time:     29 min
 --
 
 require "busted"
@@ -24,9 +24,10 @@ local dns_message = dnscodec.dns_message
 local tests = {
    -- minimal
    {dns_rr, {name={}, rtype=1, rdata=''}},
+   {dns_rr, {name={}, rtype=1, cache_flush=true, rdata=''}},
    {dns_rr, {name={'foo', 'bar'}, rtype=2, rclass=3, ttl=4, rdata='baz'}},
-   {dns_query, {name={}}},
-   {dns_query, {name={}, qtype=255, qclass=42}},
+   {dns_query, {name={'z'}}},
+   {dns_query, {name={'y'}, qtype=255, qclass=42}},
 }
 
 local message_tests = {

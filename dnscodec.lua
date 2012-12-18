@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Fri Nov 30 14:55:16 2012 mstenber
--- Edit time:     114 min
+-- Last modified: Wed Dec 19 00:55:07 2012 mstenber
+-- Edit time:     118 min
 --
 
 -- Functionality for en-decoding various DNS structures;
@@ -117,6 +117,7 @@ end
 -- message compression is optional => we skip it for the time being
 function encode_name_rec(n, h)
    local t = {}
+   mst.a(type(n) == 'table', 'non-table given to encode_name_rec', n)
    for i, v in ipairs(n)
    do
       mst.a(#v > 0, 'we do not support empty labels in middle!')
@@ -230,7 +231,7 @@ local rtype_map = {[TYPE_PTR]={
 
 
 dns_rr = abstract_data:new{class='dns_rr',
-                           format='rtype:u2 rclass:u2 ttl:u4 rdlength:u2',
+                           format='rtype:u2 [2|rclass:u15 cache_flush:b1] ttl:u4 rdlength:u2',
                            header_default={rtype=0,
                                            rclass=CLASS_IN,
                                            ttl=0,
