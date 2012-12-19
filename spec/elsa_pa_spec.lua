@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Dec 19 13:57:22 2012 mstenber
--- Edit time:     298 min
+-- Last modified: Wed Dec 19 15:17:18 2012 mstenber
+-- Edit time:     300 min
 --
 
 require 'mst'
@@ -59,6 +59,11 @@ end
 function dsm_run_with_clear_busy_callback(dsm, o)
    o:run()
    o.pa.busy = nil
+end
+
+function create_elsa_callback(o)
+   return elsa_pa.elsa_pa:new{elsa=o.sm.e, skv=o.skv, rid=o.rid,
+                              time=o.time}
 end
 
 function ensure_dsm_same(self)
@@ -387,7 +392,8 @@ describe("elsa_pa 2-node", function ()
                                          assume_connected=true,
                                          lsas=base_lsas}
                            e:connect_neigh('ep1', 123, 'ep2', 124)
-                           sm = dsm:new{e=e, port_offset=31338}
+                           sm = dsm:new{e=e, port_offset=31338,
+                                       create_callback=create_elsa_callback}
                            ep1 = sm:add_node('ep1')
                            ep1.originate_min_interval=0
                            skv1 = sm.skvs[1]
@@ -459,7 +465,8 @@ describe("elsa_pa bird7-ish", function ()
                            iids = {}
                            hwfs = {}
                            e = delsa:new{iid=iids, hwf=hwfs}
-                           sm = dsm:new{e=e, port_offset=42420}
+                           sm = dsm:new{e=e, port_offset=42420,
+                                       create_callback=create_elsa_callback}
                            for i=0,3
                            do
                               local name = 'bird' .. tostring(i)

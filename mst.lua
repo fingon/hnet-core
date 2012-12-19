@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Fri Nov 30 14:05:04 2012 mstenber
--- Edit time:     610 min
+-- Last modified: Wed Dec 19 14:04:05 2012 mstenber
+-- Edit time:     613 min
 --
 
 -- data structure abstractions provided:
@@ -1104,7 +1104,7 @@ function min(...)
    local smallest = nil
    local l = {...}
    array_foreach(l, function (v)
-                    if not smallest or v < smallest
+                    if v and (not smallest or v < smallest)
                     then
                        smallest = v
                     end
@@ -1119,7 +1119,7 @@ function max(...)
    local l = {...}
    array_foreach(l, function (v)
                     --mst.a(not largest or type(largest) == type(v), v, largest)
-                    if not largest or v > largest
+                    if v and (not largest or v > largest)
                     then
                        largest = v
                     end
