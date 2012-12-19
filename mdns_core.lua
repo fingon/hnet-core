@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Wed Dec 19 16:54:45 2012 mstenber
--- Edit time:     192 min
+-- Last modified: Wed Dec 19 17:29:11 2012 mstenber
+-- Edit time:     197 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -45,6 +45,20 @@
 
 --  - state machine for published entries (handle reception triggers -
 --    now basic send sequence works)
+
+-- - TTL handling of items (and active re-querying, perhaps, of things
+--   already seen? tie to ND?)
+
+-- - spam limitations (how often each kind of RR can be transmitted on
+--   a link, and even as response to a probe)
+
+-- - query handling (delayed response, KAS, noticing already sent
+--   responses on link)
+
+-- - unicast query/response
+
+-- - filtering of RRs we pass along (linklocals aren't very useful,
+--   for example)
 
 require 'mst'
 require 'dnscodec'
@@ -271,6 +285,10 @@ function mdns:recvmsg(src, data)
    mst.a(#l == 2, 'invalid src', src)
    local addr, ifname = unpack(l)
    local msg = dnscodec.dns_message:decode(data)
+
+   -- XXX - add handling of probe results here
+   -- (both existing, and simultaneous probe)
+
    -- XXX - better handling
    local ns = self:get_if_cache(ifname)
    for i, rr in ipairs(msg.an or {})

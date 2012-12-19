@@ -241,8 +241,8 @@ Guesstimate: ~free (<0,5k LoC)
 * Protocol delays
 
 probe
- - when sending probes, first one 0-250ms
-  - then every 250ms
+ + when sending probes, first one 0-250ms
+  + then every 250ms
  - if losing probe, wait second, try again (not relevant for us)
  - 15 conflicts in 10 seconds => 5 seconds until next probe
 
