@@ -8,9 +8,13 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Oct  5 00:09:17 2012 mstenber
--- Last modified: Tue Nov 13 16:43:09 2012 mstenber
--- Edit time:     50 min
+-- Last modified: Wed Dec 19 13:24:27 2012 mstenber
+-- Edit time:     53 min
 --
+
+-- this is variant with the neighbor topology + various pieces of
+-- LSA/AC information stored within additionally. It is useful for
+-- simulating number of elsa_pa nodes.
 
 require 'mst'
 require 'elsa_pa'
@@ -22,18 +26,7 @@ delsa = dneigh.dneigh:new_subclass{class='delsa', mandatory={'hwf'}}
 
 function delsa:init()
    dneigh.dneigh.init(self)
-   self.nodes = {}
    self.lsas = self.lsas or {}
-end
-
-function delsa:clear_connections()
-   self.neigh = {}
-   self.connected = {}
-end
-
-function delsa:changed()
-   -- zap connected cache
-   self.connected = nil
 end
 
 function delsa:repr_data()
@@ -44,28 +37,6 @@ function delsa:repr_data()
                         mst.count(self.neigh),
                         mst.count(self.routes))
 
-end
-
-function delsa:get_connected(rid)
-   if not self.connected then self.connected={} end
-   local v = self.connected[rid]
-   if v then return v end
-   local t = mst.set:new{}
-   self:iterate_all_connected_rid(rid, 
-                                  function (rid2)
-                                     t:insert(rid2)
-                                  end)
-
-   -- obviously all nodes that were traversible using this start rid,
-   -- share the same connected set (this makes simulation of N nodes
-   -- muuch faster)
-   for rid, _ in pairs(t)
-   do
-      self.connected[rid] = t
-   end
-   self:a(t)
-   self:d('get_connected', rid, t)
-   return t
 end
 
 function delsa:get_hwf(rid)
@@ -87,18 +58,6 @@ function delsa:iterate_lsa(rid0, f, criteria)
          self:d(' not reachable', rid)
       end
    end
-end
-
-function delsa:iterate_if(rid, f)
-   for i, v in ipairs(self.iid[rid] or {})
-   do
-      f(v)
-   end
-end
-
-function delsa:add_router(epa, rid)
-   rid = rid or epa.rid
-   self.nodes[rid] = epa
 end
 
 function delsa:notify_ospf_changed(rid)
@@ -134,23 +93,3 @@ function delsa:change_rid()
    self.rid_changed = true
 end
 
-function delsa:route_to_rid(rid0, rid)
-   self:d('route lookup', rid)
-   if rid == rid0 then return nil end
-   if self.routes 
-   then 
-      local t = self.routes[rid] 
-      self:d('lookup got', t)
-      if t then return t end
-   end
-   -- final fallback - if it's 'connected', there must be a route, but
-   -- we have a lazy coder - so figure something
-   if not self.disable_autoroute
-   then
-      local c = self:get_connected(rid0)
-      if c[rid]
-      then
-         return {ifname='???', nh=tostring(rid0) .. '->' .. tostring(rid)}
-      end
-   end
-end

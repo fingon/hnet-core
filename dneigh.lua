@@ -8,14 +8,20 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Oct 12 14:54:48 2012 mstenber
--- Last modified: Tue Nov 13 15:50:04 2012 mstenber
--- Edit time:     27 min
+-- Last modified: Wed Dec 19 13:24:35 2012 mstenber
+-- Edit time:     31 min
 --
 
 -- structure is:
+
 -- neigh[rid] = 
 --  {iid1={rid2=iid2,rid3=iid3,...},..}}
 
+-- and optionally
+--  nodes[rid] = obj
+
+-- (rid, iid are assumed to be ~printable, for debugginr purposes; obj
+-- can be any object)
 
 require 'mst'
 
@@ -25,7 +31,9 @@ dneigh = mst.create_class{class='dneigh'}
 
 function dneigh:init()
    self.neigh = self.neigh or {}
+   self.nodes = self.nodes or {}
 end
+
 
 function dneigh:iterate_flat(f)
    -- get list of (rid1, iid1, rid2, iid2) connections
@@ -114,6 +122,11 @@ function dneigh:raw_handle_neigh_one(r1, i1, r2, i2, f)
    _conn(r2, i2, r1, i1)
 end
 
+function dneigh:clear_connections()
+   self.neigh = {}
+   self:changed()
+end
+
 function dneigh:connect_neigh_one(r1, i1, r2, i2)
    self:raw_handle_neigh_one(r1, i1, r2, i2, function (h, rid, iid)
                                 h[rid] = iid
@@ -146,5 +159,64 @@ function dneigh:connect_neigh(...)
 end
 
 function dneigh:changed()
-   -- child responsibility
+   -- zap connected cache
+   self.connected = nil
+end
+
+-- cached convenience fn
+function dneigh:get_connected(rid)
+   if not self.connected then self.connected={} end
+   local v = self.connected[rid]
+   if v then return v end
+   local t = mst.set:new{}
+   self:iterate_all_connected_rid(rid, 
+                                  function (rid2)
+                                     t:insert(rid2)
+                                  end)
+
+   -- obviously all nodes that were traversible using this start rid,
+   -- share the same connected set (this makes simulation of N nodes
+   -- muuch faster)
+   for rid, _ in pairs(t)
+   do
+      self.connected[rid] = t
+   end
+   self:a(t)
+   self:d('get_connected', rid, t)
+   return t
+end
+
+-- convenience 
+function dneigh:iterate_if(rid, f)
+   for i, v in ipairs(self.iid[rid] or {})
+   do
+      f(v)
+   end
+end
+
+function dneigh:add_node(o, rid)
+   rid = rid or o.rid
+   self:a(rid, 'no rid in add_node', o)
+   self.nodes[rid] = o
+end
+
+function dneigh:route_to_rid(rid0, rid)
+   self:d('route lookup', rid)
+   if rid == rid0 then return nil end
+   if self.routes 
+   then 
+      local t = self.routes[rid] 
+      self:d('lookup got', t)
+      if t then return t end
+   end
+   -- final fallback - if it's 'connected', there must be a route, but
+   -- we have a lazy coder - so figure something
+   if not self.disable_autoroute
+   then
+      local c = self:get_connected(rid0)
+      if c[rid]
+      then
+         return {ifname='???', nh=tostring(rid0) .. '->' .. tostring(rid)}
+      end
+   end
 end

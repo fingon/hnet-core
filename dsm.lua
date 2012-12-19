@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:02:05 2012 mstenber
--- Last modified: Tue Nov 13 16:28:49 2012 mstenber
--- Edit time:     2 min
+-- Last modified: Wed Dec 19 13:23:08 2012 mstenber
+-- Edit time:     7 min
 --
 
 -- wierd testing utility class, which simulates a whole topology
@@ -30,7 +30,7 @@ function dsm:init()
    self.t = 0
 end
 
-function dsm:add_router(rid)
+function dsm:add_node(rid)
    local port = self.port_offset + #self.skvs
    local s = skv.skv:new{long_lived=true, port=port}
    self.skvs:insert(s)
@@ -39,7 +39,7 @@ function dsm:add_router(rid)
                                      return self.t
                                   end}
    self.eps:insert(ep)
-   self.e:add_router(ep)
+   self.e:add_node(ep)
    return ep
 end
 
@@ -76,7 +76,7 @@ function dsm:run_nodes(iters, clear_busy)
          if clear_busy then ep.pa.busy = nil end
       end
       local l = 
-         self.eps:filter(function (ep) return ep:should_run(ep.ospf_changes) end)
+         self.eps:filter(function (ep) return ep:should_run() end)
       if #l == 0
       then
          return true

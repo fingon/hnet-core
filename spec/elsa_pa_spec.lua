@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Fri Nov 30 11:10:22 2012 mstenber
--- Edit time:     293 min
+-- Last modified: Wed Dec 19 13:18:53 2012 mstenber
+-- Edit time:     294 min
 --
 
 require 'mst'
@@ -74,7 +74,7 @@ describe("elsa_pa [one node]", function ()
                            s:set(elsa_pa.DISABLE_V4_SKVPREFIX .. 'eth0', 2)
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='mypid',
                                                     new_prefix_assignment=0}
-                           e:add_router(ep)
+                           e:add_node(ep)
 
                            -- run once, and make sure we get to pa.add_or_update_usp
                            usp_added = false
@@ -368,10 +368,10 @@ describe("elsa_pa 2-node", function ()
                                          lsas=base_lsas}
                            e:connect_neigh('ep1', 123, 'ep2', 124)
                            sm = dsm:new{e=e, port_offset=31338}
-                           ep1 = sm:add_router('ep1')
+                           ep1 = sm:add_node('ep1')
                            ep1.originate_min_interval=0
                            skv1 = sm.skvs[1]
-                           ep2 = sm:add_router('ep2')
+                           ep2 = sm:add_node('ep2')
                            ep2.originate_min_interval=0
                            skv2 = sm.skvs[2]
                         end)
@@ -446,7 +446,7 @@ describe("elsa_pa bird7-ish", function ()
                               iids[name] = {{index=42, name='eth0'},
                                             {index=43, name='eth1'}}
                               hwfs[name] = name
-                              local ep = sm:add_router(name)
+                              local ep = sm:add_node(name)
                               ep.originate_min_interval=0
                            end
                         end)

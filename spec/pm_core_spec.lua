@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Fri Nov 30 11:10:48 2012 mstenber
+-- Last modified: Wed Dec 19 13:19:00 2012 mstenber
 -- Edit time:     229 min
 --
 
@@ -246,7 +246,7 @@ describe("pm", function ()
                                         }
 
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid=myrid}
-                           e:add_router(ep)
+                           e:add_node(ep)
                            s:set(elsa_pa.OSPF_RID_KEY, myrid)
                            s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth1'})
                            s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.PREFIX_KEY .. 'eth0', 
