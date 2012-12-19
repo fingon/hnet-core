@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Tue Dec 18 20:46:42 2012 mstenber
--- Edit time:     72 min
+-- Last modified: Wed Dec 19 04:25:12 2012 mstenber
+-- Edit time:     76 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -106,7 +106,7 @@ function ll_equal(ll1, ll2)
 end
 
 function rr_equals(rr, o)
-   return rr.rtype == o.rtype and rr.rclass == o.rclass and ll_equal(rr.name, o.name) and rr.rdata == o.rdata
+   return rr.rtype == o.rtype and rr.rclass == o.rclass and ll_equal(rr.name, o.name) and rr.rdata == o.rdata and (not rr.cache_flush == not o.cache_flush)
 end
 
 function rr_contains(rr, o)
@@ -137,8 +137,19 @@ function ns:find_rr(o)
 end
 
 function ns:insert_rr(o)
+   -- let's see if we have _exactly_ same rr already
+   local old_rr = self:find_rr(o)
+   if old_rr and rr_equals(o, old_rr)
+   then
+      self:d('insert_rr reused old rr', old_rr)
+      return old_rr, false
+   end
+
    -- zap anything matching (clearly old information which is out of date)
-   while self:remove_rr(o) do end
+   while self:remove_rr(o) 
+   do 
+      self:d('insert_rr removed one matching', o)
+   end
 
    o = mst.table_copy(o)
    
@@ -147,7 +158,6 @@ function ns:insert_rr(o)
    local key = self:ll_key(ll)
    --setmetatable(o, rr)
    self.nh2rr:insert(key, o)
-
    return o, true
 end
 

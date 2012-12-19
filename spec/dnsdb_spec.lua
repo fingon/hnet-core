@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:37:02 2012 mstenber
--- Last modified: Tue Dec 18 20:42:29 2012 mstenber
--- Edit time:     18 min
+-- Last modified: Wed Dec 19 04:24:31 2012 mstenber
+-- Edit time:     21 min
 --
 
 require "busted"
@@ -84,7 +84,7 @@ describe("ns", function ()
 
                    end)
 
-            it("mdns features work", function ()
+            it("mdns features work #mdns", function ()
                   -- second iteration; add fake1+fake12+, and then override
                   -- them with fakeu => as a result, should have only 1
                   -- entry
@@ -98,7 +98,7 @@ describe("ns", function ()
                   -- then, add the fakeu => should have just one entry
                   ns:insert_rr(fakeu, true)
                   
-                  mst.a(ns:count() == 2)
+                  mst.a(ns:count() == 2, ns)
                   local s = mst.table_copy(fakeu)
                   local o = ns:find_rr(s)
                   mst.a(dnsdb.rr_equals(o, fakeu))
