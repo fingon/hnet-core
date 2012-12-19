@@ -269,7 +269,7 @@ queries, but even then at least 250ms delay)
 
 - per link
 
- - 'seen on link' [rrs-ns]
+ - 'seen on link' [rrs-ns] =~ cache
 
  - publishing [rrs-ns]
 
