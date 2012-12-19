@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Dec 19 13:18:53 2012 mstenber
--- Edit time:     294 min
+-- Last modified: Wed Dec 19 13:57:22 2012 mstenber
+-- Edit time:     298 min
 --
 
 require 'mst'
@@ -54,6 +54,26 @@ function ensure_skv_usp_has_nh(s, should_nh, should_if)
    should_if = should_if ~= nil and should_if or should_nh
    mst.a(not uspo.nh == not should_nh, 'nh state unexpected - not', should_nh)
    mst.a(not uspo.ifname == not should_if, 'ifname state unexpected - not', should_if)
+end
+
+function dsm_run_with_clear_busy_callback(dsm, o)
+   o:run()
+   o.pa.busy = nil
+end
+
+function ensure_dsm_same(self)
+   local ep1 = self:get_nodes()[1]
+   local pa1 = ep1.pa
+   for i, ep in ipairs(self:get_nodes())
+   do
+      local pa = ep.pa
+      mst.a(pa.usp:count() == pa1.usp:count(), 'usp', pa, pa1)
+      mst.a(pa.asp:count() == pa1.asp:count(), 'asp', pa, pa1)
+      
+      -- lap count can be bigger, if there's redundant
+      -- allocations
+      --mst.a(pa.lap:count() == pa1.lap:count(), 'lap', pa, pa1)
+   end
 end
 
 describe("elsa_pa [one node]", function ()
@@ -455,9 +475,9 @@ describe("elsa_pa bird7-ish", function ()
                           sm:done()
                        end)
             function ensure_counts()
-               mst.a(#sm.eps == 4, 'not 4 eps', sm.eps)
+               mst.a(#sm:get_nodes() == 4, 'not 4 eps', sm:get_nodes())
 
-               local ep1 = sm.eps[4]
+               local ep1 = sm:get_nodes()[4]
                mst.a(ep1)
                
                local pa1 = ep1.pa
@@ -477,9 +497,10 @@ describe("elsa_pa bird7-ish", function ()
             it("instant connection #inst", function ()
                   connect_nodes()
                   
-                  mst.a(sm:run_nodes(10, true), 'did not halt in time')
+                  mst.a(sm:run_nodes(10, dsm_run_with_clear_busy_callback),
+                        'did not halt in time')
 
-                  sm:ensure_same()
+                  ensure_dsm_same(sm)
 
                   ensure_counts()
                   
@@ -487,13 +508,14 @@ describe("elsa_pa bird7-ish", function ()
 
             it("delayed connection #delay", function ()
                   
-                  mst.a(sm:run_nodes(2, true), 'did not halt in time')
+                  mst.a(sm:run_nodes(2, dsm_run_with_clear_busy_callback), 
+                        'did not halt in time')
 
                   connect_nodes()
                   
                   mst.a(sm:run_nodes(10), 'did not halt in time')
 
-                  sm:ensure_same()
+                  ensure_dsm_same(sm)
 
                   ensure_counts()
                   
@@ -501,7 +523,8 @@ describe("elsa_pa bird7-ish", function ()
 
 
             it("survive net burps #burp", function ()
-                  mst.a(sm:run_nodes(2, true), 'did not halt in time')
+                  mst.a(sm:run_nodes(2, dsm_run_with_clear_busy_callback), 
+                        'did not halt in time')
 
                   for i=1,3
                   do
@@ -509,7 +532,7 @@ describe("elsa_pa bird7-ish", function ()
                      
                      mst.a(sm:run_nodes(10), 'did not halt in time')
 
-                     sm:ensure_same()
+                     ensure_dsm_same(sm)
 
                      ensure_counts()
                      

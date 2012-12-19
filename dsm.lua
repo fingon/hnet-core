@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:02:05 2012 mstenber
--- Last modified: Wed Dec 19 13:23:08 2012 mstenber
--- Edit time:     7 min
+-- Last modified: Wed Dec 19 14:01:02 2012 mstenber
+-- Edit time:     16 min
 --
 
 -- wierd testing utility class, which simulates a whole topology
@@ -26,7 +26,6 @@ dsm = mst.create_class{class='dsm', mandatory={'e', 'port_offset'}}
 
 function dsm:init()
    self.skvs = mst.array:new{}
-   self.eps = mst.array:new{}
    self.t = 0
 end
 
@@ -38,9 +37,17 @@ function dsm:add_node(rid)
                                   time=function ()
                                      return self.t
                                   end}
-   self.eps:insert(ep)
    self.e:add_node(ep)
+   self.nodes = nil
    return ep
+end
+
+function dsm:get_nodes()
+   if not self.nodes
+   then
+      self.nodes = self.e.nodes:values()
+   end
+   return self.nodes
 end
 
 function dsm:advance_time(value)
@@ -48,7 +55,7 @@ function dsm:advance_time(value)
 end
 
 function dsm:uninit()
-   for i, ep in ipairs(self.eps)
+   for i, ep in ipairs(self:get_nodes())
    do
       ep:done()
    end
@@ -62,42 +69,29 @@ function dsm:uninit()
    mst.a(not r, 'event loop not clear')
 end
 
-function dsm:run_nodes(iters, clear_busy)
+function dsm:run_nodes(iters, run_callback)
    -- run nodes up to X iterations, or when none of them
    -- don't want to run return true if stop condition was
    -- encountered before iters iterations
    for i=1,iters
    do
       mst.d('run_nodes iteration', i)
-      for i, ep in ipairs(mst.array_randlist(self.eps))
+      for i, ep in ipairs(mst.array_randlist(self:get_nodes()))
       do
          self:d(' ', ep.rid)
-         ep:run()
-         if clear_busy then ep.pa.busy = nil end
+         if run_callback
+         then
+            run_callback(self, ep)
+         else
+            ep:run()
+         end
       end
       local l = 
-         self.eps:filter(function (ep) return ep:should_run() end)
+         self:get_nodes():filter(function (ep) return ep:should_run() end)
       if #l == 0
       then
          return true
       end
    end
 end
-
-function dsm:ensure_same()
-   local ep1 = self.eps[1]
-   local pa1 = ep1.pa
-   for i, ep in ipairs(self.eps)
-   do
-      local pa = ep.pa
-      mst.a(pa.usp:count() == pa1.usp:count(), 'usp', pa, pa1)
-      mst.a(pa.asp:count() == pa1.asp:count(), 'asp', pa, pa1)
-      
-      -- lap count can be bigger, if there's redundant
-      -- allocations
-      --mst.a(pa.lap:count() == pa1.lap:count(), 'lap', pa, pa1)
-   end
-end
-
-
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Oct 12 14:54:48 2012 mstenber
--- Last modified: Wed Dec 19 13:24:35 2012 mstenber
--- Edit time:     31 min
+-- Last modified: Wed Dec 19 13:27:05 2012 mstenber
+-- Edit time:     32 min
 --
 
 -- structure is:
@@ -31,7 +31,7 @@ dneigh = mst.create_class{class='dneigh'}
 
 function dneigh:init()
    self.neigh = self.neigh or {}
-   self.nodes = self.nodes or {}
+   self.nodes = self.nodes or mst.map:new{}
 end
 
 
