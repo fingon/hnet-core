@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:02:05 2012 mstenber
--- Last modified: Wed Dec 19 15:17:26 2012 mstenber
--- Edit time:     24 min
+-- Last modified: Wed Dec 19 16:01:21 2012 mstenber
+-- Edit time:     27 min
 --
 
 -- wierd testing utility class, which simulates a whole topology
@@ -30,19 +30,21 @@ function dsm:init()
    self.t = 0
 end
 
-function dsm:add_node(rid)
+function dsm:add_node(o)
    local port = self.port_offset + #self.skvs
    local s = skv.skv:new{long_lived=true, port=port}
    self.skvs:insert(s)
-   local ep = self.create_callback{sm=self,
-                                   skv=s, 
-                                   rid=rid,
-                                   time=function ()
-                                      return self.t
-                                   end}
-   self.e:add_node(ep)
+   o = o or {}
+   o.sm = self
+   o.skv = s
+   o.time = function ()
+      return self.t
+   end
+   
+   local n = self.create_callback(o)
+   self.e:add_node(n)
    self.nodes = nil
-   return ep
+   return n
 end
 
 function dsm:get_nodes()
@@ -62,9 +64,9 @@ function dsm:set_time(value)
 end
 
 function dsm:uninit()
-   for i, ep in ipairs(self:get_nodes())
+   for i, n in ipairs(self:get_nodes())
    do
-      ep:done()
+      n:done()
    end
    for i, s in ipairs(self.skvs)
    do
@@ -83,18 +85,18 @@ function dsm:run_nodes(iters, run_callback)
    for i=1,iters
    do
       mst.d('run_nodes iteration', i)
-      for i, ep in ipairs(mst.array_randlist(self:get_nodes()))
+      for i, n in ipairs(mst.array_randlist(self:get_nodes()))
       do
-         self:d(' ', ep.rid)
+         self:d(' ', n)
          if run_callback
          then
-            run_callback(self, ep)
+            run_callback(self, n)
          else
-            ep:run()
+            n:run()
          end
       end
       local l = 
-         self:get_nodes():filter(function (ep) return ep:should_run() end)
+         self:get_nodes():filter(function (n) return n:should_run() end)
       if #l == 0
       then
          return i
