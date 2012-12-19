@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Wed Dec 19 04:10:20 2012 mstenber
--- Edit time:     187 min
+-- Last modified: Wed Dec 19 16:54:45 2012 mstenber
+-- Edit time:     192 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -190,10 +190,33 @@ function mdns:run()
    while self:run_own_states() > 0 do end
 end
 
+function mdns:should_run()
+   if self.update_lap then return true end
+
+   local now = self.time()
+   for ifname, ns in pairs(self.if2own)
+   do
+      local pending = {}
+      for i, rr in ipairs(ns:values())
+      do
+         if rr.state
+         then
+            if rr.wait_until 
+            then
+               if rr.wait_until <= now then return true end
+            else
+               return true
+            end
+         end
+      end
+   end
+end
+
 
 function mdns:run_own_states()
    local now = self.time()
    local c = 0
+   mst.a(type(now) == 'number', now)
    -- for each interface with non-empty own set, check what we can do
    for ifname, ns in pairs(self.if2own)
    do
@@ -382,7 +405,9 @@ function mdns:set_state(ifname, rr, st)
    rr.state = st
    if w
    then
-      rr.wait_until = self.time() + mst.randint(w[1], w[2]) / 1000.0
+      local now = self.time()
+      mst.a(type(now) == 'number', 'wierd time', now)
+      rr.wait_until = now + mst.randint(w[1], w[2]) / 1000.0
       return
    end
    -- no wait => should run it immediately

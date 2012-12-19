@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Wed Dec 19 16:36:47 2012 mstenber
--- Edit time:     60 min
+-- Last modified: Wed Dec 19 17:13:06 2012 mstenber
+-- Edit time:     83 min
 --
 
 require "busted"
@@ -18,7 +18,7 @@ require "skv"
 require "elsa_pa"
 require "dnscodec"
 require "dneigh"
-require "dsm"
+local _dsm = require "dsm"
 
 module("mdns_core_spec", package.seeall)
 
@@ -27,6 +27,19 @@ dummynode = mst.create_class{class='dummynode'}
 
 function dummynode:init()
    self.received = {}
+end
+
+function dummynode:run()
+   return
+end
+
+function dummynode:should_run()
+   return false
+end
+
+
+function dummynode:next_time()
+   return nil
 end
 
 
@@ -64,41 +77,62 @@ end
 
 -- fake mdns announcement
 local msg1 = dnscodec.dns_message:encode{
-   an={{name={'foo'}, rdata='bar', rtype=42, cache_flush=true},
+   an={{name={'Foo'}, rdata='Bar', rtype=42},
    },
                                         }
 
-describe("mdns", function ()
-            it("works", function ()
-                  local s = skv.skv:new{long_lived=true, port=42535}
-                  local mdns = mdns_core.mdns:new{sendmsg=true,
-                                                  skv=s}
-                  s:set(elsa_pa.OSPF_LAP_KEY, {
-                           {ifname='eth0', owner=true},
-                           {ifname='eth2', owner=true},
-                           {ifname='eth1'},
-                                              })
-                  mdns:run()
-                  mdns:recvmsg('dead:beef::1%eth0', msg1)
+local msg1_cf = dnscodec.dns_message:encode{
+   an={{name={'Foo'}, rdata='Bar', rtype=42, cache_flush=true},
+   },
+                                           }
 
+
+
+describe("mdns", function ()
+            local n, dsm, mdns, dummy, s
+            before_each(function ()
+                           n = dneigh.dneigh:new{}
+                           dsm = _dsm.dsm:new{e=n, port_offset=42536,
+                                              create_callback=create_node_callback}
+                           mdns = dsm:add_node{rid='n1'}
+                           dummy = dsm:add_node{rid='dummy', dummy=true}
+                           s = mdns.skv
+                           s:set(elsa_pa.OSPF_LAP_KEY, {
+                                    {ifname='eth0', owner=true},
+                                    {ifname='eth1', owner=true},
+                                                       })
+                           n:connect_neigh(mdns.rid, 'eth1',
+                                           dummy.rid, 'dummyif')
+                        end)
+            after_each(function ()
+                          dsm:done()
+                       end)
+
+            function run_msg_states(msg, 
+                                    expected_states, expected_received_count)
+                  mdns:run()
+                  mdns:recvmsg('dead:beef::1%eth0', msg)
+                  local rr = mdns:get_if_own('eth1'):values()[1]
+                  local dummies = 0
+                  for k, v in pairs(expected_states)
+                  do
+                     if not v then dummies = dummies + 1 end
+                  end
+                  while (mst.table_count(expected_states) - dummies) > 0
+                  do
+                     mst.a(expected_states[rr.state])
+                     expected_states[rr.state] = nil
+                     local nt = mdns:next_time()
+                     mst.a(nt)
+                     dsm:set_time(nt)
+                     mdns:run()
+                  end
+                  mst.a(#dummy.received == expected_received_count, 
+                        'wrong # sent?', dummy)
                   s:set(elsa_pa.OSPF_LAP_KEY, {})
                   mdns:run()
-                  mdns:done()
-                  s:done()
-                   end)
-            it("state machine works too #dsm", function ()
-                  local n = dneigh.dneigh:new{}
-                  local dsm = dsm.dsm:new{e=n, port_offset=42536,
-                                          create_callback=create_node_callback}
-                  local mdns = dsm:add_node{rid='n1'}
-                  local dummy = dsm:add_node{rid='dummy', dummy=true}
-                  local s = mdns.skv
-                  s:set(elsa_pa.OSPF_LAP_KEY, {
-                           {ifname='eth0', owner=true},
-                           {ifname='eth1', owner=true},
-                                              })
-                  n:connect_neigh(mdns.rid, 'eth1',
-                                  dummy.rid, 'dummyif')
+            end
+            it("works (CF=~unique)", function ()
                   expected_states = {[mdns_core.STATE_P1]=true,
                                      [mdns_core.STATE_P2]=true,
                                      [mdns_core.STATE_P3]=true,
@@ -106,25 +140,101 @@ describe("mdns", function ()
                                      [mdns_core.STATE_A1]=true,
                                      [mdns_core.STATE_A2]=true,
                   }
-                  
-                  mdns:run()
-                  mdns:recvmsg('dead:beef::1%eth0', msg1)
-                  local rr = mdns:get_if_own('eth1'):values()[1]
-                  while mst.table_count(expected_states) > 0
-                  do
-                     expected_states[rr.state] = nil
-                     local nt = mdns:next_time()
-                     mst.a(nt)
-                     dsm:set_time(nt)
-                     mdns:run()
-                  end
-                  mst.a(#dummy.received == 5, 'wrong # sent?', dummy)
-
-                  s:set(elsa_pa.OSPF_LAP_KEY, {})
-                  mdns:run()
-
-
-                  dsm:done()
-                   end)
+                  run_msg_states(msg1_cf, expected_states, 5)
+                        end)
+            it("works (!CF=~shared)", function ()
+                  expected_states = {[mdns_core.STATE_P1]=false,
+                                     [mdns_core.STATE_P2]=false,
+                                     [mdns_core.STATE_P3]=false,
+                                     [mdns_core.STATE_PW]=false,
+                                     [mdns_core.STATE_A1]=true,
+                                     [mdns_core.STATE_A2]=true,
+                  }
+                  run_msg_states(msg1, expected_states, 2)
+                        end)
 end)
 
+describe("multi-mdns setup", function ()
+            local n
+            local dsm
+            local mdns1, mdns2, mdns3
+            local dummy1, dummy2, dummy3
+            before_each(function ()
+                  -- basic idea: 'a source' behind one mdns node two
+                  -- other mdns nodes (connected in a triangle) and
+                  -- 'dummy' nodes connected to each mdns interface of
+                  -- interest
+
+                  -- this is pathological case where everyone owns all
+                  -- of their interfaces. it should still work, though..
+                  n = dneigh.dneigh:new{}
+                  dsm = _dsm.dsm:new{e=n, port_offset=42576,
+                                     create_callback=create_node_callback}
+                  mdns1 = dsm:add_node{rid='n1'}
+                  mdns2 = dsm:add_node{rid='n2'}
+                  mdns3 = dsm:add_node{rid='n3'}
+                  dummy1 = dsm:add_node{rid='dummy1', dummy=true}
+                  dummy2 = dsm:add_node{rid='dummy2', dummy=true}
+                  dummy3 = dsm:add_node{rid='dummy3', dummy=true}
+                  local s = mdns1.skv
+                  s:set(elsa_pa.OSPF_LAP_KEY, {
+                           {ifname='eth0', owner=true},
+                           {ifname='eth1', owner=true},
+                           {ifname='eth3', owner=true},
+                                              })
+
+                  local s = mdns2.skv
+                  s:set(elsa_pa.OSPF_LAP_KEY, {
+                           {ifname='eth0', owner=true},
+                           {ifname='eth1', owner=true},
+                           {ifname='eth3', owner=true},
+                                              })
+
+                  local s = mdns3.skv
+                  s:set(elsa_pa.OSPF_LAP_KEY, {
+                           {ifname='eth0', owner=true},
+                           {ifname='eth1', owner=true},
+                           {ifname='eth2', owner=true},
+                                              })
+
+                  -- eth0 = private
+                  -- one shared segment (eth1)
+                  n:connect_neigh(mdns1.rid, 'eth1',
+                                  mdns2.rid, 'eth1',
+                                  mdns3.rid, 'eth1')
+
+                  -- eth2/3 = connections to other' nodes (direct)
+                  n:connect_neigh(mdns1.rid, 'eth2',
+                                  mdns2.rid, 'eth2')
+                  n:connect_neigh(mdns1.rid, 'eth3',
+                                  mdns3.rid, 'eth2')
+                  n:connect_neigh(mdns2.rid, 'eth3',
+                                  mdns3.rid, 'eth3')
+
+                  -- and then dummy interfaces to each node
+                  n:connect_neigh(mdns1.rid, 'eth0',
+                                  dummy1.rid, 'dummyif')
+                  n:connect_neigh(mdns2.rid, 'eth0',
+                                  dummy2.rid, 'dummyif')
+                  n:connect_neigh(mdns3.rid, 'eth0',
+                                  dummy3.rid, 'dummyif')
+                        end)
+            after_each(function ()
+                          dsm:done()
+                       end)
+            it("works #multi", function ()
+                  local r = dsm:run_nodes(3)
+                  mst.a(r, 'basic run did not terminate')
+
+                  mdns1:recvmsg('dead:beef::1%eth0', msg1_cf)
+                  local r = dsm:run_nodes_and_advance_time(123)
+                  mst.a(r, 'propagation did not terminate')
+
+                  -- make sure we got _something_ in each dummy
+                  mst.a(#dummy3.received == 5, 'wrong # sent?', dummy3)
+                  mst.a(#dummy2.received == 5, 'wrong # sent?', dummy2)
+                  mst.a(#dummy1.received == 5, 'wrong # sent?', dummy1)
+
+                   end)
+
+end)

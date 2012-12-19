@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:02:05 2012 mstenber
--- Last modified: Wed Dec 19 16:01:21 2012 mstenber
--- Edit time:     27 min
+-- Last modified: Wed Dec 19 16:57:40 2012 mstenber
+-- Edit time:     31 min
 --
 
 -- wierd testing utility class, which simulates a whole topology
@@ -60,6 +60,7 @@ function dsm:advance_time(value)
 end
 
 function dsm:set_time(value)
+   mst.a(type(value) == 'number', 'weird set_time', value)
    self.t = value
 end
 
@@ -114,7 +115,7 @@ function dsm:run_nodes_and_advance_time(iters, run_callback)
       if not r then return end
       i = i + r
       -- check how long we should wait until next one
-      local nt = mst.min(self.nodes:map(function (n) return n:next_time() end))
+      local nt = mst.min(unpack(self.nodes:map(function (n) return n:next_time() end)))
       -- success, nobody wants to run anymore
       if not nt then return true end
       self:set_time(nt)
