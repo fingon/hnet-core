@@ -246,7 +246,7 @@ probe
  - if losing probe, wait second, try again (not relevant for us)
  - 15 conflicts in 10 seconds => 5 seconds until next probe
 
-query (not relevant for us)
+query (not relevant for us, unless we want to maintain state? hmm)
  - initial 20-120ms
  - further exponential backoff
 
@@ -273,3 +273,25 @@ queries, but even then at least 250ms delay)
 
  - publishing [rrs-ns]
 
+
+* Used DNS message sections
+
+query
+- query (= what we want to know) (1-N)
+- answer (KAS) (MUST NOT be cached)
+[ DQS based on same query+answer set (or superset) is a SHOULD ]
+
+probe
+- query
+- authority [= what separates it from normal query]
+! probe rdata has to be de-namecompressed before binary comparison.. argh.
+
+response
+- answer
+- additional
+  other addr records (SHOULD)
+  NSEC (~MAY, SHOULD if only A/AAAA available for host)
+
+announce
+- answer
+ 
