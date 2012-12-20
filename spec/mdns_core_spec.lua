@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Wed Dec 19 17:13:06 2012 mstenber
--- Edit time:     83 min
+-- Last modified: Thu Dec 20 09:54:38 2012 mstenber
+-- Edit time:     87 min
 --
 
 require "busted"
@@ -21,6 +21,8 @@ require "dneigh"
 local _dsm = require "dsm"
 
 module("mdns_core_spec", package.seeall)
+
+local MDNS_PORT = mdns_core.MDNS_PORT
 
 -- we store the received messages
 dummynode = mst.create_class{class='dummynode'}
@@ -43,8 +45,8 @@ function dummynode:next_time()
 end
 
 
-function dummynode:recvmsg(src, data)
-   table.insert(self.received, {src, data})
+function dummynode:recvfrom(...)
+   table.insert(self.received, {...})
 end
 
 function create_node_callback(o)
@@ -52,13 +54,13 @@ function create_node_callback(o)
    then
       return dummynode:new{rid=o.rid}
    end
-   local n = mdns_core.mdns:new{sendmsg=true,
+   local n = mdns_core.mdns:new{sendto=true,
                                 rid=o.rid,
                                 skv=o.skv,
                                 time=o.time,
                                }
-   function n.sendmsg(to, data)
-      mst.d('n.sendmsg', to, data)
+   function n.sendto(data, to, toport)
+      mst.d('n.sendto', data, to, toport)
       local l = mst.string_split(to, '%')
       mst.a(#l == 2, 'invalid address', to)
       local dst, ifname = unpack(l)
@@ -67,8 +69,8 @@ function create_node_callback(o)
                                   -- (could use real address here too :p)
                                   local src = 'xxx%' .. t.iid
                                   local dn = o.sm.e.nodes[t.rid]
-                                  mst.d('calling dn:recvmsg')
-                                  dn:recvmsg(src, data)
+                                  mst.d('calling dn:recvfrom')
+                                  dn:recvfrom(data, src, MDNS_PORT)
                                              end)
    end
    return n
@@ -111,7 +113,7 @@ describe("mdns", function ()
             function run_msg_states(msg, 
                                     expected_states, expected_received_count)
                   mdns:run()
-                  mdns:recvmsg('dead:beef::1%eth0', msg)
+                  mdns:recvfrom(msg, 'dead:beef::1%eth0', MDNS_PORT)
                   local rr = mdns:get_if_own('eth1'):values()[1]
                   local dummies = 0
                   for k, v in pairs(expected_states)
@@ -226,7 +228,7 @@ describe("multi-mdns setup", function ()
                   local r = dsm:run_nodes(3)
                   mst.a(r, 'basic run did not terminate')
 
-                  mdns1:recvmsg('dead:beef::1%eth0', msg1_cf)
+                  mdns1:recvfrom(msg1_cf, 'dead:beef::1%eth0', MDNS_PORT)
                   local r = dsm:run_nodes_and_advance_time(123)
                   mst.a(r, 'propagation did not terminate')
 

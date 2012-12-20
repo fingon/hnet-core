@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Wed Dec 19 17:29:11 2012 mstenber
--- Edit time:     197 min
+-- Last modified: Thu Dec 20 09:55:31 2012 mstenber
+-- Edit time:     200 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -19,14 +19,14 @@
 -- API from outside => mdns:
 -- - run() - perform one iteration of whatever it does
 -- - next_time() - when to run next time
--- - recvmsg(from, data)
+-- - recvfrom(data, from, fromport)
 -- - skv 
 --    ospf-lap ( to check if master, or not )
 --    ospf-mdns = {} (?)
 
 -- API from mdns => outside:
 -- - time() => current timestamp
--- - sendmsg(to, data)
+-- - sendto(data, to, toport)
 --=> skv
 --    mdns.if = .. ?
 
@@ -67,6 +67,7 @@ require 'dnsdb'
 module(..., package.seeall)
 
 MDNS_MULTICAST_ADDRESS='ff02::fb'
+MDNS_PORT=5353
 
 -- probing states (waiting to send message N)
 STATE_P1='p1'
@@ -128,7 +129,7 @@ NEXT_STATES={[STATE_P1]=STATE_P2,
 
 mdns = mst.create_class{class='mdns', 
                         time=os.time,
-                        mandatory={'sendmsg', 'skv'}}
+                        mandatory={'sendto', 'skv'}}
 
 function mdns:init()
    -- per-if ns of entries received from network
@@ -280,11 +281,13 @@ function mdns:get_if_own(ifname)
    return ns
 end
 
-function mdns:recvmsg(src, data)
+function mdns:recvfrom(data, src, srcport)
    local l = mst.string_split(src, '%')
    mst.a(#l == 2, 'invalid src', src)
    local addr, ifname = unpack(l)
    local msg = dnscodec.dns_message:decode(data)
+
+   -- XXX - take into account srcport, != 5353 => unicast reply
 
    -- XXX - add handling of probe results here
    -- (both existing, and simultaneous probe)
@@ -522,7 +525,8 @@ function mdns:send_announces(ifname)
    if #an > 0
    then
       local s = dnscodec.dns_message:encode{an=an}
-      self.sendmsg(MDNS_MULTICAST_ADDRESS .. '%' .. ifname, s)
+      local dst = MDNS_MULTICAST_ADDRESS .. '%' .. ifname
+      self.sendto(s, dst, MDNS_PORT)
    end
 end
 
@@ -550,7 +554,8 @@ function mdns:send_probes(ifname)
    if #qd > 0
    then
       local s = dnscodec.dns_message:encode{qd=qd, ar=ar}
-      self.sendmsg(MDNS_MULTICAST_ADDRESS .. '%' .. ifname, s)
+      local dst = MDNS_MULTICAST_ADDRESS .. '%' .. ifname
+      self.sendto(s, dst, MDNS_PORT)
    end
 end
 
