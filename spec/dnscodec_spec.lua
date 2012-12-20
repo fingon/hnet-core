@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 12:06:56 2012 mstenber
--- Last modified: Wed Dec 19 00:53:05 2012 mstenber
+-- Last modified: Thu Dec 20 11:34:30 2012 mstenber
 -- Edit time:     29 min
 --
 
@@ -27,6 +27,7 @@ local tests = {
    {dns_rr, {name={}, rtype=1, cache_flush=true, rdata=''}},
    {dns_rr, {name={'foo', 'bar'}, rtype=2, rclass=3, ttl=4, rdata='baz'}},
    {dns_query, {name={'z'}}},
+   {dns_query, {name={'z'}, qu=true}},
    {dns_query, {name={'y'}, qtype=255, qclass=42}},
 }
 
