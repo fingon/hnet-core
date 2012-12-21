@@ -8,11 +8,13 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Fri Dec 21 02:31:28 2012 mstenber
--- Edit time:     136 min
+-- Last modified: Fri Dec 21 13:27:03 2012 mstenber
+-- Edit time:     141 min
 --
 
--- TO DO: write many more tests
+-- TO DO: 
+-- - write many more tests
+-- - cover the mdns.txt => draft-cheshire-dnsext-multicastdns MUST/SHOULDs
 -- - queries: specific / ANY
 -- - various MUST/SHOULDs in the draft
 
