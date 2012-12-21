@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:02:05 2012 mstenber
--- Last modified: Wed Dec 19 16:57:40 2012 mstenber
--- Edit time:     31 min
+-- Last modified: Fri Dec 21 02:18:09 2012 mstenber
+-- Edit time:     38 min
 --
 
 -- wierd testing utility class, which simulates a whole topology
@@ -27,7 +27,12 @@ dsm = mst.create_class{class='dsm', mandatory={'e',
 
 function dsm:init()
    self.skvs = mst.array:new{}
-   self.t = 0
+   self.t = self.t or 54321
+   self.start_t = self.t
+end
+
+function dsm:repr_data()
+   return '?'
 end
 
 function dsm:add_node(o)
@@ -62,6 +67,8 @@ end
 function dsm:set_time(value)
    mst.a(type(value) == 'number', 'weird set_time', value)
    self.t = value
+   self:d('set_time', self.t)
+
 end
 
 function dsm:uninit()
@@ -105,12 +112,13 @@ function dsm:run_nodes(iters, run_callback)
    end
 end
 
-function dsm:run_nodes_and_advance_time(iters, run_callback)
+function dsm:run_nodes_and_advance_time(iters, o)
+   o = o or {}
    local i = 1
    while i <= iters
    do
-      mst.d('run_nodes_and_advance_time', i)
-      local r = self:run_nodes(iters-i, run_callback)
+      mst.d('run_nodes_and_advance_time', i, self.t-self.start_t)
+      local r = self:run_nodes(iters-i, o.run_callback)
       -- failure, not enough iterations
       if not r then return end
       i = i + r
@@ -118,6 +126,7 @@ function dsm:run_nodes_and_advance_time(iters, run_callback)
       local nt = mst.min(unpack(self.nodes:map(function (n) return n:next_time() end)))
       -- success, nobody wants to run anymore
       if not nt then return true end
+      if o.until_callback and o.until_callback() then return true end
       self:set_time(nt)
    end
 end

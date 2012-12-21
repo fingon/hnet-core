@@ -8,9 +8,13 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Thu Dec 20 09:54:38 2012 mstenber
--- Edit time:     87 min
+-- Last modified: Fri Dec 21 02:31:28 2012 mstenber
+-- Edit time:     136 min
 --
+
+-- TO DO: write many more tests
+-- - queries: specific / ANY
+-- - various MUST/SHOULDs in the draft
 
 require "busted"
 require "mdns_core"
@@ -60,7 +64,7 @@ function create_node_callback(o)
                                 time=o.time,
                                }
    function n.sendto(data, to, toport)
-      mst.d('n.sendto', data, to, toport)
+      mst.d('n.sendto', o.rid, data, to, toport)
       local l = mst.string_split(to, '%')
       mst.a(#l == 2, 'invalid address', to)
       local dst, ifname = unpack(l)
@@ -78,16 +82,33 @@ end
 
 
 -- fake mdns announcement
+local an1 = {name={'Foo'}, rdata='Bar', rtype=42, ttl=1234}
 local msg1 = dnscodec.dns_message:encode{
+   an={an1,
+   },
+                                        }
+local msg1_ttl0 = dnscodec.dns_message:encode{
    an={{name={'Foo'}, rdata='Bar', rtype=42},
    },
                                         }
 
 local msg1_cf = dnscodec.dns_message:encode{
-   an={{name={'Foo'}, rdata='Bar', rtype=42, cache_flush=true},
+   an={{name={'Foo'}, rdata='Bar', rtype=42, cache_flush=true, ttl=1234},
    },
                                            }
 
+local query1 = dnscodec.dns_message:encode{
+   qd={{name={'Foo'}, qtype=42}},
+                                          }
+
+local query1_qu = dnscodec.dns_message:encode{
+   qd={{name={'Foo'}, qtype=42, qu=true}},
+                                          }
+
+local query1_kas = dnscodec.dns_message:encode{
+   qd={{name={'Foo'}, qtype=42, qu=true}},
+   an={an1},
+                                          }
 
 
 describe("mdns", function ()
@@ -233,10 +254,152 @@ describe("multi-mdns setup", function ()
                   mst.a(r, 'propagation did not terminate')
 
                   -- make sure we got _something_ in each dummy
+                  -- (1 shouldn't, as it's same interface)
                   mst.a(#dummy3.received == 5, 'wrong # sent?', dummy3)
                   mst.a(#dummy2.received == 5, 'wrong # sent?', dummy2)
-                  mst.a(#dummy1.received == 5, 'wrong # sent?', dummy1)
+                  mst.a(#dummy1.received == 0, 'wrong # sent?', dummy1)
 
                    end)
+            it("won't propagate 0 ttl stuff", function ()
+                  local r = dsm:run_nodes(3)
+                  mst.a(r, 'basic run did not terminate')
 
+                  mdns1:recvfrom(msg1_ttl0, 'dead:beef::1%eth0', MDNS_PORT)
+                  local r = dsm:run_nodes_and_advance_time(123)
+                  mst.a(r, 'propagation did not terminate')
+
+                  -- make sure we got _something_ in each dummy
+                  -- (1 shouldn't, as it's same interface)
+                  mst.a(#dummy3.received == 0, 'wrong # sent?', dummy3)
+                  mst.a(#dummy2.received == 0, 'wrong # sent?', dummy2)
+                  mst.a(#dummy1.received == 0, 'wrong # sent?', dummy1)
+                   end)
+            it("shared records - 2x announce, 1x ttl=0", function ()
+                  local r = dsm:run_nodes(3)
+                  mst.a(r, 'basic run did not terminate')
+
+                  mdns1:recvfrom(msg1, 'dead:beef::1%eth0', MDNS_PORT)
+                  local r = dsm:run_nodes_and_advance_time(123)
+                  mst.a(r, 'propagation did not terminate')
+
+                  -- make sure we got _something_ in each dummy
+                  -- two announcements, final ttl=0
+                  -- (1 shouldn't, as it's same interface)
+                  mst.a(#dummy3.received == 3, 'wrong # sent?', #dummy3.received, dummy3)
+                  mst.a(#dummy2.received == 3, 'wrong # sent?', #dummy2.received, dummy2)
+                  mst.a(#dummy1.received == 0, 'wrong # sent?', #dummy1.received, dummy1)
+                   end)
+            function check_dummy_received_counts(dummy1_count, dummy2_count,
+                                                 dummy3_count)
+
+               local c1 = #dummy1.received
+               local c2 = #dummy2.received
+               local c3 = #dummy3.received
+               mst.d('dummy count', c1, c2, c3)
+               mst.a(c3 <= dummy3_count, 
+                     'too many dummy3 messages', 
+                     c3, dummy3_count)
+               mst.a(c2 <= dummy2_count, 
+                     'too many dummy2 messages', 
+                     c2, dummy2_count)
+               mst.a(c1 <= dummy1_count, 
+                     'too many dummy1 messages', 
+                     c1, dummy1_count)
+               return c3 == dummy3_count and 
+                  c2 == dummy2_count and 
+                  c1 == dummy1_count
+            end
+            function wait_dummy_received_counts(dummy1_count,
+                                                dummy2_count,
+                                                dummy3_count)
+               
+               function dummies_desired()
+                  return check_dummy_received_counts(dummy1_count,
+                                                     dummy2_count,
+                                                     dummy3_count)
+               end
+               if dummies_desired() then return end
+               local r = dsm:run_nodes_and_advance_time(123, {until_callback=dummies_desired})
+               mst.a(r, 'propagation did not terminate')
+            end
+            it("query works #q", function ()
+                  local r = dsm:run_nodes(3)
+                  mst.a(r, 'basic run did not terminate')
+                  mdns1:recvfrom(msg1, 'dead:beef::1%eth0', MDNS_PORT)
+
+                  wait_dummy_received_counts(0, 1, 1)
+                  local elapsed = dsm.t-dsm.start_t
+                  mst.d('propagation done in', elapsed)
+                  -- typically ~0.3 second?
+                  mst.a(elapsed < 0.5, 'took too long', elapsed, #dummy1.received, #dummy2.received, #dummy3.received)
+
+                  -- then, wait for the second announce
+                  wait_dummy_received_counts(0, 2, 2)
+                  local elapsed = dsm.t-dsm.start_t
+                  mst.d('propagation done in', elapsed)
+                  -- typically ~1.3 second?
+                  mst.a(elapsed < 1.5, 'took too long', elapsed, #dummy1.received, #dummy2.received, #dummy3.received)
+
+                  -- couple of different cases
+
+                  -- a) unicast should work always (even when stuff
+                  -- has just been multicast)
+                  -- dummy2 asks => dummy2 gets (3 times)
+                  mdns2:recvfrom(query1, 'blarg%eth0', 12345)
+                  mdns2:recvfrom(query1, 'blarg%eth0', 12345)
+                  wait_dummy_received_counts(0, 4, 2)
+                  mdns2:recvfrom(query1_qu, 'blarg%eth0', MDNS_PORT)
+                  wait_dummy_received_counts(0, 5, 2)
+
+                  -- b) multicast should NOT work right after
+                  -- multicast was received (0.2 to account for
+                  -- processing delay)
+                  mdns2:recvfrom(query1, 'blarg%eth0', MDNS_PORT)
+                  dsm:advance_time(0.2)
+                  local r = dsm:run_nodes(123)
+                  mst.a(r, 'did not terminate')
+                  wait_dummy_received_counts(0, 5, 2)
+
+                  -- c) multicast should work 'a bit' after
+                  dsm:advance_time(2)
+                  mdns2:recvfrom(query1, 'blarg%eth0', MDNS_PORT)
+                  local r = dsm:run_nodes(123)
+                  mst.a(r, 'did not terminate')
+                  -- no immediate reply - should wait bit before replying
+                  mst.a(check_dummy_received_counts(0, 5, 2))
+                  -- but eventually we should get what we want
+                  dsm:advance_time(0.6)
+                  local r = dsm:run_nodes(123)
+                  mst.a(r, 'did not terminate')
+                  mst.a(check_dummy_received_counts(0, 6, 2))
+
+                  -- move time forward bit
+                  dsm:advance_time(0.7)
+
+                  -- yet another query should not provide result
+                  -- within 0,8sec (1sec spam limit)
+                  mdns2:recvfrom(query1, 'blarg%eth0', MDNS_PORT)
+                  local r = dsm:run_nodes(123)
+                  mst.a(r, 'did not terminate')
+                  dsm:advance_time(0.2)
+                  local r = dsm:run_nodes(123)
+                  mst.a(r, 'did not terminate')
+                  mst.a(check_dummy_received_counts(0, 6, 2))
+
+                  -- d) KAS should work
+                  -- => no answer if known
+                  dsm:advance_time(2)
+                  mdns2:recvfrom(query1_kas, 'blarg%eth0', MDNS_PORT)
+                  local r = dsm:run_nodes(123)
+                  mst.a(r, 'did not terminate')
+                  -- no immediate reply - should wait bit before replying
+                  mst.a(check_dummy_received_counts(0, 6, 2))
+                  -- but eventually we should get what we want
+                  dsm:advance_time(0.6)
+                  local r = dsm:run_nodes(123)
+                  mst.a(r, 'did not terminate')
+                  mst.a(check_dummy_received_counts(0, 6, 2))
+
+
+                   end)
 end)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Thu Dec 20 09:55:31 2012 mstenber
--- Edit time:     200 min
+-- Last modified: Fri Dec 21 02:29:53 2012 mstenber
+-- Edit time:     354 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -43,19 +43,13 @@
 --  ( perhaps treat them as interface that 'everyone' owns, and cache
 --  = what we get from others, own = what we publish)
 
---  - state machine for published entries (handle reception triggers -
---    now basic send sequence works)
-
--- - TTL handling of items (and active re-querying, perhaps, of things
---   already seen? tie to ND?)
+-- - active re-querying, perhaps, of things already seen? tie to ND?)
 
 -- - spam limitations (how often each kind of RR can be transmitted on
 --   a link, and even as response to a probe)
 
--- - query handling (delayed response, KAS, noticing already sent
---   responses on link)
-
--- - unicast query/response
+-- - noticing already sent responses on link (should be unlikely, but
+--   you never know)
 
 -- - filtering of RRs we pass along (linklocals aren't very useful,
 --   for example)
@@ -77,7 +71,9 @@ STATE_PW='pw'
 -- => a1 if no replies
 
 -- waiting to start probe again
-STATE_WP1='wp1' 
+-- STATE_WP1='wp1' 
+-- as we treat failed probes 'definitely not our problem', there isn't
+-- conflict here.. :-p
 
 -- announce states - waiting to announce (based on spam-the-link frequency)
 STATE_A1='a1'
@@ -93,7 +89,7 @@ STATE_DELAYS={[STATE_P1]={0, 250},
               [STATE_P2]={250, 250},
               [STATE_P3]={250, 250},
               [STATE_PW]={250, 250},
-              [STATE_WP1]={1000, 1000},
+              --[STATE_WP1]={1000, 1000},
               [STATE_A1]={20, 120},
               [STATE_A2]={1000, 1000},
               [STATE_D1]={20, 120},
@@ -120,11 +116,17 @@ NEXT_STATES={[STATE_P1]=STATE_P2,
              [STATE_P2]=STATE_P3,
              [STATE_P3]=STATE_PW,
              [STATE_PW]=STATE_A1,
-             [STATE_WP1]=STATE_P1,
+             --[STATE_WP1]=STATE_P1,
              [STATE_A1]=STATE_A2,
              [STATE_A2]=false,
              [STATE_D1]=STATE_D2,
 }
+
+-- when should we send announce-like message?
+announce_states = {[STATE_A1]=true, [STATE_A2]=true}
+
+-- when should we send probe-like message?
+probe_states = {[STATE_P1]=true, [STATE_P2]=true, [STATE_P3]=true}
 
 
 mdns = mst.create_class{class='mdns', 
@@ -137,7 +139,8 @@ function mdns:init()
    -- per-if ns of entries we want to publish to that particular network
    self.if2own = {}
    -- array of pending queries we haven't answered to, yet
-   self.queries = {} 
+   -- (time, delay, ifname, msg)
+   self.queries = mst.set:new{}
    self.f = function (k, v) self:kv_changed(k, v) end
    self.skv:add_change_observer(self.f)
 end
@@ -203,28 +206,59 @@ function mdns:run()
    -- iteratively run through the object states until all are waiting
    -- for some future timestamp
    while self:run_own_states() > 0 do end
+
+   -- expire items
+   self:expire_old()
+
+   -- reply to queries
+   local now = self.time()
+   for i, qe in ipairs(self.queries:keys())
+   do
+      if qe[2] <= now
+      then
+         self:handle_delayed_multicast_reply(unpack(qe))
+         self.queries:remove(qe)
+      end
+   end
 end
 
-function mdns:should_run()
-   if self.update_lap then return true end
-
+function mdns:expire_old()
    local now = self.time()
    for ifname, ns in pairs(self.if2own)
    do
       local pending = {}
       for i, rr in ipairs(ns:values())
       do
-         if rr.state
+         if rr.valid and rr.valid <= now
          then
-            if rr.wait_until 
+            -- get rid of the entry
+            if not rr.cache_flush
             then
-               if rr.wait_until <= now then return true end
-            else
-               return true
+               table.insert(pending, rr)
+               rr.ttl = 0
             end
+            ns:remove_rr(rr)
          end
       end
+      if #pending > 0
+      then
+         self:d('sending ttl=0 for ifname/#pending', ifname, #pending)
+
+         -- send per-interface 'these are gone' fyi messages
+         local s = dnscodec.dns_message:encode{an=pending}
+         local dst = MDNS_MULTICAST_ADDRESS .. '%' .. ifname
+         self.sendto(s, dst, MDNS_PORT)
+      end
    end
+end
+
+function mdns:should_run()
+   if self.update_lap then return true end
+
+   local nt = self:next_time()
+   if not nt then return end
+   local now = self.time()
+   return nt <= now
 end
 
 
@@ -281,38 +315,271 @@ function mdns:get_if_own(ifname)
    return ns
 end
 
+function mdns:msg_has_qu_qd(msg)
+   for i, q in ipairs(msg.qd)
+   do
+      if q.qu then return true end
+   end
+end
+
 function mdns:recvfrom(data, src, srcport)
    local l = mst.string_split(src, '%')
    mst.a(#l == 2, 'invalid src', src)
    local addr, ifname = unpack(l)
    local msg = dnscodec.dns_message:decode(data)
 
-   -- XXX - take into account srcport, != 5353 => unicast reply
+   if srcport ~= MDNS_PORT or self:msg_has_qu_qd(msg)
+   then
+      self:handle_unicast_query(msg, src, srcport)
+      return
+   end
+   -- we don't care about srcport, as it's shared from now on.  let's
+   -- just pass along ifname from now on, and we should be good (addr,
+   -- while interesting, is not really needed)
 
-   -- XXX - add handling of probe results here
-   -- (both existing, and simultaneous probe)
+   -- ok. it's qm message, but question is, what is it?
+   -- cases we want to distinguish:
 
-   -- XXX - better handling
-   local ns = self:get_if_cache(ifname)
-   for i, rr in ipairs(msg.an or {})
-   do
-      local old_rr = ns:find_rr(rr)
-      if old_rr
+   -- a) probe (qd=query, ns=authoritative)
+   if msg.qd and #msg.qd>0
+   then
+      if msg.ns and #msg.ns>0
       then
-         -- XXX - is this the thing to do?
-         ns:insert_rr(rr)
-      else
-         ns:insert_rr(rr)
+         self:handle_multicast_probe_ifname(msg, ifname)
+         return
       end
-      -- propagate information if and only if master of that interface
-      if self.master_if_set[ifname] and not self:rr_has_conflicts(rr)
+
+      -- b) query (qd=query set [rest we ignore])
+      self:handle_multicast_query_ifname(msg, ifname)
+      return
+   end
+
+   -- c) response/announce (an=answer, ar=additional records)
+   -- (announce is just unsolicited response)
+   if msg.an and #msg.an>0
+   then
+      self:handle_multicast_response(msg, ifname)
+      return
+   end
+end
+
+function match_q_rr(q, rr)
+   return (q.qtype == dnscodec.TYPE_ANY or q.qtype == rr.rtype) and
+      (q.qclass == dnscodec.CLASS_ANY or q.qclass == rr.rclass) and
+      (dnsdb.ll_equal(q.name, rr.name))
+end
+
+function mdns:find_if_own_matching_queries(ql, an, ifname)
+   local r = mst.set:new{}
+   local ns = self:get_if_own(ifname)
+
+   for i, q in ipairs(ql)
+   do
+      for i, rr in ipairs(ns:find_rr_list_for_ll(q.name))
+      do
+         if match_q_rr(q, rr)
+         then  
+            -- XXX - this brute force checking is N^2 complexity
+            -- (N matches, N KAS; could do better, but with higher
+            -- startup costs, is it worth it? probably not)
+            local found = false
+            for i, rr2 in ipairs(an)
+            do
+               self:d('considering KAS', rr, rr2)
+               if dnsdb.rr_equals(rr, rr2)
+               then
+                  self:d(' KAS match')
+                  found = true
+               end
+            end
+            if not found
+            then
+               r:insert(rr)
+            end
+         end
+      end
+   end
+   return r:keys()
+end
+
+function mdns:copy_rrs_with_updated_ttl(rrl, unicast)
+   local r = {}
+   local now = self.time()
+   for i, rr in ipairs(rrl)
+   do
+      self:a(rr.valid)
+      local ttl = math.floor(rr.valid-now)
+      if not unicast 
       then
-         self:propagate_rr_from_if(rr, ifname)
+         if rr.valid_to_send and rr.valid_to_send > now
+         then
+            ttl = 0
+         elseif ttl > 0
+         then
+            -- mark when it can be sent again.. as this is the last point,
+            -- it really goes off after this
+            rr.valid_to_send = now + 1
+         end
+      end
+      if ttl > 0
+      then
+         local n = mst.table_copy(rr)
+         n.ttl = ttl
+         table.insert(r, n)
+      end
+   end
+   return r
+end
+
+function mdns:handle_reply(msg, dst, dstport, ifname, unicast)
+   local an = self:find_if_own_matching_queries(msg.qd, msg.an, ifname)
+   if #an == 0 then return end
+   an = self:copy_rrs_with_updated_ttl(an, unicast)
+   if #an == 0 then return end
+   -- ok, we have valid things to send with >0 ttl; here we go!
+   local s = dnscodec.dns_message:encode{an=an}
+   self.sendto(s, dst, dstport)
+
+end
+
+function mdns:handle_unicast_query(msg, src, srcport)
+   self:d('handle_unicast_query', src, srcport)
+   -- given the 'own' data on interface, use that (and only that) to reply
+   -- if nothing to reply, do not retry at all!
+   
+   -- no rate limiting or anything here, we just brutally reply whenever
+   -- someone unicasts us (we're nice like that)
+   local l = mst.string_split(src, '%')
+   mst.a(#l == 2, 'invalid src', src)
+   local addr, ifname = unpack(l)
+
+   self:handle_reply(msg, src, srcport, ifname, true)
+end
+
+function mdns:handle_delayed_multicast_reply(t, when, ifname, msg)
+   local now = self.time()
+   self:d('handle_delayed_multicast_reply', t, when, now, ifname)
+   local dst = MDNS_MULTICAST_ADDRESS .. '%' .. ifname
+   self:handle_reply(msg, dst, MDNS_PORT, ifname, false)
+end
+
+function mdns:handle_multicast_probe_ifname(msg, ifname)
+   self:d('got probe', ifname)
+   -- zap _all_ records matching the entries being probed
+   -- (this way, we don't really need to care about the resolution, and
+   -- once the rr gets announced (or has conflict with someone else),
+   -- it's not OUR problem)
+   for i, rr in ipairs(msg.ns)
+   do
+      if rr.cache_flush
+      then
+         self:remove_rr_ifs_own(rr, true)
       end
    end
 end
 
+function mdns:handle_multicast_query_ifname(msg, ifname)
+   -- we can safely delay non-probe answers always
+   -- (although it would be nice to be more defensive)
+   local now = self.time()
+   local when = now+mst.randint(20, 120)/1000.0
+   self:d('queueing reply', now, when)
+   self.queries:insert{now, when, ifname, msg}
+end
+
+function mdns:update_rr_ttl(o, ttl, update_field)
+   o.ttl = ttl
+   o.time = self.time()
+   o.valid = o.time + o.ttl
+   if update_field
+   then
+      o[update_field] = o.time
+   end
+end
+
+function mdns:handle_rr_cache_update(rr, ifname)
+   local ns = self:get_if_cache(ifname)
+   local old_rr = ns:find_rr(rr)
+   local o
+
+   if rr.cache_flush
+   then
+      -- stop publishing potentially conflicting ones _everywhere_
+      -- (= different from the 'rr' - 'rr' itself is ok)
+      self:remove_rr_ifs_own(rr, true)
+   end
+   if old_rr
+   then
+      if dnsdb.rr_equals(old_rr, rr)
+      then
+         o = old_rr
+         -- yay, all we need to do is just update ttl
+         self:update_rr_ttl(o, rr.ttl, true)
+      end
+   end
+   -- insert_rr if we don't have valid o yet
+   if not o 
+   then 
+      -- if we didn't announce it, no need to start with 0 announce
+      if rr.ttl == 0 then return end
+      o = ns:insert_rr(rr) 
+   end
+   -- propagate information if and only if master of that interface
+   if self:rr_has_conflicts(o)
+   then
+      self:remove_rr_ifs_own(rr)
+      return
+   end
+   if self.master_if_set[ifname]
+   then
+      self:propagate_rr_from_if(o, ifname)
+   end
+end
+
+function mdns:remove_rr_ifs_own(rr, eliminate_exact_matches)
+   -- remove all matching _own_ rr's
+   -- (we simply pretend rr doesn't exist at all)
+   for ifname, ns in pairs(self.if2own)
+   do
+      for i, rr2 in ipairs(ns:find_rr_list_for_ll(rr.name))
+      do
+         if rr.rtype == rr2.rtype and dnsdb.rr_contains(rr2, rr) and not dnsdb.rr_equals(rr2, rr)
+         then
+            ns:remove_rr(rr2)
+         end
+      end
+   end
+end
+
+function mdns:handle_rr_list_cache_update(rrlist, ifname)
+   if not rrlist or not #rrlist then return end
+   for i, rr in ipairs(rrlist)
+   do
+      self:handle_rr_cache_update(rr, ifname)
+   end
+end
+
+function mdns:handle_multicast_response(msg, ifname)
+   self:d('got response', ifname)
+
+   -- grab more information from an/ar - it's hopefully valid!
+   self:handle_rr_list_cache_update(msg.an, ifname)
+   self:handle_rr_list_cache_update(msg.ar, ifname)
+end
+
+function mdns:handle_unicast_reply(msg, src, srcport)
+   
+end
+
 function mdns:rr_has_conflicts(rr)
+   -- if it's non-cache-flush-entry, it's probably ok
+   -- XXX - what should be the behavior be with mixed unique/shared
+   -- entries for same names?
+   if not rr.cache_flush
+   then
+      return
+   end
+
    -- look if we have cache_flush enabled rr in _some_ cache, that
    -- isn't _exactly_ same as this. if we do, it's a conflict
    -- (regardless of whether this one is cache_flush=true)
@@ -326,7 +593,7 @@ function mdns:rr_has_conflicts(rr)
       -- specifically what we're looking for, after all.
       for i, o in ipairs(ns:find_rr_list_for_ll(rr.name))
       do
-         if o.cache_flush and o.rtype == rr.rtype and dnsdb.rr_contains(rr, o) and not dnsdb.rr_equals(rr, o)
+         if o.rtype == rr.rtype and dnsdb.rr_contains(o, rr) and not dnsdb.rr_equals(rr, o)
          then
             self:d('found conflict for ', rr, o)
             return true
@@ -340,9 +607,15 @@ function mdns:propagate_rr_from_if(rr, ifname)
    do
       if toif ~= ifname
       then
-         -- there isn't conflict - so we can just peacefully insert
-         -- the rr to the own list
-         self:insert_if_own_rr(toif, rr)
+         -- if we have received the entry _from_ that interface,
+         -- we don't want to propagate it there
+         local ns = self:get_if_cache(toif)
+         if not ns:find_rr(rr)
+         then
+            -- there isn't conflict - so we can just peacefully insert
+            -- the rr to the own list
+            self:insert_if_own_rr(toif, rr)
+         end
       end
    end
 end
@@ -407,6 +680,15 @@ function mdns:insert_if_own_rr(ifname, rr)
    local ns = self:get_if_own(ifname)
    -- XXX - do something with the old?
    --local old_rr = ns:find_rr(rr)
+   if rr.ttl == 0
+   then
+      -- don't do a thing if it doesn't exist
+      local o = ns:find_rr(rr)
+      if not o
+      then
+         return 
+      end
+   end
    local o, is_new = ns:insert_rr(rr)
    if is_new
    then
@@ -417,6 +699,7 @@ function mdns:insert_if_own_rr(ifname, rr)
          self:set_state(ifname, o, STATE_A1)
       end
    end
+   self:update_rr_ttl(o, rr.ttl)
    return o
 end
 
@@ -486,19 +769,29 @@ end
 
 function mdns:next_time()
    local best = nil
+   function maybe(t)
+      if not t then return end
+      if not best or t < best
+      then
+         best = t
+      end
+   end
+
    for ifname, ns in pairs(self.if2own)
    do
       local pending = {}
       for i, rr in ipairs(ns:values())
       do
-         if rr.state and rr.wait_until
+         if rr.state
          then
-            if not best or rr.wait_until < best
-            then
-               best = rr.wait_until
-            end
+            maybe(rr.wait_until)
          end
+         maybe(rr.valid)
       end
+   end
+   for i, e in ipairs(self.queries)
+   do
+      maybe(e[2])
    end
    return best
 end
@@ -508,8 +801,8 @@ function mdns:send_announces(ifname)
    -- e.g. entries that are in one of the send-announce states (a1, a2),
    -- and their wait_until is not set, for that interface..
    local ns = self:get_if_own(ifname)
-   local announce_states = {[STATE_A1]=true, [STATE_A2]=true}
    local an = {}
+   local now = self.time()
    for i, rr in ipairs(ns:values())
    do
       if announce_states[rr.state] and not rr.wait_until
@@ -518,10 +811,10 @@ function mdns:send_announces(ifname)
          table.insert(an, rr)
 
          self:set_next_state(ifname, rr)
+         rr.valid_to_send = now + 1
       end
    end
-   -- XXX - actually packet an and send it out on ifname!
-   -- XXX ( also, handle fragmentation )
+   -- XXX ( handle fragmentation )
    if #an > 0
    then
       local s = dnscodec.dns_message:encode{an=an}
@@ -535,9 +828,8 @@ function mdns:send_probes(ifname)
    -- e.g. entries that are in one of the send-probe states (a1, a2),
    -- and their wait_until is not set, for that interface..
    local ns = self:get_if_own(ifname)
-   local probe_states = {[STATE_P1]=true, [STATE_P2]=true, [STATE_P3]=true}
    local qd = {}
-   local ar = {}
+   local ons = {}
    for i, rr in ipairs(ns:values())
    do
       if probe_states[rr.state] and not rr.wait_until
@@ -545,15 +837,15 @@ function mdns:send_probes(ifname)
          table.insert(qd, {qtype=rr.rtype,
                            qclass=rr.rclass,
                            name=rr.name})
-         table.insert(ar, rr)
+         table.insert(ons, rr)
 
          self:set_next_state(ifname, rr)
       end
    end
-   -- XXX ( also, handle fragmentation )
+   -- XXX ( handle fragmentation )
    if #qd > 0
    then
-      local s = dnscodec.dns_message:encode{qd=qd, ar=ar}
+      local s = dnscodec.dns_message:encode{qd=qd, ns=ons}
       local dst = MDNS_MULTICAST_ADDRESS .. '%' .. ifname
       self.sendto(s, dst, MDNS_PORT)
    end
