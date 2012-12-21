@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Thu Dec 20 11:33:54 2012 mstenber
--- Edit time:     119 min
+-- Last modified: Fri Dec 21 01:13:04 2012 mstenber
+-- Edit time:     120 min
 --
 
 -- Functionality for en-decoding various DNS structures;
@@ -42,6 +42,7 @@ local abstract_data = codec.abstract_data
 local cursor_has_left = codec.cursor_has_left
 
 CLASS_IN=1
+CLASS_ANY=255
 
 TYPE_A=1
 TYPE_NS=2
@@ -51,6 +52,7 @@ TYPE_HINFO=13
 TYPE_MX=15
 TYPE_TXT=16
 TYPE_SRV=33
+TYPE_ANY=255
 
 --- general utilities to deal with FQDN en/decode
 
