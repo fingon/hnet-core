@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Wed Jan  2 11:39:22 2013 mstenber
--- Edit time:     8 min
+-- Last modified: Wed Jan  2 15:20:27 2013 mstenber
+-- Edit time:     12 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -22,6 +22,14 @@
 
 -- mdns => outside
 --    mdns.<ifname> = ..
+
+-- TODO
+
+--  - deal with mdns + ospf-mdns skv stuff (rw)
+--  ( perhaps treat them as interface that 'everyone' owns, and cache
+--  = what we get from others, own = what we publish)
+
+-- - active re-querying of the data we have propagated
 
 require 'mdns_core'
 
@@ -175,17 +183,13 @@ function mdns:propagate_rr_from_if(rr, ifname)
    end
 end
 
-function mdns:lap_is_master(lap)
-   local dep = lap.depracate      
-   local own = lap.owner and not lap.external
-   return not dep and own
-end
-
 function mdns:calculate_if_master_set()
    local t = mst.set:new{}
    for i, lap in ipairs(self.ospf_lap)
    do
-      if self:lap_is_master(lap)
+      local dep = lap.depracate      
+      local own = lap.owner and not lap.external
+      if not dep and own
       then
          t:insert(lap.ifname)
       end

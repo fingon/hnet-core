@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Wed Jan  2 11:39:16 2013 mstenber
--- Edit time:     360 min
+-- Last modified: Wed Jan  2 15:20:45 2013 mstenber
+-- Edit time:     372 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -41,11 +41,8 @@
 
 -- TODO: 
 
---  - deal with mdns + ospf-mdns skv stuff (rw)
---  ( perhaps treat them as interface that 'everyone' owns, and cache
---  = what we get from others, own = what we publish)
-
--- - active re-querying, perhaps, of things already seen? tie to ND?)
+--  - implement the three-child-call code (propagate-rr,
+--    stop-propagate-rr, expire-rr)
 
 -- - spam limitations (how often each kind of RR can be transmitted on
 --   a link, and even as response to a probe)
@@ -55,6 +52,8 @@
 
 -- - filtering of RRs we pass along (linklocals aren't very useful,
 --   for example)
+
+-- - ton more, see SHOULD/MUST list in mdns.txt
 
 require 'mst'
 require 'dnscodec'
