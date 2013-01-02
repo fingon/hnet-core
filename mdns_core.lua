@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Fri Dec 21 02:29:53 2012 mstenber
--- Edit time:     354 min
+-- Last modified: Wed Jan  2 11:39:16 2013 mstenber
+-- Edit time:     360 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -17,18 +17,20 @@
 -- bidirectional API is assumed to address those.
 
 -- API from outside => mdns:
+
 -- - run() - perform one iteration of whatever it does
 -- - next_time() - when to run next time
 -- - recvfrom(data, from, fromport)
+
+-- additionally within mdns_ospf subclass
 -- - skv 
---    ospf-lap ( to check if master, or not )
---    ospf-mdns = {} (?)
 
 -- API from mdns => outside:
 -- - time() => current timestamp
 -- - sendto(data, to, toport)
+
+-- additionally within mdns_ospf subclass
 --=> skv
---    mdns.if = .. ?
 
 -- Internally, implementation has two different data structures per if:
 
@@ -131,7 +133,7 @@ probe_states = {[STATE_P1]=true, [STATE_P2]=true, [STATE_P3]=true}
 
 mdns = mst.create_class{class='mdns', 
                         time=os.time,
-                        mandatory={'sendto', 'skv'}}
+                        mandatory={'sendto'}}
 
 function mdns:init()
    -- per-if ns of entries received from network
@@ -141,67 +143,14 @@ function mdns:init()
    -- array of pending queries we haven't answered to, yet
    -- (time, delay, ifname, msg)
    self.queries = mst.set:new{}
-   self.f = function (k, v) self:kv_changed(k, v) end
-   self.skv:add_change_observer(self.f)
 end
 
 function mdns:repr_data()
    return '?'
 end
 
-function mdns:kv_changed(k, v)
-   if k == elsa_pa.OSPF_LAP_KEY
-   then
-      self:d('queueing lap update')
-
-      self.ospf_lap = v
-      self.update_lap = true
-      self.master_if_set = self:calculate_if_master_set()
-   end
-end
-
-function mdns:uninit()
-   self.skv:remove_change_observer(self.f)
-end
-
 function mdns:run()
-   local fresh = {}
    local removed = {}
-   if self.update_lap
-   then
-      self:d('running lap update')
-
-      self.update_lap = nil
-      self:d('syncing if2own')
-      mst.sync_tables(self.if2own, self.master_if_set,
-                      -- remove spurious
-                      function (k, v)
-                         if v.active
-                         then
-                            self:d(' removing ', k)
-                            self:remove_own_from_if(k)
-                            self:remove_own_to_if(k)
-                            v.active = nil
-                         end
-                      end,
-                      -- add missing
-                      function (k, v)
-                         self:d(' adding ', k)
-                         local ns = self:get_if_own(k)
-                         table.insert(fresh, ns)
-                         ns.active = true
-                      end
-                      -- comparison omitted -> we don't _care_
-                     )
-      if mst.table_count(fresh) > 0
-      then
-         local non_fresh = self.master_if_set:difference(fresh)
-         if non_fresh:count() > 0
-         then
-            self:add_cache_set_to_own_set(non_fresh, fresh)
-         end
-      end
-   end
 
    -- iteratively run through the object states until all are waiting
    -- for some future timestamp
@@ -253,8 +202,6 @@ function mdns:expire_old()
 end
 
 function mdns:should_run()
-   if self.update_lap then return true end
-
    local nt = self:next_time()
    if not nt then return end
    local now = self.time()
@@ -524,16 +471,15 @@ function mdns:handle_rr_cache_update(rr, ifname)
       if rr.ttl == 0 then return end
       o = ns:insert_rr(rr) 
    end
-   -- propagate information if and only if master of that interface
+   -- if information conflicts, don't propagate it
+   -- (but instead remove everything we have)
    if self:rr_has_conflicts(o)
    then
       self:remove_rr_ifs_own(rr)
       return
    end
-   if self.master_if_set[ifname]
-   then
-      self:propagate_rr_from_if(o, ifname)
-   end
+   -- propagate the information (in some form) onwards
+   self:propagate_rr_from_if(o, ifname)
 end
 
 function mdns:remove_rr_ifs_own(rr, eliminate_exact_matches)
@@ -599,80 +545,6 @@ function mdns:rr_has_conflicts(rr)
             return true
          end
       end
-   end
-end
-
-function mdns:propagate_rr_from_if(rr, ifname)
-   for toif, _ in pairs(self.master_if_set)
-   do
-      if toif ~= ifname
-      then
-         -- if we have received the entry _from_ that interface,
-         -- we don't want to propagate it there
-         local ns = self:get_if_cache(toif)
-         if not ns:find_rr(rr)
-         then
-            -- there isn't conflict - so we can just peacefully insert
-            -- the rr to the own list
-            self:insert_if_own_rr(toif, rr)
-         end
-      end
-   end
-end
-
-function mdns:remove_own_from_if(fromif)
-   -- remove 'own' ns entries for all interfaces we're master to,
-   -- that originate from the ifname 'ifname' cache
-   local fromns = self.if2cache[fromif]
-   if not fromns then return end
-   
-   -- (or well, not necessarily _remove_, but set their state
-   -- s.t. they will be removed shortly)
-   for i, toif in ipairs(self.master_if_set:keys())
-   do
-      local ns = self.if2own[toif]
-      if ns
-      then
-         for i, rr in ipairs(fromns:values())
-         do
-            local nrr = ns:find_rr(rr)
-            if nrr
-            then
-               nrr:expire()
-            end
-         end
-      end
-   end
-end
-
-function mdns:remove_own_to_if(ifname)
-   local ns = self.if2own[ifname]
-   if not ns then return end
-   for i, rr in ipairs(ns:values())
-   do
-      -- XXX do more?
-      ns:remove_rr(rr)
-   end
-end
-
-function mdns:add_cache_set_to_own_set(fromset, toset)
-   for i, src in ipairs(fromset)
-   do
-      for i, dst in ipairs(toset)
-      do
-         self:add_cache_if_to_own_if(src, dst)
-      end
-   end
-end
-
-function mdns:add_cache_if_to_own_if(fromif, toif)
-   -- these are always cache => own mappings;
-   -- we never do own=>own
-   local src = self.if2cache[fromif]
-   if not src then return end
-   for i, rr in ipairs(src:values())
-   do
-      self:insert_if_own_rr(toif, rr)
    end
 end
 
@@ -747,24 +619,6 @@ function mdns:run_state(ifname, rr)
       return
    end
    self:set_next_state(ifname, rr)
-end
-
-function mdns:lap_is_master(lap)
-   local dep = lap.depracate      
-   local own = lap.owner and not lap.external
-   return not dep and own
-end
-
-function mdns:calculate_if_master_set()
-   local t = mst.set:new{}
-   for i, lap in ipairs(self.ospf_lap)
-   do
-      if self:lap_is_master(lap)
-      then
-         t:insert(lap.ifname)
-      end
-   end
-   return t
 end
 
 function mdns:next_time()
@@ -851,3 +705,8 @@ function mdns:send_probes(ifname)
    end
 end
 
+
+function mdns:propagate_rr_from_if(rr, ifname)
+   -- child responsibility, by default we don't propagate anything
+   error("child responsibility - propagate_rr_from_if")
+end

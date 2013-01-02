@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Fri Dec 21 13:27:03 2012 mstenber
--- Edit time:     141 min
+-- Last modified: Wed Jan  2 11:38:10 2013 mstenber
+-- Edit time:     142 min
 --
 
 -- TO DO: 
@@ -20,11 +20,17 @@
 
 require "busted"
 require "mdns_core"
+require "mdns_ospf"
 require "skv"
 require "elsa_pa"
 require "dnscodec"
 require "dneigh"
+
 local _dsm = require "dsm"
+
+-- two different classes to play with
+local _mdns = mdns_core.mdns
+local _mdns_ospf = mdns_ospf.mdns
 
 module("mdns_core_spec", package.seeall)
 
@@ -60,11 +66,11 @@ function create_node_callback(o)
    then
       return dummynode:new{rid=o.rid}
    end
-   local n = mdns_core.mdns:new{sendto=true,
-                                rid=o.rid,
-                                skv=o.skv,
-                                time=o.time,
-                               }
+   local n = _mdns_ospf:new{sendto=true,
+                            rid=o.rid,
+                            skv=o.skv,
+                            time=o.time,
+                           }
    function n.sendto(data, to, toport)
       mst.d('n.sendto', o.rid, data, to, toport)
       local l = mst.string_split(to, '%')
