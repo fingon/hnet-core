@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Dec 19 14:04:05 2012 mstenber
--- Edit time:     613 min
+-- Last modified: Thu Jan  3 13:13:12 2013 mstenber
+-- Edit time:     617 min
 --
 
 -- data structure abstractions provided:
@@ -997,6 +997,17 @@ function multimap:foreach(f)
       for i, v in ipairs(l)
       do
          f(k, v)
+      end
+   end
+end
+
+function multimap:foreach_values(f)
+   self:a(self.class)
+   for k, l in pairs(self)
+   do
+      for i, v in ipairs(l)
+      do
+         f(v)
       end
    end
 end
