@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Thu Jan  3 13:40:22 2013 mstenber
--- Edit time:     397 min
+-- Last modified: Thu Jan  3 14:29:05 2013 mstenber
+-- Edit time:     415 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -178,6 +178,7 @@ function mdns:expire_old()
       ns:foreach(function (rr)
                     if rr.valid <= now
                     then
+                       self:expire_rr(rr, ifname)
                        ns:remove_rr(rr)
                     end
                  end)
@@ -434,7 +435,7 @@ function mdns:handle_multicast_probe_ifname(msg, ifname)
    do
       if rr.cache_flush
       then
-         self:remove_rr_ifs_own(rr, true)
+         self:stop_propagate_rr(rr, ifname)
       end
    end
 end
@@ -469,7 +470,7 @@ function mdns:handle_rr_cache_update(rr, ifname)
    then
       -- stop publishing potentially conflicting ones _everywhere_
       -- (= different from the 'rr' - 'rr' itself is ok)
-      self:remove_rr_ifs_own(rr, true)
+      self:stop_propagate_rr(rr, ifname)
    end
    if old_rr
    then
@@ -491,7 +492,7 @@ function mdns:handle_rr_cache_update(rr, ifname)
    -- (but instead remove everything we have)
    if self:rr_has_conflicts(o)
    then
-      self:remove_rr_ifs_own(rr)
+      self:stop_propagate_rr(o, ifname)
       return
    end
 
@@ -500,21 +501,6 @@ function mdns:handle_rr_cache_update(rr, ifname)
 
    -- propagate the information (in some form) onwards
    self:propagate_rr(o, ifname)
-end
-
-function mdns:remove_rr_ifs_own(rr, eliminate_exact_matches)
-   -- remove all matching _own_ rr's
-   -- (we simply pretend rr doesn't exist at all)
-   for ifname, ns in pairs(self.if2own)
-   do
-      for i, rr2 in ipairs(ns:find_rr_list_for_ll(rr.name))
-      do
-         if rr.rtype == rr2.rtype and dnsdb.rr_contains(rr2, rr) and not dnsdb.rr_equals(rr2, rr)
-         then
-            ns:remove_rr(rr2)
-         end
-      end
-   end
 end
 
 function mdns:handle_rr_list_cache_update(rrlist, ifname)
@@ -732,7 +718,28 @@ function mdns:send_probes(ifname)
 end
 
 
+-- These three are 'overridable' functionality for the
+-- subclasses; basically, how the different cases of propagating
+-- cache rr's state onward are handled
+-- (.. or if they are!)
 function mdns:propagate_rr(rr, ifname)
-   -- child responsibility, by default we don't propagate anything
-   error("child responsibility - propagate_rr_from_if")
+end
+
+function mdns:stop_propagate_rr(rr, ifname)
+   -- remove all matching _own_ rr's
+   -- (we simply pretend rr doesn't exist at all)
+   for ifname, ns in pairs(self.if2own)
+   do
+      for i, rr2 in ipairs(ns:find_rr_list_for_ll(rr.name))
+      do
+         if rr.rtype == rr2.rtype and dnsdb.rr_contains(rr2, rr) and not dnsdb.rr_equals(rr2, rr)
+         then
+            ns:remove_rr(rr2)
+         end
+      end
+   end
+end
+
+function mdns:expire_rr(rr, ifname)
+   self:stop_propagate_rr(rr, ifname)
 end
