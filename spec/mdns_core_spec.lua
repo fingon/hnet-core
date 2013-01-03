@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Thu Jan  3 17:51:38 2013 mstenber
--- Edit time:     200 min
+-- Last modified: Thu Jan  3 20:41:12 2013 mstenber
+-- Edit time:     216 min
 --
 
 -- TO DO: 
@@ -35,6 +35,7 @@ local _mdns_ospf = mdns_ospf.mdns
 module("mdns_core_spec", package.seeall)
 
 local MDNS_PORT = mdns_core.MDNS_PORT
+local MDNS_MULTICAST_ADDRESS = mdns_core.MDNS_MULTICAST_ADDRESS
 
 -- we store the received messages
 dummynode = mst.create_class{class='dummynode'}
@@ -102,15 +103,17 @@ function create_node_callback(o)
                                   local src = 'xxx%' .. t.iid
                                   local dn = o.sm.e.nodes[t.rid]
                                   mst.d('calling dn:recvfrom')
-                                  dn:recvfrom(data, src, MDNS_PORT)
+                                  dn:recvfrom(data, src, MDNS_PORT, to)
                                              end)
    end
    return n
 end
 
+local DUMMY_TTL=1234
+
 
 -- fake mdns announcement
-local an1 = {name={'Foo'}, rdata='Bar', rtype=42, ttl=1234}
+local an1 = {name={'Foo'}, rdata='Bar', rtype=42, ttl=DUMMY_TTL}
 local msg1 = dnscodec.dns_message:encode{
    an={an1,
    },
@@ -121,7 +124,7 @@ local msg1_ttl0 = dnscodec.dns_message:encode{
                                         }
 
 local msg1_cf = dnscodec.dns_message:encode{
-   an={{name={'Foo'}, rdata='Bar', rtype=42, cache_flush=true, ttl=1234},
+   an={{name={'Foo'}, rdata='Bar', rtype=42, cache_flush=true, ttl=DUMMY_TTL},
    },
                                            }
 
@@ -297,6 +300,11 @@ describe("multi-mdns setup", function ()
                check_received_dummy_eq(dummy2, n2)
                check_received_dummy_eq(dummy1, n1)
             end
+            function clear_received()
+               dummy1.received = {}
+               dummy2.received = {}
+               dummy3.received = {}
+            end
             function check_dummy_received_counts(dummy1_count, 
                                                  dummy2_count,
                                                  dummy3_count)
@@ -326,7 +334,7 @@ describe("multi-mdns setup", function ()
 
                   -- make sure that if we run long enough, system
                   -- state gets emptied
-                  local r = dsm:run_nodes_and_advance_time(12345)
+                  local r = dsm:run_nodes_and_advance_time(DUMMY_TTL * 2)
                   mst.a(r, 'propagation did not terminate')
                   check_received_dummies_eq(0, 5, 5)
 
@@ -376,6 +384,13 @@ describe("multi-mdns setup", function ()
                mst.a(r, 'propagation did not terminate')
                mst.a(dummies_desired(), 'dummies not in desired state')
             end
+            function check_dummy_received_to(dummy, tostring)
+               local r = dummy.received
+               local i = #r
+               mst.a(i > 0)
+               mst.a(string.sub(r[i][5], 1, #tostring) == tostring,
+                     'to address mismatch', r[i])
+            end
             it("query works #q", function ()
                   local r = dsm:run_nodes(3)
                   mst.a(r, 'basic run did not terminate')
@@ -388,7 +403,8 @@ describe("multi-mdns setup", function ()
                   mst.a(elapsed < 0.5, 'took too long', elapsed, #dummy1.received, #dummy2.received, #dummy3.received)
 
                   -- then, wait for the second announce
-                  wait_dummy_received_counts(0, 2, 2)
+                  clear_received()
+                  wait_dummy_received_counts(0, 1, 1)
                   local elapsed = dsm.t-dsm.start_t
                   mst.d('propagation done in', elapsed)
                   -- typically ~1.3 second?
@@ -399,37 +415,50 @@ describe("multi-mdns setup", function ()
                   -- a) unicast should work always (even when stuff
                   -- has just been multicast)
                   -- dummy2 asks => dummy2 gets (3 times)
+                  -- s5.20 SHOULD
                   mst.d('a) 2x unicast query')
-                  mdns2:recvfrom(query1, 'blarg%id2', 12345)
-                  mdns2:recvfrom(query1, 'blarg%id2', 12345)
-                  wait_dummy_received_counts(0, 4, 2)
+                  clear_received()
+                  mdns2:recvfrom(query1, 'blarg%id2', MDNS_PORT + 1)
+                  mdns2:recvfrom(query1, 'blarg%id2', MDNS_PORT + 1)
+                  wait_dummy_received_counts(0, 2, 0)
+                  -- make sure it is unicast
+                  check_dummy_received_to(dummy2, 'blarg')
+                  clear_received()
+
+                  -- s5.18 SHOULD
                   mst.d('a1) qu')
                   mdns2:recvfrom(query1_qu, 'blarg%id2', MDNS_PORT)
-                  wait_dummy_received_counts(0, 5, 2)
+                  wait_dummy_received_counts(0, 1, 0)
+                  mst.d('received', dummy2.received)
+                  -- make sure it is unicast
+                  check_dummy_received_to(dummy2, 'blarg')
 
                   -- b) multicast should NOT work right after
                   -- multicast was received (0.2 to account for
                   -- processing delay)
                   mst.d('b) no-direct-multicast-reply')
+                  clear_received()
                   mdns2:recvfrom(query1, 'blarg%id2', MDNS_PORT)
                   dsm:advance_time(0.2)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
-                  wait_dummy_received_counts(0, 5, 2)
+                  wait_dummy_received_counts(0, 0, 0)
 
                   -- c) multicast should work 'a bit' after
                   mst.d('c) advancing time')
+                  clear_received()
                   dsm:advance_time(2)
                   mdns2:recvfrom(query1, 'blarg%id2', MDNS_PORT)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
                   -- no immediate reply - should wait bit before replying
-                  mst.a(check_dummy_received_counts(0, 5, 2))
+                  mst.a(check_dummy_received_counts(0, 0, 0))
                   -- but eventually we should get what we want
                   dsm:advance_time(0.6)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
-                  mst.a(check_dummy_received_counts(0, 6, 2))
+                  mst.a(check_dummy_received_counts(0, 1, 0))
+                  clear_received()
 
                   -- move time forward bit
                   dsm:advance_time(0.7)
@@ -442,7 +471,7 @@ describe("multi-mdns setup", function ()
                   dsm:advance_time(0.2)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
-                  mst.a(check_dummy_received_counts(0, 6, 2))
+                  mst.a(check_dummy_received_counts(0, 0, 0))
 
                   -- d) KAS should work
                   -- => no answer if known
@@ -451,13 +480,23 @@ describe("multi-mdns setup", function ()
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
                   -- no immediate reply - should wait bit before replying
-                  mst.a(check_dummy_received_counts(0, 6, 2))
+                  mst.a(check_dummy_received_counts(0, 0, 0))
                   -- but eventually we should get what we want
                   dsm:advance_time(0.6)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
-                  mst.a(check_dummy_received_counts(0, 6, 2))
+                  mst.a(check_dummy_received_counts(0, 0, 0))
 
+                  -- e) should reply with multicast to qu
+                  -- if enough time has elapsed
+                  -- s5.19 SHOULD
+                  dsm:advance_time(DUMMY_TTL / 2)
+                  mdns2:recvfrom(query1_qu, 'blarg%id2', MDNS_PORT)
+                  wait_dummy_received_counts(0, 1, 0)
+                  mst.d('received', dummy2.received)
+                  -- make sure it is unicast
+                  check_dummy_received_to(dummy2, MDNS_MULTICAST_ADDRESS)
+                  
 
                    end)
 end)

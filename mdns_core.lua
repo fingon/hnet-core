@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Thu Jan  3 17:51:16 2013 mstenber
--- Edit time:     471 min
+-- Last modified: Thu Jan  3 20:37:20 2013 mstenber
+-- Edit time:     509 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -129,6 +129,7 @@ probe_states = {[STATE_P1]=true, [STATE_P2]=true, [STATE_P3]=true}
 
 -- field which indicates when this was received
 FIELD_RECEIVED='received_time'
+FIELD_SENT_MCAST='sent_mcast_time'
 
 mdns = mst.create_class{class='mdns', 
                         time=os.time,
@@ -285,17 +286,71 @@ function mdns:msg_has_qu_qd(msg)
    end
 end
 
+function mdns:split_qd_to_qu_nqu(msg, ifname)
+   local qu = {}
+   local nqu = {}
+   local now = self.time()
+   for i, q in ipairs(msg.qd)
+   do
+      if not q.qu
+      then
+         table.insert(nqu, q)
+      else
+         -- it's qu - but what about the answers?
+         -- if one or more of the answers looks multicast worthy,
+         -- then we pretend it's nqu
+         local found 
+         self:iterate_if_own_matching_queries({q}, msg.an, ifname,
+                                              function (q, rr)
+                                                 local last = rr[FIELD_SENT_MCAST]
+                                                 if not last or last < (now-rr.ttl/4)
+                                                 then
+                                                    found = true
+                                                 end
+                                              end)
+         if found
+         then
+            table.insert(nqu, q)
+         else
+            table.insert(qu, q)
+         end
+      end
+   end
+   return qu, nqu
+end
+
 function mdns:recvfrom(data, src, srcport)
    local l = mst.string_split(src, '%')
    mst.a(#l == 2, 'invalid src', src)
    local addr, ifname = unpack(l)
    local msg = dnscodec.dns_message:decode(data)
 
-   if srcport ~= MDNS_PORT or self:msg_has_qu_qd(msg)
+   -- ok, if it comes from non-mdns port, life's simple
+   if srcport ~= MDNS_PORT 
    then
       self:handle_unicast_query(msg, src, srcport)
       return
    end
+
+   if self:msg_has_qu_qd(msg)
+   then
+      -- hybrid case; we may provide part of answer via unicast, and
+      -- rest via multicast
+      local qu, nqu = self:split_qd_to_qu_nqu(msg, ifname)
+      self:d('split to #qu, #nqu', #qu, #nqu)
+      if #qu > 0
+      then
+         self:handle_unicast_query({qd=qu,
+                                    an=msg.an},
+                                   src, srcport)
+      end
+      if #nqu == 0
+      then
+         return
+      end
+      msg.qd = nqu
+   end
+
    -- we don't care about srcport, as it's shared from now on.  let's
    -- just pass along ifname from now on, and we should be good (addr,
    -- while interesting, is not really needed)
@@ -332,10 +387,8 @@ function match_q_rr(q, rr)
       (dnsdb.ll_equal(q.name, rr.name))
 end
 
-function mdns:find_if_own_matching_queries(ql, an, ifname)
-   local r = mst.set:new{}
+function mdns:iterate_if_own_matching_queries(ql, an, ifname, f)
    local ns = self:get_if_own(ifname)
-
    for i, q in ipairs(ql)
    do
       for i, rr in ipairs(ns:find_rr_list_for_ll(q.name))
@@ -357,11 +410,19 @@ function mdns:find_if_own_matching_queries(ql, an, ifname)
             end
             if not found
             then
-               r:insert(rr)
+               f(q, rr)
             end
          end
       end
    end
+end
+
+function mdns:find_if_own_matching_queries(ql, an, ifname)
+   local r = mst.set:new{}
+   self:iterate_if_own_matching_queries(ql, an, ifname,
+                                        function (q, rr)
+                                           r:insert(rr)
+                                        end)
    return r:keys()
 end
 
@@ -374,14 +435,16 @@ function mdns:copy_rrs_with_updated_ttl(rrl, unicast)
       local ttl = math.floor(rr.valid-now)
       if not unicast 
       then
-         if rr.valid_to_send and rr.valid_to_send > now
+         if rr[FIELD_SENT_MCAST] and rr[FIELD_SENT_MCAST] > (now - 1)
+         then
+            ttl = 0
+         elseif rr[FIELD_RECEIVED] and rr[FIELD_RECEIVED] > (now - 1)
          then
             ttl = 0
          elseif ttl > 0
          then
-            -- mark when it can be sent again.. as this is the last point,
-            -- it really goes off after this
-            rr.valid_to_send = now + 1
+            -- mark it sent
+            rr[FIELD_SENT_MCAST] = now
          end
       end
       if ttl > 0
@@ -525,7 +588,12 @@ function mdns:handle_rr_cache_update(rr, ifname)
    -- (but instead remove everything we have)
    if self:rr_has_conflicts(o)
    then
-      self:stop_propagate_conflicting_rr(o, ifname)
+      -- if it wasn't cache_flush, get rid of the conflicting
+      -- rr's
+      if not o.cache_flush
+      then
+         self:stop_propagate_conflicting_rr(o, ifname)
+      end
       return
    end
 
@@ -705,7 +773,7 @@ function mdns:send_announces(ifname)
                     table.insert(an, rr)
 
                     self:set_next_state(ifname, rr)
-                    rr.valid_to_send = now + 1
+                    rr[FIELD_SENT_MCAST] = now
                  end
               end)
    -- XXX ( handle fragmentation )
@@ -807,10 +875,6 @@ end
 function mdns:propagate_rr(rr, ifname)
 end
 
-function mdns:stop_propagate_rr(rr, ifname)
-   self:stop_propagate_rr_sub(rr, ifname, true, true)
-end
-
 function mdns:stop_propagate_conflicting_rr(rr, ifname)
    -- same we can keep
    self:stop_propagate_rr_sub(rr, ifname, true, false)
@@ -820,5 +884,5 @@ function mdns:expire_rr(rr, ifname)
    --this should happen on it's own as the own entries also have
    --(by default) assumedly ttl's
 
-   --self:stop_propagate_rr(rr, ifname)
+   --self:stop_propagate_rr_sub(rr, ifname, false, true)
 end
