@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Wed Jan  2 11:38:10 2013 mstenber
--- Edit time:     142 min
+-- Last modified: Thu Jan  3 17:51:38 2013 mstenber
+-- Edit time:     200 min
 --
 
 -- TO DO: 
@@ -43,6 +43,26 @@ function dummynode:init()
    self.received = {}
 end
 
+function prettyprint_received_list(l)
+   local t = {}
+   for i, v in ipairs(l)
+   do
+      -- decoded message (human readable)
+      local m = dnscodec.dns_message:decode(v[2])
+      -- timestamp + that
+      table.insert(t, {v[1], m})
+   end
+   return mst.repr(t)
+end
+
+function dummynode:repr_data()
+   return string.format('rid=%s, #received=%d',
+                        self.rid,
+                        #self.received
+                       )
+   --prettyprint_received_list(self.received)
+end
+
 function dummynode:run()
    return
 end
@@ -58,13 +78,13 @@ end
 
 
 function dummynode:recvfrom(...)
-   table.insert(self.received, {...})
+   table.insert(self.received, {self.time(), ...})
 end
 
 function create_node_callback(o)
    if o.dummy
    then
-      return dummynode:new{rid=o.rid}
+      return dummynode:new{rid=o.rid, time=o.time}
    end
    local n = _mdns_ospf:new{sendto=true,
                             rid=o.rid,
@@ -118,6 +138,21 @@ local query1_kas = dnscodec.dns_message:encode{
    an={an1},
                                           }
 
+function check_received_dummy_le(d, n)
+   if #d.received > n
+   then
+      mst.a(false, ' too many # received', n, mst.repr(d))
+   end
+end
+
+function check_received_dummy_eq(d, n, name)
+   if #d.received ~= n
+   then
+      mst.a(false, 
+            name .. ' wrong # received (exp,got)', n, #d.received,
+            prettyprint_received_list(d.received))
+   end
+end
 
 describe("mdns", function ()
             local n, dsm, mdns, dummy, s
@@ -140,7 +175,8 @@ describe("mdns", function ()
                        end)
 
             function run_msg_states(msg, 
-                                    expected_states, expected_received_count)
+                                    expected_states, 
+                                    expected_received_count)
                   mdns:run()
                   mdns:recvfrom(msg, 'dead:beef::1%eth0', MDNS_PORT)
                   local rr = mdns:get_if_own('eth1'):values()[1]
@@ -158,8 +194,7 @@ describe("mdns", function ()
                      dsm:set_time(nt)
                      mdns:run()
                   end
-                  mst.a(#dummy.received == expected_received_count, 
-                        'wrong # sent?', dummy)
+                  check_received_dummy_eq(dummy, expected_received_count, 'dummy')
                   s:set(elsa_pa.OSPF_LAP_KEY, {})
                   mdns:run()
             end
@@ -209,114 +244,124 @@ describe("multi-mdns setup", function ()
                   dummy3 = dsm:add_node{rid='dummy3', dummy=true}
                   local s = mdns1.skv
                   s:set(elsa_pa.OSPF_LAP_KEY, {
-                           {ifname='eth0', owner=true},
-                           {ifname='eth1', owner=true},
-                           {ifname='eth3', owner=true},
+                           {ifname='id1', owner=true},
+                           {ifname='i123', owner=true},
+                           {ifname='i12', owner=true},
+                           {ifname='i13', owner=true},
                                               })
 
                   local s = mdns2.skv
                   s:set(elsa_pa.OSPF_LAP_KEY, {
-                           {ifname='eth0', owner=true},
-                           {ifname='eth1', owner=true},
-                           {ifname='eth3', owner=true},
+                           {ifname='id2', owner=true},
+                           {ifname='i213', owner=true},
+                           {ifname='i21', owner=true},
+                           {ifname='i23', owner=true},
                                               })
 
                   local s = mdns3.skv
                   s:set(elsa_pa.OSPF_LAP_KEY, {
-                           {ifname='eth0', owner=true},
-                           {ifname='eth1', owner=true},
-                           {ifname='eth2', owner=true},
+                           {ifname='id3', owner=true},
+                           {ifname='i312', owner=true}, 
+                           {ifname='i31', owner=true}, 
+                           {ifname='i32', owner=true}, 
                                               })
 
-                  -- eth0 = private
-                  -- one shared segment (eth1)
-                  n:connect_neigh(mdns1.rid, 'eth1',
-                                  mdns2.rid, 'eth1',
-                                  mdns3.rid, 'eth1')
+                  -- one shared segment
+                  n:connect_neigh(mdns1.rid, 'i123',
+                                  mdns2.rid, 'i213',
+                                  mdns3.rid, 'i312')
 
-                  -- eth2/3 = connections to other' nodes (direct)
-                  n:connect_neigh(mdns1.rid, 'eth2',
-                                  mdns2.rid, 'eth2')
-                  n:connect_neigh(mdns1.rid, 'eth3',
-                                  mdns3.rid, 'eth2')
-                  n:connect_neigh(mdns2.rid, 'eth3',
-                                  mdns3.rid, 'eth3')
+                  -- point-to-point connections
+                  n:connect_neigh(mdns1.rid, 'i12',
+                                  mdns2.rid, 'i21')
 
-                  -- and then dummy interfaces to each node
-                  n:connect_neigh(mdns1.rid, 'eth0',
+                  n:connect_neigh(mdns1.rid, 'i13', 
+                                  mdns3.rid, 'i31')
+
+                  n:connect_neigh(mdns2.rid, 'i23', 
+                                  mdns3.rid, 'i32')
+
+                  -- interface to each dummy node
+                  n:connect_neigh(mdns1.rid, 'id1',
                                   dummy1.rid, 'dummyif')
-                  n:connect_neigh(mdns2.rid, 'eth0',
+                  n:connect_neigh(mdns2.rid, 'id2',
                                   dummy2.rid, 'dummyif')
-                  n:connect_neigh(mdns3.rid, 'eth0',
+                  n:connect_neigh(mdns3.rid, 'id3',
                                   dummy3.rid, 'dummyif')
                         end)
             after_each(function ()
                           dsm:done()
                        end)
-            it("works #multi", function ()
-                  local r = dsm:run_nodes(3)
-                  mst.a(r, 'basic run did not terminate')
-
-                  mdns1:recvfrom(msg1_cf, 'dead:beef::1%eth0', MDNS_PORT)
-                  local r = dsm:run_nodes_and_advance_time(123)
-                  mst.a(r, 'propagation did not terminate')
-
-                  -- make sure we got _something_ in each dummy
-                  -- (1 shouldn't, as it's same interface)
-                  mst.a(#dummy3.received == 5, 'wrong # sent?', dummy3)
-                  mst.a(#dummy2.received == 5, 'wrong # sent?', dummy2)
-                  mst.a(#dummy1.received == 0, 'wrong # sent?', dummy1)
-
-                   end)
-            it("won't propagate 0 ttl stuff", function ()
-                  local r = dsm:run_nodes(3)
-                  mst.a(r, 'basic run did not terminate')
-
-                  mdns1:recvfrom(msg1_ttl0, 'dead:beef::1%eth0', MDNS_PORT)
-                  local r = dsm:run_nodes_and_advance_time(123)
-                  mst.a(r, 'propagation did not terminate')
-
-                  -- make sure we got _something_ in each dummy
-                  -- (1 shouldn't, as it's same interface)
-                  mst.a(#dummy3.received == 0, 'wrong # sent?', dummy3)
-                  mst.a(#dummy2.received == 0, 'wrong # sent?', dummy2)
-                  mst.a(#dummy1.received == 0, 'wrong # sent?', dummy1)
-                   end)
-            it("shared records - 2x announce, 1x ttl=0", function ()
-                  local r = dsm:run_nodes(3)
-                  mst.a(r, 'basic run did not terminate')
-
-                  mdns1:recvfrom(msg1, 'dead:beef::1%eth0', MDNS_PORT)
-                  local r = dsm:run_nodes_and_advance_time(123)
-                  mst.a(r, 'propagation did not terminate')
-
-                  -- make sure we got _something_ in each dummy
-                  -- two announcements, final ttl=0
-                  -- (1 shouldn't, as it's same interface)
-                  mst.a(#dummy3.received == 3, 'wrong # sent?', #dummy3.received, dummy3)
-                  mst.a(#dummy2.received == 3, 'wrong # sent?', #dummy2.received, dummy2)
-                  mst.a(#dummy1.received == 0, 'wrong # sent?', #dummy1.received, dummy1)
-                   end)
-            function check_dummy_received_counts(dummy1_count, dummy2_count,
+            function check_received_dummies_eq(n1, n2, n3)
+               check_received_dummy_eq(dummy3, n3)
+               check_received_dummy_eq(dummy2, n2)
+               check_received_dummy_eq(dummy1, n1)
+            end
+            function check_dummy_received_counts(dummy1_count, 
+                                                 dummy2_count,
                                                  dummy3_count)
 
                local c1 = #dummy1.received
                local c2 = #dummy2.received
                local c3 = #dummy3.received
                mst.d('dummy count', c1, c2, c3)
-               mst.a(c3 <= dummy3_count, 
-                     'too many dummy3 messages', 
-                     c3, dummy3_count)
-               mst.a(c2 <= dummy2_count, 
-                     'too many dummy2 messages', 
-                     c2, dummy2_count)
-               mst.a(c1 <= dummy1_count, 
-                     'too many dummy1 messages', 
-                     c1, dummy1_count)
+               check_received_dummy_le(dummy3, c3)
+               check_received_dummy_le(dummy2, c2)
+               check_received_dummy_le(dummy1, c1)
                return c3 == dummy3_count and 
                   c2 == dummy2_count and 
                   c1 == dummy1_count
             end
+            it("works #multi", function ()
+                  local r = dsm:run_nodes(3)
+                  mst.a(r, 'basic run did not terminate')
+
+                  mdns1:recvfrom(msg1_cf, 'dead:beef::1%id1', MDNS_PORT)
+                  local r = dsm:run_nodes_and_advance_time(123)
+                  mst.a(r, 'propagation did not terminate')
+
+                  -- make sure we got _something_ in each dummy
+                  -- (1 shouldn't, as it's same interface)
+                  check_received_dummies_eq(0, 5, 5)
+
+                  -- make sure that if we run long enough, system
+                  -- state gets emptied
+                  local r = dsm:run_nodes_and_advance_time(12345)
+                  mst.a(r, 'propagation did not terminate')
+                  check_received_dummies_eq(0, 5, 5)
+
+                  for i, mdns in ipairs{mdns1, mdns2, mdns3}
+                  do
+                     mst.a(mdns:own_count() == 0, mdns.if2own)
+                     mst.a(mdns:cache_count() == 0, mdns.if2cache)
+                  end
+
+                   end)
+            it("won't propagate 0 ttl stuff", function ()
+                  local r = dsm:run_nodes(3)
+                  mst.a(r, 'basic run did not terminate')
+
+                  mdns1:recvfrom(msg1_ttl0, 'dead:beef::1%id1', MDNS_PORT)
+                  local r = dsm:run_nodes_and_advance_time(123)
+                  mst.a(r, 'propagation did not terminate')
+
+                  -- make sure we got _something_ in each dummy
+                  -- (1 shouldn't, as it's same interface)
+                  check_received_dummies_eq(0, 0, 0)
+                   end)
+            it("shared records - 2x announce, 1x ttl=0 #shb", function ()
+                  local r = dsm:run_nodes(3)
+                  mst.a(r, 'basic run did not terminate')
+
+                  mdns1:recvfrom(msg1, 'dead:beef::1%id1', MDNS_PORT)
+                  local r = dsm:run_nodes_and_advance_time(123)
+                  mst.a(r, 'propagation did not terminate')
+
+                  -- make sure we got _something_ in each dummy
+                  -- two announcements, final ttl=0
+                  -- (1 shouldn't, as it's same interface)
+                  check_received_dummies_eq(0, 3, 3)
+                   end)
             function wait_dummy_received_counts(dummy1_count,
                                                 dummy2_count,
                                                 dummy3_count)
@@ -329,11 +374,12 @@ describe("multi-mdns setup", function ()
                if dummies_desired() then return end
                local r = dsm:run_nodes_and_advance_time(123, {until_callback=dummies_desired})
                mst.a(r, 'propagation did not terminate')
+               mst.a(dummies_desired(), 'dummies not in desired state')
             end
             it("query works #q", function ()
                   local r = dsm:run_nodes(3)
                   mst.a(r, 'basic run did not terminate')
-                  mdns1:recvfrom(msg1, 'dead:beef::1%eth0', MDNS_PORT)
+                  mdns1:recvfrom(msg1, 'dead:beef::1%id1', MDNS_PORT)
 
                   wait_dummy_received_counts(0, 1, 1)
                   local elapsed = dsm.t-dsm.start_t
@@ -353,24 +399,28 @@ describe("multi-mdns setup", function ()
                   -- a) unicast should work always (even when stuff
                   -- has just been multicast)
                   -- dummy2 asks => dummy2 gets (3 times)
-                  mdns2:recvfrom(query1, 'blarg%eth0', 12345)
-                  mdns2:recvfrom(query1, 'blarg%eth0', 12345)
+                  mst.d('a) 2x unicast query')
+                  mdns2:recvfrom(query1, 'blarg%id2', 12345)
+                  mdns2:recvfrom(query1, 'blarg%id2', 12345)
                   wait_dummy_received_counts(0, 4, 2)
-                  mdns2:recvfrom(query1_qu, 'blarg%eth0', MDNS_PORT)
+                  mst.d('a1) qu')
+                  mdns2:recvfrom(query1_qu, 'blarg%id2', MDNS_PORT)
                   wait_dummy_received_counts(0, 5, 2)
 
                   -- b) multicast should NOT work right after
                   -- multicast was received (0.2 to account for
                   -- processing delay)
-                  mdns2:recvfrom(query1, 'blarg%eth0', MDNS_PORT)
+                  mst.d('b) no-direct-multicast-reply')
+                  mdns2:recvfrom(query1, 'blarg%id2', MDNS_PORT)
                   dsm:advance_time(0.2)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
                   wait_dummy_received_counts(0, 5, 2)
 
                   -- c) multicast should work 'a bit' after
+                  mst.d('c) advancing time')
                   dsm:advance_time(2)
-                  mdns2:recvfrom(query1, 'blarg%eth0', MDNS_PORT)
+                  mdns2:recvfrom(query1, 'blarg%id2', MDNS_PORT)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
                   -- no immediate reply - should wait bit before replying
@@ -386,7 +436,7 @@ describe("multi-mdns setup", function ()
 
                   -- yet another query should not provide result
                   -- within 0,8sec (1sec spam limit)
-                  mdns2:recvfrom(query1, 'blarg%eth0', MDNS_PORT)
+                  mdns2:recvfrom(query1, 'blarg%id2', MDNS_PORT)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
                   dsm:advance_time(0.2)
@@ -397,7 +447,7 @@ describe("multi-mdns setup", function ()
                   -- d) KAS should work
                   -- => no answer if known
                   dsm:advance_time(2)
-                  mdns2:recvfrom(query1_kas, 'blarg%eth0', MDNS_PORT)
+                  mdns2:recvfrom(query1_kas, 'blarg%id2', MDNS_PORT)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
                   -- no immediate reply - should wait bit before replying

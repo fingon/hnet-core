@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Thu Jan  3 14:29:05 2013 mstenber
--- Edit time:     415 min
+-- Last modified: Thu Jan  3 17:51:16 2013 mstenber
+-- Edit time:     471 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -40,9 +40,6 @@
 --   machine for each record)
 
 -- TODO: 
-
---  - implement the three-child-call code (propagate-rr,
---    stop-propagate-rr, expire-rr)
 
 -- - spam limitations (how often each kind of RR can be transmitted on
 --   a link, and even as response to a probe)
@@ -130,6 +127,9 @@ announce_states = {[STATE_A1]=true, [STATE_A2]=true}
 probe_states = {[STATE_P1]=true, [STATE_P2]=true, [STATE_P3]=true}
 
 
+-- field which indicates when this was received
+FIELD_RECEIVED='received_time'
+
 mdns = mst.create_class{class='mdns', 
                         time=os.time,
                         mandatory={'sendto'}}
@@ -172,19 +172,8 @@ end
 
 function mdns:expire_old()
    local now = self.time()
-   for ifname, ns in pairs(self.if2cache)
-   do
-      -- get rid of rr's that have expired
-      ns:foreach(function (rr)
-                    if rr.valid <= now
-                    then
-                       self:expire_rr(rr, ifname)
-                       ns:remove_rr(rr)
-                    end
-                 end)
-   end
+
    local pending
-   
    for ifname, ns in pairs(self.if2own)
    do
       pending = nil
@@ -203,13 +192,25 @@ function mdns:expire_old()
                  end)
       if pending
       then
-         self:d('sending ttl=0 for ifname/#pending', ifname, #pending)
+         self:d('sending expire ttl=0 for ifname/#pending', ifname, #pending)
 
          -- send per-interface 'these are gone' fyi messages
          local s = dnscodec.dns_message:encode{an=pending}
          local dst = MDNS_MULTICAST_ADDRESS .. '%' .. ifname
          self.sendto(s, dst, MDNS_PORT)
       end
+   end
+
+   for ifname, ns in pairs(self.if2cache)
+   do
+      -- get rid of rr's that have expired
+      ns:foreach(function (rr)
+                    if rr.valid <= now
+                    then
+                       self:expire_rr(rr, ifname)
+                       ns:remove_rr(rr)
+                    end
+                 end)
    end
 end
 
@@ -400,6 +401,7 @@ function mdns:handle_reply(msg, dst, dstport, ifname, unicast)
    if #an == 0 then return end
    -- ok, we have valid things to send with >0 ttl; here we go!
    local s = dnscodec.dns_message:encode{an=an}
+   mst.d('sending reply', ifname, #an)
    self.sendto(s, dst, dstport)
 
 end
@@ -427,15 +429,17 @@ end
 
 function mdns:handle_multicast_probe_ifname(msg, ifname)
    self:d('got probe', ifname)
-   -- zap _all_ records matching the entries being probed
-   -- (this way, we don't really need to care about the resolution, and
-   -- once the rr gets announced (or has conflict with someone else),
-   -- it's not OUR problem)
+
+   -- XXX - this breaks MDNS idea somewhat, as we never defend
+   -- something we claim is unique!
+
+   -- zap _all_ conflicting records matching the entries being probed
    for i, rr in ipairs(msg.ns)
    do
       if rr.cache_flush
       then
-         self:stop_propagate_rr(rr, ifname)
+         -- non-conflicting ones we don't need to care about!
+         self:stop_propagate_conflicting_rr(rr, ifname)
       end
    end
 end
@@ -453,6 +457,11 @@ function mdns:update_rr_ttl(o, ttl, update_field)
    ttl = ttl or o.ttl
    self:a(ttl, 'no ttl?!?', o)
    o.ttl = ttl
+   -- we keep ttl's with zero received ttl of 0 for 1 second
+   if ttl == 0
+   then
+      ttl = 1
+   end
    o.time = self.time()
    o.valid = o.time + o.ttl
    if update_field
@@ -466,20 +475,40 @@ function mdns:handle_rr_cache_update(rr, ifname)
    local old_rr = ns:find_rr(rr)
    local o
 
-   if rr.cache_flush
-   then
-      -- stop publishing potentially conflicting ones _everywhere_
-      -- (= different from the 'rr' - 'rr' itself is ok)
-      self:stop_propagate_rr(rr, ifname)
-   end
+
    if old_rr
    then
       if dnsdb.rr_equals(old_rr, rr)
       then
          o = old_rr
-         -- yay, all we need to do is just update ttl
-         self:update_rr_ttl(o, rr.ttl, true)
       end
+   end
+
+   if not o
+   then
+      -- sanity check:
+
+      -- if we received exactly same entry we've propagated on _some_
+      -- interface, we just ignore it, unless it already exists in the
+      -- cache for this particular interface
+      
+      -- (not o = not in cache for this interface)
+
+      -- => now we do expensive check of checking through _all_ own
+      -- entries for a match, and if found, we silently ignore this
+      local found
+      self:iterate_nsh_rr(self.if2own, rr,
+                          function (rr)
+                             found = true
+                          end, true, true)
+      if found then return end
+   end
+
+   if rr.cache_flush
+   then
+      -- stop publishing potentially conflicting ones _everywhere_
+      -- (= different from the 'rr' - 'rr' itself is ok)
+      self:stop_propagate_conflicting_rr(rr, ifname)
    end
    -- insert_rr if we don't have valid o yet
    if not o 
@@ -488,16 +517,17 @@ function mdns:handle_rr_cache_update(rr, ifname)
       if rr.ttl == 0 then return end
       o = ns:insert_rr(rr) 
    end
+
+   -- update ttl fields of the received (and stored/updated) rr
+   self:update_rr_ttl(o, nil, FIELD_RECEIVED)
+
    -- if information conflicts, don't propagate it
    -- (but instead remove everything we have)
    if self:rr_has_conflicts(o)
    then
-      self:stop_propagate_rr(o, ifname)
+      self:stop_propagate_conflicting_rr(o, ifname)
       return
    end
-
-   -- update ttl fields of the received (and stored/updated) rr
-   self:update_rr_ttl(o)
 
    -- propagate the information (in some form) onwards
    self:propagate_rr(o, ifname)
@@ -543,14 +573,12 @@ function mdns:rr_has_conflicts(rr)
       -- unfortunately, we have to consider _all_ records that match
       -- the name => not insanely efficient.. but oh well. we know
       -- specifically what we're looking for, after all.
-      for i, o in ipairs(ns:find_rr_list_for_ll(rr.name))
-      do
-         if o.rtype == rr.rtype and dnsdb.rr_contains(o, rr) and not dnsdb.rr_equals(rr, o)
-         then
-            self:d('found conflict for ', rr, o)
-            return true
-         end
-      end
+      local conflict
+      self:iterate_ns_rr(ns, rr, function (o)
+                            self:d('found conflict for ', rr, o)
+                            conflict = true
+                                 end, true, false)
+      if conflict then return true end
    end
 end
 
@@ -685,6 +713,7 @@ function mdns:send_announces(ifname)
    then
       local s = dnscodec.dns_message:encode{an=an}
       local dst = MDNS_MULTICAST_ADDRESS .. '%' .. ifname
+      mst.d(now, 'sending announce(s)', ifname, #an)
       self.sendto(s, dst, MDNS_PORT)
    end
 end
@@ -713,12 +742,65 @@ function mdns:send_probes(ifname)
    then
       local s = dnscodec.dns_message:encode{qd=qd, ns=ons}
       local dst = MDNS_MULTICAST_ADDRESS .. '%' .. ifname
+      local now = self.time()
+      mst.d(now, 'sending probe(s)', ifname, #qd)
       self.sendto(s, dst, MDNS_PORT)
    end
 end
 
+function mdns:iterate_ns_rr(ns, rr, f, similar, equal)
+   for i, rr2 in ipairs(ns:find_rr_list_for_ll(rr.name))
+   do
+      if rr.rtype == rr2.rtype and dnsdb.rr_contains(rr2, rr)
+      then
+         local iseq = dnsdb.rr_equals(rr2, rr)
+         if (similar and not iseq) or (equal and iseq)
+         then
+            f(rr2)
+         end
+      end
+   end
+end
 
--- These three are 'overridable' functionality for the
+function mdns:iterate_nsh_rr(nsh, rr, f, similar, equal)
+   for ifname, ns in pairs(nsh)
+   do
+      self:iterate_ns_rr(ns, rr, f, similar, equal)
+   end
+end
+
+function mdns:stop_propagate_rr_sub(rr, ifname, similar, equal)
+   -- remove all matching _own_ rr's
+   -- (we simply pretend rr doesn't exist at all)
+   for ifname, ns in pairs(self.if2own)
+   do
+      -- similar only, not equal(?)
+      self:iterate_ns_rr(ns, rr,
+                         function (rr2)
+                            self:d('removing own', similar, equal, rr)
+                            ns:remove_rr(rr2)
+                         end, similar, equal)
+   end
+end
+
+local function nsh_count(nsh)
+   local c = 0
+   for k, ns in pairs(nsh)
+   do
+      c = c + ns:count()
+   end
+   return c
+end
+
+function mdns:own_count()
+   return nsh_count(self.if2own)
+end
+
+function mdns:cache_count()
+   return nsh_count(self.if2cache)
+end
+
+-- These four are 'overridable' functionality for the
 -- subclasses; basically, how the different cases of propagating
 -- cache rr's state onward are handled
 -- (.. or if they are!)
@@ -726,20 +808,17 @@ function mdns:propagate_rr(rr, ifname)
 end
 
 function mdns:stop_propagate_rr(rr, ifname)
-   -- remove all matching _own_ rr's
-   -- (we simply pretend rr doesn't exist at all)
-   for ifname, ns in pairs(self.if2own)
-   do
-      for i, rr2 in ipairs(ns:find_rr_list_for_ll(rr.name))
-      do
-         if rr.rtype == rr2.rtype and dnsdb.rr_contains(rr2, rr) and not dnsdb.rr_equals(rr2, rr)
-         then
-            ns:remove_rr(rr2)
-         end
-      end
-   end
+   self:stop_propagate_rr_sub(rr, ifname, true, true)
+end
+
+function mdns:stop_propagate_conflicting_rr(rr, ifname)
+   -- same we can keep
+   self:stop_propagate_rr_sub(rr, ifname, true, false)
 end
 
 function mdns:expire_rr(rr, ifname)
-   self:stop_propagate_rr(rr, ifname)
+   --this should happen on it's own as the own entries also have
+   --(by default) assumedly ttl's
+
+   --self:stop_propagate_rr(rr, ifname)
 end
