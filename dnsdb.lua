@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Wed Dec 19 04:25:12 2012 mstenber
--- Edit time:     76 min
+-- Last modified: Thu Jan  3 13:13:46 2013 mstenber
+-- Edit time:     77 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -176,4 +176,8 @@ end
 
 function ns:values()
    return self.nh2rr:values()
+end
+
+function ns:foreach(f)
+   return self.nh2rr:foreach_values(f)
 end

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Wed Jan  2 15:20:45 2013 mstenber
--- Edit time:     372 min
+-- Last modified: Thu Jan  3 13:40:22 2013 mstenber
+-- Edit time:     397 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -172,23 +172,35 @@ end
 
 function mdns:expire_old()
    local now = self.time()
+   for ifname, ns in pairs(self.if2cache)
+   do
+      -- get rid of rr's that have expired
+      ns:foreach(function (rr)
+                    if rr.valid <= now
+                    then
+                       ns:remove_rr(rr)
+                    end
+                 end)
+   end
+   local pending
+   
    for ifname, ns in pairs(self.if2own)
    do
-      local pending = {}
-      for i, rr in ipairs(ns:values())
-      do
-         if rr.valid and rr.valid <= now
-         then
-            -- get rid of the entry
-            if not rr.cache_flush
-            then
-               table.insert(pending, rr)
-               rr.ttl = 0
-            end
-            ns:remove_rr(rr)
-         end
-      end
-      if #pending > 0
+      pending = nil
+      ns:foreach(function (rr)
+                    if rr.valid and rr.valid <= now
+                    then
+                       -- get rid of the entry
+                       if not rr.cache_flush
+                       then
+                          pending = pending or {}
+                          table.insert(pending, rr)
+                          rr.ttl = 0
+                       end
+                       ns:remove_rr(rr)
+                    end
+                 end)
+      if pending
       then
          self:d('sending ttl=0 for ifname/#pending', ifname, #pending)
 
@@ -215,25 +227,28 @@ function mdns:run_own_states()
    -- for each interface with non-empty own set, check what we can do
    for ifname, ns in pairs(self.if2own)
    do
-      local pending = {}
-      for i, rr in ipairs(ns:values())
-      do
+      local pending
+      ns:foreach(function (rr)
          if rr.state
          then
             if rr.wait_until and rr.wait_until <= now then rr.wait_until = nil end
 
             if not rr.wait_until
             then
+               pending = pending or {}
                pending[rr] = rr.state
             end
          end
-      end
-      for rr, state in pairs(pending)
-      do
-         if rr.state == state
-         then
-            self:run_state(ifname, rr)
-            c = c + 1
+                 end)
+      if pending
+      then
+         for rr, state in pairs(pending)
+         do
+            if rr.state == state
+            then
+               self:run_state(ifname, rr)
+               c = c + 1
+            end
          end
       end
    end
@@ -434,6 +449,8 @@ function mdns:handle_multicast_query_ifname(msg, ifname)
 end
 
 function mdns:update_rr_ttl(o, ttl, update_field)
+   ttl = ttl or o.ttl
+   self:a(ttl, 'no ttl?!?', o)
    o.ttl = ttl
    o.time = self.time()
    o.valid = o.time + o.ttl
@@ -477,8 +494,12 @@ function mdns:handle_rr_cache_update(rr, ifname)
       self:remove_rr_ifs_own(rr)
       return
    end
+
+   -- update ttl fields of the received (and stored/updated) rr
+   self:update_rr_ttl(o)
+
    -- propagate the information (in some form) onwards
-   self:propagate_rr_from_if(o, ifname)
+   self:propagate_rr(o, ifname)
 end
 
 function mdns:remove_rr_ifs_own(rr, eliminate_exact_matches)
@@ -629,18 +650,24 @@ function mdns:next_time()
          best = t
       end
    end
-
+   function update_cache(rr)
+      maybe(rr.valid)
+   end
+   -- cache entries' expiration
+   for ifname, ns in pairs(self.if2cache)
+   do
+      ns:foreach(update_cache)
+   end
+   function update_own(rr)
+      if rr.state
+      then
+         maybe(rr.wait_until)
+      end
+      maybe(rr.valid)
+   end
    for ifname, ns in pairs(self.if2own)
    do
-      local pending = {}
-      for i, rr in ipairs(ns:values())
-      do
-         if rr.state
-         then
-            maybe(rr.wait_until)
-         end
-         maybe(rr.valid)
-      end
+      ns:foreach(update_own)
    end
    for i, e in ipairs(self.queries)
    do
@@ -654,21 +681,21 @@ function mdns:send_announces(ifname)
    -- e.g. entries that are in one of the send-announce states (a1, a2),
    -- and their wait_until is not set, for that interface..
    local ns = self:get_if_own(ifname)
-   local an = {}
+   local an 
    local now = self.time()
-   for i, rr in ipairs(ns:values())
-   do
-      if announce_states[rr.state] and not rr.wait_until
-      then
-         -- xxx - do something more clever here?
-         table.insert(an, rr)
+   ns:foreach(function (rr)
+                 if announce_states[rr.state] and not rr.wait_until
+                 then
+                    -- xxx - do something more clever here?
+                    an = an or {}
+                    table.insert(an, rr)
 
-         self:set_next_state(ifname, rr)
-         rr.valid_to_send = now + 1
-      end
-   end
+                    self:set_next_state(ifname, rr)
+                    rr.valid_to_send = now + 1
+                 end
+              end)
    -- XXX ( handle fragmentation )
-   if #an > 0
+   if an
    then
       local s = dnscodec.dns_message:encode{an=an}
       local dst = MDNS_MULTICAST_ADDRESS .. '%' .. ifname
@@ -681,22 +708,22 @@ function mdns:send_probes(ifname)
    -- e.g. entries that are in one of the send-probe states (a1, a2),
    -- and their wait_until is not set, for that interface..
    local ns = self:get_if_own(ifname)
-   local qd = {}
-   local ons = {}
-   for i, rr in ipairs(ns:values())
-   do
-      if probe_states[rr.state] and not rr.wait_until
-      then
-         table.insert(qd, {qtype=rr.rtype,
-                           qclass=rr.rclass,
-                           name=rr.name})
-         table.insert(ons, rr)
-
-         self:set_next_state(ifname, rr)
-      end
-   end
+   local qd 
+   local ons
+   ns:foreach(function (rr)
+                 if probe_states[rr.state] and not rr.wait_until
+                 then
+                    qd = qd or {}
+                    table.insert(qd, {qtype=rr.rtype,
+                                      qclass=rr.rclass,
+                                      name=rr.name})
+                    ons = ons or {}
+                    table.insert(ons, rr)
+                    self:set_next_state(ifname, rr)
+                 end
+              end)
    -- XXX ( handle fragmentation )
-   if #qd > 0
+   if qd
    then
       local s = dnscodec.dns_message:encode{qd=qd, ns=ons}
       local dst = MDNS_MULTICAST_ADDRESS .. '%' .. ifname
@@ -705,7 +732,7 @@ function mdns:send_probes(ifname)
 end
 
 
-function mdns:propagate_rr_from_if(rr, ifname)
+function mdns:propagate_rr(rr, ifname)
    -- child responsibility, by default we don't propagate anything
    error("child responsibility - propagate_rr_from_if")
 end

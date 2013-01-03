@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Wed Jan  2 15:20:27 2013 mstenber
+-- Last modified: Thu Jan  3 12:56:27 2013 mstenber
 -- Edit time:     12 min
 --
 
@@ -162,7 +162,7 @@ function mdns:add_cache_if_to_own_if(fromif, toif)
    end
 end
 
-function mdns:propagate_rr_from_if(rr, ifname)
+function mdns:propagate_rr(rr, ifname)
    -- if we're not 'master' for that if, ignore it
    if not self.master_if_set[ifname] then return end
 
