@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 12:06:56 2012 mstenber
--- Last modified: Thu Dec 20 11:34:30 2012 mstenber
--- Edit time:     29 min
+-- Last modified: Fri Jan  4 14:59:17 2013 mstenber
+-- Edit time:     47 min
 --
 
 require "busted"
@@ -20,6 +20,8 @@ module("dnscodec_spec", package.seeall)
 local dns_rr = dnscodec.dns_rr
 local dns_query = dnscodec.dns_query
 local dns_message = dnscodec.dns_message
+local rdata_srv = dnscodec.rdata_srv
+local rdata_nsec = dnscodec.rdata_nsec
 
 local tests = {
    -- minimal
@@ -29,7 +31,37 @@ local tests = {
    {dns_query, {name={'z'}}},
    {dns_query, {name={'z'}, qu=true}},
    {dns_query, {name={'y'}, qtype=255, qclass=42}},
+   {rdata_srv, {priority=123, weight=42, port=234, target={'foo', 'bar'}}},
 }
+
+-- start with readably(?) encoded data, decode it, compare it to
+-- expected result, encode it, and hope encoded result matches what we
+-- want again
+local encoded_tests = {
+   {rdata_srv,
+    {0, 1, 0, 2, 0, 3,
+     0x04,'h','o','s','t',
+     0x07,'e','x','a','m','p','l','e',
+     0x03,'c','o','m',0x00},
+    {priority=1, weight=2, port=3, target={'host', 'example', 'com'}}},
+  {rdata_nsec, 
+    {0x04,'h','o','s','t',
+     0x07,'e','x','a','m','p','l','e',
+     0x03,'c','o','m',0x00,
+     0x00,0x06,0x40,0x01,0x00,0x00,0x00,0x03,
+     0x04,0x1b,0x00,0x00,0x00,0x00,0x00,0x00,
+     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+     0x00,0x00,0x00,0x00,0x20},
+    {ndn={'host','example','com'},
+     bits={dnscodec.TYPE_A, dnscodec.TYPE_MX,
+           dnscodec.TYPE_RRSIG, dnscodec.TYPE_NSEC,
+           1234},
+    }
+   },
+}
+
+
 
 local message_tests = {
    {qd={{name={'foo'}, rdata=''},}},
@@ -66,6 +98,43 @@ describe("test dnscodec", function ()
 
                   end
                                           end)
+            it("decode + encode =~ same #de", function ()
+                  for i, v in ipairs(encoded_tests)
+                  do
+                     local cl, orig_readable, r = unpack(v)
+                     local orig
+                     mst.d('item', i, #orig_readable)
+                     if type(orig_readable) == 'table'
+                     then
+                        -- convert the table to string
+                        local a = 
+                           mst.array_map(orig_readable, 
+                                         function (c)
+                                            if type(c) == 'number'
+                                            then
+                                               c = string.char(c)
+                                            end
+                                            return c
+                                         end)
+                           orig = table.concat(a)
+                     else
+                        mst.a(type(orig_readable) == 'string')
+                        orig = orig_readable
+                     end
+                     mst.d('got binary', #orig)
+                     local o, err = cl:decode(orig)
+                     mst.a(o, 'decode failure', err)
+                     mst.d('decoded ok', o)
+                     mst.a(mst.table_contains(o, r), "something missing", cl.class, o, r)
+                     local b, err = cl:encode(o)
+                     mst.a(b, 'encode failure', err)
+                     mst.d('encoded ok', #b)
+                     mst.d('was', mst.string_to_hex(orig))
+                     mst.d('got', mst.string_to_hex(b))
+                     mst.a(b == orig, 'binary mismatch')
+                  end
+                   end)
+
             it("dns_message endecode =~ same", function ()
                   local cl = dns_message
                   for i, orig in ipairs(message_tests)

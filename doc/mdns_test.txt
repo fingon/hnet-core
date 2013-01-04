@@ -127,7 +127,7 @@ we filter them)
 
 .. impossible to unit test (negative proof); we don't do this, though
 
-[2] The determination of whether a given record answers a given question is
++[2] The determination of whether a given record answers a given question is
    done using the standard DNS rules: The record name must match the
    question name, the record rrtype must match the question qtype unless
    the qtype is "ANY" (255) or the rrtype is "CNAME" (5), and the record

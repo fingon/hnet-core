@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Fri Dec 21 01:13:04 2012 mstenber
--- Edit time:     120 min
+-- Last modified: Fri Jan  4 15:21:47 2013 mstenber
+-- Edit time:     178 min
 --
 
 -- Functionality for en-decoding various DNS structures;
@@ -38,12 +38,14 @@ require 'codec'
 
 module(..., package.seeall)
 
+local abstract_base = codec.abstract_base
 local abstract_data = codec.abstract_data
 local cursor_has_left = codec.cursor_has_left
 
 CLASS_IN=1
 CLASS_ANY=255
 
+-- RFC1035
 TYPE_A=1
 TYPE_NS=2
 TYPE_CNAME=5
@@ -51,8 +53,19 @@ TYPE_PTR=12
 TYPE_HINFO=13
 TYPE_MX=15
 TYPE_TXT=16
+
+-- RFC2782
 TYPE_SRV=33
+
+-- RFC4304
+TYPE_RRSIG=46
+TYPE_NSEC=47
+TYPE_DNSKEY=48
+
+
+
 TYPE_ANY=255
+
 
 --- general utilities to deal with FQDN en/decode
 
@@ -206,6 +219,115 @@ function rdata_srv:do_encode(o, context)
    return abstract_data.do_encode(self, o) .. table.concat(t)
 end
 
+rdata_nsec = abstract_base:new{class='rdata_nsec'}
+
+function rdata_cursor_has_left(cur, n)
+   if cur.endpos 
+   then
+      return cur.pos + n <= cur.endpos
+   end
+   return cursor_has_left(cur, n)
+end
+
+function rdata_nsec:try_decode(cur, context)
+   -- two things - next domain name (ndn)
+   local n, err = try_decode_name_rec(cur, context)
+   if not n then return nil, err end
+   
+   -- and bitmap
+   --local t = mst.set:new{}
+   local t = mst.array:new{}
+   while rdata_cursor_has_left(cur, 2)
+   do
+      -- block #
+      local block_offset = string.byte(cur:read(1))
+      -- bytes
+      local block_bytes = string.byte(cur:read(1))
+      self:d('reading', block_offset, block_bytes)
+      if not rdata_cursor_has_left(cur, block_bytes)
+      then
+         return nil, string.format('decode ended mid-way (no %d bytes left)',
+                                   block_bytes)
+      end
+      for i=1,block_bytes
+      do
+         local c = cur:read(1)
+         local b = string.byte(c)
+         -- XXX - some day would be nice to have network order
+         -- independent decode here. oh well. 
+         for j=8,1,-1
+         do
+            if mst.bitv_is_set_bit(b, j)
+            then
+               t:insert(256 * block_offset +
+                        8 * (i - 1) + 
+                        (8 - j))
+            end
+         end
+      end
+   end
+   return {ndn=n, bits=t}
+end
+
+function iterate_modulo_ranges(bits, modulo, f, st, en)
+   local st = st or 1
+   local nbits = #bits
+   local en = en or nbits
+
+   local i = st
+   while i <= en
+   do
+      local j = i
+      local v = bits[i]
+      local mr = math.floor(v / modulo)
+      mst.d('finding subblock', i, en, modulo, v, mr)
+      while (j+1) <= en and math.floor(bits[j+1] / modulo) == mr
+      do
+         j = j + 1
+      end
+      f(mr, i, j)
+      i = j + 1
+      mst.d('i now', i)
+   end
+end
+
+
+function rdata_nsec:do_encode(o, context)
+   mst.a(o.ndn)
+   local n = encode_name_rec(o.ndn, context)
+   local t = {}
+   -- encoding of the bits is bit more complex
+   local bits = o.bits
+   table.sort(bits)
+   -- first off, try to get the 256-bit blocks, and deal with them
+   iterate_modulo_ranges(bits, 256,
+                         function (mr, i1, j1)
+                            --mst.d('handling', mr)
+                            local t0 = {}
+                            iterate_modulo_ranges(bits, 8,
+                                                  function (br, i2, j2)
+                                                     br = br % 32
+                                                     while #t0 < br
+                                                     do
+                                                        table.insert(t0, 0)
+                                                     end
+                                                     local v = 0
+                                                     for i=i2,j2
+                                                     do
+                                                        local b=bits[i]
+                                                        v = mst.bitv_set_bit(v, 8-b%8)
+                                                     end
+                                                     mst.d('produced', v)
+                                                     table.insert(t0, v)
+                                                  end, i1, j1)
+                            table.insert(t, string.char(mr, #t0, unpack(t0)))
+                         end)
+   mst.array_extend(n, t)
+   --mst.d('concatting', n)
+   return table.concat(n)
+end
+
+
 local rtype_map = {[TYPE_PTR]={
                       encode=function (self, o, context)
                          mst.a(o.rdata_ptr)
@@ -218,19 +340,26 @@ local rtype_map = {[TYPE_PTR]={
                          return true
                       end,
                             },
-                   [TYPE_SRV]={
-                      encode=function (self, o, context)
-                         return rdata_srv:encode(o.rdata_srv, context)
-                      end,
-                      decode=function (self, o, cur, context)
-                         local r, err = rdata_srv:decode(cur, context)
-                         if not r then return nil, err end
-                         o.rdata_srv = r
-                         return true
-                      end,
-                   }
 }
 
+local function add_rtype_decoder(type, cl, dname)
+   rtype_map[type] = {
+      encode=function (self, o, context)
+         return cl:encode(o[dname], context)
+      end,
+      decode=function (self, o, cur, context)
+         cur.endpos = cur.pos + o.rdlength
+         local r, err = cl:decode(cur, context)
+         cur.endpos = nil
+         if not r then return nil, err end
+         o[dname] = r
+         return true
+      end,
+   }
+end
+
+add_rtype_decoder(TYPE_SRV, rdata_srv, 'rdata_srv')
+add_rtype_decoder(TYPE_NSEC, rdata_nsec, 'rdata_nsec')
 
 dns_rr = abstract_data:new{class='dns_rr',
                            format='rtype:u2 [2|rclass:u15 cache_flush:b1] ttl:u4 rdlength:u2',
@@ -260,7 +389,8 @@ function dns_rr:try_decode(cur, context)
    if handler 
    then 
       self:d('using handler')
-      ok, err = handler:decode(r, cur, context)
+      self:d('using handler', cur)
+      local ok, err = handler:decode(r, cur, context)
       if not ok then return nil, err end
    else
       self:d('default rdata handling (as-is)', r.rtype)
