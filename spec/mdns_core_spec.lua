@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Mon Jan  7 12:11:10 2013 mstenber
--- Edit time:     247 min
+-- Last modified: Mon Jan  7 12:57:00 2013 mstenber
+-- Edit time:     282 min
 --
 
 -- TO DO: 
@@ -37,7 +37,79 @@ module("mdns_core_spec", package.seeall)
 local MDNS_PORT = mdns_core.MDNS_PORT
 local MDNS_MULTICAST_ADDRESS = mdns_core.MDNS_MULTICAST_ADDRESS
 
--- we store the received messages
+-- class mydsm is variant of dsm, which keeps track of all installed dummies
+-- and provides mdns-specific assertions regarding those dummies
+mydsm = _dsm.dsm:new_subclass{class='mydsm'}
+
+function mydsm:init()
+   self.dummies = {}
+   _dsm.dsm.init(self)
+end
+
+function mydsm:assert_receiveds_eq(...)
+   local l = {...}
+   mst.a(#l == #self.dummies, 'mismatch on #dummies <> #receiveds')
+   for i, v in ipairs(l)
+   do
+      self.dummies[i]:assert_received_eq(v)
+   end
+end
+
+function mydsm:clear_receiveds()
+   for i, d in ipairs(self.dummies)
+   do
+      d.received = {}
+   end
+end
+
+function mydsm:check_queries_done()
+   for i, n in ipairs(self:get_nodes())
+   do
+      local q = n.queries
+      if q and #q>0 then return false end
+   end
+   return true
+end
+
+function mydsm:assert_queries_done()
+   self:a(self:check_queries_done(), 'still queries left')
+end
+
+function mydsm:wait_queries_done()
+   if self:check_queries_done() then return end
+   local r = 
+      self:run_nodes_and_advance_time(123, 
+                                      {until_callback=
+                                       function ()
+                                          return self:check_queries_done()
+                                       end})
+   self:a(r, 'propagation did not terminate')
+   self:a(check_queries_done(), 'queries still not done')
+end
+
+
+function mydsm:wait_receiveds_counts(...)
+   local l = {...}
+   mst.a(#l == #self.dummies, 'mismatch on #dummies <> #receiveds')
+   function dummies_desired()
+      local ok = true
+      for i, v in ipairs(l)
+      do
+         local d = self.dummies[i]
+         local c = #d.received
+         d:assert_received_le(c)
+         if c ~= v then ok=false end
+      end
+      return ok
+   end
+   if dummies_desired() then return end
+   local r = self:run_nodes_and_advance_time(123, 
+                                             {until_callback=dummies_desired})
+   self:a(r, 'propagation did not terminate')
+   self:a(dummies_desired(), 'dummies not in desired state')
+end
+
+-- class for storing results
 dummynode = mst.create_class{class='dummynode'}
 
 function dummynode:init()
@@ -82,10 +154,32 @@ function dummynode:recvfrom(...)
    table.insert(self.received, {self.time(), ...})
 end
 
+function dummynode:assert_received_to(tostring)
+   local r = self.received
+   local i = #r
+   self:a(i > 0)
+   self:a(string.sub(r[i][5], 1, #tostring) == tostring,
+          'to address mismatch', r[i])
+end
+
+function dummynode:assert_received_le(n)
+   self:a(#self.received <= n, 'too many received')
+end
+
+function dummynode:assert_received_eq(n)
+   self:a(#self.received == n,
+          ' wrong # received (exp,got)', n, #self.received)
+end
+
+-- then utility callback for instantiating dummynodes/other nodes
+
 function create_node_callback(o)
    if o.dummy
    then
-      return dummynode:new{rid=o.rid, time=o.time}
+      local d = dummynode:new{rid=o.rid, time=o.time}
+      mst.a(o.dsm, 'dsm has to be set for dummy nodes')
+      table.insert(o.dsm.dummies, d)
+      return d
    end
    local cl = o.class or _mdns_ospf
    local n = cl:new{sendto=true,
@@ -156,31 +250,17 @@ local query1_kas = dnscodec.dns_message:encode{
    an={rr1},
                                           }
 
-function assert_dummy_received_le(d, n)
-   if #d.received > n
-   then
-      mst.a(false, ' too many # received', n, mst.repr(d))
-   end
-end
-
-function assert_dummy_received_eq(d, n)
-   if #d.received ~= n
-   then
-      mst.a(false, 
-            d.rid .. ' wrong # received (exp,got)', n, #d.received,
-            prettyprint_received_list(d.received))
-   end
-end
-
 describe("mdns", function ()
             local n, dsm, mdns, dummy, s
             before_each(function ()
                            n = dneigh.dneigh:new{}
-                           dsm = _dsm.dsm:new{e=n, 
-                                              port_offset=42536,
-                                              create_callback=create_node_callback}
+                           dsm = mydsm:new{e=n, 
+                                           port_offset=42536,
+                                           create_callback=create_node_callback}
                            mdns = dsm:add_node{rid='n1', class=_mdns}
-                           dummy = dsm:add_node{rid='dummy', dummy=true}
+                           dummy = dsm:add_node{rid='dummy', 
+                                                dsm=dsm, 
+                                                dummy=true}
                            s = mdns.skv
                            s:set(elsa_pa.OSPF_LAP_KEY, {
                                     {ifname='eth0', owner=true},
@@ -214,7 +294,7 @@ describe("mdns", function ()
                      dsm:set_time(nt)
                      mdns:run()
                   end
-                  assert_dummy_received_eq(dummy, expected_received_count, 'dummy')
+                  dummy:assert_received_eq(expected_received_count)
                   s:set(elsa_pa.OSPF_LAP_KEY, {})
                   mdns:run()
             end
@@ -254,14 +334,14 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   -- this is pathological case where everyone owns all
                   -- of their interfaces. it should still work, though..
                   n = dneigh.dneigh:new{}
-                  dsm = _dsm.dsm:new{e=n, port_offset=42576,
-                                     create_callback=create_node_callback}
+                  dsm = mydsm:new{e=n, port_offset=42576,
+                                  create_callback=create_node_callback}
                   mdns1 = dsm:add_node{rid='n1'}
                   mdns2 = dsm:add_node{rid='n2'}
                   mdns3 = dsm:add_node{rid='n3'}
-                  dummy1 = dsm:add_node{rid='dummy1', dummy=true}
-                  dummy2 = dsm:add_node{rid='dummy2', dummy=true}
-                  dummy3 = dsm:add_node{rid='dummy3', dummy=true}
+                  dummy1 = dsm:add_node{rid='dummy1', dsm=dsm, dummy=true}
+                  dummy2 = dsm:add_node{rid='dummy2', dsm=dsm, dummy=true}
+                  dummy3 = dsm:add_node{rid='dummy3', dsm=dsm, dummy=true}
                   local s = mdns1.skv
                   s:set(elsa_pa.OSPF_LAP_KEY, {
                            {ifname='id1', owner=true},
@@ -324,16 +404,6 @@ describe("multi-mdns setup (mdns_ospf)", function ()
 
                           dsm:done()
                        end)
-            function assert_dummies_received_eq(n1, n2, n3)
-               assert_dummy_received_eq(dummy3, n3)
-               assert_dummy_received_eq(dummy2, n2)
-               assert_dummy_received_eq(dummy1, n1)
-            end
-            function clear_received()
-               dummy1.received = {}
-               dummy2.received = {}
-               dummy3.received = {}
-            end
             it("works #multi", function ()
                   local r = dsm:run_nodes(3)
                   mst.a(r, 'basic run did not terminate')
@@ -344,7 +414,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
 
                   -- make sure we got _something_ in each dummy
                   -- (1 shouldn't, as it's same interface)
-                  assert_dummies_received_eq(0, 5, 5)
+                  dsm:assert_receiveds_eq(0, 5, 5)
 
                    end)
             it("won't propagate 0 ttl stuff", function ()
@@ -357,7 +427,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
 
                   -- make sure we got _something_ in each dummy
                   -- (1 shouldn't, as it's same interface)
-                  assert_dummies_received_eq(0, 0, 0)
+                  dsm:assert_receiveds_eq(0, 0, 0)
                    end)
             it("shared records - 2x announce, 1x ttl=0 #shb", function ()
                   local r = dsm:run_nodes(3)
@@ -370,71 +440,22 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   -- make sure we got _something_ in each dummy
                   -- two announcements, final ttl=0
                   -- (1 shouldn't, as it's same interface)
-                  assert_dummies_received_eq(0, 3, 3)
+                  dsm:assert_receiveds_eq(0, 3, 3)
                    end)
-            function check_queries_done()
-               return #mdns1.queries == 0 and 
-                  #mdns2.queries == 0 and 
-                  #mdns3.queries == 0 
-            end
-            function assert_queries_done()
-               if not check_queries_done()
-               then
-                  mst.a(false, 'still queries left', 
-                        #mdns1.queries,
-                        #mdns2.queries, 
-                        #mdns3.queries)
-
-               end
-            end
-            function wait_queries_done()
-               if check_queries_done() then return end
-               local r = dsm:run_nodes_and_advance_time(123, {until_callback=dummies_desired})
-               mst.a(r, 'propagation did not terminate')
-               mst.a(check_queries_done(), 'queries still not done')
-            end
-            function wait_dummy_received_counts(dummy1_count,
-                                                dummy2_count,
-                                                dummy3_count)
-               
-               function dummies_desired()
-                  local c1 = #dummy1.received
-                  local c2 = #dummy2.received
-                  local c3 = #dummy3.received
-                  mst.d('dummy count', c1, c2, c3)
-                  assert_dummy_received_le(dummy3, c3)
-                  assert_dummy_received_le(dummy2, c2)
-                  assert_dummy_received_le(dummy1, c1)
-                  return c3 == dummy3_count and 
-                     c2 == dummy2_count and 
-                     c1 == dummy1_count
-               end
-               if dummies_desired() then return end
-               local r = dsm:run_nodes_and_advance_time(123, {until_callback=dummies_desired})
-               mst.a(r, 'propagation did not terminate')
-               mst.a(dummies_desired(), 'dummies not in desired state')
-            end
-            function assert_dummy_received_to(dummy, tostring)
-               local r = dummy.received
-               local i = #r
-               mst.a(i > 0)
-               mst.a(string.sub(r[i][5], 1, #tostring) == tostring,
-                     'to address mismatch', r[i])
-            end
             it("query works #q", function ()
                   local r = dsm:run_nodes(3)
                   mst.a(r, 'basic run did not terminate')
                   mdns1:recvfrom(msg1, 'dead:beef::1%id1', MDNS_PORT)
 
-                  wait_dummy_received_counts(0, 1, 1)
+                  dsm:wait_receiveds_counts(0, 1, 1)
                   local elapsed = dsm.t-dsm.start_t
                   mst.d('propagation done in', elapsed)
                   -- typically ~0.3 second?
                   mst.a(elapsed < 0.5, 'took too long', elapsed, #dummy1.received, #dummy2.received, #dummy3.received)
 
                   -- then, wait for the second announce
-                  clear_received()
-                  wait_dummy_received_counts(0, 1, 1)
+                  dsm:clear_receiveds()
+                  dsm:wait_receiveds_counts(0, 1, 1)
                   local elapsed = dsm.t-dsm.start_t
                   mst.d('propagation done in', elapsed)
                   -- typically ~1.3 second?
@@ -447,52 +468,52 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   -- dummy2 asks => dummy2 gets (3 times)
                   -- s5.20 SHOULD
                   mst.d('a) 2x unicast query')
-                  clear_received()
+                  dsm:clear_receiveds()
                   local DUMMY_IP='blarg'
                   local DUMMY_IF='id2'
                   local DUMMY_SRC=DUMMY_IP .. '%' .. DUMMY_IF
 
                   mdns2:recvfrom(query1, DUMMY_SRC, MDNS_PORT + 1)
                   mdns2:recvfrom(query1, DUMMY_SRC, MDNS_PORT + 1)
-                  wait_dummy_received_counts(0, 2, 0)
+                  dsm:wait_receiveds_counts(0, 2, 0)
                   -- make sure it is unicast
-                  assert_dummy_received_to(dummy2, DUMMY_IP)
-                  clear_received()
+                  dummy2:assert_received_to(DUMMY_IP)
+                  dsm:clear_receiveds()
 
                   -- s5.18 SHOULD
                   mst.d('a1) qu')
                   mdns2:recvfrom(query1_qu, DUMMY_SRC, MDNS_PORT)
-                  wait_dummy_received_counts(0, 1, 0)
+                  dsm:wait_receiveds_counts(0, 1, 0)
                   mst.d('received', dummy2.received)
                   -- make sure it is unicast
-                  assert_dummy_received_to(dummy2, DUMMY_IP)
+                  dummy2:assert_received_to(DUMMY_IP)
 
                   -- b) multicast should NOT work right after
                   -- multicast was received (0.2 to account for
                   -- processing delay)
                   mst.d('b) no-direct-multicast-reply')
-                  clear_received()
+                  dsm:clear_receiveds()
                   mdns2:recvfrom(query1, DUMMY_SRC, MDNS_PORT)
                   dsm:advance_time(0.2)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
-                  wait_dummy_received_counts(0, 0, 0)
+                  dsm:wait_receiveds_counts(0, 0, 0)
 
                   -- c) multicast should work 'a bit' after
                   mst.d('c) advancing time')
-                  clear_received()
+                  dsm:clear_receiveds()
                   dsm:advance_time(2)
                   mdns2:recvfrom(query1, DUMMY_SRC, MDNS_PORT)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
                   -- no immediate reply - should wait bit before replying
-                  assert_dummies_received_eq(0, 0, 0)
+                  dsm:assert_receiveds_eq(0, 0, 0)
                   -- but eventually we should get what we want
                   dsm:advance_time(0.6)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
-                  assert_dummies_received_eq(0, 1, 0)
-                  clear_received()
+                  dsm:assert_receiveds_eq(0, 1, 0)
+                  dsm:clear_receiveds()
 
                   -- move time forward bit
                   dsm:advance_time(0.7)
@@ -505,7 +526,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   dsm:advance_time(0.2)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
-                  assert_dummies_received_eq(0, 0, 0)
+                  dsm:assert_receiveds_eq(0, 0, 0)
 
                   -- d) KAS should work
                   -- => no answer if known
@@ -514,12 +535,12 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
                   -- no immediate reply - should wait bit before replying
-                  assert_dummies_received_eq(0, 0, 0)
+                  dsm:assert_receiveds_eq(0, 0, 0)
                   -- but eventually we should get what we want
                   dsm:advance_time(0.6)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
-                  assert_dummies_received_eq(0, 0, 0)
+                  dsm:assert_receiveds_eq(0, 0, 0)
 
                   -- e) check that different queries work
                   -- as expected; that is, type=all results something,
@@ -532,22 +553,20 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   mdns2:recvfrom(query1_class_nomatch_qu, DUMMY_SRC, MDNS_PORT)
 
                   -- shouldn't have caused any query to be waiting..
-                  assert_queries_done()
+                  dsm:assert_queries_done()
                   -- Just one reply (qtype=any); qtype=nonexistent
                   -- => no answer
-                  assert_dummies_received_eq(0, 3, 0)
-                  clear_received()
+                  dsm:assert_receiveds_eq(0, 3, 0)
+                  dsm:clear_receiveds()
 
                   -- .. last ..) should reply with multicast to qu
                   -- if enough time has elapsed
                   -- s5.19 SHOULD
                   dsm:advance_time(DUMMY_TTL / 2)
                   mdns2:recvfrom(query1_qu, DUMMY_SRC, MDNS_PORT)
-                  wait_dummy_received_counts(0, 1, 0)
+                  dsm:wait_receiveds_counts(0, 1, 0)
                   mst.d('received', dummy2.received)
                   -- make sure it is unicast
-                  assert_dummy_received_to(dummy2, MDNS_MULTICAST_ADDRESS)
-
-
+                  dummy2:assert_received_to(MDNS_MULTICAST_ADDRESS)
                    end)
 end)
