@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Thu Jan  3 20:37:20 2013 mstenber
--- Edit time:     509 min
+-- Last modified: Mon Jan  7 16:17:43 2013 mstenber
+-- Edit time:     582 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -173,6 +173,7 @@ end
 
 function mdns:expire_old()
    local now = self.time()
+   --self:d('expire_old', now)
 
    local pending
    for ifname, ns in pairs(self.if2own)
@@ -181,6 +182,7 @@ function mdns:expire_old()
       ns:foreach(function (rr)
                     if rr.valid and rr.valid <= now
                     then
+                       self:d('getting rid of', rr)
                        -- get rid of the entry
                        if not rr.cache_flush
                        then
@@ -290,6 +292,7 @@ function mdns:split_qd_to_qu_nqu(msg, ifname)
    local qu = {}
    local nqu = {}
    local now = self.time()
+   local ns = self:get_if_own(ifname)
    for i, q in ipairs(msg.qd)
    do
       if not q.qu
@@ -300,14 +303,14 @@ function mdns:split_qd_to_qu_nqu(msg, ifname)
          -- if one or more of the answers looks multicast worthy,
          -- then we pretend it's nqu
          local found 
-         self:iterate_if_own_matching_queries({q}, msg.an, ifname,
-                                              function (q, rr)
-                                                 local last = rr[FIELD_SENT_MCAST]
-                                                 if not last or last < (now-rr.ttl/4)
-                                                 then
-                                                    found = true
-                                                 end
-                                              end)
+         self:iterate_ns_own_matching_query(ns, q, msg.an,
+                                            function (q, rr)
+                                               local last = rr[FIELD_SENT_MCAST]
+                                               if not last or last < (now-rr.ttl/4)
+                                               then
+                                                  found = true
+                                               end
+                                            end)
          if found
          then
             table.insert(nqu, q)
@@ -387,39 +390,62 @@ function match_q_rr(q, rr)
       (dnsdb.ll_equal(q.name, rr.name))
 end
 
-function mdns:iterate_if_own_matching_queries(ql, an, ifname, f)
-   local ns = self:get_if_own(ifname)
-   for i, q in ipairs(ql)
+function mdns:iterate_ns_own_matching_query(ns, q, an, f)
+   local matched
+   local found_cf
+   for i, rr in ipairs(ns:find_rr_list_for_ll(q.name))
    do
-      for i, rr in ipairs(ns:find_rr_list_for_ll(q.name))
-      do
-         if match_q_rr(q, rr)
-         then  
-            -- XXX - this brute force checking is N^2 complexity
-            -- (N matches, N KAS; could do better, but with higher
-            -- startup costs, is it worth it? probably not)
-            local found = false
-            for i, rr2 in ipairs(an)
-            do
-               self:d('considering KAS', rr, rr2)
-               if dnsdb.rr_equals(rr, rr2)
-               then
-                  self:d(' KAS match')
-                  found = true
-               end
-            end
-            if not found
+      if rr.cache_flush
+      then
+         found_cf = true
+      end
+      if match_q_rr(q, rr)
+      then  
+         matched = true
+         -- XXX - this brute force checking is N^2 complexity
+         -- (N matches, N KAS; could do better, but with higher
+         -- startup costs, is it worth it? probably not)
+         local found = false
+         for i, rr2 in ipairs(an)
+         do
+            self:d('considering KAS', rr, rr2)
+            if dnsdb.rr_equals(rr, rr2)
             then
-               f(q, rr)
+               self:d(' KAS match')
+               found = true
             end
+         end
+         if not found
+         then
+            f(q, rr)
          end
       end
    end
+   -- if no match, _but_ we own the name
+   -- => look up for negative NSEC 
+   -- (assuming this wasn't already NSEC query, of course)
+   if found_cf and not matched 
+      and q.qtype ~= dnscodec.TYPE_NSEC
+   then
+      self:iterate_ns_own_matching_query(ns, {
+                                            name=q.name,
+                                            qtype=dnscodec.TYPE_NSEC,
+                                            qclass=q.qclass,
+                                             }, an, f)
+   end
 end
 
-function mdns:find_if_own_matching_queries(ql, an, ifname)
+function mdns:iterate_if_own_matching_queries(ifname, ql, an, f)
+   local ns = self:get_if_own(ifname)
+   for i, q in ipairs(ql)
+   do
+      self:iterate_ns_own_matching_query(ns, q, an, f)
+   end
+end
+
+function mdns:find_if_own_matching_queries(ifname, ql, an)
    local r = mst.set:new{}
-   self:iterate_if_own_matching_queries(ql, an, ifname,
+   self:iterate_if_own_matching_queries(ifname, ql, an,
                                         function (q, rr)
                                            r:insert(rr)
                                         end)
@@ -458,10 +484,11 @@ function mdns:copy_rrs_with_updated_ttl(rrl, unicast)
 end
 
 function mdns:handle_reply(msg, dst, dstport, ifname, unicast)
-   local an = self:find_if_own_matching_queries(msg.qd, msg.an, ifname)
+   local an = self:find_if_own_matching_queries(ifname, msg.qd, msg.an)
    if #an == 0 then return end
    an = self:copy_rrs_with_updated_ttl(an, unicast)
    if #an == 0 then return end
+   mst.d('got an', an)
    -- ok, we have valid things to send with >0 ttl; here we go!
    local s = dnscodec.dns_message:encode{an=an}
    mst.d('sending reply', ifname, #an)
@@ -652,6 +679,14 @@ end
 
 function mdns:insert_if_own_rr(ifname, rr)
    local ns = self:get_if_own(ifname)
+   
+   -- we don't accept NSEC records to be forwarded
+   -- (we instead produce our own, see below)
+   if rr.rtype == dnscodec.TYPE_NSEC
+   then
+      return
+   end
+
    -- XXX - do something with the old?
    --local old_rr = ns:find_rr(rr)
    if rr.ttl == 0
@@ -668,7 +703,8 @@ function mdns:insert_if_own_rr(ifname, rr)
    then
       if o.cache_flush
       then
-         self:set_state(ifname, o, STATE_P1)
+         self:set_state(ifname, o, STATE_P1, self.p1_wu)
+         self.p1_wu = o.wait_until
       else
          self:set_state(ifname, o, STATE_A1)
       end
@@ -677,7 +713,7 @@ function mdns:insert_if_own_rr(ifname, rr)
    return o
 end
 
-function mdns:set_state(ifname, rr, st)
+function mdns:set_state(ifname, rr, st, wu)
    local w = STATE_DELAYS[st]
    self:d('setting state', rr, st)
    rr.state = st
@@ -685,7 +721,11 @@ function mdns:set_state(ifname, rr, st)
    then
       local now = self.time()
       mst.a(type(now) == 'number', 'wierd time', now)
-      rr.wait_until = now + mst.randint(w[1], w[2]) / 1000.0
+      if not wu
+      then
+         wu = now + mst.randint(w[1], w[2]) / 1000.0
+      end
+      rr.wait_until = wu
       return
    end
    -- no wait => should run it immediately
@@ -716,7 +756,7 @@ function mdns:run_state(ifname, rr)
       cb(self, ifname, rr)
    end
    -- if something happened automatically, skip next-state mechanism
-   if rr.state ~= state
+   if rr.state ~= state or rr.wait_until
    then
       return
    end
@@ -724,16 +764,17 @@ function mdns:run_state(ifname, rr)
 end
 
 function mdns:next_time()
-   local best = nil
-   function maybe(t)
+   local best, bestsrc
+   function maybe(t, src)
       if not t then return end
       if not best or t < best
       then
          best = t
+         bestsrc = src
       end
    end
    function update_cache(rr)
-      maybe(rr.valid)
+      maybe(rr.valid, 'cache expiration')
    end
    -- cache entries' expiration
    for ifname, ns in pairs(self.if2cache)
@@ -743,9 +784,9 @@ function mdns:next_time()
    function update_own(rr)
       if rr.state
       then
-         maybe(rr.wait_until)
+         maybe(rr.wait_until, 'own expiration')
       end
-      maybe(rr.valid)
+      maybe(rr.valid, 'own valid')
    end
    for ifname, ns in pairs(self.if2own)
    do
@@ -753,7 +794,11 @@ function mdns:next_time()
    end
    for i, e in ipairs(self.queries)
    do
-      maybe(e[2])
+      maybe(e[2], 'query')
+   end
+   if best
+   then
+      --self:d('next_time', best, bestsrc)
    end
    return best
 end
@@ -765,25 +810,125 @@ function mdns:send_announces(ifname)
    local ns = self:get_if_own(ifname)
    local an 
    local now = self.time()
-   ns:foreach(function (rr)
-                 if announce_states[rr.state] and not rr.wait_until
-                 then
-                    -- xxx - do something more clever here?
-                    an = an or {}
-                    table.insert(an, rr)
 
-                    self:set_next_state(ifname, rr)
-                    rr[FIELD_SENT_MCAST] = now
+   -- the draft isn't very strict about how long we can delay until we
+   -- announce; so what we do, is wait until _all_ messages in
+   -- wait_until state disappear
+   local waitmore = false
+   ns:foreach(function (rr)
+                 if announce_states[rr.state] 
+                 then
+                    if rr.wait_until
+                    then
+                       waitmore = rr.wait_until
+                    else
+                       -- xxx - do something more clever here?
+                       an = an or {}
+                       table.insert(an, rr)
+                    end
                  end
               end)
+   if waitmore 
+   then 
+      self:d('skipping announce - waiting for more at', waitmore)
+      if an
+      then
+         for i, rr in ipairs(an)
+         do
+            rr.wait_until = waitmore
+         end
+      end
+      return 
+   end
    -- XXX ( handle fragmentation )
    if an
    then
+      for i, rr in ipairs(an)
+      do
+         self:set_next_state(ifname, rr)
+         rr[FIELD_SENT_MCAST] = now
+
+         if rr.cache_flush
+         then
+            -- potentially update the nsec record
+            self:update_if_rr_related_nsec(ifname, rr)
+         end
+      end
+
       local s = dnscodec.dns_message:encode{an=an}
       local dst = MDNS_MULTICAST_ADDRESS .. '%' .. ifname
       mst.d(now, 'sending announce(s)', ifname, #an)
       self.sendto(s, dst, MDNS_PORT)
+
    end
+end
+
+function mdns:update_if_rr_related_nsec(ifname, rr)
+   local bits = {}
+   local nsec
+   local least
+   local now = self.time()
+   local ns = self:get_if_own(ifname)
+
+   for i, rr2 in ipairs(ns:find_rr_list_for_ll(rr.name))
+   do
+      if rr2.rtype == dnscodec.TYPE_NSEC
+      then
+         nsec = rr2
+      else
+         table.insert(bits, rr2.rtype)
+         if not least or (rr2.valid and least > rr2.valid)
+         then
+            least = rr2.valid
+         end
+      end
+   end
+
+   -- first off, if we don't have really valid ttl _at all_, we give
+   -- up:
+   if not least 
+   then
+      return 
+   end
+
+   -- then, if that one's ttl would be <1, it's also valid case to give up
+   local ttl = math.floor(least - now)
+   if ttl < 1
+   then
+      return
+   end
+   
+   -- 4 cases in truth
+
+   -- either we don't have nsec => create
+
+   -- invalid bits => update bits
+   -- invalid ttl => update ttl
+   -- valid => all good => do nothing
+   -- (we sort of combine the last 3 cases, as there's no harm in it)
+
+   table.sort(bits)
+   if not nsec
+   then
+      -- create new nsec, with the bits we have
+      nsec = {name=rr.name, 
+              rclass=dnscodec.CLASS_IN,
+              rtype=dnscodec.TYPE_NSEC, 
+              ttl=ttl, 
+              cache_flush=true,
+
+              -- NSEC rdata
+              rdata_nsec={
+                 ndn=rr.name,
+                 bits=bits, 
+              },
+              }
+      self:d('creating new nsec', ifname, nsec)
+      ns:insert_rr(nsec)
+      return
+   end
+   nsec.rdata_nsec.bits = bits
+   self:update_rr_ttl(nsec, ttl)
 end
 
 function mdns:send_probes(ifname)
@@ -808,6 +953,9 @@ function mdns:send_probes(ifname)
    -- XXX ( handle fragmentation )
    if qd
    then
+      -- clear the 'next send probe' time
+      self.p1_wu = nil
+
       local s = dnscodec.dns_message:encode{qd=qd, ns=ons}
       local dst = MDNS_MULTICAST_ADDRESS .. '%' .. ifname
       local now = self.time()

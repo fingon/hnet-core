@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Mon Jan  7 12:57:00 2013 mstenber
--- Edit time:     282 min
+-- Last modified: Mon Jan  7 16:37:52 2013 mstenber
+-- Edit time:     333 min
 --
 
 -- TO DO: 
@@ -151,7 +151,10 @@ end
 
 
 function dummynode:recvfrom(...)
-   table.insert(self.received, {self.time(), ...})
+   local l = {...}
+   -- decode the payload
+   l[1] = dnscodec.dns_message:decode(l[1])
+   table.insert(self.received, {self.time(), unpack(l)})
 end
 
 function dummynode:assert_received_to(tostring)
@@ -169,6 +172,39 @@ end
 function dummynode:assert_received_eq(n)
    self:a(#self.received == n,
           ' wrong # received (exp,got)', n, #self.received)
+end
+
+function dummynode:get_last_msg()
+   local i = #self.received
+   self:a(i >= 1)
+   return self.received[i][2]
+end
+
+function dummynode:sanity_check_last_response()
+   local msg = self:get_last_msg()
+   -- s6.7 MUST
+   mst.a(#msg.qd == 0)
+
+   -- s18.4 MUST
+   self:a(msg.h.id == 0, 'non-zero id', msg)
+
+end
+
+function dummynode:sanity_check_last_probe()
+   local msg = self:get_last_msg()
+   self:sanity_check_last_query()
+end
+
+function dummynode:sanity_check_last_announce()
+   self:sanity_check_last_response()
+end
+
+function dummynode:sanity_check_last_query()
+   local msg = self:get_last_msg()
+
+   -- s18.3 SHOULD 
+   self:a(msg.h.id == 0, 'non-zero id', msg)
+
 end
 
 -- then utility callback for instantiating dummynodes/other nodes
@@ -207,19 +243,29 @@ end
 local DUMMY_TTL=1234
 local DUMMY_TYPE=42
 local DUMMY_TYPE2=123
+local CLASS_IN=dnscodec.CLASS_IN
 
 -- fake mdns announcement
 local rr1 = {name={'Foo'}, rdata='Bar', rtype=DUMMY_TYPE, ttl=DUMMY_TTL}
 
-local rr1_cf = {name={'Foo'}, rdata='Bar', rtype=DUMMY_TYPE, cache_flush=true, ttl=DUMMY_TTL}
+local rr1_cf = {name={'Foo'}, rdata='Bar', rtype=DUMMY_TYPE, rclass=CLASS_IN, cache_flush=true, ttl=DUMMY_TTL}
 
 local rr1_ttl0 = {name={'Foo'}, rdata='Bar', rtype=DUMMY_TYPE, ttl=0}
 
-local msg1 = dnscodec.dns_message:encode{an={rr1}}
+local rr2_cf = {name={'Foo'}, rdata='Baz', rtype=DUMMY_TYPE2, rclass=CLASS_IN, cache_flush=true, ttl=DUMMY_TTL}
+
+
+
+local msg1 = dnscodec.dns_message:encode{
+   -- MUST s18.4 - ignore id in responses
+   h={id=123}, 
+   an={rr1}}
+--mst.a(dnscodec.dns_message:decode(msg1).h.id > 0)
 
 local msg1_ttl0 = dnscodec.dns_message:encode{an={rr1_ttl0}}
 
 local msg1_cf = dnscodec.dns_message:encode{an={rr1_cf}}
+
 
 local query1 = dnscodec.dns_message:encode{
    qd={{name={'Foo'}, qtype=DUMMY_TYPE}},
@@ -251,6 +297,9 @@ local query1_kas = dnscodec.dns_message:encode{
                                           }
 
 describe("mdns", function ()
+            local DUMMY_IP='blarg'
+            local DUMMY_IF='eth1'
+            local DUMMY_SRC=DUMMY_IP .. '%' .. DUMMY_IF
             local n, dsm, mdns, dummy, s
             before_each(function ()
                            n = dneigh.dneigh:new{}
@@ -273,9 +322,7 @@ describe("mdns", function ()
                           dsm:done()
                        end)
 
-            function run_rr_states(orr, 
-                                    expected_states, 
-                                    expected_received_count)
+            function run_rr_states(orr, expected_states)
                   mdns:run()
                   mdns:insert_if_own_rr('eth1', orr)
                   --mdns:recvfrom(msg, 'dead:beef::1%eth0', MDNS_PORT)
@@ -294,7 +341,6 @@ describe("mdns", function ()
                      dsm:set_time(nt)
                      mdns:run()
                   end
-                  dummy:assert_received_eq(expected_received_count)
                   s:set(elsa_pa.OSPF_LAP_KEY, {})
                   mdns:run()
             end
@@ -306,7 +352,11 @@ describe("mdns", function ()
                                      [mdns_core.STATE_A1]=true,
                                      [mdns_core.STATE_A2]=true,
                   }
-                  run_rr_states(rr1_cf, expected_states, 5)
+                  run_rr_states(rr1_cf, expected_states)
+                  dsm:assert_receiveds_eq(5)
+                  local r = dsm:run_nodes_and_advance_time(DUMMY_TTL * 2)
+                  mst.a(r, 'propagation did not terminate')
+                  dsm:assert_receiveds_eq(5)
                         end)
             it("works (!CF=~shared)", function ()
                   expected_states = {[mdns_core.STATE_P1]=false,
@@ -316,11 +366,78 @@ describe("mdns", function ()
                                      [mdns_core.STATE_A1]=true,
                                      [mdns_core.STATE_A2]=true,
                   }
-                  run_rr_states(rr1, expected_states, 2)
+                  run_rr_states(rr1, expected_states)
+                  -- make sure we get only 2 messages to dummy
+                  dsm:assert_receiveds_eq(2)
+                  dsm:clear_receiveds()
+
+                  -- make sure we get replies to ok requests
+                  mdns:recvfrom(query1_qu, DUMMY_SRC)
+                  dsm:assert_receiveds_eq(1)
+                  dummy:sanity_check_last_response()
+                  dsm:clear_receiveds()
+
+                  -- but not to invalid ones
+                  -- MUST s6.3 (=> no reply as not unique)
+                  mdns:recvfrom(query1_type_nomatch_qu, DUMMY_SRC)
+                  mdns:recvfrom(query1_class_nomatch_qu, DUMMY_SRC)
+                  dsm:assert_receiveds_eq(0)
+
+                  -- make sure we get final ttl=0 message eventually
+                  local r = dsm:run_nodes_and_advance_time(DUMMY_TTL * 2)
+                  mst.a(r, 'propagation did not terminate')
+                  dsm:assert_receiveds_eq(1)
                         end)
+
+            it("works - 2x CF #rr2", function ()
+                  -- 
+                  mdns:insert_if_own_rr('eth1', rr1_cf)
+                  mdns:insert_if_own_rr('eth1', rr2_cf)
+                  dsm:wait_receiveds_counts(1)
+                  -- now we have one query (=probe) packet to analyze.
+                  -- let's!
+                  dummy:sanity_check_last_probe()
+
+                  dsm:wait_receiveds_counts(5)
+                  dummy:sanity_check_last_announce()
+
+                  -- clear receiveds
+                  dsm:clear_receiveds()
+
+                  -- receive non-matching type,
+                  -- we should get back reply anyway, with
+                  -- NSEC stating that there are two supported types
+                  mdns:recvfrom(query1_type_nomatch_qu, DUMMY_SRC)
+                  dsm:assert_receiveds_eq(1)
+                  dummy:sanity_check_last_response()
+                  mst.d('received is', dummy.received[1])
+                  local msg = dummy:get_last_msg()
+
+                  -- MUST s6.3 (=> reply as we're authoritative)
+                  -- MUST s6.4 => wrong types cause NSEC
+                  mst.a(#msg.an == 1)
+                  local rr = msg.an[1]
+                  mst.a(rr.rtype == dnscodec.TYPE_NSEC)
+                  mst.a(mst.repr_equal(rr.rdata_nsec.ndn, {'Foo'}),
+                       'ndn missing/wrong', rr)
+                  mst.a(mst.repr_equal(rr.rdata_nsec.bits, 
+                                       {DUMMY_TYPE, DUMMY_TYPE2}),
+                        'bits missing/wrong', rr)
+                  dsm:clear_receiveds()
+
+
+                  -- finally, even at end of ttl, there should be no
+                  -- messages
+                  local r = dsm:run_nodes_and_advance_time(DUMMY_TTL * 2)
+                  mst.a(r, 'propagation did not terminate')
+                  dsm:assert_receiveds_eq(0)
+                   end)
 end)
 
 describe("multi-mdns setup (mdns_ospf)", function ()
+            local DUMMY_IP='blarg'
+            local DUMMY_IF='id2'
+            local DUMMY_SRC=DUMMY_IP .. '%' .. DUMMY_IF
             local n
             local dsm
             local mdns1, mdns2, mdns3
@@ -460,6 +577,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   mst.d('propagation done in', elapsed)
                   -- typically ~1.3 second?
                   mst.a(elapsed < 1.5, 'took too long', elapsed, #dummy1.received, #dummy2.received, #dummy3.received)
+                  dsm:clear_receiveds()
 
                   -- couple of different cases
 
@@ -468,10 +586,6 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   -- dummy2 asks => dummy2 gets (3 times)
                   -- s5.20 SHOULD
                   mst.d('a) 2x unicast query')
-                  dsm:clear_receiveds()
-                  local DUMMY_IP='blarg'
-                  local DUMMY_IF='id2'
-                  local DUMMY_SRC=DUMMY_IP .. '%' .. DUMMY_IF
 
                   mdns2:recvfrom(query1, DUMMY_SRC, MDNS_PORT + 1)
                   mdns2:recvfrom(query1, DUMMY_SRC, MDNS_PORT + 1)

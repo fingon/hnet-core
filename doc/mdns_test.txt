@@ -136,29 +136,33 @@ we filter them)
    used, but should client software use classes other than 1 the matching
    rules described above MUST be used.
 
-[3] A Multicast DNS Responder MUST only respond when it has a positive
++[3] A Multicast DNS Responder MUST only respond when it has a positive
    non-null response to send, or it authoritatively knows that a particular
    record does not exist.
 
-[4] For unique records, where the host has already established sole
++[4] For unique records, where the host has already established sole
    ownership of the name, it MUST return negative answers to queries for
    records that it knows not to exist.
 
-[5] For example, a host with no IPv6 address, that has claimed sole
++[5] For example, a host with no IPv6 address, that has claimed sole
    ownership of the name "host.local." for all rrtypes, MUST respond to
    AAAA queries for "host.local." by sending a negative answer indicating
    that no AAAA records exist for that name.
+(similar, we're playing with dummy types)
 
-[6] For shared records, which are owned by no single host, the nonexistence
+-[6] For shared records, which are owned by no single host, the nonexistence
    of a given record is ascertained by the failure of any machine to
    respond to the Multicast DNS query, not by any explicit negative
    response. NXDOMAIN and other error responses MUST NOT be sent.
 
-[7] Multicast DNS Responses MUST NOT contain any questions in the Question
++[7] Multicast DNS Responses MUST NOT contain any questions in the Question
    Section.
 
-[8] Any questions in the Question Section of a received Multicast DNS
+
+![8] Any questions in the Question Section of a received Multicast DNS
    Response MUST be silently ignored.
+
+.. Impossible to test - we treat these as questions
 
 [9] A Multicast DNS Responder on Ethernet [IEEE.802.3] and similar shared
    multiple access networks SHOULD have the capability of delaying its
@@ -701,14 +705,12 @@ whole query?
    the ID field or the Question Section.
 => also probes(?)
 
-
-[3] In multicast query messages, the Query ID SHOULD be set to zero on
++[3] In multicast query messages, the Query ID SHOULD be set to zero on
    transmission.
 
-[4] In multicast responses, including unsolicited multicast responses, the
++[4] In multicast responses, including unsolicited multicast responses, the
    Query ID MUST be set to zero on transmission, and MUST be ignored on
    reception.
-
 
 [5] In legacy unicast response messages generated specifically in response
    to a particular (unicast or multicast) query, the Query ID MUST match

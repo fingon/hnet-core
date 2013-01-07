@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Fri Jan  4 15:21:47 2013 mstenber
--- Edit time:     178 min
+-- Last modified: Mon Jan  7 16:04:44 2013 mstenber
+-- Edit time:     180 min
 --
 
 -- Functionality for en-decoding various DNS structures;
@@ -293,6 +293,7 @@ end
 
 
 function rdata_nsec:do_encode(o, context)
+   mst.a(o, 'no object given to encode?!?')
    mst.a(o.ndn)
    local n = encode_name_rec(o.ndn, context)
    local t = {}

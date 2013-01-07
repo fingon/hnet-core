@@ -35,7 +35,7 @@ test: .tested
 # ! = not applicable
 # ? = pending
 
-mdns_test_compliance:
+mdns_test:
 	@echo '+' `egrep '^\+' doc/mdns_test.txt | wc -l`
 	@echo '-' `egrep '^-' doc/mdns_test.txt | wc -l`
 	@echo '!' `egrep '^!' doc/mdns_test.txt | wc -l`
