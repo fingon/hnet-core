@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Fri Jan  4 13:05:33 2013 mstenber
--- Edit time:     237 min
+-- Last modified: Mon Jan  7 12:11:10 2013 mstenber
+-- Edit time:     247 min
 --
 
 -- TO DO: 
@@ -87,11 +87,12 @@ function create_node_callback(o)
    then
       return dummynode:new{rid=o.rid, time=o.time}
    end
-   local n = _mdns_ospf:new{sendto=true,
-                            rid=o.rid,
-                            skv=o.skv,
-                            time=o.time,
-                           }
+   local cl = o.class or _mdns_ospf
+   local n = cl:new{sendto=true,
+                    rid=o.rid,
+                    skv=o.skv,
+                    time=o.time,
+                   }
    function n.sendto(data, to, toport)
       mst.d('n.sendto', o.rid, data, to, toport)
       local l = mst.string_split(to, '%')
@@ -111,22 +112,20 @@ end
 
 local DUMMY_TTL=1234
 local DUMMY_TYPE=42
+local DUMMY_TYPE2=123
 
 -- fake mdns announcement
-local an1 = {name={'Foo'}, rdata='Bar', rtype=DUMMY_TYPE, ttl=DUMMY_TTL}
-local msg1 = dnscodec.dns_message:encode{
-   an={an1,
-   },
-                                        }
-local msg1_ttl0 = dnscodec.dns_message:encode{
-   an={{name={'Foo'}, rdata='Bar', rtype=DUMMY_TYPE},
-   },
-                                        }
+local rr1 = {name={'Foo'}, rdata='Bar', rtype=DUMMY_TYPE, ttl=DUMMY_TTL}
 
-local msg1_cf = dnscodec.dns_message:encode{
-   an={{name={'Foo'}, rdata='Bar', rtype=DUMMY_TYPE, cache_flush=true, ttl=DUMMY_TTL},
-   },
-                                           }
+local rr1_cf = {name={'Foo'}, rdata='Bar', rtype=DUMMY_TYPE, cache_flush=true, ttl=DUMMY_TTL}
+
+local rr1_ttl0 = {name={'Foo'}, rdata='Bar', rtype=DUMMY_TYPE, ttl=0}
+
+local msg1 = dnscodec.dns_message:encode{an={rr1}}
+
+local msg1_ttl0 = dnscodec.dns_message:encode{an={rr1_ttl0}}
+
+local msg1_cf = dnscodec.dns_message:encode{an={rr1_cf}}
 
 local query1 = dnscodec.dns_message:encode{
    qd={{name={'Foo'}, qtype=DUMMY_TYPE}},
@@ -154,7 +153,7 @@ local query1_class_nomatch_qu = dnscodec.dns_message:encode{
 
 local query1_kas = dnscodec.dns_message:encode{
    qd={{name={'Foo'}, qtype=DUMMY_TYPE, qu=true}},
-   an={an1},
+   an={rr1},
                                           }
 
 function assert_dummy_received_le(d, n)
@@ -177,9 +176,10 @@ describe("mdns", function ()
             local n, dsm, mdns, dummy, s
             before_each(function ()
                            n = dneigh.dneigh:new{}
-                           dsm = _dsm.dsm:new{e=n, port_offset=42536,
+                           dsm = _dsm.dsm:new{e=n, 
+                                              port_offset=42536,
                                               create_callback=create_node_callback}
-                           mdns = dsm:add_node{rid='n1'}
+                           mdns = dsm:add_node{rid='n1', class=_mdns}
                            dummy = dsm:add_node{rid='dummy', dummy=true}
                            s = mdns.skv
                            s:set(elsa_pa.OSPF_LAP_KEY, {
@@ -193,11 +193,12 @@ describe("mdns", function ()
                           dsm:done()
                        end)
 
-            function run_msg_states(msg, 
+            function run_rr_states(orr, 
                                     expected_states, 
                                     expected_received_count)
                   mdns:run()
-                  mdns:recvfrom(msg, 'dead:beef::1%eth0', MDNS_PORT)
+                  mdns:insert_if_own_rr('eth1', orr)
+                  --mdns:recvfrom(msg, 'dead:beef::1%eth0', MDNS_PORT)
                   local rr = mdns:get_if_own('eth1'):values()[1]
                   local dummies = 0
                   for k, v in pairs(expected_states)
@@ -225,7 +226,7 @@ describe("mdns", function ()
                                      [mdns_core.STATE_A1]=true,
                                      [mdns_core.STATE_A2]=true,
                   }
-                  run_msg_states(msg1_cf, expected_states, 5)
+                  run_rr_states(rr1_cf, expected_states, 5)
                         end)
             it("works (!CF=~shared)", function ()
                   expected_states = {[mdns_core.STATE_P1]=false,
@@ -235,11 +236,11 @@ describe("mdns", function ()
                                      [mdns_core.STATE_A1]=true,
                                      [mdns_core.STATE_A2]=true,
                   }
-                  run_msg_states(msg1, expected_states, 2)
+                  run_rr_states(rr1, expected_states, 2)
                         end)
 end)
 
-describe("multi-mdns setup", function ()
+describe("multi-mdns setup (mdns_ospf)", function ()
             local n
             local dsm
             local mdns1, mdns2, mdns3

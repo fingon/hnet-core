@@ -27,6 +27,21 @@ stress: .stressed
 
 test: .tested
 
+# Figure how far we are from checking every SHOULD/MUST in the
+# draft - based on doc/mdns_test.txt (assume that mdns test spec
+# is in sync with that)
+# + = covered by testsuite
+# - = not covered by test suite
+# ! = not applicable
+# ? = pending
+
+mdns_test_compliance:
+	@echo '+' `egrep '^\+' doc/mdns_test.txt | wc -l`
+	@echo '-' `egrep '^-' doc/mdns_test.txt | wc -l`
+	@echo '!' `egrep '^!' doc/mdns_test.txt | wc -l`
+	@echo '?' `egrep '^\[' doc/mdns_test.txt | wc -l`
+	@busted spec/mdns_core_spec.lua
+
 %_sm.lua: %.sm
 	java -jar $(SMC) -g -lua $<
 	java -jar $(SMC) -graph -glevel 2 $<
