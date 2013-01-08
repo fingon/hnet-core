@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 12:06:56 2012 mstenber
--- Last modified: Tue Jan  8 15:15:44 2013 mstenber
--- Edit time:     66 min
+-- Last modified: Tue Jan  8 21:19:12 2013 mstenber
+-- Edit time:     68 min
 --
 
 require "busted"
@@ -198,6 +198,7 @@ describe("test dnscodec", function ()
                         end
                      end
                      -- make sure we can encode it too
+                     mst.d('trying to encode', o)
                      local s2 = dns_message:encode(o)
 
                      -- s18.27 SHOULD use name compression

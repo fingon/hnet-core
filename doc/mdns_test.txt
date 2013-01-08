@@ -314,7 +314,7 @@ hard to say.
    interfaces)
 .. we need to add filtering of records ..
 
-[35] When a Multicast DNS Responder places an IPv4 or IPv6 address record
++[35] When a Multicast DNS Responder places an IPv4 or IPv6 address record
    (rrtype "A" or "AAAA") into a response packet, it SHOULD also place any
    records of the other address type with the same name into the additional
    section, if there is space in the packet.

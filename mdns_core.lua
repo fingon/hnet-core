@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Tue Jan  8 14:12:32 2013 mstenber
--- Edit time:     631 min
+-- Last modified: Tue Jan  8 23:45:44 2013 mstenber
+-- Edit time:     645 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -423,6 +423,8 @@ function mdns:iterate_ns_own_matching_query(ns, q, kas, f)
    local found_cf
 
    kas = self:convert_anish_to_kas(kas)
+   mst.d('iterate_ns_own_matching_query', kas)
+
    for i, rr in ipairs(ns:find_rr_list_for_ll(q.name))
    do
       if rr.cache_flush
@@ -503,7 +505,7 @@ function mdns:copy_rrs_with_updated_ttl(rrl, unicast)
    return r
 end
 
-function mdns:determine_if_ar(ifname, an)
+function mdns:determine_if_ar(ifname, an, kas)
    local ar = {}
    local all = dnsdb.ns:new{}
    local ns = self:get_if_own(ifname)
@@ -526,7 +528,7 @@ function mdns:determine_if_ar(ifname, an)
                                                {name=a.name,
                                                 qtype=t2,
                                                 qclass=a.rclass},
-                                               nil,
+                                               kas,
                                                function (q, rr)
                                                   all:insert_rr(rr)
                                                   table.insert(ar, rr)
@@ -540,12 +542,15 @@ function mdns:determine_if_ar(ifname, an)
 end
 
 function mdns:handle_reply(msg, dst, dstport, ifname, unicast)
-   local an = self:find_if_own_matching_queries(ifname, msg.qd, msg.an)
+   --mst.d('msg.an', msg.an)
+   local kas = self:convert_anish_to_kas(msg.an)
+   local an = self:find_if_own_matching_queries(ifname, msg.qd, kas)
    if #an == 0 then return end
    an = self:copy_rrs_with_updated_ttl(an, unicast)
    if #an == 0 then return end
-   mst.d('got an', an)
-   ar = self:determine_if_ar(ifname, an)
+   --mst.d('got an', an)
+
+   ar = self:determine_if_ar(ifname, an, kas)
    -- ok, we have valid things to send with >0 ttl; here we go!
    local o = {an=an, ar=ar}
    local h = {}
@@ -664,7 +669,7 @@ function mdns:handle_rr_cache_update(rr, ifname)
 
    if old_rr
    then
-      if dnsdb.rr_equals(old_rr, rr)
+      if old_rr:equals(rr)
       then
          o = old_rr
       end
@@ -1061,9 +1066,9 @@ end
 function mdns:iterate_ns_rr(ns, rr, f, similar, equal)
    for i, rr2 in ipairs(ns:find_rr_list_for_ll(rr.name))
    do
-      if rr.rtype == rr2.rtype and dnsdb.rr_contains(rr2, rr)
+      if rr.rtype == rr2.rtype and rr2:contained(rr)
       then
-         local iseq = dnsdb.rr_equals(rr2, rr)
+         local iseq = rr2:equals(rr)
          if (similar and not iseq) or (equal and iseq)
          then
             f(rr2)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:37:02 2012 mstenber
--- Last modified: Wed Dec 19 04:24:31 2012 mstenber
--- Edit time:     21 min
+-- Last modified: Tue Jan  8 23:02:19 2013 mstenber
+-- Edit time:     29 min
 --
 
 require "busted"
@@ -53,23 +53,23 @@ local fakeu = {rclass = dnscodec.CLASS_IN,
 
 describe("ns", function ()
             it("works", function ()
-                  local ns = dnsdb.ns:new{}
+                  local ns = dnsdb.ns:new{enable_copy=true}
                   -- add two items (one twice, just to make sure it
                   -- doesn't get added again)
                   mst.a(ns:count() == 0)
-                  ns:insert_rr(fake1, true)
-                  ns:insert_rr(fake1, true)
-                  ns:insert_rr(fake1case, true)
+                  ns:insert_rr(fake1)
+                  ns:insert_rr(fake1)
+                  ns:insert_rr(fake1case)
                   mst.a(ns:count() == 1, 'same record => not 1? problem')
                   ns:insert_rr(fake12)
-                  mst.a(ns:count() == 2, 'different rdata => same? problem')
+                  mst.a(ns:count() == 2, 'different rdata => same? problem', ns:count())
                   ns:insert_rr(fake2)
                   mst.a(ns:count() == 3)
 
                   -- test that we can also find fake1 based on synthetic entry
                   local s = {name = fake1.name, rtype = fake1.rtype, rdata=fake1.rdata}
                   local o = ns:find_rr(s)
-                  mst.a(dnsdb.rr_equals(o, fake1))
+                  mst.a(o and o:equals(fake1))
 
                   -- make sure that removing items works too
 
@@ -88,20 +88,22 @@ describe("ns", function ()
                   -- second iteration; add fake1+fake12+, and then override
                   -- them with fakeu => as a result, should have only 1
                   -- entry
-                  local ns = dnsdb.ns:new{}
+                  local ns = dnsdb.ns:new{enable_copy=true}
                   ns:insert_rr(fake1)
                   ns:insert_rr(fake12)
-                  mst.a(ns:count() == 2, 'different rdata => same? problem')
+                  mst.a(ns:count() == 2, 
+                        'different rdata => same? problem',
+                        ns:count())
                   ns:insert_rr(fake2)
                   mst.a(ns:count() == 3)
 
                   -- then, add the fakeu => should have just one entry
-                  ns:insert_rr(fakeu, true)
+                  ns:insert_rr(fakeu)
                   
                   mst.a(ns:count() == 2, ns)
                   local s = mst.table_copy(fakeu)
                   local o = ns:find_rr(s)
-                  mst.a(dnsdb.rr_equals(o, fakeu))
+                  mst.a(o and o:equals(fakeu))
                   ns:remove_rr(fakeu)
                   ns:remove_rr(fake2)
                   mst.a(ns:count() == 0)

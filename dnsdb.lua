@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Tue Jan  8 13:53:38 2013 mstenber
--- Edit time:     83 min
+-- Last modified: Tue Jan  8 23:33:59 2013 mstenber
+-- Edit time:     141 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -52,10 +52,72 @@ function ll2name(ll)
    return table.concat(ll, '.')
 end
 
+-- extend dnscodec's dns_rr
+function ll_equal(ll1, ll2)
+   if #ll1 ~= #ll2
+   then
+      return false
+   end
+   for i=1,#ll1
+   do
+      local s1 = string.lower(ll1[i])
+      local s2 = string.lower(ll2[i])
+      if  s1 ~= s2 then return false end
+   end
+   return true
+end
+
 -- class used for handling single RR record (whether it's from
 -- dnscodec, or synthetic created by us)
---rr = mst.create_class{class='rr'}
--- XXX - will this be really needed? just raw dicts seem enough
+
+rr = mst.create_class{class='rr'}
+
+--function rr:repr_data()
+--   return '?'
+--end
+
+function rr:rdata_equals(o)
+   --mst.a(o ~= rr, "can't compare with class")
+   local m = dnscodec.rtype_map[self.rtype]
+   if m and o[m.field]
+   then
+      local r = m:field_equal(rr[m.field], o[m.field])
+      mst.d(' fallback field match?', r)
+      return r
+   end
+   --self:a(o.rdata, 'no rdata', o)
+   if o.rdata
+   then
+      local r = o.rdata == self.rdata
+      mst.d(' rdata match?', r)
+      return r
+   end
+   mst.d(' fallback field not set, no rdata -> match')
+   return true
+end
+
+function rr:equals(o)
+   mst.a(o.rtype and o.rclass and o.name, 'mandatory bits missing')
+   return self.rtype == o.rtype 
+      and self.rclass == o.rclass
+      and ll_equal(self.name, o.name)
+      and self:rdata_equals(o) 
+      and (not self.cache_flush == not o.cache_flush)
+end
+
+function rr:contained(o)
+   -- fast check - if rtype different, no, it won't
+   if self.rtype ~= o.rtype then return false end
+
+   local rclass = o.rclass or dnscodec.CLASS_IN
+   local cache_flush = o.cache_flush or false
+
+   -- consider name, rtype, rclass always
+   -- and rdata, if the cache_flsuh is not set within o
+   return self.rclass == rclass and 
+      ll_equal(self.name, o.name) and 
+      (cache_flush or self:rdata_equals(o))
+end
 
 -- namespace of RR records; it has ~fast access to RRs by name
 ns = mst.create_class{class='ns'}
@@ -90,47 +152,14 @@ function ns:find_rr_list_for_ll(ll)
    end
    return r
 end
-
-function ll_equal(ll1, ll2)
-   if #ll1 ~= #ll2
-   then
-      return false
-   end
-   for i=1,#ll1
-   do
-      local s1 = string.lower(ll1[i])
-      local s2 = string.lower(ll2[i])
-      if  s1 ~= s2 then return false end
-   end
-   return true
-end
-
-function rr_equals(rr, o)
-   return rr.rtype == o.rtype and rr.rclass == o.rclass and ll_equal(rr.name, o.name) and rr.rdata == o.rdata and (not rr.cache_flush == not o.cache_flush)
-end
-
-function rr_contains(rr, o)
-   -- fast check - if rtype different, no, it won't
-   if rr.rtype ~= o.rtype then return false end
-
-   local rclass = o.rclass or dnscodec.CLASS_IN
-   local cache_flush = o.cache_flush or false
-   local rdata = o.rdata
-
-   -- consider name, rtype, rclass always
-   -- and rdata, if the cache_flsuh is not set within o
-   return rr.rclass == rclass and 
-      ll_equal(rr.name, o.name) and 
-      (not rdata or cache_flush or rr.rdata == rdata)
-end
-
 function ns:find_rr(o)
    self:a(o.name, 'missing name', o)
    self:a(o.rtype, 'missing rtype', o)
    for i, rr in ipairs(self:find_rr_list_for_ll(o.name))
    do
-      if rr_contains(rr, o)
+      if rr:contained(o)
       then
+         self:d('contain match', o, rr)
          return rr
       end
    end
@@ -141,8 +170,10 @@ function ns:find_exact_rr(o)
    self:a(o.rtype, 'missing rtype', o)
    for i, rr in ipairs(self:find_rr_list_for_ll(o.name))
    do
-      if rr_contains(rr, o) and rr_equals(rr, o)
+      if rr:equals(o)
       then
+         -- equals implies contains
+         mst.a(rr:contained(o))
          return rr
       end
    end
@@ -154,8 +185,8 @@ function ns:insert_rr(o, do_copy)
           'one of mandatory fields is missing', o)
 
    -- let's see if we have _exactly_ same rr already
-   local old_rr = self:find_rr(o)
-   if old_rr and rr_equals(o, old_rr)
+   local old_rr = self:find_exact_rr(o)
+   if old_rr 
    then
       self:d('insert_rr reused old rr', old_rr)
       return old_rr, false
@@ -170,12 +201,16 @@ function ns:insert_rr(o, do_copy)
    if self.enable_copy or do_copy == true
    then
       o = mst.table_copy(o)
+      o = rr:new(o)
+   elseif getmetatable(o) ~= rr
+   then
+      o = rr:new(o)
    end
    
+
    -- not found - have to add
    local ll = o.name
    local key = self:ll_key(ll)
-   --setmetatable(o, rr)
    self.nh2rr:insert(key, o)
    return o, true
 end

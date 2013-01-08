@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Tue Jan  8 14:33:55 2013 mstenber
--- Edit time:     414 min
+-- Last modified: Tue Jan  8 23:49:45 2013 mstenber
+-- Edit time:     430 min
 --
 
 -- TO DO: 
@@ -340,20 +340,20 @@ local rr1_ttl0 = {name={'Foo'}, rdata='Bar', rtype=DUMMY_TYPE, ttl=0}
 
 local rr2_cf = {name={'Foo'}, rdata='Baz', rtype=DUMMY_TYPE2, rclass=CLASS_IN, cache_flush=true, ttl=DUMMY_TTL}
 
-local rr3_cf = {name={'dummy', 'local'},
-                rdata_a='1.2.3.4', 
-                rtype=dnscodec.TYPE_A,
-                rclass=dnscodec.CLASS_IN,
-                cache_flush=true,
-                ttl=DUMMY_TTL,
+local rr_dummy_a_cf = {name={'dummy', 'local'},
+                       rdata_a='1.2.3.4', 
+                       rtype=dnscodec.TYPE_A,
+                       rclass=dnscodec.CLASS_IN,
+                       cache_flush=true,
+                       ttl=DUMMY_TTL,
 }
 
-local rr4_cf = {name={'dummy', 'local'},
-                rdata_aaaa='f80:dead:beef::1234', 
-                rtype=dnscodec.TYPE_AAAA,
-                rclass=dnscodec.CLASS_IN,
-                cache_flush=true,
-                ttl=DUMMY_TTL,
+local rr_dummy_aaaa_cf = {name={'dummy', 'local'},
+                          rdata_aaaa='f80:dead:beef::1234', 
+                          rtype=dnscodec.TYPE_AAAA,
+                          rclass=dnscodec.CLASS_IN,
+                          cache_flush=true,
+                          ttl=DUMMY_TTL,
 }
 
 local msg1 = dnscodec.dns_message:encode{
@@ -416,15 +416,25 @@ local query1_kas = dnscodec.dns_message:encode{
                                           }
 
 local query_dummy_local_qu = dnscodec.dns_message:encode{
-   qd={{name=rr3_cf.name, qtype=dnscodec.TYPE_ANY, qu=true}},
+   qd={{name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_ANY, qu=true}},
                                                         }
 
 local query_dummy_local_a_qu = dnscodec.dns_message:encode{
-   qd={{name=rr3_cf.name, qtype=dnscodec.TYPE_A, qu=true}},
+   qd={{name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_A, qu=true}},
+                                          }
+
+local query_dummy_local_a_kas_a_qu = dnscodec.dns_message:encode{
+   qd={{name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_A, qu=true}},
+   an={rr_dummy_a_cf},
+                                          }
+
+local query_dummy_local_a_kas_aaaa_qu = dnscodec.dns_message:encode{
+   qd={{name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_A, qu=true}},
+   an={rr_dummy_aaaa_cf},
                                           }
 
 local query_dummy_local_aaaa_qu = dnscodec.dns_message:encode{
-   qd={{name=rr3_cf.name, qtype=dnscodec.TYPE_AAAA, qu=true}},
+   qd={{name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_AAAA, qu=true}},
                                           }
 
 
@@ -618,34 +628,64 @@ describe("mdns", function ()
 
             it("handles A/AAAA correctly #a", function ()
                   -- A, AAAA record for dummy.local
-                  mdns:insert_if_own_rr('eth1', rr3_cf)
-                  mdns:insert_if_own_rr('eth1', rr4_cf)
+                  mdns:insert_if_own_rr('eth1', rr_dummy_a_cf)
+                  mdns:insert_if_own_rr('eth1', rr_dummy_aaaa_cf)
                   dsm:wait_receiveds_counts(1)
                   dummy:sanity_check_last_probe()
                   dsm:wait_receiveds_counts(5)
                   dummy:sanity_check_last_announce()
                   dsm:clear_receiveds()
 
+                  function check_f(f, t)
+                     local msg = dummy:get_last_msg()
+                     if t
+                     then
+                        mst.a(#msg[f] == 1)
+                        mst.a(msg[f][1].rtype == t)
+                     else
+                        mst.a(#msg[f] == 0)
+                     end
+                  end
+
+                  -- s6.35 SHOULD check for placing A/AAAA complements
+
                   -- Now we can interact with them, hooray. Let's use
                   -- QU packets to ask about A, AAAA, and any.
                   -- All should result in 2 results, if no KAS.
                   -- (One in an, one in ar).
+                  mst.d('a) AAAA request => both')
                   mdns:recvfrom(query_dummy_local_aaaa_qu, DUMMY_SRC, MDNS_PORT)
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_unicast_response()
                   local msg = dummy:get_last_msg()
-                  mst.a(#msg.an == 1)
-                  mst.a(msg.an[1].rtype == dnscodec.TYPE_AAAA)
-                  mst.a(#msg.ar == 1)
-                  mst.a(msg.ar[1].rtype == dnscodec.TYPE_A)
+                  check_f('an', dnscodec.TYPE_AAAA)
+                  check_f('ar', dnscodec.TYPE_A)
                   dsm:clear_receiveds()
 
-                  -- Same result also with A, except this time with real
-                  -- unicast as it has been recently spammed
-
+                  mst.d('b) A request => both')
+                  mdns:recvfrom(query_dummy_local_a_qu, DUMMY_SRC, MDNS_PORT)
+                  dsm:assert_receiveds_eq(1)
+                  dummy:sanity_check_last_unicast_response()
+                  local msg = dummy:get_last_msg()
+                  check_f('an', dnscodec.TYPE_A)
+                  check_f('ar', dnscodec.TYPE_AAAA)
+                  dsm:clear_receiveds()
 
                   -- With KAS, if it hits an, no reply at all
+                  mst.d('c) A request with A KAS => nop')
+                  mdns:recvfrom(query_dummy_local_a_kas_a_qu, DUMMY_SRC, MDNS_PORT)
+                  dsm:assert_receiveds_eq(0)
+
                   -- With KAS, if it hits ar, no ar but an
+                  mst.d('d) A request with AAAA kas => A')
+                  mdns:recvfrom(query_dummy_local_a_kas_aaaa_qu, DUMMY_SRC, MDNS_PORT)
+                  dsm:assert_receiveds_eq(1)
+                  dummy:sanity_check_last_unicast_response()
+                  local msg = dummy:get_last_msg()
+                  check_f('an', dnscodec.TYPE_A)
+                  check_f('ar')
+                  dsm:clear_receiveds()
+
 
                    end)
 end)

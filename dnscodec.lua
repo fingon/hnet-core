@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Tue Jan  8 15:04:01 2013 mstenber
--- Edit time:     205 min
+-- Last modified: Tue Jan  8 23:42:58 2013 mstenber
+-- Edit time:     234 min
 --
 
 -- Functionality for en-decoding various DNS structures;
@@ -222,6 +222,8 @@ function rdata_srv:try_decode(cur, context)
 end
 
 function rdata_srv:do_encode(o, context)
+   mst.a(type(o) == 'table')
+   mst.a(o.target, 'missing targetin ', mst.repr(o))
    local t = encode_name_rec(o.target, context)
    -- ugh, but oh well :p
    return abstract_data.do_encode(self, o) .. table.concat(t)
@@ -336,74 +338,96 @@ function rdata_nsec:do_encode(o, context)
    return table.concat(n)
 end
 
+local function simple_equal(self, v1, v2)
+   local r = (not v1 or not v2) or v1 == v2
+   mst.d('simple_equal', v1, v2, r)
+   return r
+end
 
-local rtype_map = {[TYPE_PTR]={
-                      encode=function (self, o, context)
-                         mst.a(o.rdata_ptr)
-                         return table.concat(encode_name_rec(o.rdata_ptr, context))
-                      end,
-                      decode=function (self, o, cur, context)
-                         local name, err = try_decode_name_rec(cur, context)
-                         if not name then return nil, err end
-                         o.rdata_ptr = name
-                         return true
-                      end,
-                            },
-                   [TYPE_A]={
-                      encode=function (self, o, context)
-                         mst.a(o.rdata_a)
-                         local b = ipv4s.address_to_binary_address(o.rdata_a)
-                         mst.a(#b == 4, 'encode error')
-                         return ipv4s.address_to_binary_address(o.rdata_a)
-                      end,
-                      decode=function (self, o, cur, context)
-                         if not rdata_cursor_has_left(cur, 4)
-                         then
-                            return nil, 'not enough rdata (4)'
-                         end
-                         local b = cur:read(4)
-                         o.rdata_a = ipv4s.binary_address_to_address(b)
-                         return true
-                      end,
-                   },
-                   [TYPE_AAAA]={
-                      encode=function (self, o, context)
-                         mst.a(o.rdata_aaaa)
-                         local b = ipv6s.address_to_binary_address(o.rdata_aaaa)
-                         mst.a(#b == 16, 'encode error', o)
-                         return b
-                      end,
-                      decode=function (self, o, cur, context)
-                         if not rdata_cursor_has_left(cur, 16)
-                         then
-                            return nil, 'not enough rdata (16)'
-                         end
-                         local b = cur:read(16)
-                         local s = ipv6s.binary_address_to_address(b)
-                         o.rdata_aaaa = s
-                         return s
-                      end,
-                   },
+local function repr_equal(self, v1, v2)
+   local r = (not v1 or not v2) or mst.repr_equal(v1, v2)
+   mst.d('repr_equal', v1, v2, r)
+   return r
+end
+
+rtype_map = {[TYPE_PTR]={
+                field='rdata_ptr',
+                encode=function (self, o, context)
+                   local v = o[self.field]
+                   mst.a(v)
+                   return table.concat(encode_name_rec(v, context))
+                end,
+                decode=function (self, o, cur, context)
+                   local name, err = try_decode_name_rec(cur, context)
+                   if not name then return nil, err end
+                   o[self.field] = name
+                   return true
+                end,
+                field_equal=simple_equal,
+                        },
+             [TYPE_A]={
+                field='rdata_a',
+                encode=function (self, o, context)
+                   local v = o[self.field]
+                   mst.a(v)
+                   local b = ipv4s.address_to_binary_address(v)
+                   mst.a(#b == 4, 'encode error')
+                   return b
+                end,
+                decode=function (self, o, cur, context)
+                   if not rdata_cursor_has_left(cur, 4)
+                   then
+                      return nil, 'not enough rdata (4)'
+                   end
+                   local b = cur:read(4)
+                   o[self.field] = ipv4s.binary_address_to_address(b)
+                   return true
+                end,
+                field_equal=simple_equal,
+             },
+             [TYPE_AAAA]={
+                field='rdata_aaaa',
+                encode=function (self, o, context)
+                   local v = o[self.field]
+                   mst.a(v)
+                   local b = ipv6s.address_to_binary_address(v)
+                   mst.a(#b == 16, 'encode error', o)
+                   return b
+                end,
+                decode=function (self, o, cur, context)
+                   if not rdata_cursor_has_left(cur, 16)
+                   then
+                      return nil, 'not enough rdata (16)'
+                   end
+                   local b = cur:read(16)
+                   local s = ipv6s.binary_address_to_address(b)
+                   o[self.field] = s
+                   return s
+                end,
+                field_equal=simple_equal,
+             },
 }
 
-local function add_rtype_decoder(type, cl, dname)
+local function add_rtype_decoder(type, cl, dname, equal)
    rtype_map[type] = {
+      field=dname,
       encode=function (self, o, context)
-         return cl:encode(o[dname], context)
+         return cl:encode(o[self.field], context)
       end,
       decode=function (self, o, cur, context)
          cur.endpos = cur.pos + o.rdlength
          local r, err = cl:decode(cur, context)
          cur.endpos = nil
          if not r then return nil, err end
-         o[dname] = r
+         o[self.field] = r
          return true
       end,
+      field_equal=equal,
    }
 end
 
-add_rtype_decoder(TYPE_SRV, rdata_srv, 'rdata_srv')
-add_rtype_decoder(TYPE_NSEC, rdata_nsec, 'rdata_nsec')
+add_rtype_decoder(TYPE_SRV, rdata_srv, 'rdata_srv', repr_equal)
+add_rtype_decoder(TYPE_NSEC, rdata_nsec, 'rdata_nsec', repr_equal)
 
 dns_rr = abstract_data:new{class='dns_rr',
                            format='rtype:u2 [2|cache_flush:b1 rclass:u15] ttl:u4 rdlength:u2',
@@ -454,6 +478,7 @@ function dns_rr:try_decode(cur, context)
 end
 
 function dns_rr:do_encode(o, context)
+   mst.a(type(o) == 'table')
    local t = encode_name_rec(o.name, context)
    local handler = rtype_map[o.rtype or -1]
    if handler 
