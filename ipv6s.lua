@@ -8,11 +8,12 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Tue Nov 13 15:54:03 2012 mstenber
--- Edit time:     170 min
+-- Last modified: Tue Jan  8 15:15:00 2013 mstenber
+-- Edit time:     183 min
 --
 
 require 'mst'
+require 'ipv4s'
 
 module(..., package.seeall)
 
@@ -86,9 +87,7 @@ function binary_address_to_address(b)
    then
       -- (we don't handle non-full ones here; if it's from prefix, it
       -- better be padded to full size)
-      local bl = {string.byte(b, 13, 16)}
-      local sl = mst.array_map(bl, tostring)
-      return table.concat(sl, "."), 96
+      return ipv4s.binary_address_to_address(string.sub(b, 13)), 96
    end
 
    --mst.d('not v4', mst.string_to_hex(b), #b)
@@ -127,23 +126,21 @@ function address_to_binary_address(b)
 
    if #l == 1 and string.find(b, ".")
    then
-      -- IPv4 address most likely
-      local l = mst.string_split(b, ".")
-      --mst.d('no : found', l)
-      if #l == 4
+      local r = ipv4s.address_to_binary_address(b)
+      if r
       then
-         local r = mapped_ipv4_prefix .. table.concat(l:map(string.char))
-         --mst.d('ipv4', mst.string_to_hex(r))
-         return r, 96
+         return mapped_ipv4_prefix .. r, 96
       end
    end
 
    mst.a(#l <= 8) 
    local idx = false
+   local omitted = 0
    for i, v in ipairs(l)
    do
       if #v == 0
       then
+         omitted = omitted + 1
          mst.a(not idx or (idx == i-1), "multiple ::s", b, idx, i)
          if not idx
          then
@@ -155,26 +152,29 @@ function address_to_binary_address(b)
    local t = {}
    for i, v in ipairs(l)
    do
-      if i == idx
+      if idx and i == idx 
       then
          -- basically, we want 8 short's worth of data;
          -- however, :: includes idx + idx+1 not being printed,
-         -- so we add 2 to it..
-         local _pad=(8+2-#l)
+         -- so we add 0-2 to it..
+         local _pad=(8+omitted-#l)
          --mst.d('padding', _pad)
          for _=1,_pad
          do
             -- dump few magic 0000's 
             table.insert(t, _null .. _null)
          end
-      elseif #v > 0
+      elseif idx and i == (idx + 1) and #v == 0
       then
+         -- nop
+         -- (not necessarily true)
+      else
+         -- empty ones should be handled by now? (by the padding code)
+         mst.a(#v > 0)
          local n, err = tonumber(v, 16)
          local b1 = string.char(math.floor(n / 256))
          local b2 = string.char(n % 256)
          table.insert(t,  b1 .. b2)
-      else
-         -- empty ones should be handled by now? (by the padding code)
       end
    end
    return table.concat(t)

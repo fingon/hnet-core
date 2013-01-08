@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Mon Jan  7 16:04:44 2013 mstenber
--- Edit time:     180 min
+-- Last modified: Tue Jan  8 15:04:01 2013 mstenber
+-- Edit time:     205 min
 --
 
 -- Functionality for en-decoding various DNS structures;
@@ -35,6 +35,8 @@
 -- XXX - implement name compression for encoding too!
 
 require 'codec'
+require 'ipv4s'
+require 'ipv6s'
 
 module(..., package.seeall)
 
@@ -54,6 +56,9 @@ TYPE_HINFO=13
 TYPE_MX=15
 TYPE_TXT=16
 
+-- RFC3596
+TYPE_AAAA=28
+
 -- RFC2782
 TYPE_SRV=33
 
@@ -61,7 +66,6 @@ TYPE_SRV=33
 TYPE_RRSIG=46
 TYPE_NSEC=47
 TYPE_DNSKEY=48
-
 
 
 TYPE_ANY=255
@@ -147,7 +151,7 @@ end
 --- actual data classes
 
 dns_header = abstract_data:new{class='dns_header',
-                               format='id:u2 [2|qr:b1 opcode:u4 aa:b1 tc:b1 rd:b1 ra:b1 z:u3 rcode:u4] qdcount:u2 ancount:u2 nscount:u2 arcount:u2',
+                               format='id:u2 [2|qr:b1 opcode:u4 aa:b1 tc:b1 rd:b1 ra:b1 z:u1 ad:b1 cd:b1 rcode:u4] qdcount:u2 ancount:u2 nscount:u2 arcount:u2',
                                header_default={id=0,
                                                qr=false,
                                                opcode=0,
@@ -156,6 +160,10 @@ dns_header = abstract_data:new{class='dns_header',
                                                rd=false,
                                                ra=false,
                                                z=0,
+                                               -- ad, cd defined in RFC2535
+                                               ad=false,
+                                               cd=false,
+
                                                rcode=0,
                                                qdcount=0,
                                                ancount=0,
@@ -341,6 +349,41 @@ local rtype_map = {[TYPE_PTR]={
                          return true
                       end,
                             },
+                   [TYPE_A]={
+                      encode=function (self, o, context)
+                         mst.a(o.rdata_a)
+                         local b = ipv4s.address_to_binary_address(o.rdata_a)
+                         mst.a(#b == 4, 'encode error')
+                         return ipv4s.address_to_binary_address(o.rdata_a)
+                      end,
+                      decode=function (self, o, cur, context)
+                         if not rdata_cursor_has_left(cur, 4)
+                         then
+                            return nil, 'not enough rdata (4)'
+                         end
+                         local b = cur:read(4)
+                         o.rdata_a = ipv4s.binary_address_to_address(b)
+                         return true
+                      end,
+                   },
+                   [TYPE_AAAA]={
+                      encode=function (self, o, context)
+                         mst.a(o.rdata_aaaa)
+                         local b = ipv6s.address_to_binary_address(o.rdata_aaaa)
+                         mst.a(#b == 16, 'encode error', o)
+                         return b
+                      end,
+                      decode=function (self, o, cur, context)
+                         if not rdata_cursor_has_left(cur, 16)
+                         then
+                            return nil, 'not enough rdata (16)'
+                         end
+                         local b = cur:read(16)
+                         local s = ipv6s.binary_address_to_address(b)
+                         o.rdata_aaaa = s
+                         return s
+                      end,
+                   },
 }
 
 local function add_rtype_decoder(type, cl, dname)
@@ -363,7 +406,7 @@ add_rtype_decoder(TYPE_SRV, rdata_srv, 'rdata_srv')
 add_rtype_decoder(TYPE_NSEC, rdata_nsec, 'rdata_nsec')
 
 dns_rr = abstract_data:new{class='dns_rr',
-                           format='rtype:u2 [2|rclass:u15 cache_flush:b1] ttl:u4 rdlength:u2',
+                           format='rtype:u2 [2|cache_flush:b1 rclass:u15] ttl:u4 rdlength:u2',
                            header_default={rtype=0,
                                            rclass=CLASS_IN,
                                            ttl=0,
@@ -394,8 +437,8 @@ function dns_rr:try_decode(cur, context)
       local ok, err = handler:decode(r, cur, context)
       if not ok then return nil, err end
    else
-      self:d('default rdata handling (as-is)', r.rtype)
       local l = r.rdlength
+      self:d('default rdata handling (as-is)', r.rtype, l)
       if l > 0
       then
          if not cursor_has_left(cur, l)

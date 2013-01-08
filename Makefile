@@ -40,7 +40,9 @@ mdns_test:
 	@echo '-' `egrep '^-' doc/mdns_test.txt | wc -l`
 	@echo '!' `egrep '^!' doc/mdns_test.txt | wc -l`
 	@echo '?' `egrep '^\[' doc/mdns_test.txt | wc -l`
-	@busted spec/mdns_core_spec.lua
+	busted spec/dnscodec_spec.lua
+	busted spec/dnsdb_spec.lua
+	busted spec/mdns_core_spec.lua
 
 %_sm.lua: %.sm
 	java -jar $(SMC) -g -lua $<

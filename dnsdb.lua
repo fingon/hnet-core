@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Mon Jan  7 15:59:15 2013 mstenber
--- Edit time:     78 min
+-- Last modified: Tue Jan  8 13:53:38 2013 mstenber
+-- Edit time:     83 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -136,7 +136,19 @@ function ns:find_rr(o)
    end
 end
 
-function ns:insert_rr(o)
+function ns:find_exact_rr(o)
+   self:a(o.name, 'missing name', o)
+   self:a(o.rtype, 'missing rtype', o)
+   for i, rr in ipairs(self:find_rr_list_for_ll(o.name))
+   do
+      if rr_contains(rr, o) and rr_equals(rr, o)
+      then
+         return rr
+      end
+   end
+end
+
+function ns:insert_rr(o, do_copy)
    -- these fields have to be set
    self:a(o.name and o.rtype and o.rclass, 
           'one of mandatory fields is missing', o)
@@ -155,7 +167,10 @@ function ns:insert_rr(o)
       self:d('insert_rr removed one matching', o)
    end
 
-   o = mst.table_copy(o)
+   if self.enable_copy or do_copy == true
+   then
+      o = mst.table_copy(o)
+   end
    
    -- not found - have to add
    local ll = o.name
@@ -185,3 +200,4 @@ end
 function ns:foreach(f)
    return self.nh2rr:foreach_values(f)
 end
+

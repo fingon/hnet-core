@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Mon Jan  7 16:17:43 2013 mstenber
--- Edit time:     582 min
+-- Last modified: Tue Jan  8 14:12:32 2013 mstenber
+-- Edit time:     631 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -60,6 +60,7 @@ module(..., package.seeall)
 
 MDNS_MULTICAST_ADDRESS='ff02::fb'
 MDNS_PORT=5353
+MDNS_DEFAULT_RESPONSE_HEADER={qr=true, aa=true}
 
 -- probing states (waiting to send message N)
 STATE_P1='p1'
@@ -161,7 +162,7 @@ function mdns:run()
 
    -- reply to queries
    local now = self.time()
-   for i, qe in ipairs(self.queries:keys())
+   for qe, _ in pairs(self.queries)
    do
       if qe[2] <= now
       then
@@ -198,7 +199,8 @@ function mdns:expire_old()
          self:d('sending expire ttl=0 for ifname/#pending', ifname, #pending)
 
          -- send per-interface 'these are gone' fyi messages
-         local s = dnscodec.dns_message:encode{an=pending}
+         local s = dnscodec.dns_message:encode{an=pending, 
+                                               h=MDNS_DEFAULT_RESPONSE_HEADER}
          local dst = MDNS_MULTICAST_ADDRESS .. '%' .. ifname
          self.sendto(s, dst, MDNS_PORT)
       end
@@ -323,6 +325,10 @@ function mdns:split_qd_to_qu_nqu(msg, ifname)
 end
 
 function mdns:recvfrom(data, src, srcport)
+   self:a(srcport, 'srcport not set')
+   self:a(src, 'src not set')
+   self:a(data, 'data not set')
+
    local l = mst.string_split(src, '%')
    mst.a(#l == 2, 'invalid src', src)
    local addr, ifname = unpack(l)
@@ -335,6 +341,13 @@ function mdns:recvfrom(data, src, srcport)
       return
    end
 
+   -- ignore stuff with rcode set
+   -- (XXX - should this check be done before or after qu?)
+   if msg.h.rcode > 0
+   then
+      return
+   end
+
    if self:msg_has_qu_qd(msg)
    then
       -- hybrid case; we may provide part of answer via unicast, and
@@ -343,7 +356,10 @@ function mdns:recvfrom(data, src, srcport)
       self:d('split to #qu, #nqu', #qu, #nqu)
       if #qu > 0
       then
+         local h = mst.table_copy(MDNS_DEFAULT_RESPONSE_HEADER)
+         h.id=msg.h.id
          self:handle_unicast_query({qd=qu,
+                                    h=h,
                                     an=msg.an},
                                    src, srcport)
       end
@@ -390,9 +406,23 @@ function match_q_rr(q, rr)
       (dnsdb.ll_equal(q.name, rr.name))
 end
 
-function mdns:iterate_ns_own_matching_query(ns, q, an, f)
+function mdns:convert_anish_to_kas(kas)
+   if not kas then return end
+   if dnsdb.ns:is_instance(kas) then return kas end
+   -- on-the-fly convert list of answers to dnsdb:ns
+   local ns = dnsdb.ns:new{}
+   for i, a in ipairs(kas)
+   do
+      ns:insert_rr(a)
+   end
+   return ns
+end
+
+function mdns:iterate_ns_own_matching_query(ns, q, kas, f)
    local matched
    local found_cf
+
+   kas = self:convert_anish_to_kas(kas)
    for i, rr in ipairs(ns:find_rr_list_for_ll(q.name))
    do
       if rr.cache_flush
@@ -402,22 +432,11 @@ function mdns:iterate_ns_own_matching_query(ns, q, an, f)
       if match_q_rr(q, rr)
       then  
          matched = true
-         -- XXX - this brute force checking is N^2 complexity
-         -- (N matches, N KAS; could do better, but with higher
-         -- startup costs, is it worth it? probably not)
-         local found = false
-         for i, rr2 in ipairs(an)
-         do
-            self:d('considering KAS', rr, rr2)
-            if dnsdb.rr_equals(rr, rr2)
-            then
-               self:d(' KAS match')
-               found = true
-            end
-         end
-         if not found
+         if not kas or not kas:find_exact_rr(rr)
          then
             f(q, rr)
+         else
+            self:d('matched KAS, ignoring', rr)
          end
       end
    end
@@ -431,15 +450,16 @@ function mdns:iterate_ns_own_matching_query(ns, q, an, f)
                                             name=q.name,
                                             qtype=dnscodec.TYPE_NSEC,
                                             qclass=q.qclass,
-                                             }, an, f)
+                                             }, kas, f)
    end
 end
 
 function mdns:iterate_if_own_matching_queries(ifname, ql, an, f)
    local ns = self:get_if_own(ifname)
+   local kas = self:convert_anish_to_kas(an)
    for i, q in ipairs(ql)
    do
-      self:iterate_ns_own_matching_query(ns, q, an, f)
+      self:iterate_ns_own_matching_query(ns, q, kas, f)
    end
 end
 
@@ -483,15 +503,66 @@ function mdns:copy_rrs_with_updated_ttl(rrl, unicast)
    return r
 end
 
+function mdns:determine_if_ar(ifname, an)
+   local ar = {}
+   local all = dnsdb.ns:new{}
+   local ns = self:get_if_own(ifname)
+
+   -- initially, seed 'all' with whatever is already in answer; we 
+   -- do NOT want to send those
+   for i, a in ipairs(an)
+   do
+      all:insert_rr(a)
+   end
+   function push(t1, t2)
+      for i, a in ipairs(an)
+      do
+         if a.rtype == t1 and not all:find_rr{name=a.name,
+                                              rtype=t2,
+                                              rclass=a.rclass}
+         then
+            -- if we have something like this, cool, let's add it
+            self:iterate_ns_own_matching_query(ns,
+                                               {name=a.name,
+                                                qtype=t2,
+                                                qclass=a.rclass},
+                                               nil,
+                                               function (q, rr)
+                                                  all:insert_rr(rr)
+                                                  table.insert(ar, rr)
+                                               end)
+         end
+      end
+   end
+   push(dnscodec.TYPE_A, dnscodec.TYPE_AAAA)
+   push(dnscodec.TYPE_AAAA, dnscodec.TYPE_A)
+   return ar
+end
+
 function mdns:handle_reply(msg, dst, dstport, ifname, unicast)
    local an = self:find_if_own_matching_queries(ifname, msg.qd, msg.an)
    if #an == 0 then return end
    an = self:copy_rrs_with_updated_ttl(an, unicast)
    if #an == 0 then return end
    mst.d('got an', an)
+   ar = self:determine_if_ar(ifname, an)
    -- ok, we have valid things to send with >0 ttl; here we go!
-   local s = dnscodec.dns_message:encode{an=an}
-   mst.d('sending reply', ifname, #an)
+   local o = {an=an, ar=ar}
+   local h = {}
+   o.h = h
+
+   if unicast
+   then
+      -- Copy over the id from the query
+      mst.a(msg.h and msg.h.id, 'invalid msg', msg)
+
+      h.id = msg.h.id
+   end
+   h.qr = true
+   h.aa = true
+
+   local s = dnscodec.dns_message:encode(o)
+   mst.d('sending reply', ifname, o)
    self.sendto(s, dst, dstport)
 
 end
@@ -534,7 +605,32 @@ function mdns:handle_multicast_probe_ifname(msg, ifname)
    end
 end
 
+function mdns:msg_if_all_answers_known_and_unique(msg, ifname)
+   local ns = self:get_if_own(ifname)
+   for i, q in ipairs(msg.qd)
+   do
+      local found = false
+      self:iterate_ns_own_matching_query(ns, q, msg.an,
+                                         function (q, rr)
+                                            if rr.cache_flush
+                                            then
+                                               found = true
+                                            end
+                                         end)
+      if not found then return false end
+   end
+   return true
+end
+
 function mdns:handle_multicast_query_ifname(msg, ifname)
+   -- consider if we know _all_ there is to know; that is, our 'own'
+   -- set has responses to every query, and responses are cache_flush
+   if self:msg_if_all_answers_known_and_unique(msg, ifname)
+   then
+      -- directly handle it
+      self:handle_delayed_multicast_reply(nil, nil, ifname, msg)
+      return
+   end
    -- we can safely delay non-probe answers always
    -- (although it would be nice to be more defensive)
    local now = self.time()
@@ -644,10 +740,6 @@ function mdns:handle_multicast_response(msg, ifname)
    self:handle_rr_list_cache_update(msg.ar, ifname)
 end
 
-function mdns:handle_unicast_reply(msg, src, srcport)
-   
-end
-
 function mdns:rr_has_conflicts(rr)
    -- if it's non-cache-flush-entry, it's probably ok
    -- XXX - what should be the behavior be with mixed unique/shared
@@ -698,7 +790,9 @@ function mdns:insert_if_own_rr(ifname, rr)
          return 
       end
    end
-   local o, is_new = ns:insert_rr(rr)
+   -- force copy - typically this is invoked on bunch of interfaces or
+   -- whatever, and it makes life in general much more convenient
+   local o, is_new = ns:insert_rr(rr, true)
    if is_new
    then
       if o.cache_flush
@@ -792,13 +886,13 @@ function mdns:next_time()
    do
       ns:foreach(update_own)
    end
-   for i, e in ipairs(self.queries)
+   for e, _ in pairs(self.queries)
    do
       maybe(e[2], 'query')
    end
    if best
    then
-      --self:d('next_time', best, bestsrc)
+      self:d('next_time', best, bestsrc)
    end
    return best
 end
@@ -854,8 +948,8 @@ function mdns:send_announces(ifname)
             self:update_if_rr_related_nsec(ifname, rr)
          end
       end
-
-      local s = dnscodec.dns_message:encode{an=an}
+      local h = MDNS_DEFAULT_RESPONSE_HEADER
+      local s = dnscodec.dns_message:encode{an=an, h=h}
       local dst = MDNS_MULTICAST_ADDRESS .. '%' .. ifname
       mst.d(now, 'sending announce(s)', ifname, #an)
       self.sendto(s, dst, MDNS_PORT)

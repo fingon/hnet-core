@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 12:06:56 2012 mstenber
--- Last modified: Fri Jan  4 14:59:17 2013 mstenber
--- Edit time:     47 min
+-- Last modified: Tue Jan  8 15:15:44 2013 mstenber
+-- Edit time:     66 min
 --
 
 require "busted"
@@ -25,13 +25,15 @@ local rdata_nsec = dnscodec.rdata_nsec
 
 local tests = {
    -- minimal
-   {dns_rr, {name={}, rtype=1, rdata=''}},
-   {dns_rr, {name={}, rtype=1, cache_flush=true, rdata=''}},
+   {dns_rr, {name={}, rtype=42, rdata=''}},
+   {dns_rr, {name={}, rtype=42, cache_flush=true, rdata=''}},
    {dns_rr, {name={'foo', 'bar'}, rtype=2, rclass=3, ttl=4, rdata='baz'}},
    {dns_query, {name={'z'}}},
    {dns_query, {name={'z'}, qu=true}},
    {dns_query, {name={'y'}, qtype=255, qclass=42}},
    {rdata_srv, {priority=123, weight=42, port=234, target={'foo', 'bar'}}},
+   {dns_rr, {name={}, rtype=dnscodec.TYPE_A, rdata_a='1.2.3.4'}},
+   {dns_rr, {name={}, rtype=dnscodec.TYPE_AAAA, rdata_aaaa='f80:dead:beef::'}},
 }
 
 -- start with readably(?) encoded data, decode it, compare it to
@@ -76,7 +78,8 @@ local known_messages = {
  {qd=0, an=4, ns=0, ar=9},
 },
 -- example with SRV/A/AAAA records
-{'000084000000000100000006045f726662045f746370056c6f63616c00000c0001000011940007046d696e69c00cc0270021800100000078000d00000000170c046d696e69c016c0270010800100001194000100046d696e690c5f6465766963652d696e666fc01100100001000011940011106d6f64656c3d4d61636d696e69332c31c040001c8001000000780010fe80000000000000d69a20fffefd7b50c04000018001000000780004c0a82a03c040001c800100000078001020010470dd5e0000d69a20fffefd7b50', {an=1, ar=6}},
+{'000084000000000100000006' ..
+'045f726662045f746370056c6f63616c00000c0001000011940007046d696e69c00cc0270021800100000078000d00000000170c046d696e69c016c0270010800100001194000100046d696e690c5f6465766963652d696e666fc01100100001000011940011106d6f64656c3d4d61636d696e69332c31c040001c8001000000780010fe80000000000000d69a20fffefd7b50c04000018001000000780004c0a82a03c040001c800100000078001020010470dd5e0000d69a20fffefd7b50', {an=1, ar=6}},
 
 }
 
@@ -87,15 +90,18 @@ describe("test dnscodec", function ()
                   for i, v in ipairs(tests)
                   do
                      local cl, orig = unpack(v)
-                     local b = cl:encode(orig)
+                     local b = cl:encode(mst.table_copy(orig))
                      mst.d('handling', orig)
                      mst.d('encode', mst.string_to_hex(b))
                      local o2, err = cl:decode(b)
                      mst.d('decode', o2, err)
                      mst.a(orig)
                      mst.a(o2, 'decode result empty', err)
-                     mst.a(mst.table_contains(o2, orig), "something missing", cl.class, o2, orig)
-
+                     for k, v in pairs(orig)
+                     do
+                        mst.a(mst.repr_equal(o2[k], v),
+                              'mismatch key', k, v, o2[k])
+                     end
                   end
                                           end)
             it("decode + encode =~ same #de", function ()
@@ -170,21 +176,39 @@ describe("test dnscodec", function ()
                   for i, v in ipairs(known_messages)
                   do
                      local h, cnts = unpack(v)
+                     h = string.gsub(h, "\n", "")
                      local s = mst.hex_to_string(h)
                      local o, err = dns_message:decode(s)
                      mst.a(o, 'decode error', err)
                      for k, v in pairs(cnts)
                      do
                         mst.a(#o[k] == v, 'count mismatch', k)
+                        for i, rr in ipairs(o[k])
+                        do
+                           if rr.rclass
+                           then
+                              mst.a(rr.rclass == dnscodec.CLASS_IN,
+                                   'wierd class', rr)
+                           end
+                           if rr.qclass
+                           then
+                              mst.a(rr.qclass == dnscodec.CLASS_IN,
+                                   'wierd class', rr)
+                           end
+                        end
                      end
                      -- make sure we can encode it too
                      local s2 = dns_message:encode(o)
-                     -- and decode again!
-                     local o2 = dns_message:encode(o)
 
-                     -- XXX - compare that the results are similar.. that
-                     -- is bit painful, so omitted for now
-                     mst.d('size change', #s, #s2)
+                     -- s18.27 SHOULD use name compression
+                     -- (yes, we do, Apple does it, we decode it ok,
+                     -- and encode to same)
+
+                     -- and the result should be same length
+                     mst.d(#s == #s2)
+
+                     -- and same content
+                     mst.d(s == s2)
                   end
                    end)
 end)

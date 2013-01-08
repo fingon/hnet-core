@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 22:04:20 2012 mstenber
--- Last modified: Mon Nov  5 07:10:10 2012 mstenber
--- Edit time:     52 min
+-- Last modified: Tue Jan  8 15:13:03 2013 mstenber
+-- Edit time:     55 min
 --
 
 require 'ipv6s'
@@ -40,12 +40,14 @@ describe("address_to_binary_address/binary_address_to_address", function ()
                function ()
                   local d = {
                      "dead::1",
+                     'fe80::d69a:20ff:fefd:7b50',
                   }
                   for i, o in ipairs(d)
                   do
                      local b = ipv6s.address_to_binary_address(o)
+                     mst.a(#b == 16, 'invalid encoded length', o, #b)
                      local got = ipv6s.binary_address_to_address(b)
-                     mst.a(o == got, 'unexpected', o, got)
+                     mst.a(o == got, 'unexpected', o, got, mst.string_to_hex(b))
                   end
                end)
             it("works", function()
@@ -57,6 +59,8 @@ describe("address_to_binary_address/binary_address_to_address", function ()
                   for i, v in ipairs(as)
                   do
                      local enc = ipv6s.address_to_binary_address(v)
+                     -- no zero pad guarantee if no :: in the string(?)
+                     mst.a(#enc <= 16, 'invalid encoded length', v, #enc)
                      local s = ipv6s.binary_address_to_address(enc)
                      assert.are.same(s, v)
                   end

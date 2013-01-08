@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Fri Nov 30 13:33:59 2012 mstenber
--- Edit time:     221 min
+-- Last modified: Tue Jan  8 14:47:05 2013 mstenber
+-- Edit time:     224 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -95,8 +95,10 @@ end
 function abstract_data:try_decode(cur)
    if not cursor_has_left(cur, self.header_length) 
    then
-      return nil, string.format('not enough left for header (%d<%d+%d)',
-                                #cur.str, self.header_length, cur.pos)
+      return nil, string.format('%s not enough left for header (%d<%d+%d) - %s',
+                                self.class,
+                                #cur.str, self.header_length, cur.pos,
+                                mst.string_to_hex(string.sub(cur.str, cur.pos)))
    end
    local o = self.header.unpack(cur)
    return o

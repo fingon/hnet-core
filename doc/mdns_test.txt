@@ -2,7 +2,7 @@
 
 * draft-cheshire-dnsext-multicastdns-15 MUST/SHOULDs/MUST NOTs [182]
 
-** s2: conventions and terminology (wtf) [2]
+** s2: conventions and terminology (wtf) [+2]
 
 +[1] MUST probe to verify that no other Responder already claims ownership
 of that set, as described in Section 8.1 "Probing"
@@ -10,7 +10,7 @@ of that set, as described in Section 8.1 "Probing"
 ~[2] cooperating Responders MUST give answers containing identical rdata for
 these records
 
-** s3: multicast DNS names [3]
+** s3: multicast DNS names [!3]
 
 ![1] (in case of naming conflict) If this happens, the computer (or its
    human user) MUST cease using the name
@@ -20,7 +20,7 @@ these records
 ![3] Any DNS query for a name ending with ".local." MUST be sent to the mDNS
    multicast address 224.0.0.251 (or its IPv6 equivalent FF02::FB)
 
-** s4: reverse address mapping [2]
+** s4: reverse address mapping [!2]
 
 ![1] IPv4 reverse address mapping - send queries for 254.169.in-addr.arpa
 (or IPv6 ll) to 224.0.0.251
@@ -164,11 +164,13 @@ we filter them)
 
 .. Impossible to test - we treat these as questions
 
-[9] A Multicast DNS Responder on Ethernet [IEEE.802.3] and similar shared
+![9] A Multicast DNS Responder on Ethernet [IEEE.802.3] and similar shared
    multiple access networks SHOULD have the capability of delaying its
    responses by up to 500ms
 
-[10,11] In the case where a Multicast DNS Responder has good reason to
+.. not testable statement; however, yes, we do
+
++[10,11] In the case where a Multicast DNS Responder has good reason to
    believe that it will be the only Responder on the link that will send a
    response (i.e. because it is able to answer every question in the query
    packet, and for all of those answer records it has previously verified
@@ -176,10 +178,11 @@ we filter them)
    impose any random delay before responding, and SHOULD normally generate
    its response within at most 10ms.
 
-[12] In any case where there may be multiple responses, such as queries
++[12] In any case where there may be multiple responses, such as queries
    where the answer is a member of a shared resource record set, each
    Responder SHOULD delay its response by a random amount of time selected
    with uniform random distribution in the range 20-120ms
+! exact delay not testable, but yes, we _do_ delay..
 
 [13] In the case where the query has the TC (truncated) bit set, indicating
    that subsequent Known-Answer packets will follow, Responders SHOULD
@@ -192,101 +195,124 @@ we filter them)
 whole query?
 
 
-[14] The source UDP port in all Multicast DNS Responses MUST be 5353 (the
+![14] The source UDP port in all Multicast DNS Responses MUST be 5353 (the
    well-known port assigned to mDNS). 
+.. not testable
 
-[15] Multicast DNS implementations MUST silently ignore any Multicast DNS
+![15] Multicast DNS implementations MUST silently ignore any Multicast DNS
    Responses they receive where the source UDP port is not 5353.
+.. not testable (we don't know if we got it to multicast or unicast address)
 
-
-[16, 17] The destination UDP port in all Multicast DNS Responses MUST be
++[16, 17] The destination UDP port in all Multicast DNS Responses MUST be
    5353 and the destination address MUST be the multicast address
    224.0.0.251 or its IPv6 equivalent FF02::FB, except when generating a
    reply to a query which explicitly requested a unicast response:
+.. we check this, mostly
 
-[18] Except for these three specific cases, responses MUST NOT be sent via
+![18] Except for these three specific cases, responses MUST NOT be sent via
    unicast, because then the "Passive Observation of Failures" mechanisms
    described in Section 10.5 would not work correctly.  (the cases being,
    unicast response bit, legacy query, direct unicast query)
 
-[19,20] A Multicast DNS Querier MUST only accept unicast responses if they
+.. not that testable
+
+-[19,20] A Multicast DNS Querier MUST only accept unicast responses if they
    answer a recently-sent query (e.g. sent within the last two seconds)
    that explicitly requested unicast responses. A Multicast DNS Querier
    MUST silently ignore all other unicast responses.
 
-[21] To protect the network against excessive packet flooding due to
++[21] To protect the network against excessive packet flooding due to
    software bugs or malicious attack, a Multicast DNS Responder MUST NOT
    (except in the one special case of answering probe queries) multicast a
    record on a given interface until at least one second has elapsed since
    the last time that record was multicast on that particular interface.
 
-[22] In the special case of answering probe queries, because of the limited
+-[22] In the special case of answering probe queries, because of the limited
    time before the probing host will make its decision about whether or not
    to use the name, a Multicast DNS Responder MUST respond quickly. (250ms
    cooldown here)
 
+.. n/a, we don't defend conflicting probes at all
 
-[23] Any time a Responder receives a query for a name for which it has
++[23] Any time a Responder receives a query for a name for which it has
    verified exclusive ownership, for a type for which that name has no
    records, the Responder MUST (except as allowed in (a) below) respond
    asserting the nonexistence of that record using a DNS NSEC record
    [RFC4034].
 
-[24] All compliant Multicast DNS implementations MUST at least correctly
++[24] All compliant Multicast DNS implementations MUST at least correctly
    generate and parse the restricted DNS NSEC record format described
    below: 
  (next domain name = own name; type bitmap block # 0, block length 1-32,
    bit data 1-32 bytes, as indicated by length byte)
 
-[25, 26] if a Multicast DNS Responder were to have records with rrtypes
+.. we do even more, see dnscodec testsuite
+
+![25, 26] if a Multicast DNS Responder were to have records with rrtypes
    above 255, it MUST NOT generate these restricted-form NSEC records for
    those names. In such cases a Multicast DNS Responder MUST either (a)
    emit no NSEC record for that name, or (b) emit a full NSEC record
    containing the appropriate Type Bit Map block(s) with the correct bits
    set for all the record types that exist.
 
-[27] If a Multicast DNS implementation receives an NSEC record where the
+n/a - we support full
+
+![27] If a Multicast DNS implementation receives an NSEC record where the
    'Next Domain Name' field is not the record's own name, then the
    implementation SHOULD ignore the 'Next Domain Name' field and process
    the remainder of the NSEC record as usual.
 
-[28] In Multicast DNS the 'Next Domain Name' field is not currently used,
+not tested, but we just decode ndn, don't care about content
+
+![28] In Multicast DNS the 'Next Domain Name' field is not currently used,
    but it could be used in a future version of this protocol, which is why
    a Multicast DNS implementation MUST NOT reject or ignore an NSEC record
    it receives just because it finds an unexpected value in the 'Next
    Domain Name' field.
 
-[29] A Multicast DNS implementation MUST NOT ignore an entire packet just
+not tested, but we just decode ndn, don't care about content
+
+-[29] A Multicast DNS implementation MUST NOT ignore an entire packet just
    because that packet contains one or more NSEC record(s) that the
    Multicast DNS implementation cannot parse.
 
+.. we _can_ parse _valid_ NSEC records. if NSEC records are invalid,
+ignoring them is foolhardy (whole packet is probably corrupt). perhaps
+draft bug?
 
-[30] To help differentiate these synthesized NSEC records (generated
++[30] To help differentiate these synthesized NSEC records (generated
    programmatically on-the-fly) from conventional Unicast DNS NSEC records
    (which actually exist in a signed DNS zone) the synthesized Multicast
    DNS NSEC records MUST NOT have the 'NSEC' bit set in the Type Bit Map,
    whereas conventional Unicast DNS NSEC records do have the 'NSEC' bit
    set.
 
-
-[31] The TTL of the NSEC record indicates the intended lifetime of the
+-[31] The TTL of the NSEC record indicates the intended lifetime of the
    negative cache entry. In general, the TTL given for an NSEC record
    SHOULD be the same as the TTL that the record would have had, had it
    existed. For example, the TTL for address records in Multicast DNS is
    typically 120 seconds (see Section 10) so the negative cache lifetime
    for an address record that does not exist should also be 120 seconds.
 
-[32] A Responder MUST only generate negative responses to queries for which
+.. this is bit BS, as we may return one NSEC in response to one or multiple
+different qtypes, some existing, some not
+
++[32] A Responder MUST only generate negative responses to queries for which
    it has legitimate ownership of the name/rrtype/rrclass in question, and
    can legitimately assert that no record with that name/ rrtype/rrclass
    exists.
 
-[33,34] When a Multicast DNS Responder sends a Multicast DNS Response
+.. testability bit questionable; however, we _do_ check we don't produce
+NSEC for nonexistent cases w/o name, and for shared ones. is that enough?
+hard to say.
+
+-[33,34] When a Multicast DNS Responder sends a Multicast DNS Response
    message containing its own address records, it MUST include all
    addresses that are valid on the interface on which it is sending the
    message, and MUST NOT include addresses that are not valid on that
    interface (such as addresses that may be configured on the host's other
    interfaces)
+.. we need to add filtering of records ..
 
 [35] When a Multicast DNS Responder places an IPv4 or IPv6 address record
    (rrtype "A" or "AAAA") into a response packet, it SHOULD also place any
@@ -712,105 +738,125 @@ whole query?
    Query ID MUST be set to zero on transmission, and MUST be ignored on
    reception.
 
-[5] In legacy unicast response messages generated specifically in response
++[5] In legacy unicast response messages generated specifically in response
    to a particular (unicast or multicast) query, the Query ID MUST match
    the ID from the query message.
 
 
-[6,7] In query messages the QR bit MUST be zero.  In response messages the
++[6,7] In query messages the QR bit MUST be zero.  In response messages the
    QR bit MUST be one.
 
 
-[8] (OPCODE) In both multicast query and multicast response messages, MUST
++[8] (OPCODE) In both multicast query and multicast response messages, MUST
 be zero
 
 
-[9,10] (AA (Authoritative Answer) Bit) In query messages, the Authoritative
++[9,10] (AA (Authoritative Answer) Bit) In query messages, the Authoritative
    Answer bit MUST be zero on transmission, and MUST be ignored on
    reception.
 
-[11] In response messages for Multicast Domains, the Authoritative Answer
++[11] In response messages for Multicast Domains, the Authoritative Answer
    bit MUST be set to one (not setting this bit would imply there's some
    other place where "better" information may be found) and MUST be ignored
    on reception.
 
-[12] (TC bit set) A Responder SHOULD record this fact, and wait for those
+.. on reception, hard to check, but we don't handle it at all => should be ok?
+
+-[12] (TC bit set) A Responder SHOULD record this fact, and wait for those
    additional Known-Answer records, before deciding whether to respond.
 
-[13] In multicast response messages, the TC bit MUST be zero on
++[13] In multicast response messages, the TC bit MUST be zero on
    transmission, and MUST be ignored on reception.
 
-[14] In legacy unicast response messages, the TC bit has the same meaning
+-[14] In legacy unicast response messages, the TC bit has the same meaning
    as in conventional unicast DNS: it means that the response was too large
    to fit in a single packet, so the Querier SHOULD re-issue its query
    using TCP in order to receive the larger response.
 
-[15,16] (RD (Recursion Desired) Bit) In both multicast query and multicast
++[15,16] (RD (Recursion Desired) Bit) In both multicast query and multicast
    response messages, the Recursion Desired bit SHOULD be zero on
    transmission, and MUST be ignored on reception.
 
-[17,18] (RA (Recursion Available) Bit) In both multicast query and
++[17,18] (RA (Recursion Available) Bit) In both multicast query and
    multicast response messages, the Recursion Available bit MUST be zero on
    transmission, and MUST be ignored on reception.
 
-[19,20] (Z (Zero) Bit) In both query and response messages, the Zero bit
++[19,20] (Z (Zero) Bit) In both query and response messages, the Zero bit
    MUST be zero on transmission, and MUST be ignored on reception.
 
-[21, 22] (AD (Authentic Data) Bit) In both multicast query and multicast
++[21, 22] (AD (Authentic Data) Bit) In both multicast query and multicast
    response messages the Authentic Data bit [RFC2535] MUST be zero on
    transmission, and MUST be ignored on reception.
 
-[23, 24] (CD (Checking Disabled) Bit) In both multicast query and multicast
++[23, 24] (CD (Checking Disabled) Bit) In both multicast query and multicast
    response messages, the Checking Disabled bit [RFC2535] MUST be zero on
    transmission, and MUST be ignored on reception.
 
-[25, 26] (RCODE (Response Code)) In both multicast query and multicast
++[25, 26] (RCODE (Response Code)) In both multicast query and multicast
    response messages, the Response Code MUST be zero on
    transmission. Multicast DNS messages received with non-zero Response
    Codes MUST be silently ignored.
 
-[27] When generating Multicast DNS packets, implementations SHOULD use name
++[27] When generating Multicast DNS packets, implementations SHOULD use name
    compression wherever possible to compress the names of resource records,
    by replacing some or all of the resource record name with a compact
    two-byte reference to an appearance of that data somewhere earlier in
    the packet [RFC1035].
 
-[28]   This applies not only to Multicast DNS Responses, but also to
+.. painful to unit test; however, we _do_ support it and have bunch of
+decode samples, and few encode samples to make sure decode + encode == same
+
++[28]   This applies not only to Multicast DNS Responses, but also to
    Queries. When a Query contains more than one question, successive
    questions in the same message often contain similar names, and
    consequently name compression SHOULD be used, to save bytes. 
 
-[29] In addition, Queries may also contain Known Answers in the Answer
+.. see above
+
++[29] In addition, Queries may also contain Known Answers in the Answer
    Section, or probe tie-breaking data in the Authority Section, and these
    names SHOULD similarly be compressed for network efficiency.
 
-[30] In addition to compressing the *names* of resource records, names that
+.. see above
+
+-[30] In addition to compressing the *names* of resource records, names that
    appear within the *rdata* of the following rrtypes SHOULD also be
    compressed in all Multicast DNS packets: NS, CNAME, PTR, DNAME, SOA, MX,
    AFSDB, RT, KX, RP, PX, SRV, NSEC
 
-[31] Until future IETF Standards Action specifying that names in the rdata
+.. I don't think we support all of these rdata types yet
+
+![31] Until future IETF Standards Action specifying that names in the rdata
    of other types should be compressed, names that appear within the rdata
    of any type not listed above MUST NOT be compressed.
 
-[32]   Implementations receiving Multicast DNS packets MUST correctly decode
+.. we do only whitelisted stuff, but too lazy to write a test
+
++[32]   Implementations receiving Multicast DNS packets MUST correctly decode
    compressed names appearing in the Question Section, and compressed
    names of resource records appearing in other sections.
 
-[33]   In addition, implementations MUST correctly decode compressed names
+.. see 27
+
+-[33]   In addition, implementations MUST correctly decode compressed names
    appearing within the *rdata* of the rrtypes listed above. 
 
-[34] Where possible, implementations SHOULD also correctly decode
+.. see 30
+
+![34] Where possible, implementations SHOULD also correctly decode
    compressed names appearing within the *rdata* of other rrtypes known to
    the implementers at the time of implementation, because such forward-
    thinking planning helps facilitate the deployment of future
    implementations that may have reason to compress those rrtypes.
 
-[35] Since all Multicast DNS implementations were created after 1996, all
+n/a really, we don't define our own rdata types
+
++[35] Since all Multicast DNS implementations were created after 1996, all
    Multicast DNS implementations are REQUIRED to decode compressed SRV
    records correctly.
 
-[36] In legacy unicast responses generated to answer legacy queries, name
+-[36] In legacy unicast responses generated to answer legacy queries, name
    compression MUST NOT be performed on SRV records.
 
+.. should implement this
 
