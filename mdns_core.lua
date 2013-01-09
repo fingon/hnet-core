@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Tue Jan  8 23:45:44 2013 mstenber
--- Edit time:     645 min
+-- Last modified: Wed Jan  9 16:45:31 2013 mstenber
+-- Edit time:     715 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -41,16 +41,13 @@
 
 -- TODO: 
 
--- - spam limitations (how often each kind of RR can be transmitted on
---   a link, and even as response to a probe)
-
 -- - noticing already sent responses on link (should be unlikely, but
 --   you never know)
 
 -- - filtering of RRs we pass along (linklocals aren't very useful,
 --   for example)
 
--- - ton more, see SHOULD/MUST list in mdns.txt
+-- - ton more, see SHOULD/MUST list in mdns_test.txt
 
 require 'mst'
 require 'dnscodec'
@@ -141,9 +138,9 @@ function mdns:init()
    self.if2cache = {}
    -- per-if ns of entries we want to publish to that particular network
    self.if2own = {}
-   -- array of pending queries we haven't answered to, yet
-   -- (time, delay, ifname, msg)
-   self.queries = mst.set:new{}
+
+   -- per-if set of queries
+   self.if2queries = {}
 end
 
 function mdns:repr_data()
@@ -162,12 +159,22 @@ function mdns:run()
 
    -- reply to queries
    local now = self.time()
-   for qe, _ in pairs(self.queries)
+   for ifname, q in pairs(self.if2queries)
    do
-      if qe[2] <= now
+      local pending
+      for e, _ in pairs(q)
+      do
+         local t = self:schedule_for_e_in_q(e, q)
+         if t <= now
+         then
+            pending = pending or {}
+            table.insert(pending, e)
+            q:remove(e)
+         end
+      end
+      if pending
       then
-         self:handle_delayed_multicast_reply(unpack(qe))
-         self.queries:remove(qe)
+         self:handle_delayed_multicast_replies(ifname, pending)
       end
    end
 end
@@ -283,6 +290,19 @@ function mdns:get_if_own(ifname)
    return ns
 end
 
+function mdns:get_if_queries(ifname)
+   -- array of pending queries we haven't answered to, yet
+   -- (time, delay, from, msg)
+   local q = self.if2queries[ifname]
+   if not q
+   then
+      q = mst.set:new{}
+      self.if2queries[ifname] = q
+   end
+   return q
+end
+
+
 function mdns:msg_has_qu_qd(msg)
    for i, q in ipairs(msg.qd)
    do
@@ -387,7 +407,7 @@ function mdns:recvfrom(data, src, srcport)
       end
 
       -- b) query (qd=query set [rest we ignore])
-      self:handle_multicast_query_ifname(msg, ifname)
+      self:handle_multicast_query_ifname(msg, ifname, addr)
       return
    end
 
@@ -418,6 +438,22 @@ function mdns:convert_anish_to_kas(kas)
    return ns
 end
 
+local function kas_matches_rr(kas, rr)
+   if not kas then return end
+   local orr = kas:find_exact_rr(rr)
+   if not orr then return end
+
+   -- finally, ttl must be >= half.. but if not set, it's just general
+   -- availability check and we pretend ttl is valid
+   if not rr.ttl then return true end
+
+   -- rr = propsed answer
+   -- orr = what we got in KAS
+   local r = orr.ttl >= rr.ttl / 2
+   mst.d('kas_matches_rr - ttl check', r, orr.ttl, rr.ttl)
+   return r
+end
+
 function mdns:iterate_ns_own_matching_query(ns, q, kas, f)
    local matched
    local found_cf
@@ -434,7 +470,7 @@ function mdns:iterate_ns_own_matching_query(ns, q, kas, f)
       if match_q_rr(q, rr)
       then  
          matched = true
-         if not kas or not kas:find_exact_rr(rr)
+         if not kas_matches_rr(kas, rr)
          then
             f(q, rr)
          else
@@ -519,9 +555,9 @@ function mdns:determine_if_ar(ifname, an, kas)
    function push(t1, t2)
       for i, a in ipairs(an)
       do
-         if a.rtype == t1 and not all:find_rr{name=a.name,
-                                              rtype=t2,
-                                              rclass=a.rclass}
+         if a.rtype == t1 
+            and not all:find_rr{name=a.name, rtype=t2, rclass=a.rclass}
+            and not kas_matches_rr(kas, {name=a.name, rtype=t2, rclass=a.rclass})
          then
             -- if we have something like this, cool, let's add it
             self:iterate_ns_own_matching_query(ns,
@@ -530,8 +566,12 @@ function mdns:determine_if_ar(ifname, an, kas)
                                                 qclass=a.rclass},
                                                kas,
                                                function (q, rr)
-                                                  all:insert_rr(rr)
-                                                  table.insert(ar, rr)
+                                                  if not all:find_rr(rr) 
+                                                     and not kas_matches_rr(kas, rr)
+                                                  then
+                                                     all:insert_rr(rr)
+                                                     table.insert(ar, rr)
+                                                  end
                                                end)
          end
       end
@@ -541,28 +581,24 @@ function mdns:determine_if_ar(ifname, an, kas)
    return ar
 end
 
-function mdns:handle_reply(msg, dst, dstport, ifname, unicast)
-   --mst.d('msg.an', msg.an)
-   local kas = self:convert_anish_to_kas(msg.an)
-   local an = self:find_if_own_matching_queries(ifname, msg.qd, kas)
-   if #an == 0 then return end
+function mdns:produce_reply_data(msg, anf, arf)
+   
+end
+
+function mdns:handle_reply(an, kas, id, dst, dstport, ifname, unicast)
+   -- ok, here we finally reduce duplicates, update ttl's, etc.
    an = self:copy_rrs_with_updated_ttl(an, unicast)
    if #an == 0 then return end
-   --mst.d('got an', an)
 
-   ar = self:determine_if_ar(ifname, an, kas)
+   -- we also determine additional records
+   local ar = self:determine_if_ar(ifname, an, kas)
+   ar = self:copy_rrs_with_updated_ttl(ar, unicast)
    -- ok, we have valid things to send with >0 ttl; here we go!
    local o = {an=an, ar=ar}
    local h = {}
    o.h = h
 
-   if unicast
-   then
-      -- Copy over the id from the query
-      mst.a(msg.h and msg.h.id, 'invalid msg', msg)
-
-      h.id = msg.h.id
-   end
+   h.id = id
    h.qr = true
    h.aa = true
 
@@ -583,14 +619,26 @@ function mdns:handle_unicast_query(msg, src, srcport)
    mst.a(#l == 2, 'invalid src', src)
    local addr, ifname = unpack(l)
 
-   self:handle_reply(msg, src, srcport, ifname, true)
+   --mst.d('msg.an', msg.an)
+   local kas = self:convert_anish_to_kas(msg.an)
+   local an = self:find_if_own_matching_queries(ifname, msg.qd, kas)
+
+   self:handle_reply(an, kas, msg.h.id, src, srcport, ifname, true)
 end
 
-function mdns:handle_delayed_multicast_reply(t, when, ifname, msg)
-   local now = self.time()
-   self:d('handle_delayed_multicast_reply', t, when, now, ifname)
+function mdns:handle_delayed_multicast_replies(ifname, q)
    local dst = MDNS_MULTICAST_ADDRESS .. '%' .. ifname
-   self:handle_reply(msg, dst, MDNS_PORT, ifname, false)
+   -- basic idea is, we populate an based on queries we have;
+   -- and then ar with stuff already not covered in one pass
+   local full_an = mst.array:new{}
+   for i, e in ipairs(q)
+   do
+      local msg = e.msg
+      local kas = self:convert_anish_to_kas(msg.an)
+      local an = self:find_if_own_matching_queries(ifname, msg.qd, kas)
+      full_an:extend(an)
+   end
+   self:handle_reply(full_an, nil, 0, dst, MDNS_PORT, ifname, false)
 end
 
 function mdns:handle_multicast_probe_ifname(msg, ifname)
@@ -627,21 +675,33 @@ function mdns:msg_if_all_answers_known_and_unique(msg, ifname)
    return true
 end
 
-function mdns:handle_multicast_query_ifname(msg, ifname)
+function mdns:handle_multicast_query_ifname(msg, ifname, addr)
    -- consider if we know _all_ there is to know; that is, our 'own'
    -- set has responses to every query, and responses are cache_flush
-   if self:msg_if_all_answers_known_and_unique(msg, ifname)
+   local delay
+   if msg.h.tc
    then
-      -- directly handle it
-      self:handle_delayed_multicast_reply(nil, nil, ifname, msg)
-      return
+      delay = mst.randint(400, 500)
+   elseif self:msg_if_all_answers_known_and_unique(msg, ifname)
+   then
+      -- make it possible to aggregate with others, but by default,
+      -- send directly
+      delay = 0
+      -- another potential strategy - handle it directly
+      --self:handle_delayed_multicast_reply(nil, nil, ifname, addr, msg)
+      --return
+   else
+      delay = mst.randint(20, 120)/1000.0
    end
+
    -- we can safely delay non-probe answers always
    -- (although it would be nice to be more defensive)
    local now = self.time()
-   local when = now+mst.randint(20, 120)/1000.0
+   local when = now + delay
+   local latest = when + 0.5
    self:d('queueing reply', now, when)
-   self.queries:insert{now, when, ifname, msg}
+   local q = self:get_if_queries(ifname)
+   q:insert{when=when, latest=latest, addr=addr, msg=msg}
 end
 
 function mdns:update_rr_ttl(o, ttl, update_field)
@@ -862,6 +922,20 @@ function mdns:run_state(ifname, rr)
    self:set_next_state(ifname, rr)
 end
 
+function mdns:schedule_for_e_in_q(e, q)
+   local latest = e.latest
+   local best = e.when
+   for e2, _ in pairs(q)
+   do
+      local when = e2.when
+      if when < latest and when > best
+      then
+         best = when
+      end
+   end
+   return best
+end
+
 function mdns:next_time()
    local best, bestsrc
    function maybe(t, src)
@@ -891,9 +965,19 @@ function mdns:next_time()
    do
       ns:foreach(update_own)
    end
-   for e, _ in pairs(self.queries)
+   for ifname, q in pairs(self.if2queries)
    do
-      maybe(e[2], 'query')
+      for e, _ in pairs(q)
+      do
+         -- ok. e[2] is the earliest it can run.
+         -- but e[3] is the latest it can run,
+
+         -- and we check the queue again (O(n^2), sigh), to see what
+         -- fits tho criteria, if any (and if something exists, we
+         -- return the highest one of those times)
+         local b = self:schedule_for_e_in_q(e, q)
+         maybe(b, 'query')
+      end
    end
    if best
    then
@@ -1037,13 +1121,21 @@ function mdns:send_probes(ifname)
    local ns = self:get_if_own(ifname)
    local qd 
    local ons
+   local tns = dnsdb.ns:new{}
    ns:foreach(function (rr)
                  if probe_states[rr.state] and not rr.wait_until
                  then
-                    qd = qd or {}
-                    table.insert(qd, {qtype=rr.rtype,
-                                      qclass=rr.rclass,
-                                      name=rr.name})
+                    local found = false
+                    tns:iterate_rrs_for_ll(rr.name, function () found=true end)
+                    if not found
+                    then
+                       qd = qd or {}
+                       table.insert(qd, {qtype=dnscodec.TYPE_ANY,
+                                         qclass=rr.rclass,
+                                         name=rr.name,
+                                         qu=true})
+                       tns:insert_rr(rr)
+                    end
                     ons = ons or {}
                     table.insert(ons, rr)
                     self:set_next_state(ifname, rr)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Tue Jan  8 23:33:59 2013 mstenber
--- Edit time:     141 min
+-- Last modified: Wed Jan  9 16:40:23 2013 mstenber
+-- Edit time:     144 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -137,21 +137,28 @@ function ns:ll_key(ll)
    return mst.create_hash(s)
 end
 
-function ns:find_rr_list_for_ll(ll)
+function ns:iterate_rrs_for_ll(ll, f)
    -- just in case, make sure it's ll
    ll = name2ll(ll)
    local key = self:ll_key(ll)
    local l = self.nh2rr[key]
-   local r = {}
    for i, v in ipairs(l or {})
    do
       if ll_equal(v.name, ll)
       then
-         table.insert(r, v)
+         f(v)
       end
    end
+end
+
+function ns:find_rr_list_for_ll(ll)
+   local r = {}
+   self:iterate_rrs_for_ll(ll, function (rr)
+                              table.insert(r, rr)
+                               end)
    return r
 end
+
 function ns:find_rr(o)
    self:a(o.name, 'missing name', o)
    self:a(o.rtype, 'missing rtype', o)

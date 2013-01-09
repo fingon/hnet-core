@@ -32,7 +32,7 @@ test: .tested
 # is in sync with that)
 # + = covered by testsuite
 # - = not covered by test suite
-# ! = not applicable
+# ! = not applicable / chosen to ignore
 # ? = pending
 
 mdns_test:

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Wed Jan  9 13:42:58 2013 mstenber
--- Edit time:     439 min
+-- Last modified: Wed Jan  9 16:34:16 2013 mstenber
+-- Edit time:     465 min
 --
 
 -- TO DO: 
@@ -97,7 +97,8 @@ function mydsm:wait_receiveds_counts(...)
       do
          local d = self.dummies[i]
          local c = #d.received
-         d:assert_received_le(c)
+         d:assert_received_le(v)
+         --mst.d('#receiveds in', i, c, v)
          if c ~= v then ok=false end
       end
       return ok
@@ -222,6 +223,13 @@ end
 function dummynode:sanity_check_last_probe()
    local msg = self:get_last_msg()
    self:sanity_check_last_multicast_query()
+
+   -- S8.2 SHOULD
+   mst.a(#msg.qd > 0)
+   mst.a(msg.qd[1].qtype == dnscodec.TYPE_ANY, 'non-ANY probe')
+   
+   -- s8.6 SHOULD
+   mst.a(msg.qd[1].qu == true, 'non-qu probe')
 end
 
 function dummynode:sanity_check_last_announce()
@@ -424,6 +432,19 @@ local query1_kas = dnscodec.dns_message:encode{
    an={rr1},
                                           }
 
+rr1_low_ttl = mst.table_copy(rr1)
+rr1_low_ttl.ttl = math.floor(rr1.ttl / 4)
+
+local query1_kas_low_ttl = dnscodec.dns_message:encode{
+   qd={{name={'Foo'}, qtype=DUMMY_TYPE, qu=true}},
+   an={rr1_low_ttl},
+                                          }
+
+local query_dummy_local_a = dnscodec.dns_message:encode{
+   qd={{name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_A}},
+                                                       }
+
+
 local query_dummy_local_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_ANY, qu=true}},
                                                         }
@@ -452,6 +473,10 @@ local q_foo_a = {name=rr_foo_a_cf.name, qtype=dnscodec.TYPE_A, qu=true}
 
 local query_dummy_foo_qu = dnscodec.dns_message:encode{
    qd={q_dummy_a, q_foo_a},
+                                                      }
+
+local query_foo_local_a = dnscodec.dns_message:encode{
+   qd={{name=rr_foo_a_cf.name, qtype=dnscodec.TYPE_A}},
                                                         }
 
 describe("mdns", function ()
@@ -529,7 +554,10 @@ describe("mdns", function ()
                   mst.d('checking that unique answer => instant reply')
                   mdns:recvfrom(query1, DUMMY_SRC, MDNS_PORT)
                   dsm:assert_queries_done()
+                  dsm:assert_receiveds_eq(0)
+                  mdns:run()
                   dsm:assert_receiveds_eq(1)
+
                   dummy:sanity_check_last_multicast_response()
                   dsm:clear_receiveds()
 
@@ -614,6 +642,8 @@ describe("mdns", function ()
                   -- we should get back reply anyway, with
                   -- NSEC stating that there are two supported types
                   mdns:recvfrom(query1_type_nomatch_qu, DUMMY_SRC, MDNS_PORT)
+                  dsm:assert_receiveds_eq(0)
+                  mdns:run()
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_multicast_response(DUMMY_ID3)
                   --dummy:sanity_check_last_multicast_response()
@@ -710,6 +740,8 @@ describe("mdns", function ()
                   dsm:wait_receiveds_counts(5)
                   dummy:sanity_check_last_announce()
                   dsm:clear_receiveds()
+
+                  mst.d('a) receive foo A QU => one resp')
                   mdns:recvfrom(query_dummy_foo_qu, DUMMY_SRC, MDNS_PORT)
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_unicast_response()
@@ -719,6 +751,25 @@ describe("mdns", function ()
 
                   -- s6.36 SHOULD - NSEC if no AAAA available
                   check_f('ar', dnscodec.TYPE_NSEC, 2)
+                  dsm:clear_receiveds()
+
+                  dsm:advance_time(2)
+
+                  -- similarly, even if we get queries
+                  -- in a while within each other,
+                  -- we should get replies in one message
+                  -- s6.40/41 SHOULD test
+                  mst.d('b) receive 2x dummy q, and then foo q => one resp')
+                  mdns:recvfrom(query_dummy_local_a, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(query_dummy_local_a, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(query_foo_local_a, DUMMY_SRC, MDNS_PORT)
+                  dsm:assert_receiveds_eq(0)
+                  dsm:wait_receiveds_counts(1)
+                  dummy:sanity_check_last_multicast_response()
+                  check_f('an', dnscodec.TYPE_A, 2)
+                  check_f('ar', dnscodec.TYPE_NSEC, 2)
+                  dsm:clear_receiveds()
+                  
                    end)
 end)
 
@@ -875,6 +926,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   -- s5.20 SHOULD
                   mst.d('a) 2x unicast query')
 
+                  -- s6.46 MUST handle legacy unicast's
                   mdns2:recvfrom(query1, DUMMY_SRC, MDNS_PORT + 1)
                   mdns2:recvfrom(query1, DUMMY_SRC, MDNS_PORT + 1)
                   dsm:wait_receiveds_counts(0, 2, 0)
@@ -944,7 +996,9 @@ describe("multi-mdns setup (mdns_ospf)", function ()
 
                   -- d) KAS should work
                   -- => no answer if known
+                  -- s7.1 MUST - KAS ttl >= real ttl / 2
                   dsm:advance_time(2)
+                  mst.d('d) KAS 1')
                   mdns2:recvfrom(query1_kas, DUMMY_SRC, MDNS_PORT)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
@@ -956,10 +1010,20 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   mst.a(r, 'did not terminate')
                   dsm:assert_receiveds_eq(0, 0, 0)
 
+
+                  mst.d('d) KAS 2')
+                  -- s7.2 MUST - KAS ttl < real ttl / 2
+                  mdns2:recvfrom(query1_kas_low_ttl, DUMMY_SRC, MDNS_PORT)
+                  local r = dsm:run_nodes(123)
+                  mst.a(r, 'did not terminate')
+                  dsm:assert_receiveds_eq(0, 1, 0)
+                  dsm:clear_receiveds()
+
                   -- e) check that different queries work
                   -- as expected; that is, type=all results something,
                   -- but no type => no answer
                   -- s6.2
+                  dsm:advance_time(2)
                   mdns2:recvfrom(query1_type_any_qu, DUMMY_SRC, MDNS_PORT)
                   mdns2:recvfrom(query1_class_any_qu, DUMMY_SRC, MDNS_PORT)
                   mdns2:recvfrom(query1_class_any_qu, DUMMY_SRC, MDNS_PORT)
