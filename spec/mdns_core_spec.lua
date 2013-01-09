@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Tue Jan  8 23:49:45 2013 mstenber
--- Edit time:     430 min
+-- Last modified: Wed Jan  9 13:42:58 2013 mstenber
+-- Edit time:     439 min
 --
 
 -- TO DO: 
@@ -356,6 +356,15 @@ local rr_dummy_aaaa_cf = {name={'dummy', 'local'},
                           ttl=DUMMY_TTL,
 }
 
+local rr_foo_a_cf = {name={'foo', 'local'},
+                       rdata_a='192.168.1.1', 
+                       rtype=dnscodec.TYPE_A,
+                       rclass=dnscodec.CLASS_IN,
+                       cache_flush=true,
+                       ttl=DUMMY_TTL,
+}
+
+
 local msg1 = dnscodec.dns_message:encode{
    -- MUST s18.4 - ignore id in responses
    h={id=123}, 
@@ -419,8 +428,10 @@ local query_dummy_local_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_ANY, qu=true}},
                                                         }
 
+local q_dummy_a = {name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_A, qu=true}
+
 local query_dummy_local_a_qu = dnscodec.dns_message:encode{
-   qd={{name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_A, qu=true}},
+   qd={q_dummy_a},
                                           }
 
 local query_dummy_local_a_kas_a_qu = dnscodec.dns_message:encode{
@@ -437,6 +448,11 @@ local query_dummy_local_aaaa_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_AAAA, qu=true}},
                                           }
 
+local q_foo_a = {name=rr_foo_a_cf.name, qtype=dnscodec.TYPE_A, qu=true}
+
+local query_dummy_foo_qu = dnscodec.dns_message:encode{
+   qd={q_dummy_a, q_foo_a},
+                                                        }
 
 describe("mdns", function ()
             local DUMMY_IP='dummy'
@@ -626,6 +642,17 @@ describe("mdns", function ()
                   dsm:assert_receiveds_eq(0)
                    end)
 
+            function check_f(f, t, cnt)
+               local msg = dummy:get_last_msg()
+               if t
+               then
+                  mst.a(#msg[f] == (cnt or 1))
+                  mst.a(msg[f][1].rtype == t)
+               else
+                  mst.a(#msg[f] == 0, 'something in', f, msg[f])
+               end
+            end
+
             it("handles A/AAAA correctly #a", function ()
                   -- A, AAAA record for dummy.local
                   mdns:insert_if_own_rr('eth1', rr_dummy_a_cf)
@@ -635,17 +662,6 @@ describe("mdns", function ()
                   dsm:wait_receiveds_counts(5)
                   dummy:sanity_check_last_announce()
                   dsm:clear_receiveds()
-
-                  function check_f(f, t)
-                     local msg = dummy:get_last_msg()
-                     if t
-                     then
-                        mst.a(#msg[f] == 1)
-                        mst.a(msg[f][1].rtype == t)
-                     else
-                        mst.a(#msg[f] == 0)
-                     end
-                  end
 
                   -- s6.35 SHOULD check for placing A/AAAA complements
 
@@ -685,8 +701,24 @@ describe("mdns", function ()
                   check_f('an', dnscodec.TYPE_A)
                   check_f('ar')
                   dsm:clear_receiveds()
+                   end)
+            it("handles multiple queries correctly #mq", function ()
+                  mdns:insert_if_own_rr('eth1', rr_dummy_a_cf)
+                  mdns:insert_if_own_rr('eth1', rr_foo_a_cf)
+                  dsm:wait_receiveds_counts(1)
+                  dummy:sanity_check_last_probe()
+                  dsm:wait_receiveds_counts(5)
+                  dummy:sanity_check_last_announce()
+                  dsm:clear_receiveds()
+                  mdns:recvfrom(query_dummy_foo_qu, DUMMY_SRC, MDNS_PORT)
+                  dsm:assert_receiveds_eq(1)
+                  dummy:sanity_check_last_unicast_response()
 
+                  -- s6.38 MUST handle multiple queries
+                  check_f('an', dnscodec.TYPE_A, 2)
 
+                  -- s6.36 SHOULD - NSEC if no AAAA available
+                  check_f('ar', dnscodec.TYPE_NSEC, 2)
                    end)
 end)
 
