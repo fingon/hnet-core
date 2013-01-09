@@ -150,10 +150,12 @@ we filter them)
    that no AAAA records exist for that name.
 (similar, we're playing with dummy types)
 
--[6] For shared records, which are owned by no single host, the nonexistence
++[6] For shared records, which are owned by no single host, the nonexistence
    of a given record is ascertained by the failure of any machine to
    respond to the Multicast DNS query, not by any explicit negative
    response. NXDOMAIN and other error responses MUST NOT be sent.
+
+.. we do that more or less(?) although unicast case is unclear.
 
 +[7] Multicast DNS Responses MUST NOT contain any questions in the Question
    Section.
@@ -184,7 +186,7 @@ we filter them)
    with uniform random distribution in the range 20-120ms
 ! exact delay not testable, but yes, we _do_ delay..
 
-[13] In the case where the query has the TC (truncated) bit set, indicating
++[13] In the case where the query has the TC (truncated) bit set, indicating
    that subsequent Known-Answer packets will follow, Responders SHOULD
    delay their responses by a random amount of time selected with uniform
    random distribution in the range 400-500ms, to allow enough time for all
@@ -417,20 +419,20 @@ hard to say.
 
 *** multi-packet KAS
 
-[5] (too big) It MUST then set the TC (Truncated) bit in the header before
+-[5] (too big) It MUST then set the TC (Truncated) bit in the header before
    sending the Query.
 
-[6] It (.. sender) MUST then immediately follow the packet with another
+-[6] It (.. sender) MUST then immediately follow the packet with another
    query packet containing no questions, and as many more Known-Answer
    records as will fit.  (Xn, and set TC, while too full)
 
-[7] If the Responder sees any of its answers listed in the Known-Answer
+-[7] If the Responder sees any of its answers listed in the Known-Answer
    lists of subsequent packets from the querying host, it MUST delete that
    answer from the list of answers it is planning to give (provided that no
    other host on the network has also issued a query for that record and is
    waiting to receive an answer).
 
-[8] If the Responder receives additional Known-Answer packets with the TC
+-[8] If the Responder receives additional Known-Answer packets with the TC
    bit set, it SHOULD extend the delay as necessary to ensure a pause of
    400-500ms after the last such packet before it sends its answer.
 
@@ -501,23 +503,27 @@ hard to say.
 
 .. questionably testable
 
-[10] In the case of a host probing using query type "ANY" as recommended
+-[10] In the case of a host probing using query type "ANY" as recommended
    above, any answer containing a record with that name, of any type, MUST
    be considered a conflicting response and handled accordingly.
 
-[11] If fifteen conflicts occur within any ten-second period, then the host
+-[11] If fifteen conflicts occur within any ten-second period, then the host
    MUST wait at least five seconds before each successive additional probe
    attempt.
 
-[12] If a Responder knows by other means that its unique resource record
+![12] If a Responder knows by other means that its unique resource record
    set name, rrtype and rrclass cannot already be in use by any other
    Responder on the network, then it SHOULD skip the probing step for that
    resource record set.
 
-[13] Similarly, if a Responder is acting as a proxy, taking over from
+'other means'? sigh
+
+![13] Similarly, if a Responder is acting as a proxy, taking over from
    another Multicast DNS Responder that has already verified the uniqueness
    of the record, then the proxy SHOULD NOT repeat the probing step for
    those records.
+
+.. why not, makes for more robust things anyway
 
 ![14] (in tiebreaking) In the case of resource records containing rdata that
    is subject to name compression [RFC1035], the names MUST be uncompressed
@@ -527,119 +533,136 @@ n/a - we don't do tie breaking
 
 *** announcing
 
-[15] The second startup step is that the Multicast DNS Responder MUST send
++[15] The second startup step is that the Multicast DNS Responder MUST send
    an unsolicited Multicast DNS Response containing, in the Answer Section,
    all of its newly registered resource records (both shared records, and
    unique records that have completed the probing step).
 
-[16] The Multicast DNS Responder MUST send at least two unsolicited
++[16] The Multicast DNS Responder MUST send at least two unsolicited
    responses, one second apart.
 
-[17] A Multicast DNS Responder MUST NOT send announcements in the absence
+![17] A Multicast DNS Responder MUST NOT send announcements in the absence
    of information that its network connectivity may have changed in some
    relevant way.
 
-[18] In particular, a Multicast DNS Responder MUST NOT send regular
+.. negative proof problem; but we don't, in general
+
+![18] In particular, a Multicast DNS Responder MUST NOT send regular
    periodic announcements as a matter of course.
 
+.. not provable ..
 
-[19] Whenever a Multicast DNS Responder receives any Multicast DNS response
+![19] Whenever a Multicast DNS Responder receives any Multicast DNS response
    (solicited or otherwise) containing a conflicting resource record, the
    conflict MUST be resolved as described in Section 9 "Conflict
    Resolution".
 
+.. we resolve it, but bit differently
+
 *** updating
 
-[20] At any time, if the rdata of any of a host's Multicast DNS records
+-[20] At any time, if the rdata of any of a host's Multicast DNS records
    changes, the host MUST repeat the Announcing step described above to
    update neighboring caches.
 
-[21] For example, if any of a host's IP addresses change, it MUST
+-[21] For example, if any of a host's IP addresses change, it MUST
    re-announce those address records.
 
-[22] In the case of shared records, a host MUST send a "goodbye"
++[22] In the case of shared records, a host MUST send a "goodbye"
    announcement with RR TTL zero (see Section 10.1 "Goodbye Packets") for
    the old rdata, to cause it to be deleted from peer caches, before
    announcing the new rdata.
 
-[23] In the case of unique records, a host SHOULD omit the "goodbye"
++[23] In the case of unique records, a host SHOULD omit the "goodbye"
    announcement, since the cache-flush bit on the newly announced records
    will cause old rdata to be flushed from peer caches anyway.
 
-[24] A host may update the contents of any of its records at any time,
+![24] A host may update the contents of any of its records at any time,
    though a host SHOULD NOT update records more frequently than ten times
    per minute.
 
-** s9: conflict resolution [3]
+.. we don't care
 
-[1] Whenever a Multicast DNS Responder receives any Multicast DNS response
+** s9: conflict resolution [3] (!3)
+
+![1] Whenever a Multicast DNS Responder receives any Multicast DNS response
    (solicited or otherwise) containing a conflicting resource record in any
    of the Resource Record Sections, the Multicast DNS Responder MUST
    immediately reset its conflicted unique record to probing state
 
-[2] The protocol used in the Probing phase will determine a winner and a
+.. we get rid of the records
+
+![2] The protocol used in the Probing phase will determine a winner and a
    loser, and the loser MUST cease using the name, and reconfigure.
 
-[3] It is very important that any host receiving a resource record that
+![3] It is very important that any host receiving a resource record that
    conflicts with one of its own MUST take action as described above.
+
+.. we do superset of it - dropping records is even better(?)
 
 ** s10: resource record TTL values, cache coherency [14]
 
-[1] As a general rule, the recommended TTL value for Multicast DNS resource
+![1] As a general rule, the recommended TTL value for Multicast DNS resource
    records with a host name as the resource record's name (e.g.  A, AAAA,
    HINFO, etc.) or a host name contained within the resource record's rdata
    (e.g. SRV, reverse mapping PTR record, etc.) SHOULD be 120 seconds.
 
-[2] In the case where a host knows that certain resource record data is
+n/a? we just mirror it?
+
+-[2] In the case where a host knows that certain resource record data is
    about to become invalid (for example when the host is undergoing a clean
    shutdown) the host SHOULD send an unsolicited mDNS response packet,
    giving the same resource record name, rrtype, rrclass and rdata, but an
    RR TTL of zero.
 
-[3] Queriers receiving a Multicast DNS Response with a TTL of zero SHOULD
+-[3] Queriers receiving a Multicast DNS Response with a TTL of zero SHOULD
    NOT immediately delete the record from the cache, but instead record a
    TTL of 1 and then delete the record one second later.
 
-[4] Whenever a host has a resource record with new data, or with what might
+.. should write test
+
+-[4] Whenever a host has a resource record with new data, or with what might
    potentially be new data (e.g. after rebooting, waking from sleep,
    connecting to a new network link, changing IP address, etc.), the host
    needs to inform peers of that new data. In cases where the host has not
    been continuously connected and participating on the network link, it
    MUST first Probe to re-verify uniqueness of its unique records
 
-[5] Having completed the Probing step if necessary, the host MUST then send
++[5] Having completed the Probing step if necessary, the host MUST then send
    a series of unsolicited announcements to update cache entries in its
    neighbor hosts.
 
-[6,7] Any time a host sends a response packet containing some members of a
+-[6,7] Any time a host sends a response packet containing some members of a
    unique RRSet, it MUST send the entire RRSet, preferably in a single
    packet, or if the entire RRSet will not fit in a single packet, in a
    quick burst of packets sent as close together as possible. The host MUST
    set the cache-flush bit on all members of the unique RRSet.
 
-[8] The "cache-flush" bit MUST NOT be set in any resource records in a
+-[8] The "cache-flush" bit MUST NOT be set in any resource records in a
    response packet sent in legacy unicast responses to UDP ports other than
    5353.
 
-[9] The "cache-flush" bit MUST NOT be set in any resource records in the
+-[9] The "cache-flush" bit MUST NOT be set in any resource records in the
    Known-Answer list of any query packet.
 
-[10] The "cache-flush" bit MUST NOT ever be set in any shared resource
+![10] The "cache-flush" bit MUST NOT ever be set in any shared resource
    record.
+
+.. by definition they're not shared then?
 
 *** cache flush on failure indication
 
-[11] When the cache receives this hint that it should reconfirm some
+-[11] When the cache receives this hint that it should reconfirm some
    record, it MUST issue two or more queries for the resource record in
    question.
 
-[12] If no response is received within ten seconds, then, even though its
+-[12] If no response is received within ten seconds, then, even though its
    TTL may indicate that it is not yet due to expire, that record SHOULD be
    promptly flushed from the cache.
 
 *** POOF
 
-[13,14] After seeing two or more of these queries, and seeing no multicast
+-[13,14] After seeing two or more of these queries, and seeing no multicast
    response containing the expected answer within ten seconds, then even
    though its TTL may indicate that it is not yet due to expire, that
    record SHOULD be flushed from the cache. The host SHOULD NOT perform its
@@ -647,19 +670,25 @@ n/a - we don't do tie breaking
 
 ** s11: source address check [4]
 
-[1] All Multicast DNS responses (including responses sent via unicast)
+![1] All Multicast DNS responses (including responses sent via unicast)
    SHOULD be sent with IP TTL set to 255.
 
-[2] A host sending Multicast DNS queries to a link-local destination
+.. no normal API to change that
+
+![2] A host sending Multicast DNS queries to a link-local destination
    address (including the 224.0.0.251 and FF02::FB link-local multicast
    addresses) MUST only accept responses to that query that originate from
    the local link, and silently discard any other response packets.
 
-[3] Since queriers will ignore responses apparently originating outside the
+.. how do you identify answers to particular query? id=0 et al?
+
+-[3] Since queriers will ignore responses apparently originating outside the
    local subnet, a Responder SHOULD avoid generating responses that it can
    reasonably predict will be ignored.
 
-[4] If a Responder receives a query addressed to the link-local multicast
+.. should check source address?
+
+-[4] If a Responder receives a query addressed to the link-local multicast
    address 224.0.0.251, from a source address not apparently on the same
    subnet as the Responder (or, in the case of IPv6, from a source IPv6
    address for which the Responder does not have any address with the same
@@ -671,21 +700,26 @@ n/a - we don't do tie breaking
 
 ** s13: enabling and disabling multicast DNS [2]
 
-[1,2] The option to fail-over to Multicast DNS for names not ending in
+-[1,2] The option to fail-over to Multicast DNS for names not ending in
    ".local." SHOULD be a user-configured option, and SHOULD be disabled by
    default because of the possible security issues related to unintended
    local resolution of apparently global names.
 
+n/a - we do only responding
+
 ** s14: considerations for multiple interfaces [2]
 
-
-[1] A host SHOULD defend its dot-local host name on all active interfaces
+![1] A host SHOULD defend its dot-local host name on all active interfaces
    on which it is answering Multicast DNS queries.
 
-[2] Except in the case of proxying and other similar specialized uses,
+.. we don't have host name
+
+-[2] Except in the case of proxying and other similar specialized uses,
    addresses in IPv4 or IPv6 address records in Multicast DNS responses
    MUST be valid for use on the interface on which the response is being
    sent.
+
+.. should implement filtering of records
 
 ** s15: Considerations for Multiple Responders on the Same Machine
 
@@ -728,36 +762,37 @@ n/a - we don't do tie breaking
 
 ** s17: Multicast DNS message size [5]
 
-[1] In the case of a single mDNS Resource Record which is too large to fit
+-[1] In the case of a single mDNS Resource Record which is too large to fit
    in a single MTU-sized multicast response packet, a Multicast DNS
    Responder SHOULD send the Resource Record alone, in a single IP
    datagram, using multiple IP fragments.
 
-[2] Resource Records this large SHOULD be avoided, except in the very rare
+-[2] Resource Records this large SHOULD be avoided, except in the very rare
    cases where they really are the appropriate solution to the problem at
    hand.
 
-[3] Implementers should be aware that many simple devices do not
+-[3] Implementers should be aware that many simple devices do not
    re-assemble fragmented IP datagrams, so large Resource Records SHOULD
    NOT be used except in specialized cases where the implementer knows that
    all receivers implement reassembly, or where the large Resource Record
    contains optional data which is not essential for correct operation of
    the client.
 
-[4] A Multicast DNS packet larger than the interface MTU, which is sent
+-[4] A Multicast DNS packet larger than the interface MTU, which is sent
    using fragments, MUST NOT contain more than one Resource Record.
 
-[5] Even when fragmentation is used, a Multicast DNS packet, including IP
+-[5] Even when fragmentation is used, a Multicast DNS packet, including IP
    and UDP headers, MUST NOT exceed 9000 bytes.
 
 ** s18: Multicast DNS Message Format [36]
 
 
-[1] Multicast DNS implementations SHOULD listen for unsolicited responses
++[1] Multicast DNS implementations SHOULD listen for unsolicited responses
    issued by hosts booting up (or waking up from sleep or otherwise joining
    the network).
+.. yes, we do
 
-[2] Multicast DNS implementations SHOULD examine all received Multicast DNS
++[2] Multicast DNS implementations SHOULD examine all received Multicast DNS
    response messages for useful answers, without regard to the contents of
    the ID field or the Question Section.
 => also probes(?)
