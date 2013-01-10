@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:02:05 2012 mstenber
--- Last modified: Thu Jan 10 13:48:41 2013 mstenber
+-- Last modified: Thu Jan 10 16:21:36 2013 mstenber
 -- Edit time:     39 min
 --
 
@@ -121,7 +121,7 @@ function dsm:run_nodes_and_advance_time(iters, o)
    local i = 1
    while i <= iters
    do
-      mst.d('run_nodes_and_advance_time', i, 'delta', self:get_elapsed_time())
+      mst.d('run_nodes_and_advance_time', i, self.t, 'delta', self:get_elapsed_time())
       local r = self:run_nodes(iters-i, o.run_callback)
       -- failure, not enough iterations
       if not r then return end

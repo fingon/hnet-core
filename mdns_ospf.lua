@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Thu Jan  3 12:56:27 2013 mstenber
--- Edit time:     12 min
+-- Last modified: Thu Jan 10 16:12:51 2013 mstenber
+-- Edit time:     16 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -68,8 +68,8 @@ function mdns:run()
       self:d('running lap update')
 
       self.update_lap = nil
-      self:d('syncing if2own')
-      mst.sync_tables(self.if2own, self.master_if_set,
+      self:d('syncing ifs')
+      mst.sync_tables(self.ifname2if, self.master_if_set,
                       -- remove spurious
                       function (k, v)
                          if v.active
@@ -83,9 +83,9 @@ function mdns:run()
                       -- add missing
                       function (k, v)
                          self:d(' adding ', k)
-                         local ns = self:get_if_own(k)
-                         table.insert(fresh, ns)
-                         ns.active = true
+                         local o = self:get_if(k)
+                         table.insert(fresh, o)
+                         o.active = true
                       end
                       -- comparison omitted -> we don't _care_
                      )
@@ -172,7 +172,7 @@ function mdns:propagate_rr(rr, ifname)
       then
          -- if we have received the entry _from_ that interface,
          -- we don't want to propagate it there
-         local ns = self:get_if_cache(toif)
+         local ns = self:get_if(toif).cache
          if not ns:find_rr(rr)
          then
             -- there isn't conflict - so we can just peacefully insert

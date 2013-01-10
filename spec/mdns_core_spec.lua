@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Thu Jan 10 14:00:09 2013 mstenber
--- Edit time:     483 min
+-- Last modified: Thu Jan 10 16:40:07 2013 mstenber
+-- Edit time:     488 min
 --
 
 -- TO DO: 
@@ -509,7 +509,7 @@ describe("mdns", function ()
                   mdns:run()
                   mdns:insert_if_own_rr('eth1', orr)
                   --mdns:recvfrom(msg, 'dead:beef::1%eth0', MDNS_PORT)
-                  local rr = mdns:get_if_own('eth1'):values()[1]
+                  local rr = mdns:get_if('eth1').own:values()[1]
                   local dummies = 0
                   for k, v in pairs(expected_states)
                   do
@@ -530,12 +530,12 @@ describe("mdns", function ()
                   mst.d('run_rr_states done')
             end
             it("works (CF=~unique) #cf", function ()
-                  expected_states = {[mdns_core.STATE_P1]=true,
-                                     [mdns_core.STATE_P2]=true,
-                                     [mdns_core.STATE_P3]=true,
-                                     [mdns_core.STATE_PW]=true,
-                                     [mdns_core.STATE_A1]=true,
-                                     [mdns_core.STATE_A2]=true,
+                  expected_states = {[mdns_if.STATE_P1]=true,
+                                     [mdns_if.STATE_P2]=true,
+                                     [mdns_if.STATE_P3]=true,
+                                     [mdns_if.STATE_PW]=true,
+                                     [mdns_if.STATE_A1]=true,
+                                     [mdns_if.STATE_A2]=true,
                   }
                   run_rr_states(rr1_cf, expected_states)
                   dsm:assert_receiveds_eq(5)
@@ -567,12 +567,12 @@ describe("mdns", function ()
 
                         end)
             it("works (!CF=~shared) #ncf", function ()
-                  expected_states = {[mdns_core.STATE_P1]=false,
-                                     [mdns_core.STATE_P2]=false,
-                                     [mdns_core.STATE_P3]=false,
-                                     [mdns_core.STATE_PW]=false,
-                                     [mdns_core.STATE_A1]=true,
-                                     [mdns_core.STATE_A2]=true,
+                  expected_states = {[mdns_if.STATE_P1]=false,
+                                     [mdns_if.STATE_P2]=false,
+                                     [mdns_if.STATE_P3]=false,
+                                     [mdns_if.STATE_PW]=false,
+                                     [mdns_if.STATE_A1]=true,
+                                     [mdns_if.STATE_A2]=true,
                   }
                   run_rr_states(rr1, expected_states)
                   -- make sure we get only 2 messages to dummy
@@ -925,9 +925,11 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                           -- ensure that state is really empty
                           for i, mdns in ipairs{mdns1, mdns2, mdns3}
                           do
-                             mst.a(mdns:own_count() == 0, mdns.if2own)
+                             local oc = mdns:own_count()
+                             mst.a(oc == 0, 'should have no own entries left', oc, mdns.rid)
                              -- s5.7 SHOULD 
-                             mst.a(mdns:cache_count() == 0, mdns.if2cache)
+                             local cc = mdns:cache_count()
+                             mst.a(cc == 0, 'should have no cache entries left', cc, mdns.rid)
                           end
 
                           dsm:done()
