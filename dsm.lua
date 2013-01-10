@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:02:05 2012 mstenber
--- Last modified: Tue Jan  8 11:42:54 2013 mstenber
--- Edit time:     38 min
+-- Last modified: Thu Jan 10 13:48:41 2013 mstenber
+-- Edit time:     39 min
 --
 
 -- wierd testing utility class, which simulates a whole topology
@@ -112,12 +112,16 @@ function dsm:run_nodes(iters, run_callback)
    end
 end
 
+function dsm:get_elapsed_time()
+   return self.t-self.start_t
+end
+
 function dsm:run_nodes_and_advance_time(iters, o)
    o = o or {}
    local i = 1
    while i <= iters
    do
-      mst.d('run_nodes_and_advance_time', i, 'delta', self.t-self.start_t)
+      mst.d('run_nodes_and_advance_time', i, 'delta', self:get_elapsed_time())
       local r = self:run_nodes(iters-i, o.run_callback)
       -- failure, not enough iterations
       if not r then return end

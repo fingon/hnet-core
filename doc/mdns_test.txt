@@ -34,25 +34,28 @@ we filter them)
 
 .. should implement querying for real
 
--[1] responder MUST implement DNS querier
++[1] responder MUST implement DNS querier
 
--[2] (unicast, non-mdns) .. these queries MUST NOT be sent using UDP source
+![2] (unicast, non-mdns) .. these queries MUST NOT be sent using UDP source
    port 5353, since using UDP source port 5353 signals the presence of a
    fully-compliant Multicast DNS Querier
 
--[3,4,5] (continuous mdns querying) Therefore, when retransmitting mDNS
+.. we're fully compliant MDNS querier
+
++[3,4,5] (continuous mdns querying) Therefore, when retransmitting mDNS
    queries to implement this kind of continuous monitoring, the interval
    between the first two queries MUST be at least one second, the intervals
    between successive queries MUST increase by at least a factor of two,
    and the querier MUST implement Known-Answer Suppression
 
--[6] a Multicast DNS Querier SHOULD also delay the first query of the series
++[6] a Multicast DNS Querier SHOULD also delay the first query of the series
    by a randomly-chosen amount in the range 20- 120ms.
 
--[7] When a Multicast DNS Querier receives an answer, the answer contains a
++[7] When a Multicast DNS Querier receives an answer, the answer contains a
    TTL value that indicates for how many seconds this answer is valid.
    After this interval has passed, the answer will no longer be valid and
    SHOULD be deleted from the cache
+
 
 -[8] Before this time is reached, a Multicast DNS Querier which has local
    clients with an active interest in the state of that record (e.g. a
@@ -77,28 +80,27 @@ we filter them)
    record's TTL, as described above.
 
 
--[11,12] A compliant Multicast DNS Querier, which implements the rules
++[11,12] A compliant Multicast DNS Querier, which implements the rules
    specified in this document, MUST send its Multicast DNS Queries from
    UDP source port 5353 (the well-known port assigned to mDNS), and MUST
    listen for Multicast DNS Replies sent to UDP destination port 5353 at
    the mDNS multicast address (224.0.0.251 and/or its IPv6 equivalent
    FF02::FB).
+.. we use only one port
 
--[13] A Multicast DNS Querier sending its initial batch of questions
+![13] A Multicast DNS Querier sending its initial batch of questions
    immediately on wake from sleep or interface activation SHOULD set the
    "QU" bit in those questions.
-
--[14,15] When a question is retransmitted (as described in Section 5.2) the
+![14,15] When a question is retransmitted (as described in Section 5.2) the
    "QU" bit SHOULD NOT be set in subsequent retransmissions of that
    question. Subsequent retransmissions SHOULD be usual "QM" questions.
-
--[16] In addition, the "QU" bit SHOULD be set only for questions that are
+![16] In addition, the "QU" bit SHOULD be set only for questions that are
    active and ready to be sent the moment of wake from sleep or interface
    activation.
-
--[17] New questions created by local clients afterwards should be treated as
+![17] New questions created by local clients afterwards should be treated as
    normal "QM" questions and SHOULD NOT have the "QU" bit set on the first
    question of the series.
+.. we don't wake from sleep :p again, platform dependency
 
 +[18] When receiving a question with the "unicast response" bit set, a
    Responder SHOULD usually respond with a unicast packet directed back to

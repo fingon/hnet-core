@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Wed Jan  9 16:34:16 2013 mstenber
--- Edit time:     465 min
+-- Last modified: Thu Jan 10 14:00:09 2013 mstenber
+-- Edit time:     483 min
 --
 
 -- TO DO: 
@@ -771,6 +771,77 @@ describe("mdns", function ()
                   dsm:clear_receiveds()
                   
                    end)
+
+            it("handles non-repeating query ok #nrq", function ()
+                  -- set up initial state
+                  mst.d('initial setup')
+
+                  mdns:insert_if_own_rr('eth1', rr_dummy_a_cf)
+                  dsm:wait_receiveds_counts(1)
+                  dummy:sanity_check_last_probe()
+                  dsm:wait_receiveds_counts(5)
+                  dummy:sanity_check_last_announce()
+                  dsm:clear_receiveds()
+
+                  -- then, ask about the same record on IF, just for fun
+                  mst.d('sending query')
+                  mdns:query('eth1', q_dummy_a)
+                  -- s5.6 SHOULD (delay 20-120ms)
+                  dsm:assert_receiveds_eq(0)
+                  dsm:advance_time(0.2)
+                  mdns:run()
+                  dsm:assert_receiveds_eq(1)
+                  dummy:sanity_check_last_multicast_query()
+                  local msg = dummy:get_last_msg()
+                  mst.a(#msg.an > 0, 'no KAS?!?', msg)
+                  dsm:clear_receiveds()
+
+                  mst.d('expecting no traffic for awhile')
+                  dsm:advance_time(700)
+                  mdns:run()
+                  dsm:assert_receiveds_eq(0)
+                                                      end
+              )
+            it("handles repeating query ok #rq", function ()
+                  -- set up initial state
+                  mst.d('initial setup')
+
+                  mdns:insert_if_own_rr('eth1', rr_dummy_a_cf)
+                  dsm:wait_receiveds_counts(1)
+                  dummy:sanity_check_last_probe()
+                  dsm:wait_receiveds_counts(5)
+                  dummy:sanity_check_last_announce()
+                  dsm:clear_receiveds()
+
+                  -- then, ask about the same record on IF, just for fun
+                  mst.d('sending query')
+                  mdns:start_query('eth1', q_dummy_a)
+                  dsm:assert_receiveds_eq(0)
+                  dsm:advance_time(0.2)
+                  mdns:run()
+                  dsm:assert_receiveds_eq(1)
+                  dummy:sanity_check_last_multicast_query()
+                  dsm:clear_receiveds()
+
+                  -- s5.3-5 MUSTs about delayed behavior
+                  -- (rather lazy test, but close enough..)
+
+                  -- we should get 8 within <1000 seconds, but
+                  -- in more than 255 seconds (2^8-1), or well,
+                  -- sum 2^i where i=0-7 (+ some spare fuzz factor)
+                  dsm:wait_receiveds_counts(8)
+                  local delta = dsm:get_elapsed_time()
+                  mst.a(delta > 255, 'too short delta', delta)
+                  mst.a(delta < 1000, 'too long delta', delta)
+                  mdns:stop_query('eth1', q_dummy_a)
+                  dsm:clear_receiveds()
+
+                  -- wait 200 seconds, should receive no further messages
+                  dsm:advance_time(200)
+                  mdns:run()
+                  dsm:assert_receiveds_eq(0)
+                   end)
+
 end)
 
 describe("multi-mdns setup (mdns_ospf)", function ()
@@ -855,6 +926,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                           for i, mdns in ipairs{mdns1, mdns2, mdns3}
                           do
                              mst.a(mdns:own_count() == 0, mdns.if2own)
+                             -- s5.7 SHOULD 
                              mst.a(mdns:cache_count() == 0, mdns.if2cache)
                           end
 
