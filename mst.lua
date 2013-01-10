@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Jan  8 14:03:56 2013 mstenber
+-- Last modified: Thu Jan 10 12:14:37 2013 mstenber
 -- Edit time:     620 min
 --
 
@@ -466,6 +466,23 @@ function array_filter(a, fun)
    return t
 end
 
+-- array filtering variant which produces _two_ lists
+-- first one containing matched, second one not matched
+function array_filter2(a, fun)
+   local t1 = array:new()
+   local t2 = array:new()
+   for i, v in ipairs(a)
+   do
+      if fun(v)
+      then
+         t1:insert(v)
+      else
+         t2:insert(v)
+      end
+   end
+   return t1, t2
+end
+
 function array_slice(a, i1, i2)
    function convert_real(i)
       if i < 0
@@ -498,6 +515,7 @@ end
 
 array = create_class{class='array',
                      filter=array_filter,
+                     filter2=array_filter2,
                      find=array_find,
                      foreach=array_foreach,
                      insert=table.insert,
