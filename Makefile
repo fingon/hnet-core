@@ -41,6 +41,9 @@ mdns_test:
 	busted spec/dnsdb_spec.lua
 	busted spec/mdns_core_spec.lua
 
+mdns_todo:
+	@python util/test_cover.py doc/mdns_test.txt x
+
 %_sm.lua: %.sm
 	java -jar $(SMC) -g -lua $<
 	java -jar $(SMC) -graph -glevel 2 $<

@@ -9,7 +9,7 @@
 # Copyright (c) 2013 cisco Systems, Inc.
 #
 # Created:       Fri Jan 11 12:05:58 2013 mstenber
-# Last modified: Fri Jan 11 12:31:44 2013 mstenber
+# Last modified: Fri Jan 11 12:51:58 2013 mstenber
 # Edit time:     22 min
 #
 """
@@ -91,14 +91,14 @@ def summarize(l, verbose=False):
             for s in fl:
                 print s.text()
                 print
-    _x('done', '+')
-    _x('pending', '')
-    _x('todo', '-')
-    _x('n/a', '!')
     if verbose:
         print
         _y('todo', '-')
         #_y('n/a', '!')
+    _x('done', '+')
+    _x('pending', '')
+    _x('todo', '-')
+    _x('n/a', '!')
 
 
 if __name__ == '__main__':
