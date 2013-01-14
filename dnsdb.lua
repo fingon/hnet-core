@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Mon Jan 14 13:15:20 2013 mstenber
--- Edit time:     149 min
+-- Last modified: Mon Jan 14 13:57:54 2013 mstenber
+-- Edit time:     153 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -213,8 +213,11 @@ function ns:insert_rr(o, do_copy)
    then
       o = rr:new(o)
    end
-   
+   self:insert_raw(o)
+   return o, true
+end
 
+function ns:insert_raw(o)
    -- not found - have to add
    local ll = o.name
    local key = self:ll_key(ll)

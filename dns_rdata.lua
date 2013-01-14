@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:08:00 2013 mstenber
--- Last modified: Mon Jan 14 13:14:06 2013 mstenber
--- Edit time:     1 min
+-- Last modified: Mon Jan 14 15:09:24 2013 mstenber
+-- Edit time:     4 min
 --
 
 require 'dns_const'
@@ -116,9 +116,14 @@ end
 function rdata_srv:do_encode(o, context)
    mst.a(type(o) == 'table')
    mst.a(o.target, 'missing targetin ', mst.repr(o))
+   local r = abstract_data.do_encode(self, o)
+   if context
+   then
+      context.pos = context.pos + #r
+   end
    local t = encode_name_rec(o.target, context)
    -- ugh, but oh well :p
-   return abstract_data.do_encode(self, o) .. table.concat(t)
+   return r .. table.concat(t)
 end
 
 rdata_nsec = abstract_base:new{class='rdata_nsec'}

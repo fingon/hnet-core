@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Mon Jan 14 13:13:45 2013 mstenber
--- Edit time:     255 min
+-- Last modified: Mon Jan 14 15:40:29 2013 mstenber
+-- Edit time:     269 min
 --
 
 -- Functionality for en-decoding various DNS structures;
@@ -40,6 +40,7 @@ require 'ipv6s'
 require 'dns_const'
 require 'dns_name'
 require 'dns_rdata'
+require 'dnsdb'
 
 module(..., package.seeall)
 
@@ -156,6 +157,7 @@ function dns_rr:do_encode(o, context)
    local handler = dns_rdata.rtype_map[o.rtype or -1]
    if handler 
    then 
+      --mst.d('calling encode', context.pos, o)
       -- update pos s.t. the rdata encoder will have correct
       -- position to start at..
       if context
@@ -210,8 +212,8 @@ function dns_message:do_encode(o)
 
    -- context for storing the encoded offsets of names
    local pos = #r
-   local context = {}
-   context.nh = {}
+   local context = {pos=pos}
+   context.ns = dnsdb.ns:new{}
 
    -- then, handle each sub-list
 
@@ -223,11 +225,13 @@ function dns_message:do_encode(o)
       do
          --self:d('encoding', np, i)
          -- store the current position where this stuff _starts_
-         context.pos = pos
          local r, err = cl:encode(v, context)
          if not r then return nil, err end
          t:insert(r)
+         -- sub-encoders may have played with the position.
+         -- therefore, we update the 'master copy' of pos here
          pos = pos + #r
+         context.pos = pos
       end
    end
 

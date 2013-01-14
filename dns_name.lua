@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:08:37 2013 mstenber
--- Last modified: Mon Jan 14 13:12:46 2013 mstenber
--- Edit time:     1 min
+-- Last modified: Mon Jan 14 15:40:10 2013 mstenber
+-- Edit time:     32 min
 --
 
 require 'codec'
@@ -26,6 +26,7 @@ function try_decode_name_rec(cur, h, n)
    then
       return nil, 'out of bytes (reading name)'
    end
+   local npos = cur.pos
    local b = cur:read(1)
    local v = string.byte(b)
    if v >= 64
@@ -54,6 +55,7 @@ function try_decode_name_rec(cur, h, n)
       do
          n[#n+1] = on[i]
       end
+      mst.d('found from', ofs, mst.array_slice(n, oofs))
       return n
    end
    -- let's see if it's the end
@@ -67,13 +69,12 @@ function try_decode_name_rec(cur, h, n)
       return nil, 'out of bytes (label body)'
    end
    -- read the actual string
-   local pos = cur.pos
    b = cur:read(v)
    -- store position to hash for message compression use
    if h
    then
-      mst.d('adding', pos-1, #n+1, b)
-      h[pos-1] = {n, #n + 1}
+      mst.d('adding', npos, #n+1, b)
+      h[npos] = {n, #n + 1}
    end
    n[#n+1] = b
    -- and recurse (can't end on non-0 string)
@@ -81,17 +82,59 @@ function try_decode_name_rec(cur, h, n)
 end
 
 -- message compression is optional => we skip it for the time being
-function encode_name_rec(n, h)
-   local t = {}
+function encode_name_rec(n, h, t, ofs)
+   local t = t or {}
+   local ofs = ofs or 1
+
    mst.a(type(n) == 'table', 'non-table given to encode_name_rec', n)
-   for i, v in ipairs(n)
-   do
-      mst.a(#v > 0, 'we do not support empty labels in middle!')
-      table.insert(t, string.char(#v))
-      table.insert(t, v)
+   -- handle eof
+   if ofs > #n
+   then
+      table.insert(t, string.char(0))
+      if h
+      then
+         h.pos = h.pos + 1
+      end
+      return t
    end
-   table.insert(t, string.char(0))
-   return t
+   local v = n[ofs]
+
+   -- name compression handling
+   if h and h.ns
+   then
+      local ns = h.ns
+      -- figure if this array(sub)string exists
+      local sn = n
+      if ofs > 1
+      then
+         sn = mst.array_slice(n, ofs)
+      end
+      local ofs2
+      ns:iterate_rrs_for_ll(sn, 
+                            function (o)
+                               ofs2 = o.pos
+                            end)
+      if ofs2
+      then
+         mst.d('found at', ofs2, sn)
+         local o1 = math.floor(ofs2/256)
+         local o2 = ofs2%256
+         table.insert(t, string.char(64 + 128 + o1))
+         table.insert(t, string.char(o2))
+         h.pos = h.pos + 2
+         return t
+      end
+      mst.d('inserting', h.pos, sn)
+      -- store the current position as where we can be found
+      ns:insert_raw{name=sn, pos=h.pos}
+      -- and update the position with the encoded data length
+      h.pos = h.pos + 1 + #v
+   end
+   mst.a(#v > 0, 'we do not support empty labels in middle!')
+   mst.a(#v < 64, 'too long label', v)
+   table.insert(t, string.char(#v))
+   table.insert(t, v)
+   return encode_name_rec(n, h, t, ofs+1)
 end
 
 
