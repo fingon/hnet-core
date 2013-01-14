@@ -8,14 +8,75 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Fri Nov 30 14:04:17 2012 mstenber
--- Edit time:     115 min
+-- Last modified: Mon Jan 14 23:27:13 2013 mstenber
+-- Edit time:     122 min
 --
 
 require "busted"
 require "mst"
+require "mst_skiplist"
 
 module("mst_spec", package.seeall)
+
+local ipi_skiplist = mst_skiplist.ipi_skiplist
+
+local dummy_int = mst.create_class{class='dummy_int'}
+
+function dummy_int:repr_data()
+   return 'v=' .. self.v
+end
+
+function dummy_int:__lt(o)
+   return self.v < o.v
+end
+
+function dummy_int:__le(o)
+   return self.v <= o.v
+end
+
+function dummy_int:__eq(o)
+   return self.v == o.v
+end
+
+describe("ipi_skiplist", function ()
+            it("works #sl1", function ()
+                  for i=1, 2
+                  do
+                     local width 
+                     if i == 2
+                     then
+                        width = false
+                     end
+                     local sl = ipi_skiplist:new{p=2, width=width}
+                     local d1 = dummy_int:new{v=5}
+                     local d2 = dummy_int:new{v=42}
+                     local d3 = dummy_int:new{v=1}
+                     local d4 = dummy_int:new{v=54}
+                     sl:insert(d1)
+                     sl:insert(d2)
+                     sl:insert(d3)
+                     sl:insert(d4)
+                     sl:dump()
+                     sl:sanity_check()
+                  end
+                             end)
+            it("worksish #sl2", function ()
+                  local l = mst.array:new{}
+                  for i=1, 100
+                  do
+                     l:insert(dummy_int:new{v=i})
+                  end
+                  local sl = ipi_skiplist:new{p=2}
+                  for i, o in ipairs(mst.array_randlist(l))
+                  do
+                     sl:insert(o)
+                  end
+                  mst.a(#sl.next > 1)
+                  mst.a(sl[sl.next[1]].v == 1)
+                  sl:dump()
+                  sl:sanity_check()
+                                end)
+                         end)
 
 describe("check_parameters", function ()
             it("blows if omitted parameters", function ()
@@ -463,8 +524,8 @@ describe("hex_to_string", function ()
                   local h = mst.string_to_hex(o)
                   local o2 = mst.hex_to_string(h)
                   mst.a(o == o2, 'broken', o, o2, h)
-                   end)
-             end)
+                        end)
+                          end)
 
 describe("array_randlist", function ()
             it("works", function ()
@@ -487,10 +548,10 @@ describe("hash_set", function ()
                                               function (f)
                                                  return 0
                                               end,
-                                             equal_callback=
-                                                function (o1, o2)
-                                                return #o1 == #o2
-                                                end}
+                                                                          equal_callback=
+                                                                             function (o1, o2)
+                                                                             return #o1 == #o2
+                                                                             end}
                   local a1 = mst.array:new{1, 2, 3}
                   local a2 = mst.array:new{1, 2}
                   local a3 = mst.array:new{1, 2}
@@ -500,5 +561,5 @@ describe("hash_set", function ()
                   mst.a(hs:get(a3) == a2)
                   mst.a(hs:get(a4) == nil)
                   mst.array.__eq = nil
-                   end)
-end)
+                        end)
+                     end)
