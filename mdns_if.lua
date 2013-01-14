@@ -98,8 +98,8 @@ local function msg_has_qu_qd(msg)
 end
 
 local function match_q_rr(q, rr)
-   return (q.qtype == dnscodec.TYPE_ANY or q.qtype == rr.rtype) 
-      and (q.qclass == dnscodec.CLASS_ANY or q.qclass == rr.rclass) 
+   return (q.qtype == dns_const.TYPE_ANY or q.qtype == rr.rtype) 
+      and (q.qclass == dns_const.CLASS_ANY or q.qclass == rr.rclass) 
       and dnsdb.ll_equal(q.name, rr.name)
 end
 
@@ -166,11 +166,11 @@ function iterate_ns_matching_query(ns, q, kas, f)
    -- => look up for negative NSEC 
    -- (assuming this wasn't already NSEC query, of course)
    if found_cf and not matched 
-      and q.qtype ~= dnscodec.TYPE_NSEC
+      and q.qtype ~= dns_const.TYPE_NSEC
    then
       iterate_ns_matching_query(ns, {
                                    name=q.name,
-                                   qtype=dnscodec.TYPE_NSEC,
+                                   qtype=dns_const.TYPE_NSEC,
                                    qclass=q.qclass,
                                     }, kas, f)
    end
@@ -427,8 +427,8 @@ function mdns_if:determine_ar(an, kas)
          end
       end
    end
-   push(dnscodec.TYPE_A, dnscodec.TYPE_AAAA)
-   push(dnscodec.TYPE_AAAA, dnscodec.TYPE_A)
+   push(dns_const.TYPE_A, dns_const.TYPE_AAAA)
+   push(dns_const.TYPE_AAAA, dns_const.TYPE_A)
    return ar
 end
 
@@ -780,7 +780,7 @@ function mdns_if:insert_own_rr(rr)
    
    -- we don't accept NSEC records to be forwarded
    -- (we instead produce our own, see below)
-   if rr.rtype == dnscodec.TYPE_NSEC
+   if rr.rtype == dns_const.TYPE_NSEC
    then
       return
    end
@@ -985,7 +985,7 @@ function mdns_if:update_rr_related_nsec(rr)
 
    for i, rr2 in ipairs(ns:find_rr_list_for_ll(rr.name))
    do
-      if rr2.rtype == dnscodec.TYPE_NSEC
+      if rr2.rtype == dns_const.TYPE_NSEC
       then
          nsec = rr2
       else
@@ -1025,8 +1025,8 @@ function mdns_if:update_rr_related_nsec(rr)
    then
       -- create new nsec, with the bits we have
       nsec = {name=rr.name, 
-              rclass=dnscodec.CLASS_IN,
-              rtype=dnscodec.TYPE_NSEC, 
+              rclass=dns_const.CLASS_IN,
+              rtype=dns_const.TYPE_NSEC, 
               ttl=ttl, 
               cache_flush=true,
 
@@ -1060,7 +1060,7 @@ function mdns_if:send_probes()
                     if not found
                     then
                        qd = qd or {}
-                       table.insert(qd, {qtype=dnscodec.TYPE_ANY,
+                       table.insert(qd, {qtype=dns_const.TYPE_ANY,
                                          qclass=rr.rclass,
                                          name=rr.name,
                                          qu=true})

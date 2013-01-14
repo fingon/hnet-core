@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Thu Jan 10 16:40:07 2013 mstenber
+-- Last modified: Mon Jan 14 13:16:11 2013 mstenber
 -- Edit time:     488 min
 --
 
@@ -226,7 +226,7 @@ function dummynode:sanity_check_last_probe()
 
    -- S8.2 SHOULD
    mst.a(#msg.qd > 0)
-   mst.a(msg.qd[1].qtype == dnscodec.TYPE_ANY, 'non-ANY probe')
+   mst.a(msg.qd[1].qtype == dns_const.TYPE_ANY, 'non-ANY probe')
    
    -- s8.6 SHOULD
    mst.a(msg.qd[1].qu == true, 'non-qu probe')
@@ -334,7 +334,7 @@ end
 local DUMMY_TTL=1234
 local DUMMY_TYPE=42
 local DUMMY_TYPE2=123
-local CLASS_IN=dnscodec.CLASS_IN
+local CLASS_IN=dns_const.CLASS_IN
 local DUMMY_ID1=7
 local DUMMY_ID2=1234
 local DUMMY_ID3=1235
@@ -350,24 +350,24 @@ local rr2_cf = {name={'Foo'}, rdata='Baz', rtype=DUMMY_TYPE2, rclass=CLASS_IN, c
 
 local rr_dummy_a_cf = {name={'dummy', 'local'},
                        rdata_a='1.2.3.4', 
-                       rtype=dnscodec.TYPE_A,
-                       rclass=dnscodec.CLASS_IN,
+                       rtype=dns_const.TYPE_A,
+                       rclass=dns_const.CLASS_IN,
                        cache_flush=true,
                        ttl=DUMMY_TTL,
 }
 
 local rr_dummy_aaaa_cf = {name={'dummy', 'local'},
                           rdata_aaaa='f80:dead:beef::1234', 
-                          rtype=dnscodec.TYPE_AAAA,
-                          rclass=dnscodec.CLASS_IN,
+                          rtype=dns_const.TYPE_AAAA,
+                          rclass=dns_const.CLASS_IN,
                           cache_flush=true,
                           ttl=DUMMY_TTL,
 }
 
 local rr_foo_a_cf = {name={'foo', 'local'},
                        rdata_a='192.168.1.1', 
-                       rtype=dnscodec.TYPE_A,
-                       rclass=dnscodec.CLASS_IN,
+                       rtype=dns_const.TYPE_A,
+                       rclass=dns_const.CLASS_IN,
                        cache_flush=true,
                        ttl=DUMMY_TTL,
 }
@@ -410,11 +410,11 @@ local query1_qu = dnscodec.dns_message:encode{
                                           }
 
 local query1_type_any_qu = dnscodec.dns_message:encode{
-   qd={{name={'Foo'}, qtype=dnscodec.TYPE_ANY, qu=true}},
+   qd={{name={'Foo'}, qtype=dns_const.TYPE_ANY, qu=true}},
                                                  }
 
 local query1_class_any_qu = dnscodec.dns_message:encode{
-   qd={{name={'Foo'}, qtype=DUMMY_TYPE, qclass=dnscodec.CLASS_ANY, qu=true}},
+   qd={{name={'Foo'}, qtype=DUMMY_TYPE, qclass=dns_const.CLASS_ANY, qu=true}},
                                                        }
 
 local query1_type_nomatch_qu = dnscodec.dns_message:encode{
@@ -424,7 +424,7 @@ local query1_type_nomatch_qu = dnscodec.dns_message:encode{
                                                           }
 
 local query1_class_nomatch_qu = dnscodec.dns_message:encode{
-   qd={{name={'Foo'}, qtype=DUMMY_TYPE, qclass=(dnscodec.CLASS_IN+1), qu=true}},
+   qd={{name={'Foo'}, qtype=DUMMY_TYPE, qclass=(dns_const.CLASS_IN+1), qu=true}},
                                                           }
 
 local query1_kas = dnscodec.dns_message:encode{
@@ -441,42 +441,42 @@ local query1_kas_low_ttl = dnscodec.dns_message:encode{
                                           }
 
 local query_dummy_local_a = dnscodec.dns_message:encode{
-   qd={{name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_A}},
+   qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A}},
                                                        }
 
 
 local query_dummy_local_qu = dnscodec.dns_message:encode{
-   qd={{name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_ANY, qu=true}},
+   qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_ANY, qu=true}},
                                                         }
 
-local q_dummy_a = {name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_A, qu=true}
+local q_dummy_a = {name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}
 
 local query_dummy_local_a_qu = dnscodec.dns_message:encode{
    qd={q_dummy_a},
                                           }
 
 local query_dummy_local_a_kas_a_qu = dnscodec.dns_message:encode{
-   qd={{name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_A, qu=true}},
+   qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}},
    an={rr_dummy_a_cf},
                                           }
 
 local query_dummy_local_a_kas_aaaa_qu = dnscodec.dns_message:encode{
-   qd={{name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_A, qu=true}},
+   qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}},
    an={rr_dummy_aaaa_cf},
                                           }
 
 local query_dummy_local_aaaa_qu = dnscodec.dns_message:encode{
-   qd={{name=rr_dummy_a_cf.name, qtype=dnscodec.TYPE_AAAA, qu=true}},
+   qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_AAAA, qu=true}},
                                           }
 
-local q_foo_a = {name=rr_foo_a_cf.name, qtype=dnscodec.TYPE_A, qu=true}
+local q_foo_a = {name=rr_foo_a_cf.name, qtype=dns_const.TYPE_A, qu=true}
 
 local query_dummy_foo_qu = dnscodec.dns_message:encode{
    qd={q_dummy_a, q_foo_a},
                                                       }
 
 local query_foo_local_a = dnscodec.dns_message:encode{
-   qd={{name=rr_foo_a_cf.name, qtype=dnscodec.TYPE_A}},
+   qd={{name=rr_foo_a_cf.name, qtype=dns_const.TYPE_A}},
                                                         }
 
 describe("mdns", function ()
@@ -655,7 +655,7 @@ describe("mdns", function ()
                   -- s6.23 MUST reply with NSEC
                   mst.a(#msg.an == 1)
                   local rr = msg.an[1]
-                  mst.a(rr.rtype == dnscodec.TYPE_NSEC)
+                  mst.a(rr.rtype == dns_const.TYPE_NSEC)
                   mst.a(mst.repr_equal(rr.rdata_nsec.ndn, {'Foo'}),
                        'ndn missing/wrong', rr)
                   -- s6.30 - NSEC bits MUST NOT contain NSEC
@@ -704,8 +704,8 @@ describe("mdns", function ()
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_unicast_response()
                   local msg = dummy:get_last_msg()
-                  check_f('an', dnscodec.TYPE_AAAA)
-                  check_f('ar', dnscodec.TYPE_A)
+                  check_f('an', dns_const.TYPE_AAAA)
+                  check_f('ar', dns_const.TYPE_A)
                   dsm:clear_receiveds()
 
                   mst.d('b) A request => both')
@@ -713,8 +713,8 @@ describe("mdns", function ()
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_unicast_response()
                   local msg = dummy:get_last_msg()
-                  check_f('an', dnscodec.TYPE_A)
-                  check_f('ar', dnscodec.TYPE_AAAA)
+                  check_f('an', dns_const.TYPE_A)
+                  check_f('ar', dns_const.TYPE_AAAA)
                   dsm:clear_receiveds()
 
                   -- With KAS, if it hits an, no reply at all
@@ -728,7 +728,7 @@ describe("mdns", function ()
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_unicast_response()
                   local msg = dummy:get_last_msg()
-                  check_f('an', dnscodec.TYPE_A)
+                  check_f('an', dns_const.TYPE_A)
                   check_f('ar')
                   dsm:clear_receiveds()
                    end)
@@ -747,10 +747,10 @@ describe("mdns", function ()
                   dummy:sanity_check_last_unicast_response()
 
                   -- s6.38 MUST handle multiple queries
-                  check_f('an', dnscodec.TYPE_A, 2)
+                  check_f('an', dns_const.TYPE_A, 2)
 
                   -- s6.36 SHOULD - NSEC if no AAAA available
-                  check_f('ar', dnscodec.TYPE_NSEC, 2)
+                  check_f('ar', dns_const.TYPE_NSEC, 2)
                   dsm:clear_receiveds()
 
                   dsm:advance_time(2)
@@ -766,8 +766,8 @@ describe("mdns", function ()
                   dsm:assert_receiveds_eq(0)
                   dsm:wait_receiveds_counts(1)
                   dummy:sanity_check_last_multicast_response()
-                  check_f('an', dnscodec.TYPE_A, 2)
-                  check_f('ar', dnscodec.TYPE_NSEC, 2)
+                  check_f('an', dns_const.TYPE_A, 2)
+                  check_f('ar', dns_const.TYPE_NSEC, 2)
                   dsm:clear_receiveds()
                   
                    end)

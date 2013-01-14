@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Tue Jan  8 23:42:58 2013 mstenber
--- Edit time:     234 min
+-- Last modified: Mon Jan 14 13:13:45 2013 mstenber
+-- Edit time:     255 min
 --
 
 -- Functionality for en-decoding various DNS structures;
@@ -37,116 +37,17 @@
 require 'codec'
 require 'ipv4s'
 require 'ipv6s'
+require 'dns_const'
+require 'dns_name'
+require 'dns_rdata'
 
 module(..., package.seeall)
 
 local abstract_base = codec.abstract_base
 local abstract_data = codec.abstract_data
 local cursor_has_left = codec.cursor_has_left
-
-CLASS_IN=1
-CLASS_ANY=255
-
--- RFC1035
-TYPE_A=1
-TYPE_NS=2
-TYPE_CNAME=5
-TYPE_PTR=12
-TYPE_HINFO=13
-TYPE_MX=15
-TYPE_TXT=16
-
--- RFC3596
-TYPE_AAAA=28
-
--- RFC2782
-TYPE_SRV=33
-
--- RFC4304
-TYPE_RRSIG=46
-TYPE_NSEC=47
-TYPE_DNSKEY=48
-
-
-TYPE_ANY=255
-
-
---- general utilities to deal with FQDN en/decode
-
-function try_decode_name_rec(cur, h, n)
-   n = n or {}
-   if not cursor_has_left(cur, 1)
-   then
-      return nil, 'out of bytes (reading name)'
-   end
-   local b = cur:read(1)
-   local v = string.byte(b)
-   if v >= 64
-   then
-      if not cursor_has_left(cur, 1)
-      then
-         return nil, 'out of bytes (reading compression offset)'
-      end
-      if v < (64+128)
-      then
-         return nil, 'invalid high bits in name label ' .. tostring(v)
-      end
-      v = v - 64 - 128
-      local b = cur:read(1)
-      local v2 = string.byte(b)
-      local ofs = v * 256 + v2
-      mst.a(h, 'h not set when decoding name with message compression')
-      if not h[ofs]
-      then
-         mst.d('eek - about to blow up - dump', h, 'missing offset', ofs)
-         return nil, 'unable to find value at ofs ' .. tostring(ofs)
-      end
-      local on, oofs = unpack(h[ofs])
-      -- 'other name' = on. 'oofs' = which entry to start at copying
-      for i=oofs,#on
-      do
-         n[#n+1] = on[i]
-      end
-      return n
-   end
-   -- let's see if it's the end
-   if v == 0
-   then
-      return n
-   end
-   -- not end -> have to have the bytes
-   if not cursor_has_left(cur, v)
-   then
-      return nil, 'out of bytes (label body)'
-   end
-   -- read the actual string
-   local pos = cur.pos
-   b = cur:read(v)
-   -- store position to hash for message compression use
-   if h
-   then
-      mst.d('adding', pos-1, #n+1, b)
-      h[pos-1] = {n, #n + 1}
-   end
-   n[#n+1] = b
-   -- and recurse (can't end on non-0 string)
-   return try_decode_name_rec(cur, h, n)
-end
-
--- message compression is optional => we skip it for the time being
-function encode_name_rec(n, h)
-   local t = {}
-   mst.a(type(n) == 'table', 'non-table given to encode_name_rec', n)
-   for i, v in ipairs(n)
-   do
-      mst.a(#v > 0, 'we do not support empty labels in middle!')
-      table.insert(t, string.char(#v))
-      table.insert(t, v)
-   end
-   table.insert(t, string.char(0))
-   return t
-end
-
+local encode_name_rec = dns_name.encode_name_rec
+local try_decode_name_rec = dns_name.try_decode_name_rec
 
 --- actual data classes
 
@@ -173,7 +74,7 @@ dns_header = abstract_data:new{class='dns_header',
 
 dns_query = abstract_data:new{class='dns_query',
                               format='qtype:u2 [2|qclass:u15 qu:b1]',
-                              header_default={qtype=0, qclass=CLASS_IN},
+                              header_default={qtype=0, qclass=dns_const.CLASS_IN},
                              }
 
 function dns_query:try_decode(cur, context)
@@ -201,238 +102,10 @@ function dns_query:do_encode(o, context)
    return table.concat(t)
 end
 
-
-rdata_srv = abstract_data:new{class='rdata_srv',
-                              format='priority:u2 weight:u2 port:u2',
-                              header_default={priority=0,
-                                              weight=0,
-                                              port=0}}
-
-function rdata_srv:try_decode(cur, context)
-   -- first off, get the base struct
-   local o, err = abstract_data.try_decode(self, cur)
-   if not o then return nil, err end
-
-   -- and then 'target', which is FQDN
-   local n, err = try_decode_name_rec(cur, context)
-   if not n then return nil, err end
-   
-   o.target = n
-   return o
-end
-
-function rdata_srv:do_encode(o, context)
-   mst.a(type(o) == 'table')
-   mst.a(o.target, 'missing targetin ', mst.repr(o))
-   local t = encode_name_rec(o.target, context)
-   -- ugh, but oh well :p
-   return abstract_data.do_encode(self, o) .. table.concat(t)
-end
-
-rdata_nsec = abstract_base:new{class='rdata_nsec'}
-
-function rdata_cursor_has_left(cur, n)
-   if cur.endpos 
-   then
-      return cur.pos + n <= cur.endpos
-   end
-   return cursor_has_left(cur, n)
-end
-
-function rdata_nsec:try_decode(cur, context)
-   -- two things - next domain name (ndn)
-   local n, err = try_decode_name_rec(cur, context)
-   if not n then return nil, err end
-   
-   -- and bitmap
-   --local t = mst.set:new{}
-   local t = mst.array:new{}
-   while rdata_cursor_has_left(cur, 2)
-   do
-      -- block #
-      local block_offset = string.byte(cur:read(1))
-      -- bytes
-      local block_bytes = string.byte(cur:read(1))
-      self:d('reading', block_offset, block_bytes)
-      if not rdata_cursor_has_left(cur, block_bytes)
-      then
-         return nil, string.format('decode ended mid-way (no %d bytes left)',
-                                   block_bytes)
-      end
-      for i=1,block_bytes
-      do
-         local c = cur:read(1)
-         local b = string.byte(c)
-         -- XXX - some day would be nice to have network order
-         -- independent decode here. oh well. 
-         for j=8,1,-1
-         do
-            if mst.bitv_is_set_bit(b, j)
-            then
-               t:insert(256 * block_offset +
-                        8 * (i - 1) + 
-                        (8 - j))
-            end
-         end
-      end
-   end
-   return {ndn=n, bits=t}
-end
-
-function iterate_modulo_ranges(bits, modulo, f, st, en)
-   local st = st or 1
-   local nbits = #bits
-   local en = en or nbits
-
-   local i = st
-   while i <= en
-   do
-      local j = i
-      local v = bits[i]
-      local mr = math.floor(v / modulo)
-      mst.d('finding subblock', i, en, modulo, v, mr)
-      while (j+1) <= en and math.floor(bits[j+1] / modulo) == mr
-      do
-         j = j + 1
-      end
-      f(mr, i, j)
-      i = j + 1
-      mst.d('i now', i)
-   end
-end
-
-
-function rdata_nsec:do_encode(o, context)
-   mst.a(o, 'no object given to encode?!?')
-   mst.a(o.ndn)
-   local n = encode_name_rec(o.ndn, context)
-   local t = {}
-   -- encoding of the bits is bit more complex
-   local bits = o.bits
-   table.sort(bits)
-   -- first off, try to get the 256-bit blocks, and deal with them
-   iterate_modulo_ranges(bits, 256,
-                         function (mr, i1, j1)
-                            --mst.d('handling', mr)
-                            local t0 = {}
-                            iterate_modulo_ranges(bits, 8,
-                                                  function (br, i2, j2)
-                                                     br = br % 32
-                                                     while #t0 < br
-                                                     do
-                                                        table.insert(t0, 0)
-                                                     end
-                                                     local v = 0
-                                                     for i=i2,j2
-                                                     do
-                                                        local b=bits[i]
-                                                        v = mst.bitv_set_bit(v, 8-b%8)
-                                                     end
-                                                     mst.d('produced', v)
-                                                     table.insert(t0, v)
-                                                  end, i1, j1)
-                            table.insert(t, string.char(mr, #t0, unpack(t0)))
-                         end)
-   mst.array_extend(n, t)
-   --mst.d('concatting', n)
-   return table.concat(n)
-end
-
-local function simple_equal(self, v1, v2)
-   local r = (not v1 or not v2) or v1 == v2
-   mst.d('simple_equal', v1, v2, r)
-   return r
-end
-
-local function repr_equal(self, v1, v2)
-   local r = (not v1 or not v2) or mst.repr_equal(v1, v2)
-   mst.d('repr_equal', v1, v2, r)
-   return r
-end
-
-rtype_map = {[TYPE_PTR]={
-                field='rdata_ptr',
-                encode=function (self, o, context)
-                   local v = o[self.field]
-                   mst.a(v)
-                   return table.concat(encode_name_rec(v, context))
-                end,
-                decode=function (self, o, cur, context)
-                   local name, err = try_decode_name_rec(cur, context)
-                   if not name then return nil, err end
-                   o[self.field] = name
-                   return true
-                end,
-                field_equal=simple_equal,
-                        },
-             [TYPE_A]={
-                field='rdata_a',
-                encode=function (self, o, context)
-                   local v = o[self.field]
-                   mst.a(v)
-                   local b = ipv4s.address_to_binary_address(v)
-                   mst.a(#b == 4, 'encode error')
-                   return b
-                end,
-                decode=function (self, o, cur, context)
-                   if not rdata_cursor_has_left(cur, 4)
-                   then
-                      return nil, 'not enough rdata (4)'
-                   end
-                   local b = cur:read(4)
-                   o[self.field] = ipv4s.binary_address_to_address(b)
-                   return true
-                end,
-                field_equal=simple_equal,
-             },
-             [TYPE_AAAA]={
-                field='rdata_aaaa',
-                encode=function (self, o, context)
-                   local v = o[self.field]
-                   mst.a(v)
-                   local b = ipv6s.address_to_binary_address(v)
-                   mst.a(#b == 16, 'encode error', o)
-                   return b
-                end,
-                decode=function (self, o, cur, context)
-                   if not rdata_cursor_has_left(cur, 16)
-                   then
-                      return nil, 'not enough rdata (16)'
-                   end
-                   local b = cur:read(16)
-                   local s = ipv6s.binary_address_to_address(b)
-                   o[self.field] = s
-                   return s
-                end,
-                field_equal=simple_equal,
-             },
-}
-
-local function add_rtype_decoder(type, cl, dname, equal)
-   rtype_map[type] = {
-      field=dname,
-      encode=function (self, o, context)
-         return cl:encode(o[self.field], context)
-      end,
-      decode=function (self, o, cur, context)
-         cur.endpos = cur.pos + o.rdlength
-         local r, err = cl:decode(cur, context)
-         cur.endpos = nil
-         if not r then return nil, err end
-         o[self.field] = r
-         return true
-      end,
-      field_equal=equal,
-   }
-end
-
-add_rtype_decoder(TYPE_SRV, rdata_srv, 'rdata_srv', repr_equal)
-add_rtype_decoder(TYPE_NSEC, rdata_nsec, 'rdata_nsec', repr_equal)
-
 dns_rr = abstract_data:new{class='dns_rr',
                            format='rtype:u2 [2|cache_flush:b1 rclass:u15] ttl:u4 rdlength:u2',
                            header_default={rtype=0,
-                                           rclass=CLASS_IN,
+                                           rclass=dns_const.CLASS_IN,
                                            ttl=0,
                                            rdlength=0,},
                           }
@@ -453,7 +126,7 @@ function dns_rr:try_decode(cur, context)
    -- copy the header fields
    mst.table_copy(o, r)
 
-   local handler = rtype_map[r.rtype]
+   local handler = dns_rdata.rtype_map[r.rtype]
    if handler 
    then 
       self:d('using handler')
@@ -480,9 +153,15 @@ end
 function dns_rr:do_encode(o, context)
    mst.a(type(o) == 'table')
    local t = encode_name_rec(o.name, context)
-   local handler = rtype_map[o.rtype or -1]
+   local handler = dns_rdata.rtype_map[o.rtype or -1]
    if handler 
    then 
+      -- update pos s.t. the rdata encoder will have correct
+      -- position to start at..
+      if context
+      then
+         context.pos = context.pos + self.header_length
+      end
       o.rdata, err = handler:encode(o, context) 
       if not o.rdata then return nil, err end
    end
@@ -529,7 +208,13 @@ function dns_message:do_encode(o)
 
    t:insert(r)
 
+   -- context for storing the encoded offsets of names
+   local pos = #r
+   local context = {}
+   context.nh = {}
+
    -- then, handle each sub-list
+
    for i, v in ipairs(self.lists)
    do
       np, cl = unpack(v)
@@ -537,10 +222,12 @@ function dns_message:do_encode(o)
       for i, v in ipairs(o[np] or {})
       do
          --self:d('encoding', np, i)
-
-         local r, err = cl:encode(v)
+         -- store the current position where this stuff _starts_
+         context.pos = pos
+         local r, err = cl:encode(v, context)
          if not r then return nil, err end
          t:insert(r)
+         pos = pos + #r
       end
    end
 

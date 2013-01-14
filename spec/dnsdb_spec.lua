@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:37:02 2012 mstenber
--- Last modified: Tue Jan  8 23:02:19 2013 mstenber
+-- Last modified: Mon Jan 14 13:15:03 2013 mstenber
 -- Edit time:     29 min
 --
 
@@ -19,13 +19,13 @@ module("dnsdb_spec", package.seeall)
 
 -- first off, three records that are distinct (but shared, in mdns
 -- terminology, due to lack of cache_flush)
-local fake1 = {rclass = dnscodec.CLASS_IN,
+local fake1 = {rclass = dns_const.CLASS_IN,
                rtype = 42,
                name = {'foo', 'Bar'},
                rdata = 'foo',
 }
 
-local fake1case = {rclass = dnscodec.CLASS_IN,
+local fake1case = {rclass = dns_const.CLASS_IN,
                rtype = 42,
                name = {'Foo', 'bar'},
                rdata = 'foo',
@@ -35,14 +35,14 @@ local fake12 = mst.table_copy(fake1)
 fake12.rdata = 'foo2'
 
 
-local fake2 = {rclass = dnscodec.CLASS_IN,
+local fake2 = {rclass = dns_const.CLASS_IN,
                rtype = 42,
                name = {'foo2', 'Bar'}
 }
 
 -- then, yet another record, which overrides fake1+fake12, and has
 -- cache_flush set.
-local fakeu = {rclass = dnscodec.CLASS_IN,
+local fakeu = {rclass = dns_const.CLASS_IN,
                rtype = 42,
                name = {'foo', 'Bar'},
                rdata = 'foo',

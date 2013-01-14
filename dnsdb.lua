@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Wed Jan  9 16:40:23 2013 mstenber
--- Edit time:     144 min
+-- Last modified: Mon Jan 14 13:15:20 2013 mstenber
+-- Edit time:     149 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -25,7 +25,7 @@
 -- cache_flush=false => name + rtypr + rclass + rdata (=~ whole rr, -ttl)
 
 require 'mst'
-require 'dnscodec'
+require 'dns_const'
 
 module(..., package.seeall)
 
@@ -78,7 +78,7 @@ rr = mst.create_class{class='rr'}
 
 function rr:rdata_equals(o)
    --mst.a(o ~= rr, "can't compare with class")
-   local m = dnscodec.rtype_map[self.rtype]
+   local m = dns_rdata.rtype_map[self.rtype]
    if m and o[m.field]
    then
       local r = m:field_equal(rr[m.field], o[m.field])
@@ -109,7 +109,7 @@ function rr:contained(o)
    -- fast check - if rtype different, no, it won't
    if self.rtype ~= o.rtype then return false end
 
-   local rclass = o.rclass or dnscodec.CLASS_IN
+   local rclass = o.rclass or dns_const.CLASS_IN
    local cache_flush = o.cache_flush or false
 
    -- consider name, rtype, rclass always

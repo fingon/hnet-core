@@ -8,20 +8,22 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 12:06:56 2012 mstenber
--- Last modified: Tue Jan  8 21:19:12 2013 mstenber
--- Edit time:     68 min
+-- Last modified: Mon Jan 14 13:11:59 2013 mstenber
+-- Edit time:     70 min
 --
 
 require "busted"
 require "dnscodec"
+require 'dns_const'
+require 'dns_rdata'
 
 module("dnscodec_spec", package.seeall)
 
 local dns_rr = dnscodec.dns_rr
 local dns_query = dnscodec.dns_query
 local dns_message = dnscodec.dns_message
-local rdata_srv = dnscodec.rdata_srv
-local rdata_nsec = dnscodec.rdata_nsec
+local rdata_srv = dns_rdata.rdata_srv
+local rdata_nsec = dns_rdata.rdata_nsec
 
 local tests = {
    -- minimal
@@ -32,8 +34,8 @@ local tests = {
    {dns_query, {name={'z'}, qu=true}},
    {dns_query, {name={'y'}, qtype=255, qclass=42}},
    {rdata_srv, {priority=123, weight=42, port=234, target={'foo', 'bar'}}},
-   {dns_rr, {name={}, rtype=dnscodec.TYPE_A, rdata_a='1.2.3.4'}},
-   {dns_rr, {name={}, rtype=dnscodec.TYPE_AAAA, rdata_aaaa='f80:dead:beef::'}},
+   {dns_rr, {name={}, rtype=dns_const.TYPE_A, rdata_a='1.2.3.4'}},
+   {dns_rr, {name={}, rtype=dns_const.TYPE_AAAA, rdata_aaaa='f80:dead:beef::'}},
 }
 
 -- start with readably(?) encoded data, decode it, compare it to
@@ -56,8 +58,8 @@ local encoded_tests = {
      0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
      0x00,0x00,0x00,0x00,0x20},
     {ndn={'host','example','com'},
-     bits={dnscodec.TYPE_A, dnscodec.TYPE_MX,
-           dnscodec.TYPE_RRSIG, dnscodec.TYPE_NSEC,
+     bits={dns_const.TYPE_A, dns_const.TYPE_MX,
+           dns_const.TYPE_RRSIG, dns_const.TYPE_NSEC,
            1234},
     }
    },
@@ -187,12 +189,12 @@ describe("test dnscodec", function ()
                         do
                            if rr.rclass
                            then
-                              mst.a(rr.rclass == dnscodec.CLASS_IN,
+                              mst.a(rr.rclass == dns_const.CLASS_IN,
                                    'wierd class', rr)
                            end
                            if rr.qclass
                            then
-                              mst.a(rr.qclass == dnscodec.CLASS_IN,
+                              mst.a(rr.qclass == dns_const.CLASS_IN,
                                    'wierd class', rr)
                            end
                         end
@@ -206,10 +208,10 @@ describe("test dnscodec", function ()
                      -- and encode to same)
 
                      -- and the result should be same length
-                     mst.d(#s == #s2)
+                     mst.a(#s == #s2, 'decode->encode, different length', #s, #s2)
 
                      -- and same content
-                     mst.d(s == s2)
+                     mst.a(s == s2, 'decode->encode, different content')
                   end
                    end)
 end)
