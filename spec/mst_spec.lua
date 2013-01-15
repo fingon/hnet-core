@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Tue Jan 15 13:54:10 2013 mstenber
--- Edit time:     131 min
+-- Last modified: Tue Jan 15 15:42:04 2013 mstenber
+-- Edit time:     141 min
 --
 
 require "busted"
@@ -31,89 +31,122 @@ function dummy_int:__lt(o)
 end
 
 describe("ipi_skiplist", function ()
+            function test_basic(enable_width)
+               local width 
+               if not enable_width
+               then
+                  width = false
+               end
+               local sl = ipi_skiplist:new{p=2, width=width}
+               local d1 = dummy_int:new{v=5}
+               local d2 = dummy_int:new{v=42}
+               local d3 = dummy_int:new{v=1}
+               local d4 = dummy_int:new{v=54}
+               -- intentionally same!
+               local d5 = dummy_int:new{v=1}
+               sl:insert(d1)
+               sl:insert(d2)
+               sl:insert(d3)
+               sl:insert(d4)
+               -- make sure we're sane after unique values
+               sl:sanity_check()
+               -- and even after adding non-unique one
+               sl:insert(d5)
+               sl:sanity_check()
+               mst.a(sl.c == 5)
+
+               -- then, gradually remove each
+               sl:remove(d3)
+               sl:sanity_check()
+               sl:remove(d5)
+               sl:sanity_check()
+               sl:remove(d4)
+               sl:sanity_check()
+               sl:remove(d2)
+               sl:sanity_check()
+               sl:remove(d1)
+               sl:sanity_check()
+
+            end
+            it("works (width) #sl1w", function ()
+                  test_basic(true)
+                                      end)
             it("works #sl1", function ()
-                  for i=1, 2
-                  do
-                     local width 
-                     if i == 2
-                     then
-                        width = false
-                     end
-                     local sl = ipi_skiplist:new{p=2, width=width}
-                     local d1 = dummy_int:new{v=5}
-                     local d2 = dummy_int:new{v=42}
-                     local d3 = dummy_int:new{v=1}
-                     local d4 = dummy_int:new{v=54}
-                     sl:insert(d1)
-                     sl:insert(d2)
-                     sl:insert(d3)
-                     sl:insert(d4)
-                     sl:dump()
-                     sl:sanity_check()
-                  end
+                  test_basic(false)
                              end)
-            it("worksish #sl2", function ()
-                  for mode=1, 2
+            function test_random(enable_width)
+               local width 
+               local dup = 2
+               local items = 100 
+               if not enable_width
+               then
+                  width = false
+               end
+               local l = mst.array:new{}
+               for j=1, dup
+               do
+                  for i=1, items
                   do
-                     local width 
-                     if mode == 2
-                     then
-                        width = false
-                     end
-                     local l = mst.array:new{}
-                     for i=1, 100
-                     do
-                        l:insert(dummy_int:new{v=i})
-                     end
-                     -- insert the first 100 items
-                     local sl = ipi_skiplist:new{p=2, width=width}
-                     for i, o in ipairs(mst.array_randlist(l))
-                     do
-                        sl:insert(o)
-                        if i % 10 == 0
-                        then
-                           sl:sanity_check()
-                        end
-                     end
-                     mst.a(#sl.next > 1)
-                     mst.a(sl[sl.next[1]].v == 1)
-                     mst.a(sl:get_first().v == 1)
-                     sl:sanity_check()
-
-                     if mode == 1
-                     then
-                        -- make sure random access works
-                        for i=1, 100
-                        do
-                           local o, err = sl:find_at_index(i)
-                           mst.a(o, 'find failed while it should not', i, err)
-                           mst.a(o.v == i, 'find bugging', i, o)
-                           local j = sl:find_index_of(o)
-                           mst.a(i == j)
-                        end
-                        mst.a(not(sl:find_at_index(0)))
-                        mst.a(not(sl:find_at_index(101)))
-                     end
-
-
-                     -- ok, next step is to remove the items, again
-                     -- in random order
-                     for i, o in ipairs(mst.array_randlist(l))
-                     do
-                        sl:remove(o)
-                        if i % 10 == 0
-                        then
-                           sl:sanity_check()
-                        end
-                     end
-                     mst.a(sl.c == 0, 'structure not empty', sl)
-                     for i=1,#sl.next
-                     do
-                        mst.a(not sl[sl:get_next_key(i)],
-                              'something left on level', i)
-                     end
+                     l:insert(dummy_int:new{v=i})
+                  end
+               end
+               -- insert the first 100 items
+               local sl = ipi_skiplist:new{p=2, width=width}
+               for i, o in ipairs(mst.array_randlist(l))
+               do
+                  sl:insert(o)
+                  if i % 10 == 0
+                  then
                      sl:sanity_check()
                   end
+               end
+               mst.a(#sl.next > 1)
+               mst.a(sl[sl.next[1]].v == 1)
+               mst.a(sl:get_first().v == 1)
+               sl:dump()
+               sl:sanity_check()
+
+               if enable_width
+               then
+                  -- make sure random access works
+                  for i=1, items * dup
+                  do
+                     local o, err = sl:find_at_index(i)
+                     mst.a(o, 'find failed while it should not', i, err)
+                     mst.a(o.v == math.floor((i+1)/2), 
+                           'find bugging', i, o)
+                     local j = sl:find_index_of(o)
+                     mst.a(i == j, 'different position than expected', i, j, o)
+                  end
+                  mst.a(not(sl:find_at_index(0)))
+                  mst.a(not(sl:find_at_index(items * dup + 1)))
+               end
+
+
+               -- ok, next step is to remove the items, again
+               -- in random order
+               for i, o in ipairs(mst.array_randlist(l))
+               do
+                  sl:remove(o)
+                  if i % 10 == 0
+                  then
+                     sl:sanity_check()
+                  end
+               end
+               mst.a(sl.c == 0, 'structure not empty', sl)
+               for i=1,#sl.next
+               do
+                  mst.a(not sl[sl:get_next_key(i)],
+                        'something left on level', i)
+               end
+               sl:sanity_check()
+            end
+            it("worksish (width) #sl2w", function ()
+                  test_random(true)
+                                         end)
+
+            it("worksish #sl2", function ()
+                  test_random(false)
                                 end)
                          end)
 
