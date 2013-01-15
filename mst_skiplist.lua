@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 21:35:07 2013 mstenber
--- Last modified: Mon Jan 14 23:29:12 2013 mstenber
--- Edit time:     83 min
+-- Last modified: Tue Jan 15 10:57:49 2013 mstenber
+-- Edit time:     116 min
 --
 
 local mst = require 'mst'
@@ -19,7 +19,8 @@ module(...)
 -- in-place (within the objects) indexed skiplist
 -- memory usage: 
 
--- - fixed + ~40 bytes * 1 / (1 - p) within each object
+-- - fixed + ~40 bytes * 1 / (1 - p) within each object (and twice
+-- - that if width calculation is enabled for indexing)
 
 -- basic idea: the skiplist object itself contains only keys for
 -- the different depth field names within two dedicated tables
@@ -27,6 +28,13 @@ module(...)
 
 -- parameters:
 -- p = probability of being on next level (1 in p) => 2 = 50%
+
+-- TODO: consider if storing the level of entry is worth it in the
+-- skiplist item. It costs 40 bytes per item, which is nontrivial
+-- amount, but with that, remove operation (at least) would be much
+-- more efficient. Perhaps not worth it, as we optimize for fast
+-- check-first, and fast default indexing, neither of which this would
+-- affect.
 ipi_skiplist = mst.create_class{class='ipi_skiplist', 
                                 mandatory={'p'}}
 
@@ -66,42 +74,39 @@ function ipi_skiplist:ensure_levels(i)
    end
 end
 
--- traverse from object p until the point where p[k] > o or is not set
-local function traverse_p(p, k, o)
+-- traverse from object p while the next object is also less than o
+local function traverse_p_lt(p, k, o)
    local n = p[k]
-   if not n or n > o
+   if not n or n >= o
    then
       return p
    end
-   return traverse_p(n, k, o)
+   return traverse_p_lt(n, k, o)
 end
 
 function ipi_skiplist:insert_up_to_level(o, l)
    -- we use the list object itself as 'head' object
    local p = self
-   local sl = #self.next
    local width_enabled = self.width
+
+   self:ensure_levels(l)
    mst.a(l >= 1, 'invalid random level', l)
-   if l > sl
-   then
-      sl = l
-   end
-   for i=sl,l+1,-1
+   for i=#self.next,l+1,-1
    do
       local nk = self:get_next_key(i)
-      p = traverse_p(p, nk, o)
+      p = traverse_p_lt(p, nk, o)
       if width_enabled
       then
          -- next one is beyond us -> increment width
          local wk = self:get_width_key(i)
-         p[wk] = (p[wk] or 1) + 1
+         p[wk] = p[wk] + 1
       end
    end
    -- have to add to these lists
    for i=l,1,-1
    do
       local nk = self:get_next_key(i)
-      p = traverse_p(p, nk, o)
+      p = traverse_p_lt(p, nk, o)
       o[nk] = p[nk]
       p[nk] = o
       -- and adjust widths, if i > 1
@@ -110,7 +115,7 @@ function ipi_skiplist:insert_up_to_level(o, l)
          self:d('weight update level', i, o)
          local wk = self:get_width_key(i)
          -- have to determine the # of items in [p, o[ and [o, old[
-         local pie = (p[wk] or 1) + 1
+         local pie = p[wk] + 1
          local ofs = self:calculate_distance(self, p, #self.next)
          local ton = self:calculate_distance(p, o, i-1)
 
@@ -176,6 +181,7 @@ function ipi_skiplist:randint(a, b)
    self:a(r >= a and r <= b)
    return r
 end
+
 function ipi_skiplist:get_random_level()
    -- figure the maximum level hit we can have
    local i = self:randint(0, self.maxrandom)
@@ -190,20 +196,106 @@ function ipi_skiplist:get_random_level()
    return l
 end
 
+-- find item at specific index, nil if not found
+function ipi_skiplist:find_at_index(idx)
+   if idx <= 0
+   then
+      return nil, 'indexing starts at 1'
+   end
+   if idx > self.c
+   then
+      return nil, 'index out of bounds ' .. idx
+   end
+   if idx == 1
+   then
+      -- special case 
+      nk = self:get_next_key(1)
+      return self[nk]
+   end
+   local p = self
+   local nk
+   for i=#self.next,1,-1
+   do
+      nk = self:get_next_key(i)
+      local wk = i > 1 and self:get_width_key(i)
+      while p[nk] and idx >= (i > 1 and p[wk] or 1)
+      do
+         local w = (i > 1 and p[wk] or 1)
+         p = p[nk]
+         if idx == w
+         then
+            return p
+         else
+            idx = idx - w
+         end
+      end
+   end
+   return nil, 'not found?!?'
+end
+
+function ipi_skiplist:find_index_of(o)
+   local p = self
+   local nk
+   local idx = 0
+
+   for i=#self.next,1,-1
+   do
+      nk = self:get_next_key(i)
+      local wk = i > 1 and self:get_width_key(i)
+      while p[nk] and p[nk] <= o
+      do
+         local w = (i > 1 and p[wk] or 1)
+         idx = idx + w
+         p = p[nk]
+      end
+   end
+   return idx
+end
+
 function ipi_skiplist:insert(o)
    local l = self:get_random_level()
    self.c = self.c + 1
    self:insert_up_to_level(o, l)
 end
 
+function ipi_skiplist:remove(o)
+   local p = self
+   local nk
+   local wk
+   local width_enabled = self.width
+   for i=#self.next,1,-1
+   do
+      nk = self:get_next_key(i)
+      p = traverse_p_lt(p, nk, o)
+      -- rewrite the next links as we go
+      if p[nk] == o
+      then
+         p[nk] = o[nk]
+         if i > 1 and width_enabled
+         then
+            wk = self:get_width_key(i)
+            -- copy over width as well
+            p[wk] = p[wk] + o[wk] - 1
+         end
+      else
+         self:a(i > 1, 'not found on level 1?!?')
+         if i>1 and width_enabled
+         then
+            wk = self:get_width_key(i)
+            -- decrement width by 1
+            p[wk] = p[wk] - 1
+         end
+      end
+   end
+   self.c = self.c - 1
+end
+
 function ipi_skiplist:get_next_key(i)
-   self:ensure_levels(i)
    self:a(i >= 1, 'no next key < 1')
    return self.next[i]
 end
 
 function ipi_skiplist:get_width_key(i)
-   self:ensure_levels(i)
    self:a(i > 1, 'no width key <= 1')
    self:a(self.width, 'width disabled yet accessed get_width_key?')
    return self.width[i]
@@ -249,7 +341,7 @@ function ipi_skiplist:sanity_check()
          o = o2
          no = no + 1
       end
-      self:a(i ~= 1 or no == self.c, 'missing items', i, no, self.c)
+      self:a(i ~= 1 or no == self.c, 'missing items i/no', i, no)
    end
    if self.width
    then
@@ -268,11 +360,11 @@ function ipi_skiplist:sanity_check()
          then
             tw = tw + 1
          else
-            tw = tw + o[wk] or 1
+            tw = tw + o[wk]
          end
          o = o2
       end
-      self:a(tw == self.c + 1, 'weight mismatch', i, tw, self.c)
+      self:a(tw == self.c + 1, 'weight mismatch i/tw', i, tw)
       end
    end
 end

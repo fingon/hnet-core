@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Mon Jan 14 23:27:13 2013 mstenber
--- Edit time:     122 min
+-- Last modified: Tue Jan 15 10:57:00 2013 mstenber
+-- Edit time:     129 min
 --
 
 require "busted"
@@ -61,20 +61,66 @@ describe("ipi_skiplist", function ()
                   end
                              end)
             it("worksish #sl2", function ()
-                  local l = mst.array:new{}
-                  for i=1, 100
+                  for mode=1, 2
                   do
-                     l:insert(dummy_int:new{v=i})
+                     local width 
+                     if mode == 2
+                     then
+                        width = false
+                     end
+                     local l = mst.array:new{}
+                     for i=1, 100
+                     do
+                        l:insert(dummy_int:new{v=i})
+                     end
+                     -- insert the first 100 items
+                     local sl = ipi_skiplist:new{p=2, width=width}
+                     for i, o in ipairs(mst.array_randlist(l))
+                     do
+                        sl:insert(o)
+                        if i % 10 == 0
+                        then
+                           sl:sanity_check()
+                        end
+                     end
+                     mst.a(#sl.next > 1)
+                     mst.a(sl[sl.next[1]].v == 1)
+                     sl:sanity_check()
+
+                     if mode == 1
+                     then
+                        -- make sure random access works
+                        for i=1, 100
+                        do
+                           local o, err = sl:find_at_index(i)
+                           mst.a(o, 'find failed while it should not', i, err)
+                           mst.a(o.v == i, 'find bugging', i, o)
+                           local j = sl:find_index_of(o)
+                           mst.a(i == j)
+                        end
+                        mst.a(not(sl:find_at_index(0)))
+                        mst.a(not(sl:find_at_index(101)))
+                     end
+
+
+                     -- ok, next step is to remove the items, again
+                     -- in random order
+                     for i, o in ipairs(mst.array_randlist(l))
+                     do
+                        sl:remove(o)
+                        if i % 10 == 0
+                        then
+                           sl:sanity_check()
+                        end
+                     end
+                     mst.a(sl.c == 0, 'structure not empty', sl)
+                     for i=1,#sl.next
+                     do
+                        mst.a(not sl[sl:get_next_key(i)],
+                              'something left on level', i)
+                     end
+                     sl:sanity_check()
                   end
-                  local sl = ipi_skiplist:new{p=2}
-                  for i, o in ipairs(mst.array_randlist(l))
-                  do
-                     sl:insert(o)
-                  end
-                  mst.a(#sl.next > 1)
-                  mst.a(sl[sl.next[1]].v == 1)
-                  sl:dump()
-                  sl:sanity_check()
                                 end)
                          end)
 
