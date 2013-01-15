@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 21:35:07 2013 mstenber
--- Last modified: Tue Jan 15 15:45:04 2013 mstenber
--- Edit time:     165 min
+-- Last modified: Tue Jan 15 15:54:20 2013 mstenber
+-- Edit time:     171 min
 --
 
 local mst = require 'mst'
@@ -19,8 +19,9 @@ module(...)
 -- in-place (within the objects) indexed skiplist
 -- memory usage: 
 
--- - fixed + 40 bytes + ~40 bytes * 1 / (1 - p) within each object
--- - (and twice that if width calculation is enabled for indexing)
+-- - fixed global objects and then 
+--   40 bytes + ~40 bytes * 1 / (1 - p) within each object
+--   (and twice that if width calculation is enabled for indexing)
 
 -- basic idea: the skiplist object itself contains only keys for
 -- the different depth field names within two dedicated tables
@@ -341,6 +342,27 @@ function ipi_skiplist:get_width_key(i)
    return self.width[i]
 end
 
+-- iterate through skiplist entries, as long as f returns non-nil
+function ipi_skiplist:iterate_while(f)
+   if self.c < 1
+   then
+      return
+   end
+   local p = self
+   local nk = self:get_next_key(1)
+   local i = 1
+   while p[nk]
+   do
+      if not f(p[nk], i)
+      then
+         return
+      end
+      i = i + 1
+      p = p[nk]
+   end
+end
+
+-- utilities
 
 function ipi_skiplist:dump()
    self:d('dumping')

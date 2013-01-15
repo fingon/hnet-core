@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Tue Jan 15 15:42:04 2013 mstenber
--- Edit time:     141 min
+-- Last modified: Tue Jan 15 15:56:47 2013 mstenber
+-- Edit time:     142 min
 --
 
 require "busted"
@@ -122,6 +122,20 @@ describe("ipi_skiplist", function ()
                   mst.a(not(sl:find_at_index(items * dup + 1)))
                end
 
+               -- check we can iterate through it using iterate_while
+               local calls = 0
+               function f()
+                  calls = calls + 1
+                  return true
+               end
+               function g()
+                  calls = calls + 1
+               end
+               sl:iterate_while(f)
+               mst.a(calls == items * dup)
+               calls = 0
+               sl:iterate_while(g)
+               mst.a(calls == 1)
 
                -- ok, next step is to remove the items, again
                -- in random order
