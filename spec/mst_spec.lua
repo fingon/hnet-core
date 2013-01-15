@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Tue Jan 15 10:57:00 2013 mstenber
--- Edit time:     129 min
+-- Last modified: Tue Jan 15 13:54:10 2013 mstenber
+-- Edit time:     131 min
 --
 
 require "busted"
@@ -28,14 +28,6 @@ end
 
 function dummy_int:__lt(o)
    return self.v < o.v
-end
-
-function dummy_int:__le(o)
-   return self.v <= o.v
-end
-
-function dummy_int:__eq(o)
-   return self.v == o.v
 end
 
 describe("ipi_skiplist", function ()
@@ -85,6 +77,7 @@ describe("ipi_skiplist", function ()
                      end
                      mst.a(#sl.next > 1)
                      mst.a(sl[sl.next[1]].v == 1)
+                     mst.a(sl:get_first().v == 1)
                      sl:sanity_check()
 
                      if mode == 1
