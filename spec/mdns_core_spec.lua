@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Mon Jan 14 13:16:11 2013 mstenber
--- Edit time:     488 min
+-- Last modified: Wed Jan 16 21:13:33 2013 mstenber
+-- Edit time:     519 min
 --
 
 -- TO DO: 
@@ -179,16 +179,17 @@ function dummynode:assert_received_eq(n)
           ' wrong # received (exp,got)', n, #self.received)
 end
 
-function dummynode:get_last_e()
-   local i = #self.received
+function dummynode:get_last_e(ofs)
+   ofs = ofs or 0
+   local i = #self.received - ofs
    self:a(i >= 1)
    local o = self.received[i]
    self:a(o, 'received[] == nil?!?')
    return o
 end
 
-function dummynode:get_last_msg()
-   local e = self:get_last_e()
+function dummynode:get_last_msg(ofs)
+   local e = self:get_last_e(ofs)
    local msg = e[2]
    self:a(msg, 'nil msg?!?', e)
    return msg
@@ -213,11 +214,32 @@ function dummynode:sanity_check_last_unicast_response(qid)
 
    self:assert_received_to(self.rid)
 
+   -- (legacy unicast)
+   -- s6.47/48 MUST have id == resp id
+   
+   -- (unicast?)
    -- s18.5 MUST q id == resp id
    qid = qid or 0
    mst.a(msg.h.id == qid, 'wrong id', qid, msg)
 
    self:sanity_check_last_response()
+end
+
+function dummynode:sanity_check_last_legacy_unicast_response(qid)
+   -- s6.49 MUST NOT set cache flush bit in unicast (legacy) responses
+   -- s10.8 cache-flush MUST NOT be set in non-5353
+   local msg = self:get_last_msg()
+   for i, rr in ipairs(msg.an or {})
+   do
+      self:a(not rr.cache_flush, 'cache flush set in legacy unicast response')
+   end
+   for i, rr in ipairs(msg.ns or {})
+   do
+      self:a(not rr.cache_flush, 'cache flush set in legacy unicast response')
+   end
+
+   self:sanity_check_last_unicast_response(qid)
+   
 end
 
 function dummynode:sanity_check_last_probe()
@@ -246,6 +268,8 @@ function dummynode:sanity_check_last_multicast_query()
 
    -- s18.8 MUST
    mst.a(msg.h.opcode == 0, 'non-zero opcode', msg)
+
+   self:sanity_check_last_query()
 end
 
 function dummynode:sanity_check_last_multicast()
@@ -278,10 +302,17 @@ function dummynode:sanity_check_last_multicast()
 end
 
 function dummynode:sanity_check_last_query()
+   local msg = self:get_last_msg()
+
    -- s18.6/7 MUST
    self:a(not msg.h.qr, 'QR must not be set in query', msg)
    -- s18.9/10 MUST
    self:a(msg.h.aa == false, 'AA must not be set in queries')
+   -- s10.9 cache-flush bit MUST NOT be set in KAS
+   for i, rr in ipairs(msg.an)
+   do
+      mst.a(not rr.cache_flush, 'cache flush set in query answers')
+   end
 end
 
 function dummynode:sanity_check_last_response()
@@ -559,9 +590,15 @@ describe("mdns", function ()
                   dsm:assert_receiveds_eq(1)
 
                   dummy:sanity_check_last_multicast_response()
+
+                  -- make sure cache flush bit is set
+                  local msg = dummy:get_last_msg()
+                  mst.a(#msg.an > 0)
+                  mst.a(msg.an[1].cache_flush)
+
                   dsm:clear_receiveds()
 
-                  local r = dsm:run_nodes_and_advance_time(DUMMY_TTL * 2)
+                  local r = dsm:run_nodes_and_advance_time(123)
                   mst.a(r, 'propagation did not terminate')
                   dsm:assert_receiveds_eq(0)
 
@@ -616,7 +653,7 @@ describe("mdns", function ()
 
                   
                   -- make sure we get final ttl=0 message eventually
-                  local r = dsm:run_nodes_and_advance_time(DUMMY_TTL * 2)
+                  local r = dsm:run_nodes_and_advance_time(123)
                   mst.a(r, 'propagation did not terminate')
                   dsm:assert_receiveds_eq(1)
                   -- make sure it looks sane
@@ -667,7 +704,7 @@ describe("mdns", function ()
 
                   -- finally, even at end of ttl, there should be no
                   -- messages
-                  local r = dsm:run_nodes_and_advance_time(DUMMY_TTL * 2)
+                  local r = dsm:run_nodes_and_advance_time(123)
                   mst.a(r, 'propagation did not terminate')
                   dsm:assert_receiveds_eq(0)
                    end)
@@ -700,9 +737,9 @@ describe("mdns", function ()
                   -- All should result in 2 results, if no KAS.
                   -- (One in an, one in ar).
                   mst.d('a) AAAA request => both')
-                  mdns:recvfrom(query_dummy_local_aaaa_qu, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(query_dummy_local_aaaa_qu, DUMMY_SRC, MDNS_PORT+1)
                   dsm:assert_receiveds_eq(1)
-                  dummy:sanity_check_last_unicast_response()
+                  dummy:sanity_check_last_legacy_unicast_response()
                   local msg = dummy:get_last_msg()
                   check_f('an', dns_const.TYPE_AAAA)
                   check_f('ar', dns_const.TYPE_A)
@@ -842,6 +879,46 @@ describe("mdns", function ()
                   dsm:assert_receiveds_eq(0)
                    end)
 
+            it("asks for queried things #refresh", function ()
+                  mdns:recvfrom(msg1_cf, DUMMY_SRC, MDNS_PORT)
+                  local q_rr1 = {name=rr1_cf.name,
+                                 qtype=DUMMY_TYPE,
+                                 qclass=dns_const.CLASS_ANY,
+                  }
+                  -- s5.8 SHOULD
+                  -- (and inverse of s5.9 MUST NOT test, sigh)
+                  mdns:query('eth1', q_rr1, true)
+                  -- just jump forward in time, and wait for a bit
+                  dsm:advance_time(DUMMY_TTL * 3 / 4)
+                  dsm:wait_receiveds_counts(8)
+                  -- look at the receiveds - they should contain two types of
+                  -- messages: generic ones (qclass=ANY), and specific ones (qclass=..)
+                  local c1 = 0
+                  local c2 = 0
+                  for i=0, 7
+                  do
+                     local m = dummy:get_last_msg(i)
+                     for i, q in ipairs(m.qd)
+                     do
+                        if q.qclass == dns_const.CLASS_ANY
+                        then
+                           c1 = c1 + 1
+                        else
+                           c2 = c2 + 1
+                        end
+                     end
+                  end
+                  mst.a(c1 > 0, 'no class_anys (=repeating)')
+                  mst.a(c2 > 0, 'no specific class questions (=refresh)')
+
+                  dsm:clear_receiveds()
+                  -- stop query
+                  mdns:stop_query('eth1', q_rr1)
+                  
+                  local r = dsm:run_nodes_and_advance_time(123)
+                  mst.a(r, 'propagation did not terminate')
+                  dsm:assert_receiveds_eq(0)
+                                                   end)
 end)
 
 describe("multi-mdns setup (mdns_ospf)", function ()
@@ -919,7 +996,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
             after_each(function ()
                           -- wait awhile
                           -- make sure state empties eventually clearly
-                          local r = dsm:run_nodes_and_advance_time(DUMMY_TTL * 2)
+                          local r = dsm:run_nodes_and_advance_time(123)
                           mst.a(r, 'propagation did not terminate')
 
                           -- ensure that state is really empty

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Wed Jan 16 19:57:22 2013 mstenber
--- Edit time:     181 min
+-- Last modified: Wed Jan 16 21:14:19 2013 mstenber
+-- Edit time:     221 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -219,30 +219,30 @@ end
 mdns_if = mst.create_class{class='mdns_if',
                            mandatory={'ifname', 'parent'}}
 
-local function own_rr_next(rr)
-   local v1 = rr.valid
-   local v2 = rr.wait_until
-   return (not v1 and v2) 
-      or (not v2 and v1) 
-      or (v1 and v2 and (v1 < v2 and v1 or v2))
-end
-
 function mdns_if:init()
    self.sendto = self.parent.sendto
    self.cache = dnsdb.ns:new{}
    self.own = dnsdb.ns:new{}
+
+   -- set of queries/responses to be handled 'soon'
+   -- (query has .query; response to message has .msg, among other things)
    self.pending = mst.set:new{}
+
+   -- 1/10 percentage points, the offset we use to 80%
+   -- when querying active records
+   self.qofs = mst.randint(0, 20)
+
+   function next_is_less(o1, o2)
+      return o1.next < o2.next
+   end
    self.cache_sl = mst_skiplist.ipi_skiplist:new{p=2,
                                                  prefix='cache_sl',
-                                                 lt=function (o1, o2)
-                                                    return o1.valid<o2.valid
-                                                 end}
+                                                 lt=next_is_less,
+                                                 }
    self.own_sl = mst_skiplist.ipi_skiplist:new{p=2,
                                                prefix='own_sl',
-                                               lt=function (o1, o2)
-                                                  return own_rr_next(o1) < 
-                                                     own_rr_next(o2)
-                                               end}
+                                               lt=next_is_less,
+                                              }
 end
 
 function mdns_if:time()
@@ -262,7 +262,7 @@ function mdns_if:run_own_states()
    local ns = self.own
    local pending
    self.own_sl:iterate_while(function (rr)
-                                if own_rr_next(rr) > now 
+                                if rr.next > now 
                                 then
                                    self:d('too late', rr)
                                    return
@@ -304,7 +304,7 @@ function mdns_if:run_expire()
 
    -- get rid of own rr's that have expired
    self.own_sl:iterate_while(function (rr)
-                                if own_rr_next(rr) > now 
+                                if rr.next > now 
                                 then
                                    return
                                 end
@@ -328,14 +328,20 @@ function mdns_if:run_expire()
    self.cache_sl:iterate_while(function (rr)
                                   -- first off, see if it's worth
                                   -- iterating anymore
-                                  if rr.valid > now
+                                  if rr.next > now
                                   then
                                      return
+                                  end
+                                  if rr.valid > now
+                                  then
+                                     self:update_cache_rr_perhaps(rr)
+                                     return true
                                   end
                                   self:d('[cache] getting rid of', rr)
                                   self.parent:expire_rr(rr)
                                   self.cache_sl:remove(rr)
                                   self.cache:remove_rr(rr)
+                                  return true
                                end)
    if pending
    then
@@ -425,7 +431,7 @@ function mdns_if:find_own_matching_queries(ql, an)
    return r:keys()
 end
 
-function mdns_if:copy_rrs_with_updated_ttl(rrl, unicast)
+function mdns_if:copy_rrs_with_updated_ttl(rrl, unicast, legacy)
    local r = {}
    local now = self:time()
    for i, rr in ipairs(rrl)
@@ -450,6 +456,10 @@ function mdns_if:copy_rrs_with_updated_ttl(rrl, unicast)
       then
          local n = mst.table_copy(rr)
          n.ttl = ttl
+         if legacy
+         then
+            n.cache_flush = false
+         end
          table.insert(r, n)
       end
    end
@@ -498,7 +508,7 @@ end
 
 function mdns_if:send_reply(an, kas, id, dst, dstport, unicast)
    -- ok, here we finally reduce duplicates, update ttl's, etc.
-   an = self:copy_rrs_with_updated_ttl(an, unicast)
+   an = self:copy_rrs_with_updated_ttl(an, unicast, dstport ~= MDNS_PORT)
    if #an == 0 then return end
 
    -- we also determine additional records
@@ -527,7 +537,10 @@ function mdns_if:send_multicast_query(qd, kas, ns)
       local oan = kas:values()
       -- pretend to be unicast - we don't want the sent timestamps
       -- disturbed by stuff that doesn't update neighbor caches
-      an = self:copy_rrs_with_updated_ttl(oan, true)
+
+      -- also pretend to be legacy - according to section 10 of the
+      -- draft, cache flush should not be set 
+      an = self:copy_rrs_with_updated_ttl(oan, true, true)
       mst.d('kas ttl update', #oan, #an)
    end
    local s = dnscodec.dns_message:encode{qd=qd, an=an, ns=ns}
@@ -549,19 +562,25 @@ function mdns_if:handle_unicast_query(msg, addr, srcport)
    self:send_reply(an, kas, msg.h.id, src, srcport, true)
 end
 
+function mdns_if:find_pending_with_query(q)
+   for e, _ in pairs(self.pending)
+   do
+      if e.query and match_q_q(e.query, q)
+      then
+         return e
+      end
+   end
+end
+
 function mdns_if:query(q, rep)
    local p = self.pending
 
    -- first off, if we have already this scheduled, forget about it
    if not rep
    then
-      for i, e in ipairs(p)
-      do
-         if e.query and match_q_q(e.query, q)
-         then
-            mst.d('duplicate query, skipping', q)
-            return
-         end
+      if self:find_pending_with_query(q)
+      then
+         return
       end
    end
 
@@ -589,14 +608,14 @@ function mdns_if:start_query(q)
 end
 
 function mdns_if:stop_query(q)
-   local p = self.pending
-   for i, e in ipairs(p)
-   do
-      if e.query and match_q_q(e.query, q)
-      then
-         p:remove(e)
-      end
+   local e = self:find_pending_with_query(q)
+   if e
+   then
+      self:d('removing query', e)
+      self.pending:remove(e)
+      return
    end
+   self:d('no query to be removed', q)
 end
 
 function mdns_if:send_delayed_multicast_queries(ql)
@@ -803,13 +822,11 @@ function mdns_if:handle_rr_cache_update(rr)
       self:d('[cache] added RR', o)
    end
 
-   self.cache_sl:remove_if_present(o)
-
    -- update ttl fields of the received (and stored/updated) rr
    self:update_rr_ttl(o, rr.ttl, FIELD_RECEIVED)
-
-   -- and then insert it to skiplist to right place
-   self.cache_sl:insert(o)
+   
+   -- remove/insert it from cached skiplist
+   self:update_next_cached(o)
 
    -- if information conflicts, don't propagate it
    -- (but instead remove everything we have)
@@ -828,6 +845,76 @@ function mdns_if:handle_rr_cache_update(rr)
    self:d('propagating onward')
    self.parent:propagate_rr(o, self.ifname)
 end
+
+local function update_sl_if_changed(sl, o, v)
+   if o.next == v
+   then
+      return
+   end
+   sl:remove_if_present(o)
+   o.next = v
+   if v
+   then
+      sl:insert(o)
+   end
+end
+
+function mdns_if:update_next_cached(o)
+   local v = o.valid
+   -- I _wish_ it was this simple. However, we need to keep track of
+   -- retries, and the real count is
+   -- 80% + self.qofs/10 % + retries * 5
+   -- (if 4 retries done, use full valid)
+   local r = o.queries or 0
+   if r < 4
+   then
+      -- have to send a query.. figure when
+      -- (or, at least, actively choose _not_ to send query)
+      local delta = (o.valid - o.time) * (800 + self.qofs + 50 * r) / 1000
+      v = o.time + delta
+   end
+   update_sl_if_changed(self.cache_sl, o, v)
+end
+
+function mdns_if:update_cache_rr_perhaps(rr)
+   -- update query # 
+   local r = rr.queries or 0
+   -- we should be called with rr.queries of 0-3; 
+   -- 4 is an error (it would happen at 100-102% of ttl)
+   self:a(r < 4, 'too many queries')
+   rr.queries = r + 1
+   self:update_next_cached(rr)
+
+   for e, _ in pairs(self.pending)
+   do
+      local q = e.query
+      if q and match_q_rr(q, rr)
+      then
+         self:d('found interested query in us', q, rr)
+         -- schedule a query for the rr (very specific one,
+         -- sigh.. would it not be more efficient just to ask for
+         -- 'all'?)
+         self:query{name=q.name,
+                    qtype=rr.rtype,
+                    qclass=rr.rclass}
+         return
+      end
+   end
+   self:d('nobody interested about', rr)
+
+end
+
+function mdns_if:update_next_own(o)
+   local v1 = o.wait_until
+   local v2 = o.valid
+   if v1 and (not v2 or v1 < v2)
+   then
+      update_sl_if_changed(self.own_sl, o, v1)
+   else
+      update_sl_if_changed(self.own_sl, o, v2)
+   end
+end
+
 
 function mdns_if:handle_rr_list_cache_update(rrlist)
    if not rrlist or not #rrlist then return end
@@ -883,9 +970,11 @@ function mdns_if:insert_own_rr(rr)
       end
       self:d('[own] added RR', o)
    end
-   self.own_sl:remove_if_present(o)
    self:update_rr_ttl(o, rr.ttl)
-   self.own_sl:insert(o)
+
+   -- remove/insert it from own skiplist
+   self:update_next_own(o)
+
    mst.a(o.valid, 'valid not set for own rr?!?')
    return o
 end
@@ -902,10 +991,8 @@ function mdns_if:set_state(rr, st, wu)
       then
          wu = now + mst.randint(w[1], w[2]) / 1000.0
       end
-      --self:a(wu > now, 'pretending to wait until past?')
-      self.own_sl:remove_if_present(rr)
       rr.wait_until = wu
-      self.own_sl:insert(rr)
+      self:update_next_own(rr)
       return
    end
    -- no wait => should run it immediately
@@ -1026,9 +1113,8 @@ function mdns_if:send_announces()
       then
          for i, rr in ipairs(an)
          do
-            self.own_sl:remove_if_present(rr)
             rr.wait_until = waitmore
-            self.own_sl:insert(rr)
+            self:update_next_own(rr)
          end
       end
       return 
@@ -1121,9 +1207,8 @@ function mdns_if:update_rr_related_nsec(rr)
    end
    nsec.rdata_nsec.bits = bits
    -- update the ttl => nsec rr will always have valid etc set
-   self.own_sl:remove_if_present(nsec)
    self:update_rr_ttl(nsec, ttl)
-   self.own_sl:insert(nsec)
+   self:update_next_own(nsec)
 end
 
 function mdns_if:send_probes()
