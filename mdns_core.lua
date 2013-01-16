@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Thu Jan 10 16:39:49 2013 mstenber
--- Edit time:     835 min
+-- Last modified: Wed Jan 16 19:56:34 2013 mstenber
+-- Edit time:     836 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -100,11 +100,13 @@ function mdns:repr_data()
 end
 
 function mdns:run()
+   self.now = self.time()
    -- expire items
    for ifname, o in pairs(self.ifname2if)
    do
       o:run()
    end
+   self.now = nil
 end
 
 function mdns:should_run()

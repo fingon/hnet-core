@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Wed Jan 16 14:35:48 2013 mstenber
--- Edit time:     175 min
+-- Last modified: Wed Jan 16 19:57:22 2013 mstenber
+-- Edit time:     181 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -17,7 +17,7 @@
 -- we have received from the network on this interface), and 'own'
 -- (what we publish to the network on this interface as authoritative)
 
--- ttna can be based on
+-- ttna, or 'next' can be based on
 
 -- ttl => expiration [cache, own]
 -- 0,x * ttl => re-request item [cache only]
@@ -228,7 +228,6 @@ local function own_rr_next(rr)
 end
 
 function mdns_if:init()
-   self.time = self.parent.time
    self.sendto = self.parent.sendto
    self.cache = dnsdb.ns:new{}
    self.own = dnsdb.ns:new{}
@@ -246,12 +245,19 @@ function mdns_if:init()
                                                end}
 end
 
+function mdns_if:time()
+   -- if parent contains already now, we use that
+   local now = self.parent.now
+   if now then return now end
+   return self.parent:time()
+end
+
 function mdns_if:repr_data()
    return self.ifname
 end
 
 function mdns_if:run_own_states()
-   local now = self.time()
+   local now = self:time()
    mst.a(type(now) == 'number', now)
    local ns = self.own
    local pending
@@ -294,7 +300,7 @@ end
 
 function mdns_if:run_expire()
    local pending
-   local now = self.time()
+   local now = self:time()
 
    -- get rid of own rr's that have expired
    self.own_sl:iterate_while(function (rr)
@@ -345,7 +351,7 @@ end
 function mdns_if:run_send_pending()
    local pending
    local q = self.pending
-   local now = self.time()
+   local now = self:time()
 
    for e, _ in pairs(q)
    do
@@ -378,7 +384,7 @@ end
 function mdns_if:split_qd_to_qu_nqu(msg)
    local qu = {}
    local nqu = {}
-   local now = self.time()
+   local now = self:time()
    local ns = self.own
    function is_qu(q)
       if not q.qu
@@ -421,7 +427,7 @@ end
 
 function mdns_if:copy_rrs_with_updated_ttl(rrl, unicast)
    local r = {}
-   local now = self.time()
+   local now = self:time()
    for i, rr in ipairs(rrl)
    do
       self:a(rr.valid)
@@ -571,7 +577,7 @@ function mdns_if:query(q, rep)
          rep = rep * 2
       end
    end
-   local now = self.time()
+   local now = self:time()
    local when = now + delay
    local latest = when + 0.5
    mst.d(now, 'adding query', when, latest, q, rep)
@@ -599,7 +605,7 @@ function mdns_if:send_delayed_multicast_queries(ql)
    local ns = self.own
    local nsc = self.cache
    local kas = dnsdb.ns:new{}
-   local now = self.time()
+   local now = self:time()
 
    mst.d('send_delayed_multicast_queries', #ql)
    -- note: we _shouldn't_ have duplicate queries, and even if
@@ -718,7 +724,7 @@ function mdns_if:handle_multicast_query(msg, addr)
 
    -- we can safely delay non-probe answers always
    -- (although it would be nice to be more defensive)
-   local now = self.time()
+   local now = self:time()
    local when = now + delay
    local latest = when + 0.5
    self:d('queueing reply', now, when)
@@ -735,7 +741,7 @@ function mdns_if:update_rr_ttl(o, ttl, update_field)
    then
       ttl = 1
    end
-   o.time = self.time()
+   o.time = self:time()
    o.valid = o.time + o.ttl
    o.valid_kas = o.time + o.ttl / 2
    if update_field
@@ -890,7 +896,7 @@ function mdns_if:set_state(rr, st, wu)
    rr.state = st
    if w
    then
-      local now = self.time()
+      local now = self:time()
       mst.a(type(now) == 'number', 'wierd time', now)
       if not wu
       then
@@ -994,7 +1000,7 @@ function mdns_if:send_announces()
    -- and their wait_until is not set, for that interface..
    local ns = self.own
    local an 
-   local now = self.time()
+   local now = self:time()
 
    -- the draft isn't very strict about how long we can delay until we
    -- announce; so what we do, is wait until _all_ messages in
@@ -1054,7 +1060,7 @@ function mdns_if:update_rr_related_nsec(rr)
    local bits = {}
    local nsec
    local least
-   local now = self.time()
+   local now = self:time()
    local ns = self.own
 
    for i, rr2 in ipairs(ns:find_rr_list_for_ll(rr.name))
