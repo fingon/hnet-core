@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 21:35:07 2013 mstenber
--- Last modified: Tue Jan 15 15:54:20 2013 mstenber
--- Edit time:     171 min
+-- Last modified: Wed Jan 16 14:34:58 2013 mstenber
+-- Edit time:     188 min
 --
 
 local mst = require 'mst'
@@ -283,6 +283,20 @@ function ipi_skiplist:insert(o)
    o[lk] = l
 end
 
+function ipi_skiplist:remove_if_present(o)
+   local lk = self.lkey
+   local l = o[lk]
+   if not l then return end
+   self:remove(o)
+end
+
+function ipi_skiplist:insert_if_not_present(o)
+   local lk = self.lkey
+   local l = o[lk]
+   if l then return end
+   self:insert(o)
+end
+
 function ipi_skiplist:remove(o)
    local p = self
    local nk
@@ -291,8 +305,8 @@ function ipi_skiplist:remove(o)
    local lt = self.lt
    local lk = self.lkey
    local l = o[lk]
-   self:a(l, 'unable to remove - already removed?', o)
-   o[lk] = nil
+
+   self:a(l, 'already removed?', o)
    for i=#self.next,l+1,-1
    do
       nk = self:get_next_key(i)
@@ -319,16 +333,44 @@ function ipi_skiplist:remove(o)
       -- rewrite the next links as we go
       self:a(p[nk] == o, 'not found where it should be', i, o)
       p[nk] = o[nk]
-      o[nk] = nil
       if i > 1 and width_enabled
       then
          wk = self:get_width_key(i)
          -- copy over width as well
          p[wk] = p[wk] + o[wk] - 1
-         o[wk] = nil
       end
    end
    self.c = self.c - 1
+   self:clear_object_fields(o)
+end
+
+-- remove list membership information, if any
+-- (this should be used only if you really know what you're
+-- doing, e.g. when doing table.copy and wanting to clean up the new object)
+function ipi_skiplist:clear_object_fields(o)
+   local lk = self.lkey
+   local l = o[lk]
+
+   if not l
+   then
+      return
+   end
+   -- if it's of different list of same type, it's still ok
+   -- => create fields here
+   --mst.a(l <= #self.next, 'fields from wrong list?', o)
+   self:ensure_levels(l)
+   o[lk] = nil
+   for i=1,l
+   do
+      local nk = self:get_next_key(i)
+      self:a(nk, 'weird i', i, l)
+      o[nk] = nil
+      if i > 0 and width_enabled
+      then
+         local wk = self:get_width_key(i)
+         o[wk] = nil
+      end
+   end
 end
 
 function ipi_skiplist:get_next_key(i)
@@ -342,23 +384,31 @@ function ipi_skiplist:get_width_key(i)
    return self.width[i]
 end
 
--- iterate through skiplist entries, as long as f returns non-nil
+-- iterate through skiplist entries, as long as f returns non-nil (it
+-- is safe to remove current items, but _not_ 'any' items)
 function ipi_skiplist:iterate_while(f)
    if self.c < 1
    then
       return
    end
-   local p = self
    local nk = self:get_next_key(1)
+   local n = self[nk]
    local i = 1
-   while p[nk]
+   local lk = self.lkey
+
+   while n
    do
-      if not f(p[nk], i)
+      -- ensure nobody has changed the list under us
+      -- (removing current is ok, but removing subsequent ones
+      -- isn't)
+      self:a(n[lk], 'somehow entry disappeared off list', n)
+      local n2 = n[nk]
+      if not f(n, i)
       then
          return
       end
       i = i + 1
-      p = p[nk]
+      n = n2
    end
 end
 

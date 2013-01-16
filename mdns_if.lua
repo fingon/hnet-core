@@ -8,14 +8,34 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu Jan 10 16:52:52 2013 mstenber
--- Edit time:     62 min
+-- Last modified: Wed Jan 16 14:35:48 2013 mstenber
+-- Edit time:     175 min
 --
+
+-- For efficient storage, we have skiplist ordered on the 'time to
+-- next action' of the items. The rr's are stored within 'cache' (what
+-- we have received from the network on this interface), and 'own'
+-- (what we publish to the network on this interface as authoritative)
+
+-- ttna can be based on
+
+-- ttl => expiration [cache, own]
+-- 0,x * ttl => re-request item [cache only]
+-- active state of the rr [own only]
+
+-- what causes ttna to be updated:
+-- - refresh of ttl [cache, own]
+-- - adding/removing of active query that matches the rr [cache only]
+-- - state change of the rr [own only]
+
+-- The key here is to avoid (costly) iteration of the whole database,
+-- if it's not really needed. 
 
 require 'mst'
 require 'dnscodec'
 require 'dnsdb'
 require 'mdns_const'
+require 'mst_skiplist'
 
 module(..., package.seeall)
 
@@ -41,7 +61,7 @@ STATE_D1='d1'
 STATE_D2='d0'
 
 -- when do we call the 'run' method for a state after we have entered the state?
-STATE_DELAYS={[STATE_P1]={0, 250},
+STATE_DELAYS={[STATE_P1]={1, 250},
               [STATE_P2]={250, 250},
               [STATE_P3]={250, 250},
               [STATE_PW]={250, 250},
@@ -199,12 +219,31 @@ end
 mdns_if = mst.create_class{class='mdns_if',
                            mandatory={'ifname', 'parent'}}
 
+local function own_rr_next(rr)
+   local v1 = rr.valid
+   local v2 = rr.wait_until
+   return (not v1 and v2) 
+      or (not v2 and v1) 
+      or (v1 and v2 and (v1 < v2 and v1 or v2))
+end
+
 function mdns_if:init()
    self.time = self.parent.time
    self.sendto = self.parent.sendto
    self.cache = dnsdb.ns:new{}
    self.own = dnsdb.ns:new{}
    self.pending = mst.set:new{}
+   self.cache_sl = mst_skiplist.ipi_skiplist:new{p=2,
+                                                 prefix='cache_sl',
+                                                 lt=function (o1, o2)
+                                                    return o1.valid<o2.valid
+                                                 end}
+   self.own_sl = mst_skiplist.ipi_skiplist:new{p=2,
+                                               prefix='own_sl',
+                                               lt=function (o1, o2)
+                                                  return own_rr_next(o1) < 
+                                                     own_rr_next(o2)
+                                               end}
 end
 
 function mdns_if:repr_data()
@@ -213,34 +252,43 @@ end
 
 function mdns_if:run_own_states()
    local now = self.time()
-   local c = 0
    mst.a(type(now) == 'number', now)
    local ns = self.own
    local pending
-   ns:foreach(function (rr)
-                 if rr.state
-                 then
-                    if rr.wait_until and rr.wait_until <= now then rr.wait_until = nil end
-
-                    if not rr.wait_until
-                    then
-                       pending = pending or {}
-                       pending[rr] = rr.state
-                    end
-                 end
-              end)
+   self.own_sl:iterate_while(function (rr)
+                                if own_rr_next(rr) > now 
+                                then
+                                   self:d('too late', rr)
+                                   return
+                                end
+                                if rr.state 
+                                   and rr.wait_until and rr.wait_until <= now
+                                then
+                                   self:d('picking to run', rr)
+                                   -- stateful waiting is handled here
+                                   -- (expire handles non-stateful)
+                                   self.own_sl:remove(rr)
+                                   rr.wait_until = nil
+                                   pending = pending or mst.map:new{}
+                                   pending[rr] = rr.state
+                                end
+                                return true
+                             end)
    if pending
    then
+      mst.d('running pending states', pending:count())
       for rr, state in pairs(pending)
       do
          if rr.state == state
          then
             self:run_state(rr)
-            c = c + 1
+            -- make sure no matter what, rr's stay in own_sl
+            -- (if it's relevant)
+            self.own_sl:insert_if_not_present(rr)
          end
       end
    end
-   return c
+   return pending
 end
 
 
@@ -248,31 +296,41 @@ function mdns_if:run_expire()
    local pending
    local now = self.time()
 
-   self.own:foreach(function (rr)
-                       if rr.valid and rr.valid <= now
-                       then
-                          self:d('[own] getting rid of', rr)
-                          -- get rid of the entry
-                          if not rr.cache_flush
-                          then
-                             pending = pending or {}
-                             table.insert(pending, rr)
-                             rr.ttl = 0
-                          end
-                          self.own:remove_rr(rr)
-                       end
-                    end)
+   -- get rid of own rr's that have expired
+   self.own_sl:iterate_while(function (rr)
+                                if own_rr_next(rr) > now 
+                                then
+                                   return
+                                end
+                                if rr.valid and rr.valid <= now
+                                then
+                                   self:d('[own] getting rid of', rr)
+                                   -- get rid of the entry
+                                   if not rr.cache_flush
+                                   then
+                                      pending = pending or {}
+                                      table.insert(pending, rr)
+                                      rr.ttl = 0
+                                   end
+                                   self.own:remove_rr(rr)
+                                   self.own_sl:remove(rr)
+                                end
+                                return true
+                            end)
 
    -- get rid of rr's that have expired
-   self.cache:foreach(function (rr)
-                         if rr.valid <= now
-                         then
-                            self:d('[cache] getting rid of', rr)
-                            self.parent:expire_rr(rr)
-                            self.cache:remove_rr(rr)
-                         end
-                      end)
-
+   self.cache_sl:iterate_while(function (rr)
+                                  -- first off, see if it's worth
+                                  -- iterating anymore
+                                  if rr.valid > now
+                                  then
+                                     return
+                                  end
+                                  self:d('[cache] getting rid of', rr)
+                                  self.parent:expire_rr(rr)
+                                  self.cache_sl:remove(rr)
+                                  self.cache:remove_rr(rr)
+                               end)
    if pending
    then
       self:d('sending expire ttl=0 for #pending', #pending)
@@ -308,7 +366,7 @@ end
 function mdns_if:run()
    -- iteratively run through the object states until all are waiting
    -- for some future timestamp
-   while self:run_own_states() > 0 do end
+   while self:run_own_states() do end
    
    -- expire old records
    self:run_expire()
@@ -729,6 +787,7 @@ function mdns_if:handle_rr_cache_update(rr)
       -- (= different from the 'rr' - 'rr' itself is ok)
       self.parent:stop_propagate_conflicting_rr(rr, self.ifname)
    end
+
    -- insert_rr if we don't have valid o yet
    if not o 
    then 
@@ -738,8 +797,13 @@ function mdns_if:handle_rr_cache_update(rr)
       self:d('[cache] added RR', o)
    end
 
+   self.cache_sl:remove_if_present(o)
+
    -- update ttl fields of the received (and stored/updated) rr
    self:update_rr_ttl(o, rr.ttl, FIELD_RECEIVED)
+
+   -- and then insert it to skiplist to right place
+   self.cache_sl:insert(o)
 
    -- if information conflicts, don't propagate it
    -- (but instead remove everything we have)
@@ -801,6 +865,9 @@ function mdns_if:insert_own_rr(rr)
    local o, is_new = ns:insert_rr(rr, true)
    if is_new
    then
+      -- clear out the membership information (could have been in cache)
+      self.cache_sl:clear_object_fields(o)
+
       if o.cache_flush
       then
          self:set_state(o, STATE_P1, self.p1_wu)
@@ -810,7 +877,9 @@ function mdns_if:insert_own_rr(rr)
       end
       self:d('[own] added RR', o)
    end
+   self.own_sl:remove_if_present(o)
    self:update_rr_ttl(o, rr.ttl)
+   self.own_sl:insert(o)
    mst.a(o.valid, 'valid not set for own rr?!?')
    return o
 end
@@ -827,7 +896,10 @@ function mdns_if:set_state(rr, st, wu)
       then
          wu = now + mst.randint(w[1], w[2]) / 1000.0
       end
+      --self:a(wu > now, 'pretending to wait until past?')
+      self.own_sl:remove_if_present(rr)
       rr.wait_until = wu
+      self.own_sl:insert(rr)
       return
    end
    -- no wait => should run it immediately
@@ -890,19 +962,19 @@ function mdns_if:next_time()
          bestsrc = src
       end
    end
-   function update_cache(rr)
-      maybe(rr.valid, 'cache expiration')
-   end
+   self:d('looking for next_time', self.cache_sl, self.own_sl, #self.pending)
    -- cache entries' expiration
-   self.cache:foreach(update_cache)
-   function update_own(rr)
-      if rr.state
-      then
-         maybe(rr.wait_until, 'own expiration')
-      end
-      maybe(rr.valid, 'own valid')
+   local o = self.cache_sl:get_first()
+   if o
+   then
+      maybe(o.valid, 'cache valid')
    end
-   self.own:foreach(update_own)
+   local o = self.own_sl:get_first()
+   if o
+   then
+      maybe(o.valid, 'own valid')
+      maybe(o.wait_until, 'own wait_until')
+   end
    local q = self.pending
    for e, _ in pairs(q)
    do
@@ -948,7 +1020,9 @@ function mdns_if:send_announces()
       then
          for i, rr in ipairs(an)
          do
+            self.own_sl:remove_if_present(rr)
             rr.wait_until = waitmore
+            self.own_sl:insert(rr)
          end
       end
       return 
@@ -1041,7 +1115,9 @@ function mdns_if:update_rr_related_nsec(rr)
    end
    nsec.rdata_nsec.bits = bits
    -- update the ttl => nsec rr will always have valid etc set
+   self.own_sl:remove_if_present(nsec)
    self:update_rr_ttl(nsec, ttl)
+   self.own_sl:insert(nsec)
 end
 
 function mdns_if:send_probes()
@@ -1074,6 +1150,8 @@ function mdns_if:send_probes()
    -- XXX ( handle fragmentation )
    if qd
    then
+      mst.d('sending probes', #qd)
+
       -- clear the 'next send probe' time
       self.p1_wu = nil
       self:send_multicast_query(qd, nil, ons)
@@ -1088,6 +1166,7 @@ function mdns_if:stop_propagate_rr_sub(rr, similar, equal)
                           function (rr2)
                              self:d('removing own', similar, equal, rr)
                              ns:remove_rr(rr2)
+                             self.own_sl:remove_if_present(rr2)
                           end, similar, equal)
 end
 

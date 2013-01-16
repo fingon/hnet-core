@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Mon Jan 14 13:57:54 2013 mstenber
--- Edit time:     153 min
+-- Last modified: Wed Jan 16 11:41:59 2013 mstenber
+-- Edit time:     154 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -26,6 +26,7 @@
 
 require 'mst'
 require 'dns_const'
+require 'dns_rdata'
 
 module(..., package.seeall)
 
