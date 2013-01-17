@@ -232,10 +232,13 @@ whole query?
 
 .. not that testable
 
--[19,20] A Multicast DNS Querier MUST only accept unicast responses if they
+![19,20] A Multicast DNS Querier MUST only accept unicast responses if they
    answer a recently-sent query (e.g. sent within the last two seconds)
    that explicitly requested unicast responses. A Multicast DNS Querier
    MUST silently ignore all other unicast responses.
+
+.. partially covered; we drop legacy unicast responses (in general), but
+recvfrom API doesn't have way of seeing where the message was aimed at
 
 +[21] To protect the network against excessive packet flooding due to
    software bugs or malicious attack, a Multicast DNS Responder MUST NOT

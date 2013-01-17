@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Wed Jan 16 19:56:34 2013 mstenber
--- Edit time:     836 min
+-- Last modified: Thu Jan 17 10:45:17 2013 mstenber
+-- Edit time:     843 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -79,19 +79,19 @@ function mdns:get_if(ifname)
    return o
 end
 
-function mdns:iterate_ifs_rr(key, rr, f, similar, equal)
+function mdns:iterate_ifs_ns(key, f)
    for ifname, o in pairs(self.ifname2if)
    do
-      if rr
-      then
-         -- no kas
-         mdns_if.iterate_ns_matching_query(o[key], rr, nil, f, similar, equal)
-      else
-         for i, rr in ipairs(o[key]:values())
-         do
-            f(rr)
-         end
-      end
+      local ns = o[key]
+      ns:iterate_rrs(f)
+   end
+end
+
+function mdns:iterate_ifs_ns_matching_q(key, q, f)
+   for ifname, o in pairs(self.ifname2if)
+   do
+      -- nil = no kas
+      mdns_if.iterate_ns_matching_query(o[key], q, nil, f)
    end
 end
 
@@ -155,7 +155,7 @@ end
 
 function mdns:own_count()
    local c = 0
-   self:iterate_ifs_rr('own', nil, 
+   self:iterate_ifs_ns('own', nil, 
                        function ()
                           c = c + 1
                        end)
@@ -164,7 +164,7 @@ end
 
 function mdns:cache_count()
    local c = 0
-   self:iterate_ifs_rr('cache', nil, 
+   self:iterate_ifs_ns('cache', nil, 
                        function ()
                           c = c + 1
                        end)
@@ -193,7 +193,7 @@ function mdns:insert_if_own_rr(ifname, rr)
    ifo:insert_own_rr(rr)
 end
 
-function mdns:rr_has_conflicts(rr)
+function mdns:if_rr_has_conflicts(ifname, rr)
    -- if it's non-cache-flush-entry, it's probably ok
    -- XXX - what should be the behavior be with mixed unique/shared
    -- entries for same names?
@@ -207,19 +207,26 @@ function mdns:rr_has_conflicts(rr)
    -- (regardless of whether this one is cache_flush=true)
    for toif, ifo in pairs(self.ifname2if)
    do
-      local ns = ifo.cache
-      -- XXX - should we care if if is master or not?
-      -- probably not
+      if toif ~=  ifname
+      then
+         local ns = ifo.cache
+         -- XXX - should we care if if is master or not?
+         -- probably not
 
-      -- unfortunately, we have to consider _all_ records that match
-      -- the name => not insanely efficient.. but oh well. we know
-      -- specifically what we're looking for, after all.
-      local conflict
-      mdns_if.iterate_ns_rr(ns, rr, function (o)
-                               self:d('found conflict for ', rr, o)
-                               conflict = true
-                                    end, true, false)
-      if conflict then return true end
+         -- unfortunately, we have to consider _all_ records that match
+         -- the name => not insanely efficient.. but oh well. we know
+         -- specifically what we're looking for, after all.
+         local conflict
+         ns:iterate_rrs_for_ll(rr.name, 
+                               function (o)
+                                  if o.cache_flush
+                                  then
+                                     self:d('found conflict for ', rr, o)
+                                     conflict = true
+                                  end
+                               end)
+         if conflict then return true end
+      end
    end
 end
 

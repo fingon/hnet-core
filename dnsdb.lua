@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Wed Jan 16 11:41:59 2013 mstenber
--- Edit time:     154 min
+-- Last modified: Thu Jan 17 10:59:39 2013 mstenber
+-- Edit time:     169 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -19,10 +19,10 @@
 -- The data is stored in a multimap based on hash of the name;
 -- collisions are handled by the multimap lists.
 
--- What is _unique_? As this mdns-oriented, there's two cases:
-
--- cache_flush=true => name + rtype + rclass
--- cache_flush=false => name + rtypr + rclass + rdata (=~ whole rr, -ttl)
+-- What is _unique_?
+-- name + rtype + rclass + rdata (=~ whole rr, -ttl)
+-- (cache_flush is used to clear contents of cache based on name+rtype+rclass,
+-- but it should not affect storage in dnsdb itself, just how it's called)
 
 require 'mst'
 require 'dns_const'
@@ -98,26 +98,12 @@ function rr:rdata_equals(o)
 end
 
 function rr:equals(o)
-   mst.a(o.rtype and o.rclass and o.name, 'mandatory bits missing')
+   mst.a(o.rtype and o.name, 'mandatory bits missing')
    return self.rtype == o.rtype 
-      and self.rclass == o.rclass
+      and self.rclass == (o.rclass or dns_const.CLASS_IN)
       and ll_equal(self.name, o.name)
       and self:rdata_equals(o) 
       and (not self.cache_flush == not o.cache_flush)
-end
-
-function rr:contained(o)
-   -- fast check - if rtype different, no, it won't
-   if self.rtype ~= o.rtype then return false end
-
-   local rclass = o.rclass or dns_const.CLASS_IN
-   local cache_flush = o.cache_flush or false
-
-   -- consider name, rtype, rclass always
-   -- and rdata, if the cache_flsuh is not set within o
-   return self.rclass == rclass and 
-      ll_equal(self.name, o.name) and 
-      (cache_flush or self:rdata_equals(o))
 end
 
 -- namespace of RR records; it has ~fast access to RRs by name
@@ -136,6 +122,12 @@ function ns:ll_key(ll)
    local lowercase_ll = mst.array_map(ll, string.lower)
    local s = mst.repr(lowercase_ll)
    return mst.create_hash(s)
+end
+
+function ns:iterate_rrs(f)
+   self.nh2rr:foreach(function (k, v)
+                         f(v)
+                      end)
 end
 
 function ns:iterate_rrs_for_ll(ll, f)
@@ -165,26 +157,46 @@ function ns:find_rr(o)
    self:a(o.rtype, 'missing rtype', o)
    for i, rr in ipairs(self:find_rr_list_for_ll(o.name))
    do
-      if rr:contained(o)
+      if rr:equals(o)
       then
-         self:d('contain match', o, rr)
          return rr
       end
    end
 end
 
-function ns:find_exact_rr(o)
-   self:a(o.name, 'missing name', o)
-   self:a(o.rtype, 'missing rtype', o)
-   for i, rr in ipairs(self:find_rr_list_for_ll(o.name))
+-- transactionally correct multi-rr insert
+-- initially, it checks based on cache_flush whether or not
+-- the matching rrs should be zapped
+function ns:insert_rrs(l, do_copy)
+   local all = {}
+   local fresh = {}
+
+   -- first off, handle cache_flush bit
+   for i, rr in ipairs(l)
    do
-      if rr:equals(o)
+      if rr.cache_flush
       then
-         -- equals implies contains
-         mst.a(rr:contained(o))
-         return rr
+         -- get rid of anything matching it
+         -- (regardless of rdata)
+         local o = {name=rr.name, rtype=rr.rtype, rclass=rr.rclass}
+         while self:remove_rr(o) 
+         do 
+            self:d('insert_rrs removed one matching', o)
+         end
       end
    end
+
+   -- then, insert all
+   for i, rr in ipairs(l)
+   do
+      local o, is_new = self:insert_rr(rr, do_copy)
+      all[rr] = o
+      if is_new
+      then
+         fresh[rr] = o
+      end
+   end
+   return all, fresh
 end
 
 function ns:insert_rr(o, do_copy)
@@ -193,19 +205,12 @@ function ns:insert_rr(o, do_copy)
           'one of mandatory fields is missing', o)
 
    -- let's see if we have _exactly_ same rr already
-   local old_rr = self:find_exact_rr(o)
+   local old_rr = self:find_rr(o)
    if old_rr 
    then
       self:d('insert_rr reused old rr', old_rr)
       return old_rr, false
    end
-
-   -- zap anything matching (clearly old information which is out of date)
-   while self:remove_rr(o) 
-   do 
-      self:d('insert_rr removed one matching', o)
-   end
-
    if self.enable_copy or do_copy == true
    then
       o = mst.table_copy(o)
@@ -223,6 +228,7 @@ function ns:insert_raw(o)
    local ll = o.name
    local key = self:ll_key(ll)
    self.nh2rr:insert(key, o)
+   self:inserted_callback(o)
    return o, true
 end
 
@@ -232,7 +238,16 @@ function ns:remove_rr(o)
    local ll = o.name
    local key = self:ll_key(ll)
    self.nh2rr:remove(key, old_rr)
-   return true
+   self:removed_callback(old_rr)
+   return old_rr
+end
+
+function ns:inserted_callback(rr)
+   -- nop
+end
+
+function ns:removed_callback(rr)
+   -- nop
 end
 
 function ns:count()

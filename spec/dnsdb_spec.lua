@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:37:02 2012 mstenber
--- Last modified: Mon Jan 14 13:15:03 2013 mstenber
--- Edit time:     29 min
+-- Last modified: Thu Jan 17 10:20:57 2013 mstenber
+-- Edit time:     30 min
 --
 
 require "busted"
@@ -97,10 +97,10 @@ describe("ns", function ()
                   ns:insert_rr(fake2)
                   mst.a(ns:count() == 3)
 
-                  -- then, add the fakeu => should have just one entry
-                  ns:insert_rr(fakeu)
+                  ns:insert_rrs{fakeu}
                   
-                  mst.a(ns:count() == 2, ns)
+                  local cnt = ns:count() 
+                  mst.a(cnt == 2, 'count not 2', cnt, ns)
                   local s = mst.table_copy(fakeu)
                   local o = ns:find_rr(s)
                   mst.a(o and o:equals(fakeu))

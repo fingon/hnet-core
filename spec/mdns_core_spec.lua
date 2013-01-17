@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Wed Jan 16 21:13:33 2013 mstenber
--- Edit time:     519 min
+-- Last modified: Thu Jan 17 11:00:16 2013 mstenber
+-- Edit time:     528 min
 --
 
 -- TO DO: 
@@ -387,6 +387,14 @@ local rr_dummy_a_cf = {name={'dummy', 'local'},
                        ttl=DUMMY_TTL,
 }
 
+local rr_dummy_a2_cf = {name={'dummy', 'local'},
+                         rdata_a='1.2.3.5', 
+                         rtype=dns_const.TYPE_A,
+                         rclass=dns_const.CLASS_IN,
+                         cache_flush=true,
+                         ttl=DUMMY_TTL,
+}
+
 local rr_dummy_aaaa_cf = {name={'dummy', 'local'},
                           rdata_aaaa='f80:dead:beef::1234', 
                           rtype=dns_const.TYPE_AAAA,
@@ -414,6 +422,12 @@ local msg1_ttl0 = dnscodec.dns_message:encode{an={rr1_ttl0}}
 
 local msg1_cf = dnscodec.dns_message:encode{an={rr1_cf}}
 
+local msg_dummy_aaaa_cf = dnscodec.dns_message:encode{
+   an={rr_dummy_aaaa_cf},
+                                                     }
+local msg_dummy_a_a2_cf = dnscodec.dns_message:encode{
+   an={rr_dummy_a_cf, rr_dummy_a2_cf},
+                                                     }
 
 local query1 = dnscodec.dns_message:encode{
    h={
@@ -919,6 +933,23 @@ describe("mdns", function ()
                   mst.a(r, 'propagation did not terminate')
                   dsm:assert_receiveds_eq(0)
                                                    end)
+            it("(non-solicited) - accepts multicast, drops unicast", function ()
+                  -- partial s6.19-20 - legacy unicast case
+                  mdns:recvfrom(msg1_cf, DUMMY_SRC, MDNS_PORT)
+                  local c = mdns:get_if("eth1")
+                  mst.a(c.cache:count() == 1)
+                  -- something received via legacy unicast should NOT
+                  -- be in cache
+                  mdns:recvfrom(msg_dummy_aaaa_cf, DUMMY_SRC, MDNS_PORT+1)
+                  mst.a(c.cache:count() == 1)
+                   end)
+            it("handles cache flush on per rr set, not per rr basis #rrset", function ()
+                  mdns:recvfrom(msg_dummy_a_a2_cf, DUMMY_SRC, MDNS_PORT)
+                  local c = mdns:get_if("eth1")
+                  local cnt = c.cache:count()
+                  mst.a(cnt == 2, 'both records not there?', cnt)
+                   end)
+            
 end)
 
 describe("multi-mdns setup (mdns_ospf)", function ()

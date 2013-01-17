@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Wed Jan 16 21:14:19 2013 mstenber
--- Edit time:     221 min
+-- Last modified: Thu Jan 17 11:02:39 2013 mstenber
+-- Edit time:     253 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -144,7 +144,7 @@ end
 
 local function kas_matches_rr(kas, rr)
    if not kas then return end
-   local orr = kas:find_exact_rr(rr)
+   local orr = kas:find_rr(rr)
    if not orr then return end
 
    -- finally, ttl must be >= half.. but if not set, it's just general
@@ -196,21 +196,6 @@ function iterate_ns_matching_query(ns, q, kas, f)
    end
 end
 
-function iterate_ns_rr(ns, rr, f, similar, equal)
-   for i, rr2 in ipairs(ns:find_rr_list_for_ll(rr.name))
-   do
-      if rr.rtype == rr2.rtype and rr2:contained(rr)
-      then
-         local iseq = rr2:equals(rr)
-         if (similar and not iseq) or (equal and iseq)
-         then
-            f(rr2)
-         end
-      end
-   end
-end
-
-
 -- mdns for single interface; leveraged by mdns_core, and subclassable
 -- if needed
 
@@ -238,7 +223,7 @@ function mdns_if:init()
    self.cache_sl = mst_skiplist.ipi_skiplist:new{p=2,
                                                  prefix='cache_sl',
                                                  lt=next_is_less,
-                                                 }
+                                                }
    self.own_sl = mst_skiplist.ipi_skiplist:new{p=2,
                                                prefix='own_sl',
                                                lt=next_is_less,
@@ -322,7 +307,7 @@ function mdns_if:run_expire()
                                    self.own_sl:remove(rr)
                                 end
                                 return true
-                            end)
+                             end)
 
    -- get rid of rr's that have expired
    self.cache_sl:iterate_while(function (rr)
@@ -797,20 +782,16 @@ function mdns_if:handle_rr_cache_update(rr)
       -- => now we do expensive check of checking through _all_ own
       -- entries for a match, and if found, we silently ignore this
       local found
-      self.parent:iterate_ifs_rr('own', {name=rr.name,
-                                         qtype=rr.rtype,
-                                         rclass=rr.rclass},
-                                 function (rr)
-                                    found = true
-                                 end, true, true)
+      self.parent:iterate_ifs_ns_matching_q('own', {name=rr.name,
+                                                    qtype=rr.rtype,
+                                                    qclass=rr.rclass},
+                                            function (rr2)
+                                               if rr2:equals(rr)
+                                               then
+                                                  found = true
+                                               end
+                                            end)
       if found then return end
-   end
-
-   if rr.cache_flush
-   then
-      -- stop publishing potentially conflicting ones _everywhere_
-      -- (= different from the 'rr' - 'rr' itself is ok)
-      self.parent:stop_propagate_conflicting_rr(rr, self.ifname)
    end
 
    -- insert_rr if we don't have valid o yet
@@ -830,14 +811,9 @@ function mdns_if:handle_rr_cache_update(rr)
 
    -- if information conflicts, don't propagate it
    -- (but instead remove everything we have)
-   if self.parent:rr_has_conflicts(o)
+   if self.parent:if_rr_has_conflicts(self.ifname, o)
    then
-      -- if it wasn't cache_flush, get rid of the conflicting
-      -- rr's
-      if not o.cache_flush
-      then
-         self.parent:stop_propagate_conflicting_rr(o, self.ifname)
-      end
+      self.parent:stop_propagate_conflicting_rr(o, self.ifname)
       return
    end
 
@@ -918,7 +894,26 @@ end
 
 function mdns_if:handle_rr_list_cache_update(rrlist)
    if not rrlist or not #rrlist then return end
+   -- initially, get rid of the conflicting ones based on
+   -- cache_flush being set; due to this, we insert whole set's
+   -- worth of cache_flushed entries at once, later..
+   local todo = {}
+   local nsc = self.cache
    for i, rr in ipairs(rrlist)
+   do
+      if rr.cache_flush
+      then
+         -- stop publishing potentially conflicting ones _everywhere_
+         self.parent:stop_propagate_conflicting_rr(rr, self.ifname)
+      end
+      if rr.ttl == 0 and not nsc:find_rr(rr)
+      then
+         -- skip
+      else
+         table.insert(todo, rr)
+      end
+   end
+   for i, rr in ipairs(todo)
    do
       self:handle_rr_cache_update(rr)
    end
@@ -928,36 +923,53 @@ function mdns_if:handle_multicast_response(msg)
    self:d('got response')
 
    -- grab more information from an/ar - it's hopefully valid!
-   self:handle_rr_list_cache_update(msg.an)
-   self:handle_rr_list_cache_update(msg.ar)
+
+   -- have to copy lists, as we want to handle this list in one
+   -- transaction to handle rrsets correctly across an AND ar
+   local t = {}
+   mst.array_extend(t, msg.an)
+   mst.array_extend(t, msg.ar)
+   self:handle_rr_list_cache_update(t)
 end
 
-function mdns_if:insert_own_rr(rr)
+function mdns_if:insert_own_rrset(l)
    local ns = self.own
-   
-   -- we don't accept NSEC records to be forwarded
-   -- (we instead produce our own, see below)
-   if rr.rtype == dns_const.TYPE_NSEC
-   then
-      return
-   end
 
-   -- XXX - do something with the old?
-   --local old_rr = ns:find_rr(rr)
-   if rr.ttl == 0
-   then
-      -- don't do a thing if it doesn't exist
-      local o = ns:find_rr(rr)
-      if not o
+   local todo = {}
+
+   for i, rr in ipairs(l)
+   do
+      local process
+      -- we don't accept NSEC records to be forwarded
+      -- (we instead produce our own, see below)
+      if rr.rtype == dns_const.TYPE_NSEC
       then
-         return 
+         -- nop
+      elseif rr.ttl == 0
+      then
+         local o = ns:find_rr(rr)
+         if not o
+         then
+            -- don't do a thing if it doesn't exist
+         else
+            -- rr exists => play with it
+            process = true
+         end
+      else
+         -- not exception -> by default, we want to do something
+         process = true
+      end
+      if process
+      then
+         table.insert(todo, rr)
       end
    end
+
    -- force copy - typically this is invoked on bunch of interfaces or
    -- whatever, and it makes life in general much more convenient
-   local o, is_new = ns:insert_rr(rr, true)
-   if is_new
-   then
+   local all, fresh = ns:insert_rrs(todo, true)
+   for rr, o in pairs(fresh)
+   do
       -- clear out the membership information (could have been in cache)
       self.cache_sl:clear_object_fields(o)
 
@@ -970,13 +982,21 @@ function mdns_if:insert_own_rr(rr)
       end
       self:d('[own] added RR', o)
    end
-   self:update_rr_ttl(o, rr.ttl)
 
-   -- remove/insert it from own skiplist
-   self:update_next_own(o)
+   for rr, o in pairs(all)
+   do
+      self:update_rr_ttl(o, rr.ttl)
 
-   mst.a(o.valid, 'valid not set for own rr?!?')
-   return o
+      -- remove/insert it from own skiplist
+      self:update_next_own(o)
+
+      mst.a(o.valid, 'valid not set for own rr?!?')
+   end
+end
+
+
+function mdns_if:insert_own_rr(rr)
+   self:insert_own_rrset{rr}
 end
 
 function mdns_if:set_state(rr, st, wu)
@@ -1267,7 +1287,15 @@ function mdns_if:handle_recvfrom(data, addr, srcport)
    -- ok, if it comes from non-mdns port, life's simple
    if srcport ~= MDNS_PORT 
    then
-      self:handle_unicast_query(msg, addr, srcport)
+      if msg.qd and #msg.qd > 0
+      then
+         self:handle_unicast_query(msg, addr, srcport)
+         return
+      end
+      -- MUST accept unicast responses if they answer
+      -- recently-sent query => as we never query over unicast, we NEVER
+      -- accept unicast responses
+      self:d('spurious unicast response')
       return
    end
 
