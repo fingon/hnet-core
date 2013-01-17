@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Thu Jan 17 14:30:18 2013 mstenber
--- Edit time:     170 min
+-- Last modified: Thu Jan 17 17:44:33 2013 mstenber
+-- Edit time:     176 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -82,7 +82,8 @@ function rr:rdata_equals(o)
    local m = dns_rdata.rtype_map[self.rtype]
    if m and o[m.field]
    then
-      local r = m:field_equal(rr[m.field], o[m.field])
+      local f = m.field
+      local r = m:field_equal(self[f], o[f])
       mst.d(' fallback field match?', r)
       return r
    end
@@ -236,6 +237,7 @@ end
 function ns:remove_rr(o)
    local old_rr = self:find_rr(o)
    if not old_rr then return end
+   --self:d('remove_rr', old_rr)
    local ll = o.name
    local key = self:ll_key(ll)
    self.nh2rr:remove(key, old_rr)
