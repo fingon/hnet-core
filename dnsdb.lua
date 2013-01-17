@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Thu Jan 17 10:59:39 2013 mstenber
--- Edit time:     169 min
+-- Last modified: Thu Jan 17 14:30:18 2013 mstenber
+-- Edit time:     170 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -125,6 +125,7 @@ function ns:ll_key(ll)
 end
 
 function ns:iterate_rrs(f)
+   self:a(f, 'nil function')
    self.nh2rr:foreach(function (k, v)
                          f(v)
                       end)

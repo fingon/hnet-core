@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Thu Jan 17 10:45:17 2013 mstenber
--- Edit time:     843 min
+-- Last modified: Thu Jan 17 14:42:16 2013 mstenber
+-- Edit time:     845 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -80,6 +80,7 @@ function mdns:get_if(ifname)
 end
 
 function mdns:iterate_ifs_ns(key, f)
+   self:a(f, 'nil function')
    for ifname, o in pairs(self.ifname2if)
    do
       local ns = o[key]
@@ -155,7 +156,7 @@ end
 
 function mdns:own_count()
    local c = 0
-   self:iterate_ifs_ns('own', nil, 
+   self:iterate_ifs_ns('own', 
                        function ()
                           c = c + 1
                        end)
@@ -164,7 +165,7 @@ end
 
 function mdns:cache_count()
    local c = 0
-   self:iterate_ifs_ns('cache', nil, 
+   self:iterate_ifs_ns('cache',
                        function ()
                           c = c + 1
                        end)

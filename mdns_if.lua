@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu Jan 17 11:02:39 2013 mstenber
--- Edit time:     253 min
+-- Last modified: Thu Jan 17 15:04:25 2013 mstenber
+-- Edit time:     264 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -207,6 +207,7 @@ mdns_if = mst.create_class{class='mdns_if',
 function mdns_if:init()
    self.sendto = self.parent.sendto
    self.cache = dnsdb.ns:new{}
+
    self.own = dnsdb.ns:new{}
 
    -- set of queries/responses to be handled 'soon'
@@ -224,10 +225,17 @@ function mdns_if:init()
                                                  prefix='cache_sl',
                                                  lt=next_is_less,
                                                 }
+   function self.cache.removed_callback(x, rr)
+      self.cache_sl:remove_if_present(rr)
+   end
+                            
    self.own_sl = mst_skiplist.ipi_skiplist:new{p=2,
                                                prefix='own_sl',
                                                lt=next_is_less,
                                               }
+   function self.own.removed_callback(x, rr)
+      self.own_sl:remove_if_present(rr)
+   end
 end
 
 function mdns_if:time()
@@ -304,7 +312,6 @@ function mdns_if:run_expire()
                                       rr.ttl = 0
                                    end
                                    self.own:remove_rr(rr)
-                                   self.own_sl:remove(rr)
                                 end
                                 return true
                              end)
@@ -324,7 +331,6 @@ function mdns_if:run_expire()
                                   end
                                   self:d('[cache] getting rid of', rr)
                                   self.parent:expire_rr(rr)
-                                  self.cache_sl:remove(rr)
                                   self.cache:remove_rr(rr)
                                   return true
                                end)
