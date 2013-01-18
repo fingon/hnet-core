@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Fri Jan 18 11:50:28 2013 mstenber
--- Edit time:     321 min
+-- Last modified: Fri Jan 18 13:03:08 2013 mstenber
+-- Edit time:     336 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -238,8 +238,18 @@ function mdns_if:init()
                                                prefix='own_sl',
                                                lt=next_is_less,
                                               }
+   function self.own.inserted_callback(x, rr)
+      if rr.cache_flush
+      then
+         self:update_rr_related_nsec(rr)
+      end
+   end
    function self.own.removed_callback(x, rr)
       self.own_sl:remove_if_present(rr)
+      if rr.cache_flush
+      then
+         self:update_rr_related_nsec(rr)
+      end
    end
 end
 
@@ -427,8 +437,40 @@ function mdns_if:find_own_matching_queries(ql, an)
    return r:keys()
 end
 
+function mdns_if:get_own_nsec_rr_current_ttl(rr, now)
+   local least
+   local ns = self.own
+   for i, rr2 in ipairs(ns:find_rr_list_for_ll(rr.name))
+   do
+      if rr2.rtype ~= dns_const.TYPE_NSEC
+      then
+         local ttl = self:get_own_rr_current_ttl(rr2, now)
+         self:a(ttl, 'no ttl for rr', rr2)
+         if not least or least > ttl
+         then
+            least = ttl
+         end
+      end
+   end
+   -- nsec should exist only as long as other rr's do; therefore,
+   -- if it still exists, but nothing else does, things have gone ..
+   -- wrong.
+   self:a(least, 'no ttl found?!?')
+   return least
+end
+
 function mdns_if:get_own_rr_current_ttl(rr, now)
-   self:a(rr.valid)
+   if rr.rtype == dns_const.TYPE_NSEC
+   then
+      return self:get_own_nsec_rr_current_ttl(rr, now)
+   end
+   if not rr.valid
+   then
+      -- we do stuff based on the defaults for the rtype
+      local v = (dns_rdata.rtype_map[rr.rtype] or {}).default_ttl 
+         or MDNS_DEFAULT_NONAME_TTL
+      return v
+   end
    local now = now or self:time()
    local ttl = math.floor(rr.valid-now)
    return ttl
@@ -1080,12 +1122,20 @@ function mdns_if:insert_own_rrset(l)
 
    for rr, o in pairs(all)
    do
-      self:update_rr_ttl(o, rr.ttl)
+      if rr.ttl
+      then
+         self:update_rr_ttl(o, rr.ttl)
+      end
 
       -- remove/insert it from own skiplist
       self:update_next_own(o)
 
-      mst.a(o.valid, 'valid not set for own rr?!?')
+      if rr.ttl
+      then
+         mst.a(o.valid, 'valid not set for own w/ ttlrr?!?')
+      else
+         mst.a(not o.valid, 'valid set for own rr w/o ttl?!?')
+      end
    end
 end
 
@@ -1241,12 +1291,6 @@ function mdns_if:send_announces()
       do
          self:set_next_state(rr)
          rr[FIELD_SENT_MCAST] = now
-
-         if rr.cache_flush
-         then
-            -- potentially update the nsec record
-            self:update_rr_related_nsec(rr)
-         end
       end
       local h = MDNS_DEFAULT_RESPONSE_HEADER
       local s = dnscodec.dns_message:encode{an=an, h=h}
@@ -1260,7 +1304,6 @@ end
 function mdns_if:update_rr_related_nsec(rr)
    local bits = {}
    local nsec
-   local least
    local now = self:time()
    local ns = self.own
 
@@ -1271,33 +1314,25 @@ function mdns_if:update_rr_related_nsec(rr)
          nsec = rr2
       else
          table.insert(bits, rr2.rtype)
-         if not least or (rr2.valid and least > rr2.valid)
-         then
-            least = rr2.valid
-         end
       end
    end
 
-   -- first off, if we don't have really valid ttl _at all_, we give
-   -- up:
-   if not least 
+   -- if nothing else exists, we want just to get rid of nsec, if any
+   if #bits == 0
    then
+      -- remove nsec, if any, too
+      if nsec
+      then
+         ns:remove_rr(nsec)
+      end
       return 
    end
 
-   -- then, if that one's ttl would be <1, it's also valid case to give up
-   local ttl = math.floor(least - now)
-   if ttl < 1
-   then
-      return
-   end
-   
    -- 4 cases in truth
 
    -- either we don't have nsec => create
 
    -- invalid bits => update bits
-   -- invalid ttl => update ttl
    -- valid => all good => do nothing
    -- (we sort of combine the last 3 cases, as there's no harm in it)
 
@@ -1308,7 +1343,6 @@ function mdns_if:update_rr_related_nsec(rr)
       nsec = {name=rr.name, 
               rclass=dns_const.CLASS_IN,
               rtype=dns_const.TYPE_NSEC, 
-              ttl=ttl, 
               cache_flush=true,
 
               -- NSEC rdata
@@ -1319,11 +1353,11 @@ function mdns_if:update_rr_related_nsec(rr)
       }
       nsec = ns:insert_rr(nsec)
       self:d('[own] added NSEC RR', nsec)
+   else
+      nsec.rdata_nsec.bits = bits
+      -- XXX - should we proactively send updated nsec record if bits
+      -- have changed?
    end
-   nsec.rdata_nsec.bits = bits
-   -- update the ttl => nsec rr will always have valid etc set
-   self:update_rr_ttl(nsec, ttl)
-   self:update_next_own(nsec)
 end
 
 function mdns_if:send_probes()

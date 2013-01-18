@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:59:37 2013 mstenber
--- Last modified: Mon Jan 14 13:04:20 2013 mstenber
+-- Last modified: Fri Jan 18 12:48:27 2013 mstenber
 -- Edit time:     2 min
 --
 
@@ -19,4 +19,7 @@
 MDNS_MULTICAST_ADDRESS='ff02::fb'
 MDNS_PORT=5353
 MDNS_DEFAULT_RESPONSE_HEADER={qr=true, aa=true}
+MDNS_DEFAULT_NONAME_TTL=(60 * 75)
+MDNS_DEFAULT_NAME_TTL=120
+
 

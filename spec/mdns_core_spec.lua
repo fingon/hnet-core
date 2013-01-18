@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Fri Jan 18 12:12:41 2013 mstenber
--- Edit time:     566 min
+-- Last modified: Fri Jan 18 12:45:42 2013 mstenber
+-- Edit time:     573 min
 --
 
 -- TO DO: 
@@ -379,6 +379,13 @@ local rr1_ttl0 = {name={'Foo'}, rdata='Bar', rtype=DUMMY_TYPE, ttl=0}
 
 local rr2_cf = {name={'Foo'}, rdata='Baz', rtype=DUMMY_TYPE2, rclass=CLASS_IN, cache_flush=true, ttl=DUMMY_TTL}
 
+local rr_dummy_a_cf_nottl = {name={'dummy', 'local'},
+                             rdata_a='1.2.3.4', 
+                             rtype=dns_const.TYPE_A,
+                             rclass=dns_const.CLASS_IN,
+                             cache_flush=true,
+}
+
 local rr_dummy_a_cf = {name={'dummy', 'local'},
                        rdata_a='1.2.3.4', 
                        rtype=dns_const.TYPE_A,
@@ -386,6 +393,7 @@ local rr_dummy_a_cf = {name={'dummy', 'local'},
                        cache_flush=true,
                        ttl=DUMMY_TTL,
 }
+
 
 local rr_dummy_a2_cf = {name={'dummy', 'local'},
                          rdata_a='1.2.3.5', 
@@ -1035,6 +1043,29 @@ describe("mdns", function ()
 
                   local cnt = c.cache:count()
                   mst.a(cnt == 0, 'record there?', cnt)
+
+                   end)
+
+            it("keeps own no-ttl records forever #fe", function ()
+                  mdns:insert_if_own_rr('eth1', rr_dummy_a_cf_nottl)
+                  dsm:wait_receiveds_counts(5)
+                  dsm:clear_receiveds()
+                  
+                  local r = dsm:run_nodes(123)
+                  mst.a(r, 'propagation did not terminate')
+                  dsm:advance_time(12345)
+                  local r = dsm:run_nodes(123)
+                  mst.a(r, 'propagation did not terminate')
+                  dsm:assert_receiveds_eq(0)
+
+                  -- let's make sure we still get response if we ask for it
+                  mdns:recvfrom(query_dummy_local_a_qu, DUMMY_SRC, MDNS_PORT+1)
+                  dsm:assert_receiveds_eq(1)
+                  dummy:sanity_check_last_unicast_response()
+                  local msg = dummy:get_last_msg()
+                  check_f('an', dns_const.TYPE_A)
+                  check_f('ar', dns_const.TYPE_NSEC)
+                  dsm:clear_receiveds()
 
                    end)
 end)

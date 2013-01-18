@@ -8,12 +8,13 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:08:00 2013 mstenber
--- Last modified: Fri Jan 18 11:08:08 2013 mstenber
--- Edit time:     5 min
+-- Last modified: Fri Jan 18 12:52:13 2013 mstenber
+-- Edit time:     9 min
 --
 
 require 'dns_const'
 require 'dns_name'
+require 'mdns_const'
 
 module(..., package.seeall)
 
@@ -69,6 +70,7 @@ rtype_map = {[dns_const.TYPE_PTR]={
                    return true
                 end,
                 field_equal=simple_equal,
+                default_ttl=MDNS_DEFAULT_NAME_TTL,
              },
              [dns_const.TYPE_AAAA]={
                 field='rdata_aaaa',
@@ -90,6 +92,7 @@ rtype_map = {[dns_const.TYPE_PTR]={
                    return s
                 end,
                 field_equal=simple_equal,
+                default_ttl=MDNS_DEFAULT_NAME_TTL,
              },
 }
 
@@ -235,24 +238,29 @@ function rdata_nsec:do_encode(o, context)
    return table.concat(n)
 end
 
-local function add_rtype_decoder(type, cl, dname, equal)
-   rtype_map[type] = {
-      field=dname,
-      encode=function (self, o, context)
-         return cl:encode(o[self.field], context)
-      end,
-      decode=function (self, o, cur, context)
+local function add_rtype_decoder(type, cl, o)
+   rtype_map[type] = o
+   function o.encode(self, o, context)
+      return cl:encode(o[self.field], context)
+   end
+   function o.decode(self, o, cur, context)
          cur.endpos = cur.pos + o.rdlength
          local r, err = cl:decode(cur, context)
          cur.endpos = nil
          if not r then return nil, err end
          o[self.field] = r
          return true
-      end,
-      field_equal=equal,
-   }
+   end
 end
 
-add_rtype_decoder(dns_const.TYPE_SRV, rdata_srv, 'rdata_srv', repr_equal)
-add_rtype_decoder(dns_const.TYPE_NSEC, rdata_nsec, 'rdata_nsec', repr_equal)
+add_rtype_decoder(dns_const.TYPE_SRV, rdata_srv, {
+                     field='rdata_srv', 
+                     field_equal=repr_equal,
+                     default_ttl=MDNS_DEFAULT_NAME_TTL,
+                                                 })
+add_rtype_decoder(dns_const.TYPE_NSEC, rdata_nsec, {
+                     field='rdata_nsec', 
+                     field_equal=repr_equal,
+                     default_ttl=MDNS_DEFAULT_NAME_TTL,
+                                                   })
 
