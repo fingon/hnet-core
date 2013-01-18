@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Fri Jan 18 11:29:40 2013 mstenber
--- Edit time:     306 min
+-- Last modified: Fri Jan 18 11:50:28 2013 mstenber
+-- Edit time:     321 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -509,7 +509,7 @@ function mdns_if:determine_ar(an, kas)
    return ar
 end
 
-function mdns_if:send_reply(an, kas, id, dst, dstport, unicast)
+function mdns_if:send_reply(an, ar, kas, id, dst, dstport, unicast)
    -- ok, here we finally reduce duplicates, update ttl's, etc.
    local legacy = dstport ~= MDNS_PORT
 
@@ -519,8 +519,8 @@ function mdns_if:send_reply(an, kas, id, dst, dstport, unicast)
    if #an == 0 then return end
 
    -- we also determine additional records
-   local ar = self:determine_ar(an, kas)
    ar = self:copy_rrs_with_updated_ttl(ar, unicast)
+
    -- ok, we have valid things to send with >0 ttl; here we go!
    local o = {an=an, ar=ar}
    local h = {}
@@ -566,7 +566,8 @@ function mdns_if:handle_unicast_query(msg, addr, srcport)
    local kas = convert_anish_to_kas(msg.an)
    local an = self:find_own_matching_queries(msg.qd, kas)
    local src = addr .. '%' .. self.ifname
-   self:send_reply(an, kas, msg.h.id, src, srcport, true)
+   local ar = self:determine_ar(an, kas)
+   self:send_reply(an, ar, kas, msg.h.id, src, srcport, true)
 end
 
 function mdns_if:find_pending_with_query(q)
@@ -668,21 +669,38 @@ function mdns_if:send_delayed_multicast_replies(q)
    if #q == 0 then return end
    mst.d('send_delayed_multicast_replies', #q)
 
-   -- basic idea is, we populate an based on queries we have;
-   -- and then ar with stuff already not covered in one pass
-   local full_an = mst.array:new{}
-   local kas = convert_anish_to_kas{}
+   -- what we do, is go through the queries, and answer to anything
+   -- not on kas of that particular query (or answered with one of the
+   -- earlier queries). 
+   local kas 
+   local full_an = mst.set:new{}
+   local full_ar = mst.set:new{}
+
+   function _extend_set(s, l)
+      for i, v in ipairs(l)
+      do
+         s:insert(v)
+      end
+   end
+
    for i, e in ipairs(q)
    do
       local msg = e.msg
-      extend_kas_with_anish(kas, msg.an)
+      kas = convert_anish_to_kas(msg.an)
       local an = self:find_own_matching_queries(msg.qd, kas)
-      extend_kas_with_anish(kas, an)
-      full_an:extend(an)
+      _extend_set(full_an, an)
+
+      local ar = self:determine_ar(an, kas)
+      _extend_set(full_ar, ar)
    end
 
+   -- remove from ar what's in an
+   full_ar = full_ar:difference(full_an)
+
+   -- and send the reply
    local dst = MDNS_MULTICAST_ADDRESS .. '%' .. self.ifname
-   self:send_reply(full_an, kas, 0, dst, MDNS_PORT, false)
+   self:send_reply(full_an:keys(), full_ar:keys(), 
+                   nil, 0, dst, MDNS_PORT, false)
 end
 
 function mdns_if:send_delayed_multicast(p)
