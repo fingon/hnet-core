@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Fri Jan 18 10:59:30 2013 mstenber
--- Edit time:     561 min
+-- Last modified: Fri Jan 18 12:12:41 2013 mstenber
+-- Edit time:     566 min
 --
 
 -- TO DO: 
@@ -820,6 +820,7 @@ describe("mdns", function ()
                   dsm:clear_receiveds()
 
                   -- Delayed KAS case (which we do only for multicast)
+                  -- s7.3 MUST
                   dsm:advance_time(2)
                   dsm:run_nodes(123)
                   mdns:recvfrom(query_dummy_local_any_tc, DUMMY_SRC, MDNS_PORT)

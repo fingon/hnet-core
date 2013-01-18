@@ -445,7 +445,7 @@ hard to say.
    Responder MUST send an answer so as to update the Querier's cache before
    the record becomes in danger of expiration.
 
--[3] a Multicast DNS Querier SHOULD NOT include records in the Known-Answer
++[3] a Multicast DNS Querier SHOULD NOT include records in the Known-Answer
    list whose remaining TTL is less than half their original TTL.
 
 ![4] A Multicast DNS Querier MUST NOT cache resource records observed in the
@@ -462,15 +462,16 @@ hard to say.
    query packet containing no questions, and as many more Known-Answer
    records as will fit.  (Xn, and set TC, while too full)
 
--[7] If the Responder sees any of its answers listed in the Known-Answer
++[7] If the Responder sees any of its answers listed in the Known-Answer
    lists of subsequent packets from the querying host, it MUST delete that
    answer from the list of answers it is planning to give (provided that no
    other host on the network has also issued a query for that record and is
    waiting to receive an answer).
 
--[8] If the Responder receives additional Known-Answer packets with the TC
++[8] If the Responder receives additional Known-Answer packets with the TC
    bit set, it SHOULD extend the delay as necessary to ensure a pause of
    400-500ms after the last such packet before it sends its answer.
+.. no test, but logic is same for 1-N packets
 
 *** DQS
 
@@ -871,8 +872,9 @@ be zero
 
 .. on reception, hard to check, but we don't handle it at all => should be ok?
 
--[12] (TC bit set) A Responder SHOULD record this fact, and wait for those
++[12] (TC bit set) A Responder SHOULD record this fact, and wait for those
    additional Known-Answer records, before deciding whether to respond.
+.. we do this (see tc testcases)
 
 +[13] In multicast response messages, the TC bit MUST be zero on
    transmission, and MUST be ignored on reception.
