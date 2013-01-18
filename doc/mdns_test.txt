@@ -2,6 +2,8 @@
 
 * nits for the draft
 
+.. RRset is not really defined anywhere
+
 .. legacy unicast and unicast response as terms somewhat mixed.  (legacy ==
  simple querier with has just normal DNS stack. but e.g. section 18 doesn't
  have all rules for non-legacy unicast id handling, for example, as it
@@ -9,6 +11,24 @@
 
 .. s6.29 NSEC cannot be parsed -> should be handled => with full parser,
 kinda awkward to define
+
+* design issues for the draft
+
+.. should use real UDP fragmentation and just deal with it; the TC bit
+games assumes ordered delivery (or even more complex state machine than
+described in the draft), and userland implementations may not even KNOW TTL
+of links ..
+
+.. whole 'unique' concept and stuff related to it are like half of the
+draft => get rid of it => win? obviously name conflicts would have to be
+dealt with by the host stacks
+
+.. get rid of KAS, it prevents maintenance of other caches (given two
+caches are not in sync, query by one with more KAS data will potentially
+cause responses which do NOT update some old data in another cache) ..
+
+.. given lack of 'unique' things, this would perfectly fine work across
+say, site-locals (nothing with hairy timings to deal with) ..
 
 * draft-cheshire-dnsext-multicastdns-15 MUST/SHOULDs/MUST NOTs [182]
 
