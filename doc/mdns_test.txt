@@ -391,7 +391,7 @@ hard to say.
    solely by that Responder, then this is a conflict and MUST be handled as
    described in Section 9 "Conflict Resolution".
 
--[45] (when observing multicast) o If the TTL of B's resource record given
++[45] (when observing multicast) o If the TTL of B's resource record given
    in the packet is less than half the true TTL from A's point of view,
    then A MUST mark its record to be announced via multicast.
 
@@ -519,11 +519,11 @@ hard to say.
 
 .. questionably testable
 
--[10] In the case of a host probing using query type "ANY" as recommended
+![10] In the case of a host probing using query type "ANY" as recommended
    above, any answer containing a record with that name, of any type, MUST
    be considered a conflicting response and handled accordingly.
 
--[11] If fifteen conflicts occur within any ten-second period, then the host
+![11] If fifteen conflicts occur within any ten-second period, then the host
    MUST wait at least five seconds before each successive additional probe
    attempt.
 
@@ -577,11 +577,14 @@ n/a - we don't do tie breaking
 
 *** updating
 
--[20] At any time, if the rdata of any of a host's Multicast DNS records
+![20] At any time, if the rdata of any of a host's Multicast DNS records
    changes, the host MUST repeat the Announcing step described above to
    update neighboring caches.
 
--[21] For example, if any of a host's IP addresses change, it MUST
+n/a.. we don't have 'changed' records, just new ones => they go through
+normal state machine.
+
+![21] For example, if any of a host's IP addresses change, it MUST
    re-announce those address records.
 
 +[22] In the case of shared records, a host MUST send a "goodbye"
@@ -631,18 +634,20 @@ n/a? we just mirror it?
    giving the same resource record name, rrtype, rrclass and rdata, but an
    RR TTL of zero.
 
--[3] Queriers receiving a Multicast DNS Response with a TTL of zero SHOULD
++[3] Queriers receiving a Multicast DNS Response with a TTL of zero SHOULD
    NOT immediately delete the record from the cache, but instead record a
    TTL of 1 and then delete the record one second later.
 
 .. should write test
 
--[4] Whenever a host has a resource record with new data, or with what might
+![4] Whenever a host has a resource record with new data, or with what might
    potentially be new data (e.g. after rebooting, waking from sleep,
    connecting to a new network link, changing IP address, etc.), the host
    needs to inform peers of that new data. In cases where the host has not
    been continuously connected and participating on the network link, it
    MUST first Probe to re-verify uniqueness of its unique records
+
+.. we probe always with new data (and don't see network topology changes)
 
 +[5] Having completed the Probing step if necessary, the host MUST then send
    a series of unsolicited announcements to update cache entries in its
@@ -668,11 +673,13 @@ n/a? we just mirror it?
 
 *** cache flush on failure indication
 
--[11] When the cache receives this hint that it should reconfirm some
+![11] When the cache receives this hint that it should reconfirm some
    record, it MUST issue two or more queries for the resource record in
    question.
 
--[12] If no response is received within ten seconds, then, even though its
+.. we don't have API for this
+
+![12] If no response is received within ten seconds, then, even though its
    TTL may indicate that it is not yet due to expire, that record SHOULD be
    promptly flushed from the cache.
 

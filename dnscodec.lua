@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Mon Jan 14 15:40:29 2013 mstenber
--- Edit time:     269 min
+-- Last modified: Fri Jan 18 10:37:48 2013 mstenber
+-- Edit time:     270 min
 --
 
 -- Functionality for en-decoding various DNS structures;
@@ -255,7 +255,7 @@ function dns_message:try_decode(cur)
    for i, v in ipairs(self.lists)
    do
       np, cl = unpack(v)
-      local l = {}
+      local l = mst.array:new{}
       local cnt = h[np .. 'count']
       for i=1,cnt
       do

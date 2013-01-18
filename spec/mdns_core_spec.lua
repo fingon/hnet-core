@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Thu Jan 17 11:00:16 2013 mstenber
--- Edit time:     528 min
+-- Last modified: Fri Jan 18 10:59:30 2013 mstenber
+-- Edit time:     561 min
 --
 
 -- TO DO: 
@@ -413,19 +413,28 @@ local rr_foo_a_cf = {name={'foo', 'local'},
 
 
 local msg1 = dnscodec.dns_message:encode{
-   -- MUST s18.4 - ignore id in responses
-   h={id=123}, 
+   h={
+      -- MUST s18.4 - ignore id in responses
+      id=123,
+      
+      qr=true,
+   }, 
    an={rr1}}
 --mst.a(dnscodec.dns_message:decode(msg1).h.id > 0)
 
-local msg1_ttl0 = dnscodec.dns_message:encode{an={rr1_ttl0}}
+local msg1_ttl0 = dnscodec.dns_message:encode{h={qr=true},
+                                              an={rr1_ttl0}}
 
-local msg1_cf = dnscodec.dns_message:encode{an={rr1_cf}}
+local msg1_cf = dnscodec.dns_message:encode{h={qr=true},
+                                            an={rr1_cf}}
 
 local msg_dummy_aaaa_cf = dnscodec.dns_message:encode{
+   h={qr=true},
    an={rr_dummy_aaaa_cf},
                                                      }
+
 local msg_dummy_a_a2_cf = dnscodec.dns_message:encode{
+   h={qr=true},
    an={rr_dummy_a_cf, rr_dummy_a2_cf},
                                                      }
 
@@ -509,6 +518,16 @@ local query_dummy_local_a_kas_aaaa_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}},
    an={rr_dummy_aaaa_cf},
                                           }
+
+local query_dummy_local_any_tc = dnscodec.dns_message:encode{
+   h={tc=true},
+   qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_ANY}},
+                                                            }
+
+
+local query_kas_dummy_a_cf = dnscodec.dns_message:encode{
+   an={rr_dummy_a_cf},
+                                                        }
 
 local query_dummy_local_aaaa_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_AAAA, qu=true}},
@@ -665,13 +684,29 @@ describe("mdns", function ()
                   mst.a(#msg.an == 1)
                   dsm:clear_receiveds()
 
+                  -- make sure that if we receive the message, with
+                  -- smaller ttl (in this case, 0)
+                  -- s6.45 MUST
+                  mst.d('checking rttl < ttl / 2 case')
+                  dsm:advance_time(2)
+                  mdns:recvfrom(msg1_ttl0, DUMMY_SRC, MDNS_PORT)
+                  dsm:assert_receiveds_eq(0)
+                  dsm:wait_receiveds_counts(1)
+                  dummy:sanity_check_last_multicast_response()
+                  local msg = dummy:get_last_msg()
+                  mst.a(msg.an and #msg.an > 0 and msg.an[1].ttl > 0, 'invalid received', msg)
+                  dsm:clear_receiveds()
+
                   
                   -- make sure we get final ttl=0 message eventually
+                  mst.d('waiting for final ttl=0')
                   local r = dsm:run_nodes_and_advance_time(123)
                   mst.a(r, 'propagation did not terminate')
                   dsm:assert_receiveds_eq(1)
                   -- make sure it looks sane
                   dummy:sanity_check_last_multicast_response()
+                  local msg = dummy:get_last_msg()
+                  mst.a(#msg.an > 0 and msg.an[1].ttl == 0)
                         end)
 
             it("works - 2x CF #rr2", function ()
@@ -725,9 +760,10 @@ describe("mdns", function ()
 
             function check_f(f, t, cnt)
                local msg = dummy:get_last_msg()
+               local dcnt = (cnt or 1)
                if t
                then
-                  mst.a(#msg[f] == (cnt or 1))
+                  mst.a(#msg[f] == dcnt, 'not desired cnt', cnt, msg[f])
                   mst.a(msg[f][1].rtype == t)
                else
                   mst.a(#msg[f] == 0, 'something in', f, msg[f])
@@ -782,6 +818,29 @@ describe("mdns", function ()
                   check_f('an', dns_const.TYPE_A)
                   check_f('ar')
                   dsm:clear_receiveds()
+
+                  -- Delayed KAS case (which we do only for multicast)
+                  dsm:advance_time(2)
+                  dsm:run_nodes(123)
+                  mdns:recvfrom(query_dummy_local_any_tc, DUMMY_SRC, MDNS_PORT)
+                  dsm:advance_time(0.2)
+                  dsm:run_nodes(123)
+                  dsm:assert_receiveds_eq(0)
+                  -- no tc bit -> should receive answer 'soon'
+                  mdns:recvfrom(query_kas_dummy_a_cf, DUMMY_SRC, MDNS_PORT)
+                  dsm:advance_time(0.15)
+                  dsm:run_nodes(123)
+                  dsm:assert_receiveds_eq(1)
+                  dummy:sanity_check_last_multicast_response()
+                  local msg = dummy:get_last_msg()
+                  mst.a(#msg.an == 2)
+                  local vt = {[dns_const.TYPE_NSEC]=true,
+                              [dns_const.TYPE_AAAA]=true}
+                  mst.a(vt[msg.an[1].rtype], 'invalid rtype', msg.an[1])
+                  mst.a(vt[msg.an[2].rtype], 'invalid rtype', msg.an[2])
+                  check_f('ar')
+                  dsm:clear_receiveds()
+
                    end)
             it("handles multiple queries correctly #mq", function ()
                   mdns:insert_if_own_rr('eth1', rr_dummy_a_cf)
@@ -820,7 +879,12 @@ describe("mdns", function ()
                   check_f('an', dns_const.TYPE_A, 2)
                   check_f('ar', dns_const.TYPE_NSEC, 2)
                   dsm:clear_receiveds()
-                  
+
+                  -- advance few seconds, make sure we have nothing else coming
+                  dsm:advance_time(2)
+                  dsm:run_nodes(123)
+                  dsm:assert_receiveds_eq(0)
+
                    end)
 
             it("handles non-repeating query ok #nrq", function ()
@@ -950,6 +1014,28 @@ describe("mdns", function ()
                   mst.a(cnt == 2, 'both records not there?', cnt)
                    end)
             
+            it("won't immediately destroy ttl0 stuff", function ()
+                  -- s9.3 SHOULD
+
+                  mdns:recvfrom(msg1, DUMMY_SRC, MDNS_PORT)
+
+                  local c = mdns:get_if("eth1")
+                  local cnt = c.cache:count()
+                  mst.a(cnt == 1, 'record not there?', cnt)
+                  
+                  mdns:recvfrom(msg1_ttl0, DUMMY_SRC, MDNS_PORT)
+                  local cnt = c.cache:count()
+                  mst.a(cnt == 1, 'record not there?', cnt)
+
+                  -- but in two seconds, it should be gone
+                  dsm:advance_time(2)
+                  local r = dsm:run_nodes(123)
+                  mst.a(r, 'propagation did not terminate')
+
+                  local cnt = c.cache:count()
+                  mst.a(cnt == 0, 'record there?', cnt)
+
+                   end)
 end)
 
 describe("multi-mdns setup (mdns_ospf)", function ()

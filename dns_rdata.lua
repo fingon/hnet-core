@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:08:00 2013 mstenber
--- Last modified: Mon Jan 14 15:09:24 2013 mstenber
--- Edit time:     4 min
+-- Last modified: Fri Jan 18 11:08:08 2013 mstenber
+-- Edit time:     5 min
 --
 
 require 'dns_const'
@@ -25,13 +25,13 @@ local try_decode_name_rec = dns_name.try_decode_name_rec
 
 local function simple_equal(self, v1, v2)
    local r = (not v1 or not v2) or v1 == v2
-   mst.d('simple_equal', v1, v2, r)
+   --mst.d('simple_equal', v1, v2, r)
    return r
 end
 
 local function repr_equal(self, v1, v2)
    local r = (not v1 or not v2) or mst.repr_equal(v1, v2)
-   mst.d('repr_equal', v1, v2, r)
+   --mst.d('repr_equal', v1, v2, r)
    return r
 end
 
@@ -187,14 +187,14 @@ function iterate_modulo_ranges(bits, modulo, f, st, en)
       local j = i
       local v = bits[i]
       local mr = math.floor(v / modulo)
-      mst.d('finding subblock', i, en, modulo, v, mr)
+      --mst.d('finding subblock', i, en, modulo, v, mr)
       while (j+1) <= en and math.floor(bits[j+1] / modulo) == mr
       do
          j = j + 1
       end
       f(mr, i, j)
       i = j + 1
-      mst.d('i now', i)
+      --mst.d('i now', i)
    end
 end
 
@@ -225,7 +225,7 @@ function rdata_nsec:do_encode(o, context)
                                                         local b=bits[i]
                                                         v = mst.bitv_set_bit(v, 8-b%8)
                                                      end
-                                                     mst.d('produced', v)
+                                                     --mst.d('produced', v)
                                                      table.insert(t0, v)
                                                   end, i1, j1)
                             table.insert(t, string.char(mr, #t0, unpack(t0)))

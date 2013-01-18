@@ -64,8 +64,8 @@ like treading on thin ice, name-ifid-rid.local is _probably_ unique
 too. But as the service names _themselves_ may also be unique, this leads
 to a rathole. So [1] is the way to go.
 
-Yet another choice is just to pretend unique records aren't, if there's
-someone on the local network claiming they own the unique record..
+[3] Yet another choice is just to pretend unique records aren't, if there's
+someone on the local network claiming they own the unique record.
 
 ** Who has right to name
 
@@ -295,3 +295,30 @@ response
 announce
 - answer
  
+* Thoughts about mdns <> OSPF state sync (17.1.2013)
+
+Now Lua mdns library provides two different rr 'zones'
+
+- cache
+and
+- own
+
+on per-interface basis.
+
+Contents of _all_ caches of _all*_ interfaces (which we are 'master' of) are
+published in OSPF
+
+ - name
+ - rtype
+ - [ rclass ]
+ - rdata
+
+_And_ contents of OSPF are published in 'own' of _all*_ interfafaces =>
+given to clients. We register interest for whatever cache entries we
+publish to OSPF, and therefore refresh things relatively frequently.
+
+Question: Should we proactively do discovery in addition to that?
+
+Trivial to enumerate through _services._dns-sd._udp.local => and just
+normally two levels of queries anyway (three, if responders are not
+co-operative)

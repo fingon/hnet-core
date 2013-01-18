@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu Jan 17 15:04:25 2013 mstenber
--- Edit time:     264 min
+-- Last modified: Fri Jan 18 11:29:40 2013 mstenber
+-- Edit time:     306 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -129,16 +129,21 @@ local function match_q_q(q, o)
       and dnsdb.ll_equal(q.name, o.name)
 end
 
+local function extend_kas_with_anish(kas, l)
+   if not l then return end
+   for i, a in ipairs(l)
+   do
+      kas:insert_rr(a)
+   end
+end
+
 local function convert_anish_to_kas(kas)
    if not kas then return end
    if dnsdb.ns:is_instance(kas) then return kas end
    -- on-the-fly convert list of answers to dnsdb:ns
    local tns = dnsdb.ns:new{}
    mst.a(type(kas) == 'table', 'weird kas', kas)
-   for i, a in ipairs(kas)
-   do
-      tns:insert_rr(a)
-   end
+   extend_kas_with_anish(tns, kas)
    return tns
 end
 
@@ -257,7 +262,7 @@ function mdns_if:run_own_states()
    self.own_sl:iterate_while(function (rr)
                                 if rr.next > now 
                                 then
-                                   self:d('too late', rr)
+                                   --self:d('too late', rr)
                                    return
                                 end
                                 if rr.state 
@@ -422,13 +427,19 @@ function mdns_if:find_own_matching_queries(ql, an)
    return r:keys()
 end
 
+function mdns_if:get_own_rr_current_ttl(rr, now)
+   self:a(rr.valid)
+   local now = now or self:time()
+   local ttl = math.floor(rr.valid-now)
+   return ttl
+end
+
 function mdns_if:copy_rrs_with_updated_ttl(rrl, unicast, legacy)
-   local r = {}
    local now = self:time()
+   local r = {}
    for i, rr in ipairs(rrl)
    do
-      self:a(rr.valid)
-      local ttl = math.floor(rr.valid-now)
+      local ttl = self:get_own_rr_current_ttl(rr, now)
       if not unicast 
       then
          if rr[FIELD_SENT_MCAST] and rr[FIELD_SENT_MCAST] > (now - 1)
@@ -471,9 +482,10 @@ function mdns_if:determine_ar(an, kas)
    function push(t1, t2)
       for i, a in ipairs(an)
       do
+         local cand = {name=a.name, rtype=t2, rclass=a.rclass}
          if a.rtype == t1 
-            and not all:find_rr{name=a.name, rtype=t2, rclass=a.rclass}
-            and not kas_matches_rr(kas, {name=a.name, rtype=t2, rclass=a.rclass})
+            and not all:find_rr(cand)
+            and not kas_matches_rr(kas, cand)
          then
             -- if we have something like this, cool, let's add it
             iterate_ns_matching_query(ns,
@@ -499,7 +511,11 @@ end
 
 function mdns_if:send_reply(an, kas, id, dst, dstport, unicast)
    -- ok, here we finally reduce duplicates, update ttl's, etc.
-   an = self:copy_rrs_with_updated_ttl(an, unicast, dstport ~= MDNS_PORT)
+   local legacy = dstport ~= MDNS_PORT
+
+   mst.d('send_reply', an, kas, id, dst, dstport, unicast, legacy)
+
+   an = self:copy_rrs_with_updated_ttl(an, unicast, legacy)
    if #an == 0 then return end
 
    -- we also determine additional records
@@ -564,8 +580,6 @@ function mdns_if:find_pending_with_query(q)
 end
 
 function mdns_if:query(q, rep)
-   local p = self.pending
-
    -- first off, if we have already this scheduled, forget about it
    if not rep
    then
@@ -591,7 +605,7 @@ function mdns_if:query(q, rep)
    local when = now + delay
    local latest = when + 0.5
    mst.d(now, 'adding query', when, latest, q, rep)
-   p:insert{when=when, latest=latest, query=q, rep=rep}
+   self.pending:insert{when=when, latest=latest, query=q, rep=rep}
 end
 
 function mdns_if:start_query(q)
@@ -657,16 +671,18 @@ function mdns_if:send_delayed_multicast_replies(q)
    -- basic idea is, we populate an based on queries we have;
    -- and then ar with stuff already not covered in one pass
    local full_an = mst.array:new{}
+   local kas = convert_anish_to_kas{}
    for i, e in ipairs(q)
    do
       local msg = e.msg
-      local kas = convert_anish_to_kas(msg.an)
+      extend_kas_with_anish(kas, msg.an)
       local an = self:find_own_matching_queries(msg.qd, kas)
+      extend_kas_with_anish(kas, an)
       full_an:extend(an)
    end
 
    local dst = MDNS_MULTICAST_ADDRESS .. '%' .. self.ifname
-   self:send_reply(full_an, nil, 0, dst, MDNS_PORT, false)
+   self:send_reply(full_an, kas, 0, dst, MDNS_PORT, false)
 end
 
 function mdns_if:send_delayed_multicast(p)
@@ -717,6 +733,25 @@ function mdns_if:handle_multicast_query(msg, addr)
    -- consider if we know _all_ there is to know; that is, our 'own'
    -- set has responses to every query, and responses are cache_flush
    local delay
+
+   self:d('handle_multicast_query', msg, addr)
+   -- aggregate earlier qd, an fields together in hte pending queue
+   if addr
+   then
+      for e, _ in pairs(self.pending)
+      do
+         --and e.msg.id == msg.id
+         -- should be 0 in both, not worth checking
+         if e.msg and e.addr == addr 
+         then
+            self:d(' aggregating', e)
+            msg.qd:extend(e.msg.qd)
+            msg.an:extend(e.msg.an)
+            self.pending:remove(e)
+         end
+      end
+   end
+
    if msg.h.tc
    then
       delay = mst.randint(400, 500)/1000.0
@@ -785,12 +820,38 @@ function mdns_if:handle_rr_cache_update(rr)
       
       -- (not o = not in cache for this interface)
 
+      local found
+
+      -- two cases
+
+      -- in own of same interface
+      local q = {name=rr.name,
+                 qtype=rr.rtype,
+                 qclass=rr.rclass}
+
+      iterate_ns_matching_query(self.own, q, nil,
+                                function (rr2)
+                                   if rr2:equals(rr)
+                                   then
+                                      found = true
+                                      local ttl = self:get_own_rr_current_ttl(rr2)
+                                      if ttl >= (rr.ttl * 2)
+                                      then
+                                         -- pretend to have received
+                                         -- query for it => matching stuff
+                                         -- will be re-broadcast shortly
+                                         local fmsg = {h={},qd={q}}
+                                         self:handle_multicast_query(fmsg)
+                                      end
+                                   end
+                                end)
+      if found then return end
+
+      -- in some other interface (loop in network topology?)
       -- => now we do expensive check of checking through _all_ own
       -- entries for a match, and if found, we silently ignore this
-      local found
-      self.parent:iterate_ifs_ns_matching_q('own', {name=rr.name,
-                                                    qtype=rr.rtype,
-                                                    qclass=rr.rclass},
+
+      self.parent:iterate_ifs_ns_matching_q('own', q,
                                             function (rr2)
                                                if rr2:equals(rr)
                                                then
@@ -858,6 +919,24 @@ function mdns_if:update_next_cached(o)
    update_sl_if_changed(self.cache_sl, o, v)
 end
 
+-- do we have 'active client interest' in this specific rr?
+-- subclasses can obviously override this
+function mdns_if:interested_in_cached(rr)
+   for e, _ in pairs(self.pending)
+   do
+      local q = e.query
+      if q and match_q_rr(q, rr)
+      then
+         self:d('found interested query in us', q, rr)
+         -- (very specific one, sigh.. would it not be more efficient
+         -- just to ask for 'all'?)
+         return {name=q.name,
+                 qtype=rr.rtype,
+                 qclass=rr.rclass}
+      end
+   end
+end
+
 function mdns_if:update_cache_rr_perhaps(rr)
    -- update query # 
    local r = rr.queries or 0
@@ -867,23 +946,14 @@ function mdns_if:update_cache_rr_perhaps(rr)
    rr.queries = r + 1
    self:update_next_cached(rr)
 
-   for e, _ in pairs(self.pending)
-   do
-      local q = e.query
-      if q and match_q_rr(q, rr)
-      then
-         self:d('found interested query in us', q, rr)
-         -- schedule a query for the rr (very specific one,
-         -- sigh.. would it not be more efficient just to ask for
-         -- 'all'?)
-         self:query{name=q.name,
-                    qtype=rr.rtype,
-                    qclass=rr.rclass}
-         return
-      end
+   local q = self:interested_in_cached(rr)
+   if q
+   then
+      -- schedule a query for the rr
+      self:query(q)
+   else
+      self:d('nobody interested about', rr)
    end
-   self:d('nobody interested about', rr)
-
 end
 
 function mdns_if:update_next_own(o)
@@ -904,6 +974,7 @@ function mdns_if:handle_rr_list_cache_update(rrlist)
    -- cache_flush being set; due to this, we insert whole set's
    -- worth of cache_flushed entries at once, later..
    local todo = {}
+   local ns = self.own
    local nsc = self.cache
    for i, rr in ipairs(rrlist)
    do
@@ -912,7 +983,7 @@ function mdns_if:handle_rr_list_cache_update(rrlist)
          -- stop publishing potentially conflicting ones _everywhere_
          self.parent:stop_propagate_conflicting_rr(rr, self.ifname)
       end
-      if rr.ttl == 0 and not nsc:find_rr(rr)
+      if rr.ttl == 0 and not nsc:find_rr(rr) and not ns:find_rr(rr)
       then
          -- skip
       else
@@ -1341,16 +1412,17 @@ function mdns_if:handle_recvfrom(data, addr, srcport)
    -- ok. it's qm message, but question is, what is it?
    -- cases we want to distinguish:
 
-   -- a) probe (qd=query, ns=authoritative)
-   if msg.qd and #msg.qd>0
+   -- different query variants
+   if not msg.h.qr
    then
+      -- a) probe (qd=query, ns=authoritative)
       if msg.ns and #msg.ns>0
       then
          self:handle_multicast_probe(msg)
          return
       end
 
-      -- b) query (qd=query set [rest we ignore])
+      -- b) query (qd=query set [rest we ignore] perhaps, an=kas)
       self:handle_multicast_query(msg, addr)
       return
    end

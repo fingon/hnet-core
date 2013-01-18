@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:08:37 2013 mstenber
--- Last modified: Mon Jan 14 15:40:10 2013 mstenber
+-- Last modified: Fri Jan 18 11:07:19 2013 mstenber
 -- Edit time:     32 min
 --
 
@@ -46,7 +46,7 @@ function try_decode_name_rec(cur, h, n)
       mst.a(h, 'h not set when decoding name with message compression')
       if not h[ofs]
       then
-         mst.d('eek - about to blow up - dump', h, 'missing offset', ofs)
+         --mst.d('eek - about to blow up - dump', h, 'missing offset', ofs)
          return nil, 'unable to find value at ofs ' .. tostring(ofs)
       end
       local on, oofs = unpack(h[ofs])
@@ -55,7 +55,7 @@ function try_decode_name_rec(cur, h, n)
       do
          n[#n+1] = on[i]
       end
-      mst.d('found from', ofs, mst.array_slice(n, oofs))
+      --mst.d('found from', ofs, mst.array_slice(n, oofs))
       return n
    end
    -- let's see if it's the end
@@ -73,7 +73,7 @@ function try_decode_name_rec(cur, h, n)
    -- store position to hash for message compression use
    if h
    then
-      mst.d('adding', npos, #n+1, b)
+      --mst.d('adding', npos, #n+1, b)
       h[npos] = {n, #n + 1}
    end
    n[#n+1] = b
@@ -116,7 +116,7 @@ function encode_name_rec(n, h, t, ofs)
                             end)
       if ofs2
       then
-         mst.d('found at', ofs2, sn)
+         --mst.d('found at', ofs2, sn)
          local o1 = math.floor(ofs2/256)
          local o2 = ofs2%256
          table.insert(t, string.char(64 + 128 + o1))
@@ -124,7 +124,7 @@ function encode_name_rec(n, h, t, ofs)
          h.pos = h.pos + 2
          return t
       end
-      mst.d('inserting', h.pos, sn)
+      --mst.d('inserting', h.pos, sn)
       -- store the current position as where we can be found
       ns:insert_raw{name=sn, pos=h.pos}
       -- and update the position with the encoded data length
