@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Thu Jan 10 16:12:51 2013 mstenber
--- Edit time:     16 min
+-- Last modified: Sun Jan 20 10:50:55 2013 mstenber
+-- Edit time:     31 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -23,21 +23,35 @@
 -- mdns => outside
 --    mdns.<ifname> = ..
 
--- TODO
+--
+-- Most of the heavy lifting is done by the mdns_{core,if}; they
+-- provide basic mdns abstraction, and all we do is just customize
+-- those classes to our needs by subclassing. Namely, 
 
---  - deal with mdns + ospf-mdns skv stuff (rw)
---  ( perhaps treat them as interface that 'everyone' owns, and cache
---  = what we get from others, own = what we publish)
+-- mdns_if is subclassed so that we're interested in refreshing cache
+-- validity times if and only if we're owner for that interface
+-- according to OSPF, and
 
--- - active re-querying of the data we have propagated
+-- mdns_core subclassing is to override the propagate_rr and 
 
 require 'mdns_core'
+require 'mdns_if'
 
 module(..., package.seeall)
 
+local _mdns_if = mdns_if.mdns_if
 local _mdns = mdns_core.mdns
 
+ospf_if = _mdns_if:new_subclass{class='ospf_if'}
+
+-- by default, OSPF based interfaces are interested in EVERYTHING, 
+-- as long as they're master
+function ospf_if:interested_in_cached(rr)
+
+end
+
 mdns = _mdns:new_subclass{class='mdns_ospf',
+                          ifclass=ospf_if,
                           mandatory={'sendto', 'skv'}}
 
 function mdns:init()
@@ -50,10 +64,8 @@ function mdns:kv_changed(k, v)
    if k == elsa_pa.OSPF_LAP_KEY
    then
       self:d('queueing lap update')
-
       self.ospf_lap = v
       self.update_lap = true
-      self.master_if_set = self:calculate_if_master_set()
    end
 end
 
@@ -67,6 +79,7 @@ function mdns:run()
       local fresh = {}
       self:d('running lap update')
 
+      self.master_if_set = self:calculate_if_master_set()
       self.update_lap = nil
       self:d('syncing ifs')
       mst.sync_tables(self.ifname2if, self.master_if_set,
@@ -119,14 +132,13 @@ function mdns:remove_own_from_if(fromif)
       local ns = self.if2own[toif]
       if ns
       then
-         for i, rr in ipairs(fromns:values())
-         do
-            local nrr = ns:find_rr(rr)
-            if nrr
-            then
-               nrr:expire()
-            end
-         end
+         fromns:iterate_rrs(function (rr)
+                               local nrr = ns:find_rr(rr)
+                               if nrr
+                               then
+                                  nrr:expire()
+                               end
+                           end)
       end
    end
 end
@@ -134,11 +146,10 @@ end
 function mdns:remove_own_to_if(ifname)
    local ns = self.if2own[ifname]
    if not ns then return end
-   for i, rr in ipairs(ns:values())
-   do
-      -- XXX do more?
-      ns:remove_rr(rr)
-   end
+   ns:iterate_rrs(function (rr)
+                     -- XXX do more?
+                     ns:remove_rr(rr)
+                  end)
 end
 
 function mdns:add_cache_set_to_own_set(fromset, toset)
@@ -156,13 +167,26 @@ function mdns:add_cache_if_to_own_if(fromif, toif)
    -- we never do own=>own
    local src = self.if2cache[fromif]
    if not src then return end
-   for i, rr in ipairs(src:values())
-   do
-      self:insert_if_own_rr(toif, rr)
-   end
+   src:iterate_rrs(function (rr)
+                      self:insert_if_own_rr(toif, rr)
+                   end)
 end
 
-function mdns:propagate_rr(rr, ifname)
+function mdns:calculate_if_master_set()
+   local t = mst.set:new{}
+   for i, lap in ipairs(self.ospf_lap)
+   do
+      local dep = lap.depracate      
+      local own = lap.owner and not lap.external
+      if not dep and own
+      then
+         t:insert(lap.ifname)
+      end
+   end
+   return t
+end
+
+function mdns:propagate_if_rr(ifname, rr)
    -- if we're not 'master' for that if, ignore it
    if not self.master_if_set[ifname] then return end
 
@@ -181,19 +205,5 @@ function mdns:propagate_rr(rr, ifname)
          end
       end
    end
-end
-
-function mdns:calculate_if_master_set()
-   local t = mst.set:new{}
-   for i, lap in ipairs(self.ospf_lap)
-   do
-      local dep = lap.depracate      
-      local own = lap.owner and not lap.external
-      if not dep and own
-      then
-         t:insert(lap.ifname)
-      end
-   end
-   return t
 end
 

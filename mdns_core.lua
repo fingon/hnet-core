@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Thu Jan 17 14:42:16 2013 mstenber
--- Edit time:     845 min
+-- Last modified: Sun Jan 20 10:47:31 2013 mstenber
+-- Edit time:     847 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -60,7 +60,7 @@ module(..., package.seeall)
 -- global mdns structure, which mostly just deals with different
 -- mdns_if instances
 mdns = mst.create_class{class='mdns', 
-                        subclass=mdns_if.mdns_if,
+                        ifclass=mdns_if.mdns_if,
                         time=os.time,
                         mandatory={'sendto'}}
 
@@ -73,7 +73,7 @@ function mdns:get_if(ifname)
    local o = self.ifname2if[ifname]
    if not o
    then
-      o = self.subclass:new{ifname=ifname, parent=self}
+      o = self.ifclass:new{ifname=ifname, parent=self}
       self.ifname2if[ifname] = o
    end
    return o
@@ -235,10 +235,10 @@ end
 -- subclasses; basically, how the different cases of propagating
 -- cache rr's state onward are handled
 -- (.. or if they are!)
-function mdns:propagate_rr(rr, ifname)
+function mdns:propagate_if_rr(ifname, rr)
 end
 
-function mdns:stop_propagate_conflicting_rr(rr, ifname)
+function mdns:stop_propagate_conflicting_if_rr(ifname, rr)
    -- same we can keep
    for ifname, ifo in ipairs(self.ifname2if)
    do
@@ -246,7 +246,7 @@ function mdns:stop_propagate_conflicting_rr(rr, ifname)
    end
 end
 
-function mdns:expire_rr(rr, ifname)
+function mdns:expire_if_rr(ifname, rr)
    --this should happen on it's own as the own entries also have
    --(by default) assumedly ttl's
 

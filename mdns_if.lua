@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Fri Jan 18 13:03:08 2013 mstenber
--- Edit time:     336 min
+-- Last modified: Sun Jan 20 10:48:00 2013 mstenber
+-- Edit time:     341 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -345,7 +345,7 @@ function mdns_if:run_expire()
                                      return true
                                   end
                                   self:d('[cache] getting rid of', rr)
-                                  self.parent:expire_rr(rr)
+                                  self:expire_rr(rr)
                                   self.cache:remove_rr(rr)
                                   return true
                                end)
@@ -767,7 +767,7 @@ function mdns_if:handle_multicast_probe(msg)
       if rr.cache_flush
       then
          -- non-conflicting ones we don't need to care about!
-         self.parent:stop_propagate_conflicting_rr(rr)
+         self:stop_propagate_conflicting_rr(rr)
       end
    end
 end
@@ -938,15 +938,15 @@ function mdns_if:handle_rr_cache_update(rr)
 
    -- if information conflicts, don't propagate it
    -- (but instead remove everything we have)
-   if self.parent:if_rr_has_conflicts(self.ifname, o)
+   if self:rr_has_conflicts(o)
    then
-      self.parent:stop_propagate_conflicting_rr(o, self.ifname)
+      self:stop_propagate_conflicting_rr(o)
       return
    end
 
    -- propagate the information (in some form) onwards
    self:d('propagating onward')
-   self.parent:propagate_rr(o, self.ifname)
+   self:propagate_rr(o)
 end
 
 local function update_sl_if_changed(sl, o, v)
@@ -977,24 +977,6 @@ function mdns_if:update_next_cached(o)
       v = o.time + delta
    end
    update_sl_if_changed(self.cache_sl, o, v)
-end
-
--- do we have 'active client interest' in this specific rr?
--- subclasses can obviously override this
-function mdns_if:interested_in_cached(rr)
-   for e, _ in pairs(self.pending)
-   do
-      local q = e.query
-      if q and match_q_rr(q, rr)
-      then
-         self:d('found interested query in us', q, rr)
-         -- (very specific one, sigh.. would it not be more efficient
-         -- just to ask for 'all'?)
-         return {name=q.name,
-                 qtype=rr.rtype,
-                 qclass=rr.rclass}
-      end
-   end
 end
 
 function mdns_if:update_cache_rr_perhaps(rr)
@@ -1041,7 +1023,7 @@ function mdns_if:handle_rr_list_cache_update(rrlist)
       if rr.cache_flush
       then
          -- stop publishing potentially conflicting ones _everywhere_
-         self.parent:stop_propagate_conflicting_rr(rr, self.ifname)
+         self:stop_propagate_conflicting_rr(rr)
       end
       if rr.ttl == 0 and not nsc:find_rr(rr) and not ns:find_rr(rr)
       then
@@ -1487,4 +1469,40 @@ function mdns_if:handle_recvfrom(data, addr, srcport)
       return
    end
 
+end
+
+-- subclassable functionality
+
+-- do we have 'active client interest' in this specific rr?
+-- subclasses can obviously override this
+function mdns_if:interested_in_cached(rr)
+   for e, _ in pairs(self.pending)
+   do
+      local q = e.query
+      if q and match_q_rr(q, rr)
+      then
+         self:d('found interested query in us', q, rr)
+         -- (very specific one, sigh.. would it not be more efficient
+         -- just to ask for 'all'?)
+         return {name=q.name,
+                 qtype=rr.rtype,
+                 qclass=rr.rclass}
+      end
+   end
+end
+
+function mdns_if:propagate_rr(rr)
+   self.parent:propagate_if_rr(self.ifname, rr)
+end
+
+function mdns_if:expire_rr(rr)
+   self.parent:expire_if_rr(self.ifname, rr)
+end
+
+function mdns_if:stop_propagate_conflicting_rr(rr)
+   self.parent:stop_propagate_conflicting_if_rr(self.ifname, rr)
+end
+
+function mdns_if:rr_has_conflicts(rr)
+   return self.parent:if_rr_has_conflicts(self.ifname, rr)
 end
