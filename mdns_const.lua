@@ -8,18 +8,16 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:59:37 2013 mstenber
--- Last modified: Fri Jan 18 12:48:27 2013 mstenber
+-- Last modified: Sun Jan 20 10:21:46 2013 mstenber
 -- Edit time:     2 min
 --
 
--- these aren't intentionally within own namespace - the MDNS_ should
--- be obvious enough indication of the globally shared nature.
---module(...)
+module(...)
 
-MDNS_MULTICAST_ADDRESS='ff02::fb'
-MDNS_PORT=5353
-MDNS_DEFAULT_RESPONSE_HEADER={qr=true, aa=true}
-MDNS_DEFAULT_NONAME_TTL=(60 * 75)
-MDNS_DEFAULT_NAME_TTL=120
+MULTICAST_ADDRESS='ff02::fb'
+PORT=5353
+DEFAULT_RESPONSE_HEADER={qr=true, aa=true}
+DEFAULT_NONAME_TTL=(60 * 75)
+DEFAULT_NAME_TTL=120
 
 

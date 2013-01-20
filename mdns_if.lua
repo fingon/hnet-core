@@ -354,9 +354,9 @@ function mdns_if:run_expire()
       self:d('sending expire ttl=0 for #pending', #pending)
       -- send per-interface 'these are gone' fyi messages
       local s = dnscodec.dns_message:encode{an=pending, 
-                                            h=MDNS_DEFAULT_RESPONSE_HEADER}
-      local dst = MDNS_MULTICAST_ADDRESS .. '%' .. self.ifname
-      self.parent.sendto(s, dst, MDNS_PORT)
+                                            h=mdns_const.DEFAULT_RESPONSE_HEADER}
+      local dst = mdns_const.MULTICAST_ADDRESS .. '%' .. self.ifname
+      self.parent.sendto(s, dst, mdns_const.PORT)
    end
 end
 
@@ -468,7 +468,7 @@ function mdns_if:get_own_rr_current_ttl(rr, now)
    then
       -- we do stuff based on the defaults for the rtype
       local v = (dns_rdata.rtype_map[rr.rtype] or {}).default_ttl 
-         or MDNS_DEFAULT_NONAME_TTL
+         or mdns_const.DEFAULT_NONAME_TTL
       return v
    end
    local now = now or self:time()
@@ -553,7 +553,7 @@ end
 
 function mdns_if:send_reply(an, ar, kas, id, dst, dstport, unicast)
    -- ok, here we finally reduce duplicates, update ttl's, etc.
-   local legacy = dstport ~= MDNS_PORT
+   local legacy = dstport ~= mdns_const.PORT
 
    mst.d('send_reply', an, kas, id, dst, dstport, unicast, legacy)
 
@@ -579,7 +579,7 @@ function mdns_if:send_reply(an, ar, kas, id, dst, dstport, unicast)
 end
 
 function mdns_if:send_multicast_query(qd, kas, ns)
-   local dst = MDNS_MULTICAST_ADDRESS .. '%' .. self.ifname
+   local dst = mdns_const.MULTICAST_ADDRESS .. '%' .. self.ifname
    local an
    if kas
    then
@@ -593,7 +593,7 @@ function mdns_if:send_multicast_query(qd, kas, ns)
       mst.d('kas ttl update', #oan, #an)
    end
    local s = dnscodec.dns_message:encode{qd=qd, an=an, ns=ns}
-   self.sendto(s, dst, MDNS_PORT)
+   self.sendto(s, dst, mdns_const.PORT)
 end
 
 function mdns_if:handle_unicast_query(msg, addr, srcport)
@@ -740,9 +740,9 @@ function mdns_if:send_delayed_multicast_replies(q)
    full_ar = full_ar:difference(full_an)
 
    -- and send the reply
-   local dst = MDNS_MULTICAST_ADDRESS .. '%' .. self.ifname
+   local dst = mdns_const.MULTICAST_ADDRESS .. '%' .. self.ifname
    self:send_reply(full_an:keys(), full_ar:keys(), 
-                   nil, 0, dst, MDNS_PORT, false)
+                   nil, 0, dst, mdns_const.PORT, false)
 end
 
 function mdns_if:send_delayed_multicast(p)
@@ -1292,11 +1292,11 @@ function mdns_if:send_announces()
          self:set_next_state(rr)
          rr[FIELD_SENT_MCAST] = now
       end
-      local h = MDNS_DEFAULT_RESPONSE_HEADER
+      local h = mdns_const.DEFAULT_RESPONSE_HEADER
       local s = dnscodec.dns_message:encode{an=an, h=h}
-      local dst = MDNS_MULTICAST_ADDRESS .. '%' .. self.ifname
+      local dst = mdns_const.MULTICAST_ADDRESS .. '%' .. self.ifname
       mst.d(now, 'sending announce(s)', #an)
-      self.sendto(s, dst, MDNS_PORT)
+      self.sendto(s, dst, mdns_const.PORT)
 
    end
 end
@@ -1414,7 +1414,7 @@ function mdns_if:handle_recvfrom(data, addr, srcport)
    local msg = dnscodec.dns_message:decode(data)
 
    -- ok, if it comes from non-mdns port, life's simple
-   if srcport ~= MDNS_PORT 
+   if srcport ~= mdns_const.PORT 
    then
       if msg.qd and #msg.qd > 0
       then
@@ -1443,7 +1443,7 @@ function mdns_if:handle_recvfrom(data, addr, srcport)
       self:d('split to #qu, #nqu', #qu, #nqu)
       if #qu > 0
       then
-         local h = mst.table_copy(MDNS_DEFAULT_RESPONSE_HEADER)
+         local h = mst.table_copy(mdns_const.DEFAULT_RESPONSE_HEADER)
          h.id=msg.h.id
          self:handle_unicast_query({qd=qu,
                                     h=h,

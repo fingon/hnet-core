@@ -70,7 +70,7 @@ rtype_map = {[dns_const.TYPE_PTR]={
                    return true
                 end,
                 field_equal=simple_equal,
-                default_ttl=MDNS_DEFAULT_NAME_TTL,
+                default_ttl=mdns_const.DEFAULT_NAME_TTL,
              },
              [dns_const.TYPE_AAAA]={
                 field='rdata_aaaa',
@@ -92,7 +92,7 @@ rtype_map = {[dns_const.TYPE_PTR]={
                    return s
                 end,
                 field_equal=simple_equal,
-                default_ttl=MDNS_DEFAULT_NAME_TTL,
+                default_ttl=mdns_const.DEFAULT_NAME_TTL,
              },
 }
 
@@ -256,11 +256,11 @@ end
 add_rtype_decoder(dns_const.TYPE_SRV, rdata_srv, {
                      field='rdata_srv', 
                      field_equal=repr_equal,
-                     default_ttl=MDNS_DEFAULT_NAME_TTL,
+                     default_ttl=mdns_const.DEFAULT_NAME_TTL,
                                                  })
 add_rtype_decoder(dns_const.TYPE_NSEC, rdata_nsec, {
                      field='rdata_nsec', 
                      field_equal=repr_equal,
-                     default_ttl=MDNS_DEFAULT_NAME_TTL,
+                     default_ttl=mdns_const.DEFAULT_NAME_TTL,
                                                    })
 

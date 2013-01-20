@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Fri Jan 18 12:45:42 2013 mstenber
+-- Last modified: Sun Jan 20 10:22:44 2013 mstenber
 -- Edit time:     573 min
 --
 
@@ -33,9 +33,6 @@ local _mdns = mdns_core.mdns
 local _mdns_ospf = mdns_ospf.mdns
 
 module("mdns_core_spec", package.seeall)
-
-local MDNS_PORT = mdns_core.MDNS_PORT
-local MDNS_MULTICAST_ADDRESS = mdns_core.MDNS_MULTICAST_ADDRESS
 
 -- class mydsm is variant of dsm, which keeps track of all installed dummies
 -- and provides mdns-specific assertions regarding those dummies
@@ -276,10 +273,10 @@ function dummynode:sanity_check_last_multicast()
    local msg = self:get_last_msg()
    local e = self:get_last_e()
 
-   -- s6.16/17 MUST be MDNS_MULTICAST_ADDRESS
-   -- s6.16/17 MUST be MDNS_PORT
-   self:assert_received_to(MDNS_MULTICAST_ADDRESS)
-   self:a(e[4] == MDNS_PORT)
+   -- s6.16/17 MUST be mdns_const.MULTICAST_ADDRESS
+   -- s6.16/17 MUST be mdns_const.PORT
+   self:assert_received_to(mdns_const.MULTICAST_ADDRESS)
+   self:a(e[4] == mdns_const.PORT)
 
    -- s18.15/16 MUST (reception not checked)
    self:a(msg.h.rd == false, 'RD set in multicast', msg)
@@ -356,7 +353,7 @@ function create_node_callback(o)
                                   local src = n.rid .. '%' .. t.iid
                                   local dn = o.sm.e.nodes[t.rid]
                                   mst.d('calling dn:recvfrom')
-                                  dn:recvfrom(data, src, MDNS_PORT, to)
+                                  dn:recvfrom(data, src, mdns_const.PORT, to)
                                              end)
    end
    return n
@@ -580,7 +577,7 @@ describe("mdns", function ()
             function run_rr_states(orr, expected_states)
                   mdns:run()
                   mdns:insert_if_own_rr('eth1', orr)
-                  --mdns:recvfrom(msg, 'dead:beef::1%eth0', MDNS_PORT)
+                  --mdns:recvfrom(msg, 'dead:beef::1%eth0', mdns_const.PORT)
                   local rr = mdns:get_if('eth1').own:values()[1]
                   local dummies = 0
                   for k, v in pairs(expected_states)
@@ -624,7 +621,7 @@ describe("mdns", function ()
                   -- check that we get instant response to a query
                   -- SHOULD reply immediately, s6.10/11
                   mst.d('checking that unique answer => instant reply')
-                  mdns:recvfrom(query1, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(query1, DUMMY_SRC, mdns_const.PORT)
                   dsm:assert_queries_done()
                   dsm:assert_receiveds_eq(0)
                   mdns:run()
@@ -658,7 +655,7 @@ describe("mdns", function ()
                   dsm:clear_receiveds()
 
                   -- make sure we get replies to ok requests
-                  mdns:recvfrom(query1_qu, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(query1_qu, DUMMY_SRC, mdns_const.PORT)
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_unicast_response(DUMMY_ID2)
                   -- make sure we don't have NSEC (s6.32, sort of)
@@ -669,8 +666,8 @@ describe("mdns", function ()
                   -- but not to invalid ones
                   -- MUST s6.3 (=> no reply as not unique)
                   mst.d('checking invalid qus')
-                  mdns:recvfrom(query1_type_nomatch_qu, DUMMY_SRC, MDNS_PORT)
-                  mdns:recvfrom(query1_class_nomatch_qu, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(query1_type_nomatch_qu, DUMMY_SRC, mdns_const.PORT)
+                  mdns:recvfrom(query1_class_nomatch_qu, DUMMY_SRC, mdns_const.PORT)
                   dsm:assert_receiveds_eq(0)
 
                   -- some time can pass (so that we skip multicast
@@ -683,7 +680,7 @@ describe("mdns", function ()
                   -- make sure we get _delayed_ response 
                   -- to shared stuff (see 6.10/11)
                   mst.d('checking that shared answer => delayed reply')
-                  mdns:recvfrom(query1, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(query1, DUMMY_SRC, mdns_const.PORT)
                   dsm:assert_receiveds_eq(0)
                   dsm:wait_receiveds_counts(1)
                   dummy:sanity_check_last_multicast_response()
@@ -697,7 +694,7 @@ describe("mdns", function ()
                   -- s6.45 MUST
                   mst.d('checking rttl < ttl / 2 case')
                   dsm:advance_time(2)
-                  mdns:recvfrom(msg1_ttl0, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(msg1_ttl0, DUMMY_SRC, mdns_const.PORT)
                   dsm:assert_receiveds_eq(0)
                   dsm:wait_receiveds_counts(1)
                   dummy:sanity_check_last_multicast_response()
@@ -735,7 +732,7 @@ describe("mdns", function ()
                   -- receive non-matching type,
                   -- we should get back reply anyway, with
                   -- NSEC stating that there are two supported types
-                  mdns:recvfrom(query1_type_nomatch_qu, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(query1_type_nomatch_qu, DUMMY_SRC, mdns_const.PORT)
                   dsm:assert_receiveds_eq(0)
                   mdns:run()
                   dsm:assert_receiveds_eq(1)
@@ -795,7 +792,7 @@ describe("mdns", function ()
                   -- All should result in 2 results, if no KAS.
                   -- (One in an, one in ar).
                   mst.d('a) AAAA request => both')
-                  mdns:recvfrom(query_dummy_local_aaaa_qu, DUMMY_SRC, MDNS_PORT+1)
+                  mdns:recvfrom(query_dummy_local_aaaa_qu, DUMMY_SRC, mdns_const.PORT+1)
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_legacy_unicast_response()
                   local msg = dummy:get_last_msg()
@@ -804,7 +801,7 @@ describe("mdns", function ()
                   dsm:clear_receiveds()
 
                   mst.d('b) A request => both')
-                  mdns:recvfrom(query_dummy_local_a_qu, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(query_dummy_local_a_qu, DUMMY_SRC, mdns_const.PORT)
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_unicast_response()
                   local msg = dummy:get_last_msg()
@@ -814,12 +811,12 @@ describe("mdns", function ()
 
                   -- With KAS, if it hits an, no reply at all
                   mst.d('c) A request with A KAS => nop')
-                  mdns:recvfrom(query_dummy_local_a_kas_a_qu, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(query_dummy_local_a_kas_a_qu, DUMMY_SRC, mdns_const.PORT)
                   dsm:assert_receiveds_eq(0)
 
                   -- With KAS, if it hits ar, no ar but an
                   mst.d('d) A request with AAAA kas => A')
-                  mdns:recvfrom(query_dummy_local_a_kas_aaaa_qu, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(query_dummy_local_a_kas_aaaa_qu, DUMMY_SRC, mdns_const.PORT)
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_unicast_response()
                   local msg = dummy:get_last_msg()
@@ -831,12 +828,12 @@ describe("mdns", function ()
                   -- s7.3 MUST
                   dsm:advance_time(2)
                   dsm:run_nodes(123)
-                  mdns:recvfrom(query_dummy_local_any_tc, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(query_dummy_local_any_tc, DUMMY_SRC, mdns_const.PORT)
                   dsm:advance_time(0.2)
                   dsm:run_nodes(123)
                   dsm:assert_receiveds_eq(0)
                   -- no tc bit -> should receive answer 'soon'
-                  mdns:recvfrom(query_kas_dummy_a_cf, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(query_kas_dummy_a_cf, DUMMY_SRC, mdns_const.PORT)
                   dsm:advance_time(0.15)
                   dsm:run_nodes(123)
                   dsm:assert_receiveds_eq(1)
@@ -861,7 +858,7 @@ describe("mdns", function ()
                   dsm:clear_receiveds()
 
                   mst.d('a) receive foo A QU => one resp')
-                  mdns:recvfrom(query_dummy_foo_qu, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(query_dummy_foo_qu, DUMMY_SRC, mdns_const.PORT)
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_unicast_response()
 
@@ -879,9 +876,9 @@ describe("mdns", function ()
                   -- we should get replies in one message
                   -- s6.40/41 SHOULD test
                   mst.d('b) receive 2x dummy q, and then foo q => one resp')
-                  mdns:recvfrom(query_dummy_local_a, DUMMY_SRC, MDNS_PORT)
-                  mdns:recvfrom(query_dummy_local_a, DUMMY_SRC, MDNS_PORT)
-                  mdns:recvfrom(query_foo_local_a, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(query_dummy_local_a, DUMMY_SRC, mdns_const.PORT)
+                  mdns:recvfrom(query_dummy_local_a, DUMMY_SRC, mdns_const.PORT)
+                  mdns:recvfrom(query_foo_local_a, DUMMY_SRC, mdns_const.PORT)
                   dsm:assert_receiveds_eq(0)
                   dsm:wait_receiveds_counts(1)
                   dummy:sanity_check_last_multicast_response()
@@ -967,7 +964,7 @@ describe("mdns", function ()
                    end)
 
             it("asks for queried things #refresh", function ()
-                  mdns:recvfrom(msg1_cf, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(msg1_cf, DUMMY_SRC, mdns_const.PORT)
                   local q_rr1 = {name=rr1_cf.name,
                                  qtype=DUMMY_TYPE,
                                  qclass=dns_const.CLASS_ANY,
@@ -1008,16 +1005,16 @@ describe("mdns", function ()
                                                    end)
             it("(non-solicited) - accepts multicast, drops unicast", function ()
                   -- partial s6.19-20 - legacy unicast case
-                  mdns:recvfrom(msg1_cf, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(msg1_cf, DUMMY_SRC, mdns_const.PORT)
                   local c = mdns:get_if("eth1")
                   mst.a(c.cache:count() == 1)
                   -- something received via legacy unicast should NOT
                   -- be in cache
-                  mdns:recvfrom(msg_dummy_aaaa_cf, DUMMY_SRC, MDNS_PORT+1)
+                  mdns:recvfrom(msg_dummy_aaaa_cf, DUMMY_SRC, mdns_const.PORT+1)
                   mst.a(c.cache:count() == 1)
                    end)
             it("handles cache flush on per rr set, not per rr basis #rrset", function ()
-                  mdns:recvfrom(msg_dummy_a_a2_cf, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(msg_dummy_a_a2_cf, DUMMY_SRC, mdns_const.PORT)
                   local c = mdns:get_if("eth1")
                   local cnt = c.cache:count()
                   mst.a(cnt == 2, 'both records not there?', cnt)
@@ -1026,13 +1023,13 @@ describe("mdns", function ()
             it("won't immediately destroy ttl0 stuff", function ()
                   -- s9.3 SHOULD
 
-                  mdns:recvfrom(msg1, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(msg1, DUMMY_SRC, mdns_const.PORT)
 
                   local c = mdns:get_if("eth1")
                   local cnt = c.cache:count()
                   mst.a(cnt == 1, 'record not there?', cnt)
                   
-                  mdns:recvfrom(msg1_ttl0, DUMMY_SRC, MDNS_PORT)
+                  mdns:recvfrom(msg1_ttl0, DUMMY_SRC, mdns_const.PORT)
                   local cnt = c.cache:count()
                   mst.a(cnt == 1, 'record not there?', cnt)
 
@@ -1059,7 +1056,7 @@ describe("mdns", function ()
                   dsm:assert_receiveds_eq(0)
 
                   -- let's make sure we still get response if we ask for it
-                  mdns:recvfrom(query_dummy_local_a_qu, DUMMY_SRC, MDNS_PORT+1)
+                  mdns:recvfrom(query_dummy_local_a_qu, DUMMY_SRC, mdns_const.PORT+1)
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_unicast_response()
                   local msg = dummy:get_last_msg()
@@ -1164,7 +1161,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   local r = dsm:run_nodes(3)
                   mst.a(r, 'basic run did not terminate')
 
-                  mdns1:recvfrom(msg1_cf, 'dead:beef::1%id1', MDNS_PORT)
+                  mdns1:recvfrom(msg1_cf, 'dead:beef::1%id1', mdns_const.PORT)
                   local r = dsm:run_nodes_and_advance_time(123)
                   mst.a(r, 'propagation did not terminate')
 
@@ -1177,7 +1174,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   local r = dsm:run_nodes(3)
                   mst.a(r, 'basic run did not terminate')
 
-                  mdns1:recvfrom(msg1_ttl0, 'dead:beef::1%id1', MDNS_PORT)
+                  mdns1:recvfrom(msg1_ttl0, 'dead:beef::1%id1', mdns_const.PORT)
                   local r = dsm:run_nodes_and_advance_time(123)
                   mst.a(r, 'propagation did not terminate')
 
@@ -1189,7 +1186,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   local r = dsm:run_nodes(3)
                   mst.a(r, 'basic run did not terminate')
 
-                  mdns1:recvfrom(msg1, 'dead:beef::1%id1', MDNS_PORT)
+                  mdns1:recvfrom(msg1, 'dead:beef::1%id1', mdns_const.PORT)
                   local r = dsm:run_nodes_and_advance_time(123)
                   mst.a(r, 'propagation did not terminate')
 
@@ -1201,7 +1198,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
             it("query works #q", function ()
                   local r = dsm:run_nodes(3)
                   mst.a(r, 'basic run did not terminate')
-                  mdns1:recvfrom(msg1, 'dead:beef::1%id1', MDNS_PORT)
+                  mdns1:recvfrom(msg1, 'dead:beef::1%id1', mdns_const.PORT)
 
                   dsm:wait_receiveds_counts(0, 1, 1)
                   local elapsed = dsm.t-dsm.start_t
@@ -1227,8 +1224,8 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   mst.d('a) 2x unicast query')
 
                   -- s6.46 MUST handle legacy unicast's
-                  mdns2:recvfrom(query1, DUMMY_SRC, MDNS_PORT + 1)
-                  mdns2:recvfrom(query1, DUMMY_SRC, MDNS_PORT + 1)
+                  mdns2:recvfrom(query1, DUMMY_SRC, mdns_const.PORT + 1)
+                  mdns2:recvfrom(query1, DUMMY_SRC, mdns_const.PORT + 1)
                   dsm:wait_receiveds_counts(0, 2, 0)
                   -- make sure it is unicast
                   dummy2:assert_received_to(DUMMY_IP)
@@ -1237,7 +1234,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
 
                   -- s5.18 SHOULD
                   mst.d('a1) qu')
-                  mdns2:recvfrom(query1_qu, DUMMY_SRC, MDNS_PORT)
+                  mdns2:recvfrom(query1_qu, DUMMY_SRC, mdns_const.PORT)
                   dsm:wait_receiveds_counts(0, 1, 0)
                   mst.d('received', dummy2.received)
                   -- make sure it is unicast
@@ -1249,7 +1246,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   -- processing delay)
                   mst.d('b) no-direct-multicast-reply')
                   dsm:clear_receiveds()
-                  mdns2:recvfrom(query1, DUMMY_SRC, MDNS_PORT)
+                  mdns2:recvfrom(query1, DUMMY_SRC, mdns_const.PORT)
                   dsm:advance_time(0.2)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
@@ -1262,12 +1259,12 @@ describe("multi-mdns setup (mdns_ospf)", function ()
 
                   -- try first with rcode set - shouldn't do a thing
                   -- (s18.27)
-                  mdns2:recvfrom(query1_rcode, DUMMY_SRC, MDNS_PORT)
+                  mdns2:recvfrom(query1_rcode, DUMMY_SRC, mdns_const.PORT)
                   local r = dsm:run_nodes(123)
                   dsm:assert_receiveds_eq(0, 0, 0)
                   dsm:assert_queries_done()
 
-                  mdns2:recvfrom(query1, DUMMY_SRC, MDNS_PORT)
+                  mdns2:recvfrom(query1, DUMMY_SRC, mdns_const.PORT)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
                   -- no immediate reply - should wait bit before replying
@@ -1286,7 +1283,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   -- yet another query should not provide result
                   -- within 0,8sec (1sec spam limit)
                   -- s6.21 MUST
-                  mdns2:recvfrom(query1, DUMMY_SRC, MDNS_PORT)
+                  mdns2:recvfrom(query1, DUMMY_SRC, mdns_const.PORT)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
                   dsm:advance_time(0.2)
@@ -1299,7 +1296,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   -- s7.1 MUST - KAS ttl >= real ttl / 2
                   dsm:advance_time(2)
                   mst.d('d) KAS 1')
-                  mdns2:recvfrom(query1_kas, DUMMY_SRC, MDNS_PORT)
+                  mdns2:recvfrom(query1_kas, DUMMY_SRC, mdns_const.PORT)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
                   -- no immediate reply - should wait bit before replying
@@ -1313,7 +1310,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
 
                   mst.d('d) KAS 2')
                   -- s7.2 MUST - KAS ttl < real ttl / 2
-                  mdns2:recvfrom(query1_kas_low_ttl, DUMMY_SRC, MDNS_PORT)
+                  mdns2:recvfrom(query1_kas_low_ttl, DUMMY_SRC, mdns_const.PORT)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'did not terminate')
                   dsm:assert_receiveds_eq(0, 1, 0)
@@ -1324,11 +1321,11 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   -- but no type => no answer
                   -- s6.2
                   dsm:advance_time(2)
-                  mdns2:recvfrom(query1_type_any_qu, DUMMY_SRC, MDNS_PORT)
-                  mdns2:recvfrom(query1_class_any_qu, DUMMY_SRC, MDNS_PORT)
-                  mdns2:recvfrom(query1_class_any_qu, DUMMY_SRC, MDNS_PORT)
-                  mdns2:recvfrom(query1_type_nomatch_qu, DUMMY_SRC, MDNS_PORT)
-                  mdns2:recvfrom(query1_class_nomatch_qu, DUMMY_SRC, MDNS_PORT)
+                  mdns2:recvfrom(query1_type_any_qu, DUMMY_SRC, mdns_const.PORT)
+                  mdns2:recvfrom(query1_class_any_qu, DUMMY_SRC, mdns_const.PORT)
+                  mdns2:recvfrom(query1_class_any_qu, DUMMY_SRC, mdns_const.PORT)
+                  mdns2:recvfrom(query1_type_nomatch_qu, DUMMY_SRC, mdns_const.PORT)
+                  mdns2:recvfrom(query1_class_nomatch_qu, DUMMY_SRC, mdns_const.PORT)
 
                   -- shouldn't have caused any query to be waiting..
                   dsm:assert_queries_done()
@@ -1341,7 +1338,7 @@ describe("multi-mdns setup (mdns_ospf)", function ()
                   -- if enough time has elapsed
                   -- s5.19 SHOULD
                   dsm:advance_time(DUMMY_TTL / 2)
-                  mdns2:recvfrom(query1_qu, DUMMY_SRC, MDNS_PORT)
+                  mdns2:recvfrom(query1_qu, DUMMY_SRC, mdns_const.PORT)
                   -- can't be instant
                   dsm:assert_receiveds_eq(0, 0, 0)
                   dsm:wait_receiveds_counts(0, 1, 0)
