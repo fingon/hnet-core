@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:02:05 2012 mstenber
--- Last modified: Thu Jan 10 16:21:36 2013 mstenber
--- Edit time:     39 min
+-- Last modified: Tue Jan 22 00:10:59 2013 mstenber
+-- Edit time:     43 min
 --
 
 -- wierd testing utility class, which simulates a whole topology
@@ -35,7 +35,7 @@ function dsm:repr_data()
    return '?'
 end
 
-function dsm:add_node(o)
+function dsm:create_node(o)
    local port = self.port_offset + #self.skvs
    local s = skv.skv:new{long_lived=true, port=port}
    self.skvs:insert(s)
@@ -45,11 +45,14 @@ function dsm:add_node(o)
    o.time = function ()
       return self.t
    end
-   
    local n = self.create_callback(o)
-   self.e:add_node(n)
-   self.nodes = nil
+   self:add_node(n)
    return n
+end
+
+function dsm:add_node(o)
+   self.e:add_node(o)
+   self.nodes = nil
 end
 
 function dsm:get_nodes()

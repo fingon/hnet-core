@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Sun Jan 20 10:50:55 2013 mstenber
--- Edit time:     31 min
+-- Last modified: Tue Jan 22 01:35:24 2013 mstenber
+-- Edit time:     78 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -17,37 +17,78 @@
 -- for bidirectional passing of data to the OSPF.
 
 -- outside => mdns
---    ospf-lap ( to check if master, or not )
---    ospf-mdns = {} (?)
+--    ospf-lap ( to check if owner, or not )
+--    ospf-mdns = {} 
 
 -- mdns => outside
---    mdns.<ifname> = ..
+--    mdns = {}
 
---
+-- ospf-mdns, and mdns contain entries with {name={'x','y','z'},
+-- rtype=N, rdata_N='...'} format. Omitted things: 
+
+-- - cache_flush bit (we assume we know which rtypes are; typically,
+-- everything not PTR seems to be)
+
+-- - ttl (we use mdns defaults, as stuff in OSPF is 'valid for now',
+-- and once it disappears from OSPF, it should also disappear from
+-- hosts)
+
+-- - rdata_N is human readable rtype-specific version (mostly for
+-- debugging purposes for now; it could be also raw rdata )
+
 -- Most of the heavy lifting is done by the mdns_{core,if}; they
 -- provide basic mdns abstraction, and all we do is just customize
 -- those classes to our needs by subclassing. Namely, 
 
 -- mdns_if is subclassed so that we're interested in refreshing cache
 -- validity times if and only if we're owner for that interface
--- according to OSPF, and
+-- according to OSPF, and to get notifications whenever contents of
+-- cache have changed (in terms of rr's having been added or removed)
 
--- mdns_core subclassing is to override the propagate_rr and 
+-- mdns_core subclassing is to just to package the skv listening stuff
+-- which does others => us propagation, as well as our caches => ospf
+-- state transfer.
+
 
 require 'mdns_core'
 require 'mdns_if'
 
 module(..., package.seeall)
 
+-- locally owned (owner) interfaces' cache rr data
+OWN_SKV_KEY='mdns'
+
+-- other nodes' cache data skv key
+OSPF_SKV_KEY='ospf-mdns'
+
 local _mdns_if = mdns_if.mdns_if
 local _mdns = mdns_core.mdns
 
 ospf_if = _mdns_if:new_subclass{class='ospf_if'}
 
+function ospf_if:init()
+   -- call superclass init
+   _mdns_if.init(self)
+
+   local old_removed_callback = self.cache.removed_callback
+
+   function self.cache.removed_callback(x, rr)
+      -- set flag which indicates that the interface's cache is dirty
+      self.parent.cache_dirty = true
+
+      old_removed_callback(x, rr)
+   end
+
+   function self.cache.inserted_callback(x, rr)
+      -- set flag which indicates that the interface's cache is dirty
+      self.parent.cache_dirty = true
+   end
+end
+
 -- by default, OSPF based interfaces are interested in EVERYTHING, 
 -- as long as they're master
 function ospf_if:interested_in_cached(rr)
-
+   return _mdns_if.interested_in_cached(self, rr)
 end
 
 mdns = _mdns:new_subclass{class='mdns_ospf',
@@ -58,6 +99,7 @@ function mdns:init()
    _mdns.init(self)
    self.f = function (k, v) self:kv_changed(k, v) end
    self.skv:add_change_observer(self.f)
+   self.ospf_cache_ns = dnsdb.ns:new{}
 end
 
 function mdns:kv_changed(k, v)
@@ -67,10 +109,60 @@ function mdns:kv_changed(k, v)
       self.ospf_lap = v
       self.update_lap = true
    end
+   if k == OSPF_SKV_KEY
+   then
+      self.ospf_skv = v
+      self.update_ospf = true
+   end
 end
 
 function mdns:uninit()
    self.skv:remove_change_observer(self.f)
+end
+
+function mdns:handle_ospf_cache()
+   -- OSPF cache contents changed. Two cases that we care about, per rr.
+   -- a)
+   --  rr was added
+   -- b)
+   --  rr was removed
+   --
+   -- To make this check relatively efficient, we keep dnsdb.ns of
+   -- our own just for storing the ospf cache state
+   -- (self.ospf_cache_ns), and sync ospf_skv with that
+
+
+   -- ospf cache contents
+   local ns = dnsdb.ns:new{}
+
+   -- invalidate the ns contents
+   ns:iterate_rrs(function (rr) rr.invalid = true end)
+
+   -- first, handle existing ones (call propagate, whatever it does
+   -- for them..)
+   for i, rr in ipairs(self.ospf_skv)
+   do
+      local orr = ns:find_rr(rr)
+      if orr
+      then
+         orr.invalid = nil
+      else
+         rr = ns:insert_rr(rr)
+      end
+      self:propagate_if_rr(nil, rr)
+   end
+   
+   -- then, look for invalid ones
+   ns:iterate_rrs(function (rr)
+                     if rr.invalid
+                     then
+                        -- wtf should we do with this anyway? update with
+                        -- ttl=0, and then get rid of it?
+                        rr.ttl = 0
+                        self:propagate_if_rr(nil, rr)
+                        ns:remove_rr(rr)
+                     end
+                  end)
 end
 
 function mdns:run()
@@ -90,6 +182,8 @@ function mdns:run()
                             self:d(' removing ', k)
                             self:remove_own_from_if(k)
                             self:remove_own_to_if(k)
+                            -- has implications on cache too
+                            self.cache_dirty = true
                             v.active = nil
                          end
                       end,
@@ -98,6 +192,8 @@ function mdns:run()
                          self:d(' adding ', k)
                          local o = self:get_if(k)
                          table.insert(fresh, o)
+                         -- has implications on cache too
+                         self.cache_dirty = true
                          o.active = true
                       end
                       -- comparison omitted -> we don't _care_
@@ -111,11 +207,44 @@ function mdns:run()
          end
       end
    end
+   if self.update_ospf
+   then
+      self.update_ospf = nil
+      self:handle_ospf_cache()
+   end
+   if self.cache_dirty
+   then
+      -- publish all owned interfaces' caches to skv
+      self.cache_dirty = false
+      local t = {}
+      for ifname, ifo in pairs(self.ifname2if)
+      do
+         -- we care only about owned interfaces - rest can be ignored safely
+         if self.master_if_set[ifname]
+         then
+            ifo.cache:iterate_rrs(function (rr)
+                                     local t = rr.rtype
+                                     local to = dns_rdata.rtype_map[t]
+                                     if to
+                                     then
+                                        local f = to.field
+                                        local v = rr[f]
+                                        table.insert(t,
+                                                     {name=rr.name,
+                                                      rtype=t,
+                                                      [f]=v,
+                                                     })
+                                     end
+                                  end)
+         end
+      end
+      self.skv:set(OWN_SKV_KEY, t)
+   end
    return _mdns.run(self)
 end
 
 function mdns:should_run()
-   if self.update_lap then return true end
+   if self.update_lap or self.cache_dirty or self.update_ospf then return true end
    return _mdns.should_run(self)
 end
 
@@ -138,7 +267,7 @@ function mdns:remove_own_from_if(fromif)
                                then
                                   nrr:expire()
                                end
-                           end)
+                            end)
       end
    end
 end
@@ -174,11 +303,15 @@ end
 
 function mdns:calculate_if_master_set()
    local t = mst.set:new{}
+
+   -- for rest, we look at the SKV-LAP for stuff that we own, and that
+   -- isn't depracated or external
    for i, lap in ipairs(self.ospf_lap)
    do
       local dep = lap.depracate      
-      local own = lap.owner and not lap.external
-      if not dep and own
+      local own = lap.owner 
+      local ext = lap.external
+      if own and not ext and not dep
       then
          t:insert(lap.ifname)
       end

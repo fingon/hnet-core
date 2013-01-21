@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Sun Jan 20 10:48:00 2013 mstenber
--- Edit time:     341 min
+-- Last modified: Mon Jan 21 19:34:30 2013 mstenber
+-- Edit time:     344 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -210,7 +210,6 @@ mdns_if = mst.create_class{class='mdns_if',
                            mandatory={'ifname', 'parent'}}
 
 function mdns_if:init()
-   self.sendto = self.parent.sendto
    self.cache = dnsdb.ns:new{}
 
    self.own = dnsdb.ns:new{}
@@ -251,6 +250,10 @@ function mdns_if:init()
          self:update_rr_related_nsec(rr)
       end
    end
+end
+
+function mdns_if:sendto(...)
+   self.parent.sendto(...)
 end
 
 function mdns_if:time()
@@ -341,7 +344,7 @@ function mdns_if:run_expire()
                                   end
                                   if rr.valid > now
                                   then
-                                     self:update_cache_rr_perhaps(rr)
+                                     self:query_cache_rr_perhaps(rr)
                                      return true
                                   end
                                   self:d('[cache] getting rid of', rr)
@@ -356,7 +359,7 @@ function mdns_if:run_expire()
       local s = dnscodec.dns_message:encode{an=pending, 
                                             h=mdns_const.DEFAULT_RESPONSE_HEADER}
       local dst = mdns_const.MULTICAST_ADDRESS .. '%' .. self.ifname
-      self.parent.sendto(s, dst, mdns_const.PORT)
+      self:sendto(s, dst, mdns_const.PORT)
    end
 end
 
@@ -574,7 +577,7 @@ function mdns_if:send_reply(an, ar, kas, id, dst, dstport, unicast)
 
    local s = dnscodec.dns_message:encode(o)
    mst.d('sending reply', o)
-   self.sendto(s, dst, dstport)
+   self:sendto(s, dst, dstport)
 
 end
 
@@ -593,7 +596,7 @@ function mdns_if:send_multicast_query(qd, kas, ns)
       mst.d('kas ttl update', #oan, #an)
    end
    local s = dnscodec.dns_message:encode{qd=qd, an=an, ns=ns}
-   self.sendto(s, dst, mdns_const.PORT)
+   self:sendto(s, dst, mdns_const.PORT)
 end
 
 function mdns_if:handle_unicast_query(msg, addr, srcport)
@@ -979,7 +982,7 @@ function mdns_if:update_next_cached(o)
    update_sl_if_changed(self.cache_sl, o, v)
 end
 
-function mdns_if:update_cache_rr_perhaps(rr)
+function mdns_if:query_cache_rr_perhaps(rr)
    -- update query # 
    local r = rr.queries or 0
    -- we should be called with rr.queries of 0-3; 
@@ -1278,8 +1281,7 @@ function mdns_if:send_announces()
       local s = dnscodec.dns_message:encode{an=an, h=h}
       local dst = mdns_const.MULTICAST_ADDRESS .. '%' .. self.ifname
       mst.d(now, 'sending announce(s)', #an)
-      self.sendto(s, dst, mdns_const.PORT)
-
+      self:sendto(s, dst, mdns_const.PORT)
    end
 end
 
