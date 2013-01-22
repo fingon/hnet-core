@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Mon Jan 21 19:34:30 2013 mstenber
--- Edit time:     344 min
+-- Last modified: Tue Jan 22 21:46:18 2013 mstenber
+-- Edit time:     391 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -334,7 +334,7 @@ function mdns_if:run_expire()
                                 return true
                              end)
 
-   -- get rid of rr's that have expired
+   -- get rid of cache rr's that have expired
    self.cache_sl:iterate_while(function (rr)
                                   -- first off, see if it's worth
                                   -- iterating anymore
@@ -348,7 +348,7 @@ function mdns_if:run_expire()
                                      return true
                                   end
                                   self:d('[cache] getting rid of', rr)
-                                  self:expire_rr(rr)
+                                  self:expire_cache_rr(rr)
                                   self.cache:remove_rr(rr)
                                   return true
                                end)
@@ -858,12 +858,12 @@ function mdns_if:update_rr_ttl(o, ttl, update_field)
    end
 end
 
-function mdns_if:handle_rr_cache_update(rr)
+function mdns_if:upsert_cache_rr(rr)
    local nsc = self.cache
    local old_rr = nsc:find_rr(rr)
    local o
 
-   self:d('handle_rr_cache_update', rr, old_rr)
+   self:d('upsert_cache_rr', rr, old_rr)
 
    if old_rr
    then
@@ -941,7 +941,7 @@ function mdns_if:handle_rr_cache_update(rr)
 
    -- if information conflicts, don't propagate it
    -- (but instead remove everything we have)
-   if self:rr_has_conflicts(o)
+   if self:rr_has_cache_conflicts(o)
    then
       self:stop_propagate_conflicting_rr(o)
       return
@@ -1013,7 +1013,7 @@ function mdns_if:update_next_own(o)
 end
 
 
-function mdns_if:handle_rr_list_cache_update(rrlist)
+function mdns_if:upsert_cache_rrs(rrlist)
    if not rrlist or not #rrlist then return end
    -- initially, get rid of the conflicting ones based on
    -- cache_flush being set; due to this, we insert whole set's
@@ -1037,7 +1037,7 @@ function mdns_if:handle_rr_list_cache_update(rrlist)
    end
    for i, rr in ipairs(todo)
    do
-      self:handle_rr_cache_update(rr)
+      self:upsert_cache_rr(rr)
    end
 end
 
@@ -1051,7 +1051,7 @@ function mdns_if:handle_multicast_response(msg)
    local t = {}
    mst.array_extend(t, msg.an)
    mst.array_extend(t, msg.ar)
-   self:handle_rr_list_cache_update(t)
+   self:upsert_cache_rrs(t)
 end
 
 function mdns_if:insert_own_rrset(l)
@@ -1382,16 +1382,16 @@ function mdns_if:send_probes()
    end
 end
 
-function mdns_if:stop_propagate_rr_sub(rr, similar, equal)
-   -- remove all matching _own_ rr's
-   -- (we simply pretend rr doesn't exist at all)
-   -- similar only, not equal(?)
-   self.own:iterate_ns_rr(ns, rr,
-                          function (rr2)
-                             self:d('removing own', similar, equal, rr)
-                             ns:remove_rr(rr2)
-                             self.own_sl:remove_if_present(rr2)
-                          end, similar, equal)
+function mdns_if:stop_propagate_rr(rr)
+   local ns = self.own
+   
+   -- stop propagation of this specific rr on this interface => has to
+   -- be exact match, in own
+   local orr = ns:find_rr(rr)
+   if not orr then return end
+
+   ns:remove_rr(orr)
+   self.own_sl:remove_if_present(orr)
 end
 
 function mdns_if:handle_recvfrom(data, addr, srcport)
@@ -1497,14 +1497,25 @@ function mdns_if:propagate_rr(rr)
    self.parent:propagate_if_rr(self.ifname, rr)
 end
 
-function mdns_if:expire_rr(rr)
-   self.parent:expire_if_rr(self.ifname, rr)
+function mdns_if:expire_cache_rr(rr)
+   self.parent:expire_if_cache_rr(self.ifname, rr)
 end
+
+function mdns_if:stop_propagate_conflicting_rr_sub(rr)
+   -- find similar rr's that are not equal to this rr
+   self.own:iterate_rrs_for_ll(rr.name,
+                               function (rr2)
+                                  self:d('removing own', rr2)
+                                  self:stop_propagate_rr(rr2)
+                               end)
+end
+
+
 
 function mdns_if:stop_propagate_conflicting_rr(rr)
    self.parent:stop_propagate_conflicting_if_rr(self.ifname, rr)
 end
 
-function mdns_if:rr_has_conflicts(rr)
-   return self.parent:if_rr_has_conflicts(self.ifname, rr)
+function mdns_if:rr_has_cache_conflicts(rr)
+   return self.parent:if_rr_has_cache_conflicts(self.ifname, rr)
 end

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Sun Jan 20 10:47:31 2013 mstenber
--- Edit time:     847 min
+-- Last modified: Tue Jan 22 21:40:04 2013 mstenber
+-- Edit time:     854 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -194,7 +194,14 @@ function mdns:insert_if_own_rr(ifname, rr)
    ifo:insert_own_rr(rr)
 end
 
-function mdns:if_rr_has_conflicts(ifname, rr)
+function mdns:iterate_caches(f)
+   for toif, ifo in pairs(self.ifname2if)
+   do
+      f(ifo.cache, ifo)
+   end
+end
+
+function mdns:if_rr_has_cache_conflicts(ifname, rr)
    -- if it's non-cache-flush-entry, it's probably ok
    -- XXX - what should be the behavior be with mixed unique/shared
    -- entries for same names?
@@ -206,29 +213,27 @@ function mdns:if_rr_has_conflicts(ifname, rr)
    -- look if we have cache_flush enabled rr in _some_ cache, that
    -- isn't _exactly_ same as this. if we do, it's a conflict
    -- (regardless of whether this one is cache_flush=true)
-   for toif, ifo in pairs(self.ifname2if)
-   do
-      if toif ~=  ifname
-      then
-         local ns = ifo.cache
-         -- XXX - should we care if if is master or not?
-         -- probably not
+   self:iterate_caches(function (ns, ifo)
+                          if ifo.ifname ~=  ifname
+                          then
+                             -- unfortunately, we have to consider
+                             -- _all_ records that match the name =>
+                             -- not insanely efficient.. but oh
+                             -- well. we know specifically what we're
+                             -- looking for, after all.
+                             local conflict
+                             ns:iterate_rrs_for_ll(rr.name, 
+                                                   function (o)
+                                                      if o.cache_flush
+                                                      then
+                                                         self:d('found conflict for ', rr, o)
+                                                         conflict = true
+                                                      end
+                                                   end)
+                             if conflict then return true end
+                          end
 
-         -- unfortunately, we have to consider _all_ records that match
-         -- the name => not insanely efficient.. but oh well. we know
-         -- specifically what we're looking for, after all.
-         local conflict
-         ns:iterate_rrs_for_ll(rr.name, 
-                               function (o)
-                                  if o.cache_flush
-                                  then
-                                     self:d('found conflict for ', rr, o)
-                                     conflict = true
-                                  end
-                               end)
-         if conflict then return true end
-      end
-   end
+                       end)
 end
 
 -- These four are 'overridable' functionality for the
@@ -240,13 +245,13 @@ end
 
 function mdns:stop_propagate_conflicting_if_rr(ifname, rr)
    -- same we can keep
-   for ifname, ifo in ipairs(self.ifname2if)
+   for ifname, ifo in pairs(self.ifname2if)
    do
-      ifo:stop_propagate_rr_sub(rr, true, false)
+      ifo:stop_propagate_conflicting_rr_sub(rr)
    end
 end
 
-function mdns:expire_if_rr(ifname, rr)
+function mdns:expire_if_cache_rr(ifname, rr)
    --this should happen on it's own as the own entries also have
    --(by default) assumedly ttl's
 
