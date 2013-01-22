@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Tue Jan 22 21:40:04 2013 mstenber
--- Edit time:     854 min
+-- Last modified: Tue Jan 22 22:21:49 2013 mstenber
+-- Edit time:     855 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -165,9 +165,10 @@ end
 
 function mdns:cache_count()
    local c = 0
-   self:iterate_ifs_ns('cache',
-                       function ()
-                          c = c + 1
+   self:iterate_caches(function (ns)
+                          ns:iterate_rrs(function (rr)
+                                            c = c + 1
+                                         end)
                        end)
    return c
 end

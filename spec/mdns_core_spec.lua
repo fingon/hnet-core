@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Tue Jan 22 01:20:20 2013 mstenber
--- Edit time:     628 min
+-- Last modified: Tue Jan 22 22:22:25 2013 mstenber
+-- Edit time:     634 min
 --
 
 -- TO DO: 
@@ -1557,12 +1557,13 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                                 end, ...)
             end
 
-            it("works", function ()
+            it("works #skv", function ()
                   -- setup + teardown test
 
                   -- insert rr with ttl to own of dummy1; it should
                   -- propagate eventually to dummy2 and dummy3
                   dummy1:insert_if_own_rr('dummyif', rr1_cf)
-                  wait_cache_counts(0, 1, 1)
+                  wait_cache_counts(1, 0, 0)
+                  wait_own_counts(1, 1, 1)
                    end)
 end)

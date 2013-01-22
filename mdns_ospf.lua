@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Tue Jan 22 01:35:24 2013 mstenber
--- Edit time:     78 min
+-- Last modified: Tue Jan 22 22:19:37 2013 mstenber
+-- Edit time:     95 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -111,6 +111,7 @@ function mdns:kv_changed(k, v)
    end
    if k == OSPF_SKV_KEY
    then
+      self:d('ospf-cache updated', #v)
       self.ospf_skv = v
       self.update_ospf = true
    end
@@ -138,6 +139,8 @@ function mdns:handle_ospf_cache()
    -- invalidate the ns contents
    ns:iterate_rrs(function (rr) rr.invalid = true end)
 
+   self:d('refreshing from ospf-cache', #self.ospf_skv)
+
    -- first, handle existing ones (call propagate, whatever it does
    -- for them..)
    for i, rr in ipairs(self.ospf_skv)
@@ -149,7 +152,12 @@ function mdns:handle_ospf_cache()
       else
          rr = ns:insert_rr(rr)
       end
-      self:propagate_if_rr(nil, rr)
+      if self:if_rr_has_cache_conflicts(nil, rr)
+      then
+         self:stop_propagate_conflicting_if_rr(nil, o)
+      else
+         self:propagate_if_rr(nil, rr)
+      end
    end
    
    -- then, look for invalid ones
@@ -223,21 +231,21 @@ function mdns:run()
          if self.master_if_set[ifname]
          then
             ifo.cache:iterate_rrs(function (rr)
-                                     local t = rr.rtype
-                                     local to = dns_rdata.rtype_map[t]
-                                     if to
-                                     then
-                                        local f = to.field
-                                        local v = rr[f]
-                                        table.insert(t,
-                                                     {name=rr.name,
-                                                      rtype=t,
-                                                      [f]=v,
-                                                     })
-                                     end
+                                     local rt = rr.rtype
+                                     local to = dns_rdata.rtype_map[rt]
+                                     local f = to and to.field or 'rdata'
+                                     local v = rr[f]
+                                     self:a(v, 'no rdata?', to, rr)
+                                     table.insert(t,
+                                                  {name=rr.name,
+                                                   rtype=rt,
+                                                   rclass=dns_const.CLASS_IN,
+                                                   [f]=v,
+                                                  })
                                   end)
          end
       end
+      self:d('cache dirty, publishing cache', #t)
       self.skv:set(OWN_SKV_KEY, t)
    end
    return _mdns.run(self)
@@ -319,6 +327,18 @@ function mdns:calculate_if_master_set()
    return t
 end
 
+function mdns:propagate_rr_to_ifo(rr, ifo)
+   -- if we have received the entry _from_ that interface,
+   -- we don't want to propagate it there
+   local ns = ifo.cache
+   if not ns:find_rr(rr)
+   then
+      -- there isn't conflict - so we can just peacefully insert
+      -- the rr to the own list
+      ifo:insert_own_rr(rr)
+   end
+end
+
 function mdns:propagate_if_rr(ifname, rr)
    -- if we're not 'master' for that if, ignore it
    if not self.master_if_set[ifname] then return end
@@ -327,15 +347,8 @@ function mdns:propagate_if_rr(ifname, rr)
    do
       if toif ~= ifname
       then
-         -- if we have received the entry _from_ that interface,
-         -- we don't want to propagate it there
-         local ns = self:get_if(toif).cache
-         if not ns:find_rr(rr)
-         then
-            -- there isn't conflict - so we can just peacefully insert
-            -- the rr to the own list
-            self:insert_if_own_rr(toif, rr)
-         end
+         local ifo = self:get_if(toif)
+         self:propagate_rr_to_ifo(rr, ifo)
       end
    end
 end
