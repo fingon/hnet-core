@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Wed Jan 23 18:11:07 2013 mstenber
--- Edit time:     640 min
+-- Last modified: Wed Jan 23 18:18:13 2013 mstenber
+-- Edit time:     642 min
 --
 
 -- TO DO: 
@@ -1531,7 +1531,7 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                      local d = tl[i]
                      local v2 = getter(d)
                      mst.d('checking count', i, v, v2)
-                     mst.a(v2 <= v, 'v2 > v', i, v2, v, d)
+                     --mst.a(v2 <= v, 'v2 > v', i, v2, v, d)
 
                      if v2 ~= v
                      then
@@ -1564,8 +1564,13 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                   -- insert rr with ttl to own of dummy1; it should
                   -- propagate eventually to dummy2 and dummy3
                   dummy1:insert_if_own_rr('dummyif', rr1_cf)
+
                   -- each dummy should receive this, eventually
                   wait_cache_counts(1, 0, 0)
                   wait_own_counts(0, 2, 4)
+
+                  -- eventually, cache and own entries should also disappear
+                  wait_cache_counts(0, 0, 0)
+                  wait_own_counts(0, 0, 0)
                    end)
 end)
