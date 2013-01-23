@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Tue Jan 22 22:19:37 2013 mstenber
--- Edit time:     95 min
+-- Last modified: Wed Jan 23 18:16:56 2013 mstenber
+-- Edit time:     101 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -88,6 +88,11 @@ end
 -- by default, OSPF based interfaces are interested in EVERYTHING, 
 -- as long as they're master
 function ospf_if:interested_in_cached(rr)
+   -- if not master, not interested
+   if not self.parent.master_if_set[self.ifname]
+   then
+      return
+   end
    return _mdns_if.interested_in_cached(self, rr)
 end
 
@@ -134,16 +139,17 @@ function mdns:handle_ospf_cache()
 
 
    -- ospf cache contents
-   local ns = dnsdb.ns:new{}
+   local ns = self.ospf_cache_ns
 
    -- invalidate the ns contents
    ns:iterate_rrs(function (rr) rr.invalid = true end)
 
-   self:d('refreshing from ospf-cache', #self.ospf_skv)
+   local l = self.ospf_skv
+   self:d('refreshing from ospf-cache', #l)
 
    -- first, handle existing ones (call propagate, whatever it does
    -- for them..)
-   for i, rr in ipairs(self.ospf_skv)
+   for i, rr in ipairs(l)
    do
       local orr = ns:find_rr(rr)
       if orr
@@ -151,25 +157,28 @@ function mdns:handle_ospf_cache()
          orr.invalid = nil
       else
          rr = ns:insert_rr(rr)
+         self:d('added cache rr', rr)
       end
       if self:if_rr_has_cache_conflicts(nil, rr)
       then
-         self:stop_propagate_conflicting_if_rr(nil, o)
+         self:stop_propagate_conflicting_if_rr(nil, rr)
+         self:d('stopping propagating', rr)
       else
          self:propagate_if_rr(nil, rr)
+         self:d('propagating', rr)
+
       end
    end
    
    -- then, look for invalid ones
    ns:iterate_rrs(function (rr)
-                     if rr.invalid
-                     then
-                        -- wtf should we do with this anyway? update with
-                        -- ttl=0, and then get rid of it?
-                        rr.ttl = 0
-                        self:propagate_if_rr(nil, rr)
-                        ns:remove_rr(rr)
-                     end
+                     if not rr.invalid then return end
+                     self:d('setting ttl=0', rr)
+                     -- wtf should we do with this anyway? update with
+                     -- ttl=0, and then get rid of it?
+                     rr.ttl = 0
+                     self:propagate_if_rr(nil, rr)
+                     ns:remove_rr(rr)
                   end)
 end
 
@@ -341,7 +350,7 @@ end
 
 function mdns:propagate_if_rr(ifname, rr)
    -- if we're not 'master' for that if, ignore it
-   if not self.master_if_set[ifname] then return end
+   if ifname and not self.master_if_set[ifname] then return end
 
    for toif, _ in pairs(self.master_if_set)
    do
