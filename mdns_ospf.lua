@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Wed Jan 23 18:16:56 2013 mstenber
--- Edit time:     101 min
+-- Last modified: Wed Jan 23 20:23:10 2013 mstenber
+-- Edit time:     105 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -89,11 +89,23 @@ end
 -- as long as they're master
 function ospf_if:interested_in_cached(rr)
    -- if not master, not interested
-   if not self.parent.master_if_set[self.ifname]
-   then
-      return
-   end
+   if not self.parent.master_if_set[self.ifname] then return end
+
    return _mdns_if.interested_in_cached(self, rr)
+end
+
+
+function ospf_if:stop_propagate_conflicting_rr(rr)
+   -- if not master, not interested
+   if not self.parent.master_if_set[self.ifname] then return end
+   return _mdns_if.stop_propagate_conflicting_rr(self, rr)
+end
+
+function ospf_if:stop_propagate_conflicting_rr_sub(rr)
+   -- if not master, not interested
+   if not self.parent.master_if_set[self.ifname] then return end
+
+   _mdns_if.stop_propagate_conflicting_rr_sub(self, rr)
 end
 
 mdns = _mdns:new_subclass{class='mdns_ospf',

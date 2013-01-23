@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Wed Jan 23 18:18:13 2013 mstenber
--- Edit time:     642 min
+-- Last modified: Wed Jan 23 19:12:08 2013 mstenber
+-- Edit time:     645 min
 --
 
 -- TO DO: 
@@ -412,7 +412,7 @@ function create_node_callback(o)
       o.sm.e:iterate_iid_neigh(o.rid, ifname, function (t)
                                   local src = n.rid .. '%' .. t.iid
                                   local dn = o.sm.e.nodes[t.rid]
-                                  mst.d('calling dn:recvfrom')
+                                  mst.d('calling dn:recvfrom', t.iid)
                                   dn:recvfrom(data, src, mdns_const.PORT, to)
                                              end)
    end
@@ -1146,9 +1146,15 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   n = dneigh.dneigh:new{}
                   dsm = mydsm:new{e=n, port_offset=42576,
                                   create_callback=create_node_callback}
+                  function not_interested()
+                     return
+                  end
                   mdns1 = dsm:create_node{rid='n1'}
+                  mdns1.interested_in_cached = not_interested
                   mdns2 = dsm:create_node{rid='n2'}
+                  mdns2.interested_in_cached = not_interested
                   mdns3 = dsm:create_node{rid='n3'}
+                  mdns3.interested_in_cached = not_interested
                   dummy1 = dsm:create_node{rid='dummy1', dsm=dsm, dummy=true}
                   dummy2 = dsm:create_node{rid='dummy2', dsm=dsm, dummy=true}
                   dummy3 = dsm:create_node{rid='dummy3', dsm=dsm, dummy=true}

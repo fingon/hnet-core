@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Tue Jan 22 22:21:49 2013 mstenber
+-- Last modified: Wed Jan 23 20:26:50 2013 mstenber
 -- Edit time:     855 min
 --
 
@@ -244,11 +244,11 @@ end
 function mdns:propagate_if_rr(ifname, rr)
 end
 
-function mdns:stop_propagate_conflicting_if_rr(ifname, rr)
+function mdns:stop_propagate_conflicting_if_rr(ifname, rr, clear_rrset)
    -- same we can keep
    for ifname, ifo in pairs(self.ifname2if)
    do
-      ifo:stop_propagate_conflicting_rr_sub(rr)
+      ifo:stop_propagate_conflicting_rr_sub(rr, clear_rrset)
    end
 end
 

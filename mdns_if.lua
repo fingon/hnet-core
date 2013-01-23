@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Tue Jan 22 21:46:18 2013 mstenber
--- Edit time:     391 min
+-- Last modified: Wed Jan 23 20:27:44 2013 mstenber
+-- Edit time:     396 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -1026,7 +1026,7 @@ function mdns_if:upsert_cache_rrs(rrlist)
       if rr.cache_flush
       then
          -- stop publishing potentially conflicting ones _everywhere_
-         self:stop_propagate_conflicting_rr(rr)
+         self:stop_propagate_conflicting_rr(rr, true)
       end
       if rr.ttl == 0 and not nsc:find_rr(rr) and not ns:find_rr(rr)
       then
@@ -1501,19 +1501,30 @@ function mdns_if:expire_cache_rr(rr)
    self.parent:expire_if_cache_rr(self.ifname, rr)
 end
 
-function mdns_if:stop_propagate_conflicting_rr_sub(rr)
+function mdns_if:stop_propagate_conflicting_rr_sub(rr, clear_rrset)
+   if not clear_rrset
+   then
+      -- see if it exists within the rr - if it does, no
+      -- need to zap anything
+      if self.own:find_rr(rr)
+      then
+         return
+      end
+   end
+
    -- find similar rr's that are not equal to this rr
    self.own:iterate_rrs_for_ll(rr.name,
                                function (rr2)
-                                  self:d('removing own', rr2)
+                                  -- if exactly same, skip
+                                  self:d('[conflict] removing own', rr2)
                                   self:stop_propagate_rr(rr2)
                                end)
 end
 
 
 
-function mdns_if:stop_propagate_conflicting_rr(rr)
-   self.parent:stop_propagate_conflicting_if_rr(self.ifname, rr)
+function mdns_if:stop_propagate_conflicting_rr(rr, clear_rrset)
+   self.parent:stop_propagate_conflicting_if_rr(self.ifname, rr, clear_rrset)
 end
 
 function mdns_if:rr_has_cache_conflicts(rr)
