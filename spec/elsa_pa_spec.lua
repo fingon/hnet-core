@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Dec 19 16:02:27 2012 mstenber
--- Edit time:     301 min
+-- Last modified: Sun Jan 27 10:42:48 2013 mstenber
+-- Edit time:     308 min
 --
 
 require 'mst'
@@ -394,10 +394,10 @@ describe("elsa_pa 2-node", function ()
                            e:connect_neigh('ep1', 123, 'ep2', 124)
                            sm = dsm:new{e=e, port_offset=31338,
                                        create_callback=create_elsa_callback}
-                           ep1 = sm:add_node{rid='ep1'}
+                           ep1 = sm:create_node{rid='ep1'}
                            ep1.originate_min_interval=0
                            skv1 = sm.skvs[1]
-                           ep2 = sm:add_node{rid='ep2'}
+                           ep2 = sm:create_node{rid='ep2'}
                            ep2.originate_min_interval=0
                            skv2 = sm.skvs[2]
                         end)
@@ -473,7 +473,7 @@ describe("elsa_pa bird7-ish", function ()
                               iids[name] = {{index=42, name='eth0'},
                                             {index=43, name='eth1'}}
                               hwfs[name] = name
-                              local ep = sm:add_node{rid=name}
+                              local ep = sm:create_node{rid=name}
                               ep.originate_min_interval=0
                            end
                         end)
