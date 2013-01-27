@@ -8,11 +8,14 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 11:15:32 2013 mstenber
--- Last modified: Sun Jan 27 11:25:08 2013 mstenber
--- Edit time:     5 min
+-- Last modified: Sun Jan 27 11:29:14 2013 mstenber
+-- Edit time:     8 min
 --
 
--- TCP code related to simple callback stuff (scb)
+-- (Code has been moved here from scb.lua)
+
+-- This module contains TCP code related to simple callback stuff
+-- (scb)
 
 local scb = require 'scb'
 local mst = require 'mst'
@@ -126,7 +129,7 @@ function ScbListen:handle_io_read()
    if c 
    then
       c:settimeout(0)
-      evio = ScbIO:new{s=c, p=self}
+      local evio = ScbIO:new{s=c, p=self}
       self:a(evio.listen_read, 'listen_read disappeared')
       self:a(evio.listen_write, 'listen_write disappeared')
       evio:start()
@@ -159,7 +162,7 @@ function ScbConnect:handle_io_write()
 
    -- then, forward the freshly wrapped IO socket onward
    -- (someone needs to set up callback(s))
-   evio = wrap_socket(self.evio_d)
+   local evio = wrap_socket(self.evio_d)
    self.callback(evio)
 
    -- we're ready to be cleaned (as if we were anywhere anyway, after :stop())
@@ -171,7 +174,7 @@ function wrap_socket(d)
    mst.check_parameters("scb:wrap_socket", d, {"s"}, 3)
    local s = d.s
    s:settimeout(0)
-   evio = ScbIO:new(d)
+   local evio = ScbIO:new(d)
    mst.a(evio.listen_read and evio.listen_write)
    evio:start()
    return evio
@@ -206,7 +209,7 @@ function new_connect(d)
    d.s = s
    if r == 1
    then
-      evio = wrap_socket(d)
+      local evio = wrap_socket(d)
       connected_callback(evio)
       return evio
    end

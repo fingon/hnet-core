@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Sun Jan 27 11:23:36 2013 mstenber
--- Edit time:     164 min
+-- Last modified: Sun Jan 27 12:06:37 2013 mstenber
+-- Edit time:     176 min
 --
 
 -- convenience stuff on top of LuaSocket (most of the action happens
@@ -20,6 +20,7 @@
 
 local mst = require 'mst'
 local ssloop = require 'ssloop'
+local socket = require 'socket'
 
 module(...)
 
@@ -101,3 +102,38 @@ function Scb:stop()
    end
 end
 
+
+-- wrap udp socket in Scb structure, and set it up with the given
+-- callback
+function wrap_udp_socket(d)
+   mst.check_parameters("scb:wrap_socket", d, {"s", "callback"}, 3)
+   local s = d.s
+   s:settimeout(0)
+   d.listen_read = true
+   d.listen_write = false
+   function d:handle_io_read ()
+      local r, ip, port = self.s:receivefrom()
+      self:a(r, 'timeout should not happen, we are non-blocking after all')
+      self.callback(r, ip, port)
+   end
+   local o = Scb:new(d)
+   o:start()
+   return o
+end
+
+-- set up new udp socket, with given host, port, and calling the given
+-- callback whenever applicable
+function new_udp_socket(d)
+   mst.check_parameters("scb:new_udp_socket", d, 
+                        {"host", "port", "callback"}, 3)
+   local s = socket.udp()
+   s:settimeout(0)
+   s:setoption('reuseaddr', true)
+   local r, err = s:setsockname(d.host, d.port)
+   if not r
+   then
+      return r, 'error in setsockname' .. err
+   end
+   local o = wrap_udp_socket{s=s, callback=d.callback}
+   return o
+end

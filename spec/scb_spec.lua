@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Sun Jan 27 11:22:36 2013 mstenber
--- Edit time:     105 min
+-- Last modified: Sun Jan 27 12:07:14 2013 mstenber
+-- Edit time:     115 min
 --
 
 require "busted"
@@ -54,9 +54,8 @@ function wait_connected(c)
    local r = {}
    c.callback = function (c)
       r[1] = c
-      loop:unloop()
    end
-   ssloop.run_loop_awhile()
+   ssloop.run_loop_until(function () return #r > 0 end)
    c = r[1]
    mst.d('wait_connected done')
    mst.a(c, "no socket in wait_connected")
@@ -117,7 +116,7 @@ function test_once(n, port)
    mst.a(rh[1] == n, "did not receive anything? " .. tostring(rh[1]))
 end
 
-describe("scb-test", function ()
+describe("scb-tcp", function ()
             before_each(function ()
                            local r = loop:clear()
                            mst.a(not r, 'left before', r)
@@ -140,4 +139,37 @@ describe("scb-test", function ()
 
                               end)
 
+function create_dummy_udp_socket(port)
+   local thost = '127.0.0.1'
+   local o = scb.new_udp_socket{host=thost, port=port,
+                                callback=true}
+   o.got = {}
+   function o.callback(data, host, port)
+      table.insert(o.got, {data, host, port})
+   end
+   return o
+end
 
+describe("scb-udp", function ()
+            before_each(function ()
+                           local r = loop:clear()
+                           mst.a(not r, 'left before', r)
+                  end)
+            after_each(function ()
+                        loop:clear()
+                        local r = loop:clear()
+                        mst.a(not r, 'left after', r)
+                     end)
+            it("can create sockets + transmit data", function ()
+                  local p1 = 12345
+                  local p2 = 12346
+                  local s1 = create_dummy_udp_socket(p1)
+                  local s2 = create_dummy_udp_socket(p2)
+                  -- as a test, send message both ways (or well, queue one)
+                  s1.s:sendto('x', '127.0.0.1', p2)
+                  s2.s:sendto('x', '127.0.0.1', p1)
+                  loop:loop_until(function ()
+                                     return #s1.got == 1 and #s2.got == 1
+                                  end)
+                   end)
+             end)
