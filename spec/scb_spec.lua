@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Sun Jan 27 12:07:14 2013 mstenber
--- Edit time:     115 min
+-- Last modified: Sun Jan 27 12:08:07 2013 mstenber
+-- Edit time:     116 min
 --
 
 require "busted"
@@ -167,9 +167,10 @@ describe("scb-udp", function ()
                   local s2 = create_dummy_udp_socket(p2)
                   -- as a test, send message both ways (or well, queue one)
                   s1.s:sendto('x', '127.0.0.1', p2)
-                  s2.s:sendto('x', '127.0.0.1', p1)
+                  s2.s:sendto('y', '127.0.0.1', p1)
+                  s2.s:sendto('z', '127.0.0.1', p1)
                   loop:loop_until(function ()
-                                     return #s1.got == 1 and #s2.got == 1
+                                     return #s1.got == 2 and #s2.got == 1
                                   end)
                    end)
              end)

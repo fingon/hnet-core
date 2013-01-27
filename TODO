@@ -31,17 +31,30 @@ IETF process)
 
 + elsa_pa: SKV<=>OSPF publishing
 
-+ Luasocket (w/ IPv6 multicast join/leave support) for socket handling
- - need to integrate to OpenWRT build process own version
- - need to build(?) it for NetKit
- - need to get Diego to accept it
-
-- ssloop for event handling (mainly, to deal with skv, and to handle
++ ssloop for event handling (mainly, to deal with skv, and to handle
   inbound UDP packets; ssloop in general is done, but UDP support may
   require small changes, as currently ssloop operates on TCP only)
 
-- mdns.lua
- - tie together above bits => one coherent whole
++ Luasocket (w/ IPv6 multicast join/leave support) for socket handling
+ - need to integrate to OpenWRT build process own version
+  - replace the built-in luasocket with e.g. hnet-luasocket package (...)
+ - need to build(?) it for NetKit
+ - need to get Diego to accept it
+
++ mdns.lua
+ - tie together above bits => one coherent whole (TODO: mcast join/leave)
+
+** Add some sort of 'initial state fetcher' 
+
+.. when becoming owner of an interface, should proactively query (with qu
+set on?) for services, and then instances of those services..
+
+i.e. q {'_services', '_dns-sd', '_udp', 'local'}
+.. and then q for everything within!
+
+(we _may_ also keep a list of services we've ever heard about, and include
+those explicitly in initial query; that's also perfectly valid option, but
+should be just used as backup solution)
 
 * PA - Bugs to fix
 

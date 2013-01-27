@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Wed Nov 21 19:24:11 2012 mstenber
--- Edit time:     18 min
+-- Last modified: Sun Jan 27 12:11:00 2013 mstenber
+-- Edit time:     20 min
 --
 
 -- 'prefix manager' (name still temporary)
@@ -26,6 +26,11 @@ require 'mst'
 require 'pm_core'
 require 'skv'
 require 'ssloop'
+
+-- how often we run stuff that is bound to run every 'tick'?  (these
+-- may involve e.g. shell commands to check system state, so it should
+-- not be too short)
+DEFAULT_TICK_INTERVAL=10
 
 local loop = ssloop.loop()
 
@@ -71,7 +76,7 @@ end
 
 function schedule_next_tick()
    local t
-   t = loop:new_timeout_delta(10,
+   t = loop:new_timeout_delta(DEFAULT_TICK_INTERVAL,
                               function ()
                                  -- call tick
                                  pm:tick()
