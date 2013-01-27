@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Fri Nov 30 11:09:28 2012 mstenber
--- Edit time:     505 min
+-- Last modified: Sun Jan 27 11:01:52 2013 mstenber
+-- Edit time:     522 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -77,6 +77,10 @@ OSPF_DNS_SEARCH_KEY='ospf-dns-search'
 OSPF_IFLIST_KEY='ospf-iflist'
 OSPF_IPV4_DNS_KEY='ospf-v4-dns'
 OSPF_IPV4_DNS_SEARCH_KEY='ospf-v4-dns-search'
+-- locally owned (owner) interfaces' cache rr data
+MDNS_OWN_SKV_KEY='mdns'
+-- other nodes' cache data skv key
+MDNS_OSPF_SKV_KEY='ospf-mdns'
 
 -- JSON fields within jsonblob AC TLV
 JSON_ASA_KEY='asa'
@@ -84,6 +88,8 @@ JSON_DNS_KEY='dns'
 JSON_DNS_SEARCH_KEY='dns-search'
 JSON_IPV4_DNS_KEY='ipv4-dns'
 JSON_IPV4_DNS_SEARCH_KEY='ipv4-dns-search'
+-- local mdns rr cache
+JSON_MDNS_KEY='mdns'
 
 -- from the draft; time from boot to wait iff no other routers around
 -- before starting new assignments
@@ -182,7 +188,7 @@ function elsa_pa:init()
    self.ac_changes = 1
    self.lsa_changes = 1
 
-   self.check_skvp = true
+   self.check_skv = true
 
    -- when did we consider originate/publish last
    self.last_publish = 0
@@ -216,7 +222,7 @@ end
 
 function elsa_pa:kv_changed(k, v)
    -- should check skv the next time we've run
-   self.check_skvp = true
+   self.check_skv = true
 end
 
 function elsa_pa:lsa_changed(lsa)
@@ -368,7 +374,9 @@ function elsa_pa:should_publish(d)
 end
 
 function elsa_pa:get_mutable_state()
-   local s = table.concat{mst.repr{self.pa.ridr}, self.skvp_repr}
+   local s = table.concat{mst.repr{self.pa.ridr}, 
+                          self.skvp_repr,
+                          mst.repr(self.skv:get(MDNS_OWN_SKV_KEY))}
    s = mst.create_hash_if_fast(s)
    return s
 end
@@ -397,9 +405,13 @@ function elsa_pa:run()
    self.ac_changes = 0
    self.lsa_changes = 0
 
-   if self.check_skvp
+   if self.check_skv
    then
+      self.check_skv = nil
       self:update_skvp()
+      -- we implicitly also wind up checking the publish needs, if
+      -- there's relevant changes in SKV (for example, mdns cache
+      -- changes)
    end
 
    -- our rid may have changed -> change that of the pa too, just in case
@@ -514,6 +526,10 @@ function elsa_pa:run_handle_skv_publish()
       local l = self:get_local_field_array(o.prefix, o.key)
       self.skv:set(o.ospf, self:get_field_array(l, jsonkey))
    end
+
+   -- copy over mdns records, if any
+   local l = self:get_field_array(nil, JSON_MDNS_KEY, mst.array)
+   self.skv:set(MDNS_OSPF_SKV_KEY, l)
 
    -- toss in the usp's too
    local t = mst.array:new{}
@@ -694,7 +710,6 @@ function elsa_pa:iterate_skv_prefix(f)
 end
 
 function elsa_pa:update_skvp()
-   self.check_skvp = nil
    self.skvp = mst.map:new()
    self:iterate_skv_prefix_real(function (p)
                                    self.skvp[p.prefix] = p
@@ -749,8 +764,10 @@ function elsa_pa:iterate_skv_prefix_real(f)
    self:iterate_skv_if_real(SIXRD_DEV, SIXRD_SKVPREFIX, 2000, f)
 end
 
-function elsa_pa:get_field_array(locala, jsonfield)
-   local s = mst.set:new{}
+function elsa_pa:get_field_array(locala, jsonfield, cl, get_keys)
+   local cl = cl or mst.set
+   local s = cl:new{}
+   local get_keys = get_keys or (cl == mst.set)
    
    -- get local ones
    for i, v in ipairs(locala or {})
@@ -767,14 +784,18 @@ function elsa_pa:get_field_array(locala, jsonfield)
                            end, {type=ospfcodec.AC_TLV_JSONBLOB})
 
 
-   -- return set as array
+   if get_keys
+   then
+      -- return set as array
 
-   -- obviously the order is arbitrary; however, without changes in
-   -- the table, it won't change, so the no-change constraint can be
-   -- still verified. in practise it would be nice to transmit across
-   -- sub-table deltas instead of whole tables, but as long as we
-   -- don't, this is good enough.
-   return s:keys()
+      -- obviously the order is arbitrary; however, without changes in
+      -- the table, it won't change, so the no-change constraint can be
+      -- still verified. in practise it would be nice to transmit across
+      -- sub-table deltas instead of whole tables, but as long as we
+      -- don't, this is good enough.
+      s = s:keys()
+   end
+   return s
 end
 
 function elsa_pa:get_local_field_array(prefix, field)
@@ -861,6 +882,13 @@ function elsa_pa:generate_ac_lsa()
       t[jsonkey] = l
    end
    t[JSON_ASA_KEY] = self:get_local_asa_array()
+
+   -- format the own mdns cache entries, if any
+   local o = self.skv:get(MDNS_OWN_SKV_KEY)
+   if o and #o > 0
+   then
+      t[JSON_MDNS_KEY] = o
+   end
 
    if t:count() > 0
    then

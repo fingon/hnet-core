@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:02:05 2012 mstenber
--- Last modified: Tue Jan 22 00:10:59 2013 mstenber
+-- Last modified: Sun Jan 27 10:37:08 2013 mstenber
 -- Edit time:     43 min
 --
 
@@ -53,6 +53,7 @@ end
 function dsm:add_node(o)
    self.e:add_node(o)
    self.nodes = nil
+   return o
 end
 
 function dsm:get_nodes()

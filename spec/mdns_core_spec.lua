@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Wed Jan 23 19:12:08 2013 mstenber
+-- Last modified: Sun Jan 27 10:33:31 2013 mstenber
 -- Edit time:     645 min
 --
 
@@ -55,7 +55,7 @@ end
 
 function dospf:kv_changed(k, v)
    -- if own skv key changes, it's dirty
-   if k == mdns_ospf.OWN_SKV_KEY
+   if k == elsa_pa.MDNS_OWN_SKV_KEY
    then
       self.dirty = true
    end
@@ -86,10 +86,10 @@ function dospf:run()
          do
             if i ~= j and n2.skv
             then
-               mst.array_extend(rest, n2.skv:get(mdns_ospf.OWN_SKV_KEY) or {})
+               mst.array_extend(rest, n2.skv:get(elsa_pa.MDNS_OWN_SKV_KEY) or {})
             end
          end
-         n.skv:set(mdns_ospf.OSPF_SKV_KEY, rest)
+         n.skv:set(elsa_pa.MDNS_OSPF_SKV_KEY, rest)
       end
    end
 end

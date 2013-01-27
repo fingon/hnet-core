@@ -1,5 +1,48 @@
 -*- outline -*-
 
+* MDNS - Things to do
+
+** Implement SKV <> OSPF sync
+
++ [1] just toss the cache entries to jsonblob (good short-term solution,
+least efficient encoding, hardest to push through)
+
+(JSON_MDNS_KEY used to store the skv's MDNS_OWN_SKV_KEY, which should
+contain minimalist rr tables with {name=, rtype=, rdata=}..)
+
+[2] define new AC TLV, gzipped-jsonblob, and squeeze in the RR there? (much
+more efficient in terms of space usage, but even harder to push through the
+IETF process)
+
+[3] correct approach would be to define e.g. MDNS-CACHE-RR TLV, and put
+  those in there? no name compression though => relatively large entries =>
+  perhaps MDNS-CACHE-STATE TLV, which contains list of DNS RR's with shared
+  name compression?
+
+*** Consult Arkko/OT about shared problem
+
+- problem: what if LSA size (2^16-1 = 64k) is exceeded?
+
+- answer: need to do multiple lsid's worth?
+
+** Create stand-alone daemon
+
++ mdns_ospf + skv
+
++ elsa_pa: SKV<=>OSPF publishing
+
++ Luasocket (w/ IPv6 multicast join/leave support) for socket handling
+ - need to integrate to OpenWRT build process own version
+ - need to build(?) it for NetKit
+ - need to get Diego to accept it
+
+- ssloop for event handling (mainly, to deal with skv, and to handle
+  inbound UDP packets; ssloop in general is done, but UDP support may
+  require small changes, as currently ssloop operates on TCP only)
+
+- mdns.lua
+ - tie together above bits => one coherent whole
+
 * PA - Bugs to fix
 
 ** BIRD - dridd p#2
@@ -21,7 +64,25 @@ nothing good happens if time moves much forwards, _either_. *sigh*
   approach is to check _all_ interfaces that are configured, regardless of
   addresses present (right now we seed it with IPv6)
 
-* Things to do
+
+* PA - Things to do
+
+** Add support for multiple prefixes per interface
+
+(or more generically, implement the ~real data structure handling, the raw
+skv primitives seem too .. primitive?)
+
+** Add prefix option support
+
+Backward compatible approach: Define 'USP/ASP with options' TLVs. Use those
+AND normal ones, until normal support no longer needed => remove normal
+support altogether.
+
+- Discuss with Arkko et al what form they should take
+
+- add code to encode/decode new format ones (and do it in parallel with old
+  format)
+
 
 ** update README's
 

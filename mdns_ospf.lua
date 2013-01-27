@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Wed Jan 23 20:23:10 2013 mstenber
--- Edit time:     105 min
+-- Last modified: Sun Jan 27 10:32:45 2013 mstenber
+-- Edit time:     106 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -54,12 +54,6 @@ require 'mdns_core'
 require 'mdns_if'
 
 module(..., package.seeall)
-
--- locally owned (owner) interfaces' cache rr data
-OWN_SKV_KEY='mdns'
-
--- other nodes' cache data skv key
-OSPF_SKV_KEY='ospf-mdns'
 
 local _mdns_if = mdns_if.mdns_if
 local _mdns = mdns_core.mdns
@@ -126,7 +120,7 @@ function mdns:kv_changed(k, v)
       self.ospf_lap = v
       self.update_lap = true
    end
-   if k == OSPF_SKV_KEY
+   if k == elsa_pa.MDNS_OSPF_SKV_KEY
    then
       self:d('ospf-cache updated', #v)
       self.ospf_skv = v
@@ -267,7 +261,7 @@ function mdns:run()
          end
       end
       self:d('cache dirty, publishing cache', #t)
-      self.skv:set(OWN_SKV_KEY, t)
+      self.skv:set(elsa_pa.MDNS_OWN_SKV_KEY, t)
    end
    return _mdns.run(self)
 end
