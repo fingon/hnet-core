@@ -8,12 +8,12 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Sat Nov  3 15:09:17 2012 mstenber
+-- Last modified: Sun Jan 27 11:22:36 2013 mstenber
 -- Edit time:     105 min
 --
 
 require "busted"
-require "scb"
+require "scbtcp"
 require "mst"
 require 'ssloop'
 
@@ -44,8 +44,8 @@ function create_dummy_l_c(port, receiver)
                  end
                  mst.d('create_dummy_l_c - done')
                                                     end}
-   local l = scb.new_listener(mst.table_copy(d))
-   local c = scb.new_connect(d)
+   local l = scbtcp.new_listener(mst.table_copy(d))
+   local c = scbtcp.new_connect(d)
    c = wait_connected(c)
    return l, c
 end

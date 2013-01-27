@@ -8,13 +8,13 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Sun Nov  4 03:53:57 2012 mstenber
+-- Last modified: Sun Jan 27 11:21:07 2013 mstenber
 -- Edit time:     383 min
 --
 
 require 'mst'
 require 'ssloop'
-require 'scb'
+require 'scbtcp'
 require 'jsoncodec'
 
 module(..., package.seeall)
@@ -160,32 +160,32 @@ function skv:socket_connect()
    self.connected = false
    self:d('skv:socket_connect')
    self:a(not self.s)
-   self.s = scb.new_connect{p=self,
-                            host=self.host, port=self.port,
-                            debug=self.debug,
-                            callback=function (c) 
-                               self:d('connect callback')
-                               if c
-                               then
-                                  self.connected = true
-                                  -- get rid of old (it may not even exist)
-                                  -- (if connect happened synchronously)
-                                  self:a(self.s ~= c)
-                                  if self.s
+   self.s = scbtcp.new_connect{p=self,
+                               host=self.host, port=self.port,
+                               debug=self.debug,
+                               callback=function (c) 
+                                  self:d('connect callback')
+                                  if c
                                   then
-                                     self.s:detach()
-                                     self:clear_socket()
+                                     self.connected = true
+                                     -- get rid of old (it may not even exist)
+                                     -- (if connect happened synchronously)
+                                     self:a(self.s ~= c)
+                                     if self.s
+                                     then
+                                        self.s:detach()
+                                        self:clear_socket()
+                                     end
+                                     self:d('set new socket [connect]')
+                                     self.s = c 
+                                     c.close_callback = function (s)
+                                        self.fsm:ConnectionClosed()
+                                     end
+                                     self.fsm:Connected()
+                                  else
+                                     self.fsm:ConnectFailed()
                                   end
-                                  self:d('set new socket [connect]')
-                                  self.s = c 
-                                  c.close_callback = function (s)
-                                     self.fsm:ConnectionClosed()
-                                  end
-                                  self.fsm:Connected()
-                               else
-                                  self.fsm:ConnectFailed()
-                               end
-                            end}
+                               end}
    self:d('leaving connect', self.s)
 
 end
@@ -489,12 +489,12 @@ function skv:init_server()
 end
 
 function skv:bind()
-   local s, err = scb.new_listener{p=self,
-                                   host=self.host, port=self.port, 
-                                   debug=self.debug,
-                                   callback=function (c) 
-                                      self:new_client(c)
-                                   end}
+   local s, err = scbtcp.new_listener{p=self,
+                                      host=self.host, port=self.port, 
+                                      debug=self.debug,
+                                      callback=function (c) 
+                                         self:new_client(c)
+                                      end}
    if s
    then
       self:a(not self.s)
