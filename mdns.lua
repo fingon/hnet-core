@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 12:38:01 2013 mstenber
--- Last modified: Sun Jan 27 12:48:27 2013 mstenber
--- Edit time:     8 min
+-- Last modified: Mon Jan 28 12:51:30 2013 mstenber
+-- Edit time:     16 min
 --
 
 -- 'mdns' daemon, which shares state (via skv and then via OSPF AC LSA
@@ -36,6 +36,11 @@ function create_cli()
    return cli
 end
 
+function checked_setoption(s, o, v)
+   local r, err = s:setoption(o, v)
+   mst.a(r, 'error', err, o, v)
+end
+
 local args = create_cli():parse()
 if not args 
 then
@@ -46,8 +51,21 @@ end
 mst.d('initializing socket')
 local o,err = scb.new_udp_socket{host='*', 
                                  port=mdns_const.PORT,
-                                 callback=true}
+                                 callback=true,
+                                 v6only=true}
 mst.a(o, 'error initializing udp socket', err)
+
+-- by default, join on _all_ interfaces, what's the harm? we can
+-- ignore packets from the interfaces we don't care about, anyway..
+local mcast = mdns_const.MULTICAST_ADDRESS
+local ifindex=nil
+local mct = {multiaddr=mcast, interface=ifindex}
+
+--checked_setoption(o.s, 'ipv6-v6only', true)
+checked_setoption(o.s, 'ipv6-add-membership', mct)
+checked_setoption(o.s, 'ipv6-unicast-hops', 255)
+checked_setoption(o.s, 'ipv6-multicast-hops', 255)
+checked_setoption(o.s, 'ipv6-multicast-loop', false)
 
 mst.d('initializing skv')
 
