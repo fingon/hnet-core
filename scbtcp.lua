@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 11:15:32 2013 mstenber
--- Last modified: Sun Jan 27 11:29:14 2013 mstenber
--- Edit time:     8 min
+-- Last modified: Mon Jan 28 13:33:34 2013 mstenber
+-- Edit time:     16 min
 --
 
 -- (Code has been moved here from scb.lua)
@@ -182,7 +182,13 @@ end
 
 function new_listener(d)
    mst.check_parameters("scb:new_listener", d, {"host", "port", "callback"}, 3)
-   local s = socket.tcp()
+   local s
+   if scb.parameters_or_host_ipv6ish(d)
+   then
+      s = socket.tcp6()
+   else
+      s = socket.tcp()
+   end
    s:settimeout(0)
    s:setoption('reuseaddr', true)
    s:setoption('tcp-nodelay', true)
@@ -201,7 +207,13 @@ end
 function new_connect(d)
    -- host, port, connected_callback, callback
    mst.check_parameters("scb:new_connect", d, {"host", "port", "callback"}, 3)
-   local s = socket.tcp()
+   local s 
+   if scb.parameters_or_host_ipv6ish(d)
+   then
+      s = socket.tcp6()
+   else
+      s = socket.tcp()
+   end
    s:settimeout(0)
    s:setoption('tcp-nodelay', true)
    local r, e = s:connect(d.host, d.port)

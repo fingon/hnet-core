@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Sun Jan 27 12:06:37 2013 mstenber
--- Edit time:     176 min
+-- Last modified: Mon Jan 28 14:35:13 2013 mstenber
+-- Edit time:     190 min
 --
 
 -- convenience stuff on top of LuaSocket (most of the action happens
@@ -21,6 +21,7 @@
 local mst = require 'mst'
 local ssloop = require 'ssloop'
 local socket = require 'socket'
+local ipv4s = require 'ipv4s'
 
 module(...)
 
@@ -102,6 +103,12 @@ function Scb:stop()
    end
 end
 
+if socket.tcp6 and socket.udp
+then
+   LOCALHOST='::1'
+else
+   LOCALHOST='127.0.0.1'
+end
 
 -- wrap udp socket in Scb structure, and set it up with the given
 -- callback
@@ -121,12 +128,49 @@ function wrap_udp_socket(d)
    return o
 end
 
+function parameters_or_host_ipv6ish(d)
+   -- check explicit parameters
+   if d.ipv4
+   then
+      return false
+   end
+   if d.ipv6 or d.v6only
+   then
+      return true
+   end
+   -- by default we're ipv6-ish; however, if this looks like ipv4
+   -- address, it isn't
+   if d.host
+   then
+      local r = ipv4s.address_to_binary_address(d.host)
+      if r
+      then
+         return false
+      end
+   end
+   return true
+end
+
 -- set up new udp socket, with given host, port, and calling the given
 -- callback whenever applicable
 function new_udp_socket(d)
    mst.check_parameters("scb:new_udp_socket", d, 
                         {"host", "port", "callback"}, 3)
-   local s = socket.udp()
+   local s
+   -- should we?
+   if parameters_or_host_ipv6ish(d)
+   then
+      s = socket.udp6()
+      if d.v6only
+      then
+         local r, err = s:setoption('ipv6-v6only', true, 'setting ipv6-only')
+         mst.a(r, err)
+      end
+   else 
+      -- normal socket? v4/v6 decision is painful here though, but
+      -- guess we don't really want IPv4 anyway..
+      s = socket.udp()
+   end
    s:settimeout(0)
    s:setoption('reuseaddr', true)
    local r, err = s:setsockname(d.host, d.port)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Sat Oct 27 12:52:17 2012 mstenber
--- Edit time:     179 min
+-- Last modified: Mon Jan 28 14:06:46 2013 mstenber
+-- Edit time:     184 min
 --
 
 require "busted"
@@ -141,7 +141,7 @@ local function test_state_propagation(src, dst, st1, st2, st3)
    st1 = st1 or "bar"
    st2 = st2 or "baz"
    st3 = st3 or "bazinga"
-
+   mst.a(src and dst)
    src:set("foo", st1)
    run_loop_until(
       function ()
@@ -183,6 +183,7 @@ describe("class working (ignoring setup)", function()
                   local port = get_available_port()
                   local o1 = skv:new{long_lived=true, port=port}
                   local o2 = skv:new{long_lived=true, port=port}
+
                   test_state_propagation(o1, o2)
                   -- 10kb payload
                   test_state_propagation(o1, o2, string.rep('1234567890', 1000))

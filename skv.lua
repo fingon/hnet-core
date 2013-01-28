@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Sun Jan 27 11:21:07 2013 mstenber
+-- Last modified: Mon Jan 28 13:53:48 2013 mstenber
 -- Edit time:     383 min
 --
 
@@ -38,7 +38,7 @@ skvconnection = mst.create_class{mandatory={"s", "parent"}, class="skvconnection
 
 skv.__index = skv
 
-local HOST = '127.0.0.1'
+local HOST = scb.LOCALHOST
 local PORT = 12345
 local MSG_VERSION = 'version'
 local MSG_ID = 'id'

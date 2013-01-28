@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Sun Jan 27 12:08:07 2013 mstenber
--- Edit time:     116 min
+-- Last modified: Mon Jan 28 13:42:55 2013 mstenber
+-- Edit time:     123 min
 --
 
 require "busted"
@@ -26,7 +26,7 @@ MAGIC2='<eof>'
 
 function create_dummy_l_c(port, receiver)
    -- assume receiver is a coroutine
-   local d = {host='localhost', port=port, 
+   local d = {host=scb.LOCALHOST, port=port, 
               callback=function (c)
                  mst.d('create_dummy_l_c - got new connection', c)
                  function c.callback(d)
@@ -44,8 +44,10 @@ function create_dummy_l_c(port, receiver)
                  end
                  mst.d('create_dummy_l_c - done')
                                                     end}
-   local l = scbtcp.new_listener(mst.table_copy(d))
-   local c = scbtcp.new_connect(d)
+   local l, err = scbtcp.new_listener(mst.table_copy(d))
+   mst.a(l, 'no listener', err, d)
+   local c, err = scbtcp.new_connect(d)
+   mst.a(c, 'no connect', err, d)
    c = wait_connected(c)
    return l, c
 end
@@ -92,8 +94,6 @@ end
 function test_once(n, port)
    local cr, rh = create_dummy_receiver(n)
    local l, c = create_dummy_l_c(port, cr)
-   mst.a(l ~= nil, "no listener")
-   mst.a(c ~= nil, "no caller")
    if n == 100000
    then
       mst.d('c is', c)
@@ -140,7 +140,7 @@ describe("scb-tcp", function ()
                               end)
 
 function create_dummy_udp_socket(port)
-   local thost = '127.0.0.1'
+   local thost = scb.LOCALHOST
    local o = scb.new_udp_socket{host=thost, port=port,
                                 callback=true}
    o.got = {}
@@ -166,9 +166,9 @@ describe("scb-udp", function ()
                   local s1 = create_dummy_udp_socket(p1)
                   local s2 = create_dummy_udp_socket(p2)
                   -- as a test, send message both ways (or well, queue one)
-                  s1.s:sendto('x', '127.0.0.1', p2)
-                  s2.s:sendto('y', '127.0.0.1', p1)
-                  s2.s:sendto('z', '127.0.0.1', p1)
+                  s1.s:sendto('x', scb.LOCALHOST, p2)
+                  s2.s:sendto('y', scb.LOCALHOST, p1)
+                  s2.s:sendto('z', scb.LOCALHOST, p1)
                   loop:loop_until(function ()
                                      return #s1.got == 2 and #s2.got == 1
                                   end)
