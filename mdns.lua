@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 12:38:01 2013 mstenber
--- Last modified: Mon Jan 28 16:41:45 2013 mstenber
--- Edit time:     21 min
+-- Last modified: Mon Jan 28 16:46:59 2013 mstenber
+-- Edit time:     22 min
 --
 
 -- 'mdns' daemon, which shares state (via skv and then via OSPF AC LSA
@@ -71,7 +71,7 @@ local mct6 = {multiaddr=mcast6, interface=ifindex}
 local r, err = o.s:setoption('ip-add-membership', mct4)
 if not r
 then
-   self:d('ipv4 multicast group join failed', mct4, err)
+   mst.d('ipv4 multicast group join failed', mct4, err)
 end
 checked_setoption(o.s, 'ipv6-add-membership', mct6)
 checked_setoption(o.s, 'ipv6-unicast-hops', 255)
