@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Wed Jan 23 20:27:44 2013 mstenber
--- Edit time:     396 min
+-- Last modified: Mon Jan 28 16:31:58 2013 mstenber
+-- Edit time:     403 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -260,7 +260,7 @@ function mdns_if:time()
    -- if parent contains already now, we use that
    local now = self.parent.now
    if now then return now end
-   return self.parent:time()
+   return self.parent.time()
 end
 
 function mdns_if:repr_data()
@@ -358,7 +358,7 @@ function mdns_if:run_expire()
       -- send per-interface 'these are gone' fyi messages
       local s = dnscodec.dns_message:encode{an=pending, 
                                             h=mdns_const.DEFAULT_RESPONSE_HEADER}
-      local dst = mdns_const.MULTICAST_ADDRESS .. '%' .. self.ifname
+      local dst = mdns_const.MULTICAST_ADDRESS_IPV6 .. '%' .. self.ifname
       self:sendto(s, dst, mdns_const.PORT)
    end
 end
@@ -582,7 +582,7 @@ function mdns_if:send_reply(an, ar, kas, id, dst, dstport, unicast)
 end
 
 function mdns_if:send_multicast_query(qd, kas, ns)
-   local dst = mdns_const.MULTICAST_ADDRESS .. '%' .. self.ifname
+   local dst = mdns_const.MULTICAST_ADDRESS_IPV6 .. '%' .. self.ifname
    local an
    if kas
    then
@@ -743,7 +743,7 @@ function mdns_if:send_delayed_multicast_replies(q)
    full_ar = full_ar:difference(full_an)
 
    -- and send the reply
-   local dst = mdns_const.MULTICAST_ADDRESS .. '%' .. self.ifname
+   local dst = mdns_const.MULTICAST_ADDRESS_IPV6 .. '%' .. self.ifname
    self:send_reply(full_an:keys(), full_ar:keys(), 
                    nil, 0, dst, mdns_const.PORT, false)
 end
@@ -1279,7 +1279,7 @@ function mdns_if:send_announces()
       end
       local h = mdns_const.DEFAULT_RESPONSE_HEADER
       local s = dnscodec.dns_message:encode{an=an, h=h}
-      local dst = mdns_const.MULTICAST_ADDRESS .. '%' .. self.ifname
+      local dst = mdns_const.MULTICAST_ADDRESS_IPV6 .. '%' .. self.ifname
       mst.d(now, 'sending announce(s)', #an)
       self:sendto(s, dst, mdns_const.PORT)
    end

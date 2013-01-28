@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Sun Jan 27 10:33:31 2013 mstenber
--- Edit time:     645 min
+-- Last modified: Mon Jan 28 16:29:03 2013 mstenber
+-- Edit time:     646 min
 --
 
 -- TO DO: 
@@ -335,7 +335,7 @@ function dummynode:sanity_check_last_multicast()
 
    -- s6.16/17 MUST be mdns_const.MULTICAST_ADDRESS
    -- s6.16/17 MUST be mdns_const.PORT
-   self:assert_received_to(mdns_const.MULTICAST_ADDRESS)
+   self:assert_received_to(mdns_const.MULTICAST_ADDRESS_IPV6)
    self:a(e[4] == mdns_const.PORT)
 
    -- s18.15/16 MUST (reception not checked)

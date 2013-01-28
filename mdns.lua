@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 12:38:01 2013 mstenber
--- Last modified: Mon Jan 28 12:51:30 2013 mstenber
--- Edit time:     16 min
+-- Last modified: Mon Jan 28 15:20:59 2013 mstenber
+-- Edit time:     18 min
 --
 
 -- 'mdns' daemon, which shares state (via skv and then via OSPF AC LSA
@@ -52,17 +52,23 @@ mst.d('initializing socket')
 local o,err = scb.new_udp_socket{host='*', 
                                  port=mdns_const.PORT,
                                  callback=true,
-                                 v6only=true}
+                                 --v6only=true,
+                                }
 mst.a(o, 'error initializing udp socket', err)
 
 -- by default, join on _all_ interfaces, what's the harm? we can
 -- ignore packets from the interfaces we don't care about, anyway..
-local mcast = mdns_const.MULTICAST_ADDRESS
+local mcast4 = mdns_const.MULTICAST_ADDRESS_IPV4
+local ifaddr = '*'
+local mct4 = {multiaddr=mcast4, interface=ifaddr}
+
+local mcast6 = mdns_const.MULTICAST_ADDRESS_IPV6
 local ifindex=nil
-local mct = {multiaddr=mcast, interface=ifindex}
+local mct6 = {multiaddr=mcast6, interface=ifindex}
 
 --checked_setoption(o.s, 'ipv6-v6only', true)
-checked_setoption(o.s, 'ipv6-add-membership', mct)
+checked_setoption(o.s, 'ip-add-membership', mct4)
+checked_setoption(o.s, 'ipv6-add-membership', mct6)
 checked_setoption(o.s, 'ipv6-unicast-hops', 255)
 checked_setoption(o.s, 'ipv6-multicast-hops', 255)
 checked_setoption(o.s, 'ipv6-multicast-loop', false)

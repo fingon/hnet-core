@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Wed Jan 23 20:26:50 2013 mstenber
--- Edit time:     855 min
+-- Last modified: Mon Jan 28 16:30:09 2013 mstenber
+-- Edit time:     859 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -132,9 +132,14 @@ function mdns:next_time()
 end
 
 function mdns:recvfrom(data, src, srcport)
-   self:a(srcport, 'srcport not set')
-   self:a(src, 'src not set')
-   self:a(data, 'data not set')
+   self:a(type(data) == 'string', 'non-string data', 
+          data, src, srcport)
+
+   self:a(type(src) == 'string', 'non-string src', 
+          data, src, srcport)
+
+   -- n/a - comes actually as a string, sigh
+   --self:a(type(srcport) == 'number', 'non-number srcport', data, src, srcport)
 
    local l = mst.string_split(src, '%')
    mst.a(#l == 2, 'invalid src', src)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Mon Jan 28 13:42:55 2013 mstenber
--- Edit time:     123 min
+-- Last modified: Mon Jan 28 16:27:17 2013 mstenber
+-- Edit time:     126 min
 --
 
 require "busted"
@@ -145,6 +145,15 @@ function create_dummy_udp_socket(port)
                                 callback=true}
    o.got = {}
    function o.callback(data, host, port)
+      mst.a(type(data) == 'string', 'non-string data', 
+            data, host, port)
+      
+      mst.a(type(host) == 'string', 'non-string host', 
+            data, host, port)
+
+      -- n/a - comes actually as a string, sigh
+      --mst.a(type(port) == 'number', 'non-number port', data, host, port)
+
       table.insert(o.got, {data, host, port})
    end
    return o

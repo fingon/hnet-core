@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Mon Jan 28 14:35:13 2013 mstenber
--- Edit time:     190 min
+-- Last modified: Mon Jan 28 15:51:00 2013 mstenber
+-- Edit time:     194 min
 --
 
 -- convenience stuff on top of LuaSocket (most of the action happens
@@ -22,6 +22,7 @@ local mst = require 'mst'
 local ssloop = require 'ssloop'
 local socket = require 'socket'
 local ipv4s = require 'ipv4s'
+local type = type
 
 module(...)
 
@@ -103,9 +104,11 @@ function Scb:stop()
    end
 end
 
+local support_ipv6
 if socket.tcp6 and socket.udp
 then
    LOCALHOST='::1'
+   support_ipv6=true
 else
    LOCALHOST='127.0.0.1'
 end
@@ -121,6 +124,7 @@ function wrap_udp_socket(d)
    function d:handle_io_read ()
       local r, ip, port = self.s:receivefrom()
       self:a(r, 'timeout should not happen, we are non-blocking after all')
+      self:a(type(r) == 'string', 'non-string result from receivefrom', r, ip, port)
       self.callback(r, ip, port)
    end
    local o = Scb:new(d)
@@ -130,7 +134,7 @@ end
 
 function parameters_or_host_ipv6ish(d)
    -- check explicit parameters
-   if d.ipv4
+   if d.ipv4 or not support_ipv6
    then
       return false
    end
