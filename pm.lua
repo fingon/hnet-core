@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Sun Jan 27 12:11:00 2013 mstenber
--- Edit time:     20 min
+-- Last modified: Wed Jan 30 16:25:03 2013 mstenber
+-- Edit time:     27 min
 --
 
 -- 'prefix manager' (name still temporary)
@@ -41,6 +41,9 @@ function create_cli()
 
    cli:set_name('pm.lua')
    cli:add_flag("-m, --dnsmasq", "use dnsmasq instead of ISC dhcpd + radvd")
+   cli:add_flag('--disable_ula', 'disable ULA generation altogether')
+   cli:add_flag('--disable_always_ula', 'disable ULAs if global addresses present')
+   cli:add_flag('--disable_ipv4', 'disable generation of NATted IPv4 sub-prefixes')
    return cli
 end
 
@@ -54,8 +57,22 @@ end
 
 mst.d('initializing skv')
 local s = skv.skv:new{long_lived=true}
-mst.d('initializing pm')
 
+-- set up the pa configuration
+local config = {}
+for _, k in ipairs{'disable_ula', 'disable_always_ula', 'disable_ipv4'}
+do
+   if args[k]
+   then
+      config[k] = args[k]
+   end
+end
+if mst.table_count(config)
+then
+   s:set(elsa_pa.PA_CONFIG_SKV_KEY, config)
+end
+
+mst.d('initializing pm')
 local pm = pm_core.pm:new{shell=mst.execute_to_string, skv=s,
                           radvd='radvd -m logfile',
                           use_dnsmasq=args.m,
