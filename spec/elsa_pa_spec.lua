@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Sun Jan 27 10:45:08 2013 mstenber
--- Edit time:     310 min
+-- Last modified: Wed Jan 30 15:31:39 2013 mstenber
+-- Edit time:     328 min
 --
 
 require 'mst'
@@ -83,6 +83,16 @@ end
 
 describe("elsa_pa [one node]", function ()
             local e, s, ep, usp_added, asp_added
+            function inject_snitches()
+               usp_added = false
+               asp_added = false
+               ssloop.inject_snitch(ep.pa, 'add_or_update_usp', function ()
+                                       usp_added = true
+                                                                end)
+               ssloop.inject_snitch(ep.pa, 'add_or_update_asp', function ()
+                                       asp_added = true
+                                                                end)
+            end
             before_each(function ()
                            e = delsa:new{iid={mypid={{index=42, 
                                                       name='eth0'},
@@ -101,16 +111,7 @@ describe("elsa_pa [one node]", function ()
                                                     new_prefix_assignment=0}
                            e:add_node(ep)
 
-                           -- run once, and make sure we get to pa.add_or_update_usp
-                           usp_added = false
-                           asp_added = false
-                           ssloop.inject_snitch(ep.pa, 'add_or_update_usp', function ()
-                                                   usp_added = true
-                                                                            end)
-                           ssloop.inject_snitch(ep.pa, 'add_or_update_asp', function ()
-                                                   asp_added = true
-                                                                            end)
-
+                           inject_snitches()
                         end)
             after_each(function ()
                           -- make sure that the ospf-usp looks sane
@@ -174,6 +175,18 @@ describe("elsa_pa [one node]", function ()
                   mst.a(usp_added)
                   -- XXX mst.a(asp_added)
 
+                  -- make sure reconfigure operation also works
+                  ep:reconfigure_pa{disable_ula=true}
+                  inject_snitches()
+                  -- should be cleared in inject_snitches
+                  mst.a(not usp_added)
+                  -- but now running should result in fresh usp being added
+                  ep:run()
+                  mst.a(usp_added)
+                  -- run it few more times, for luck 
+                  ep:run()
+                  ep:run()
+
                   -- test that if we remove interfaces, it should not
                   -- remove lap's from skv (otherwise there is a
                   -- problem, if and when OSPF implementation's
@@ -189,9 +202,9 @@ describe("elsa_pa [one node]", function ()
 
                   -- now, get rid of the usp => eventually, the lap
                   -- should disappear
+                  mst.a(ep.pa.lap:count() > 0)
                   e.lsas = {}
                   ep:ospf_changed()
-                  mst.a(ep.pa.lap:count() > 0)
                   ssloop.loop():loop_until(function ()
                                               asp_added = false
                                               usp_added = false

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Sun Jan 27 11:01:52 2013 mstenber
--- Edit time:     522 min
+-- Last modified: Wed Jan 30 15:48:09 2013 mstenber
+-- Edit time:     550 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -81,6 +81,10 @@ OSPF_IPV4_DNS_SEARCH_KEY='ospf-v4-dns-search'
 MDNS_OWN_SKV_KEY='mdns'
 -- other nodes' cache data skv key
 MDNS_OSPF_SKV_KEY='ospf-mdns'
+
+-- allow for configuration of prefix assignment algorithm
+-- via skv too
+PA_CONFIG_SKV_KEY='pa-config'
 
 -- JSON fields within jsonblob AC TLV
 JSON_ASA_KEY='asa'
@@ -176,18 +180,44 @@ end
 -- skv/elsa-wrapper
 elsa_pa = mst.create_class{class='elsa_pa', 
                            mandatory={'skv', 'elsa'},
-                           new_prefix_assignment=NEW_PREFIX_ASSIGNMENT,
-                           new_ula_prefix=NEW_ULA_PREFIX,
                            time=os.time,
                            originate_min_interval=ORIGINATE_MIN_INTERVAL,
                           }
 
 function elsa_pa:init()
-   -- force first run (repr changes force AC LSA generation; ospf_changes
-   -- forces PA alg to be run)
+   self.f = function (k, v) self:kv_changed(k, v) end
+   self.skv:add_change_observer(self.f)
+
+   -- overridable fields either using arguments to this class,
+   -- or using the 'o' dict (priority-wise, o > class > defaults)
+   local args = {new_prefix_assignment=NEW_PREFIX_ASSIGNMENT,
+                 new_ula_prefix=NEW_ULA_PREFIX,
+   }
+
+   -- check if class has updates on any of the keys..
+   for k, v in pairs(args)
+   do
+      local v2 = self[k]
+      if v2
+      then
+         args[k] = v2
+      end
+   end
+
+   self.pa_args = args
+
+   self:reconfigure_pa()
+end
+
+function elsa_pa:reconfigure_pa(o)
+   self:init_own()
+   self:init_pa(o)
+end
+
+function elsa_pa:init_own()
+   -- set various things to their default values
    self.ac_changes = 1
    self.lsa_changes = 1
-
    self.check_skv = true
 
    -- when did we consider originate/publish last
@@ -198,18 +228,32 @@ function elsa_pa:init()
    -- and what did it contain?
    self.last_body = ''
 
-   -- create the actual abstract prefix algorithm object we wrap
-   self.pa = pa.pa:new{rid=self.rid, client=self, lap_class=elsa_lap,
-                       new_prefix_assignment=self.new_prefix_assignment,
-                       new_ula_prefix=self.new_ula_prefix,
-                       time=self.time}
-
    -- set of _all_ interface names we've _ever_ seen (used for
    -- checking SKV for tidbits)
    self.all_seen_if_names = mst.set:new{}
+end
 
-   self.f = function (k, v) self:kv_changed(k, v) end
-   self.skv:add_change_observer(self.f)
+function elsa_pa:init_pa(o)
+   local args = self.pa_args
+   
+   -- copy over rid
+   args.rid=self.rid
+
+   -- then, use 'o' to override those
+   if o
+   then
+      mst.table_copy(o, args)
+   end
+
+   -- these are always hardcoded - nobody should be able to change them
+   args.client = self
+   args.lap_class = elsa_lap
+   args.time = self.time
+
+   -- create the actual abstract prefix algorithm object we wrap
+   -- (create shallow copy of args, so that we don't wind up re-using
+   -- the object)
+   self.pa = pa.pa:new(mst.table_copy(args))
 end
 
 function elsa_pa:uninit()
@@ -221,6 +265,12 @@ function elsa_pa:uninit()
 end
 
 function elsa_pa:kv_changed(k, v)
+   -- handle configuration changes explicitly here
+   if k == PA_CONFIG_SKV_KEY
+   then
+      self:reconfigure_pa(v)
+      return
+   end
    -- should check skv the next time we've run
    self.check_skv = true
 end
@@ -597,11 +647,7 @@ function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
                 then
                    print(debug.traceback())
                    mst.debug_print('!!! lsa body handling failed', ...)
-                end
-                if not _TEST
-                then
                    mst.debug_print('invalid lsa in hex', lsa.rid, lsa.type, mst.string_to_hex(lsa.body))
-
                 end
              end)
    end
