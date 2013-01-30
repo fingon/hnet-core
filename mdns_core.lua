@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Mon Jan 28 16:30:09 2013 mstenber
--- Edit time:     859 min
+-- Last modified: Wed Jan 30 11:24:56 2013 mstenber
+-- Edit time:     860 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -142,6 +142,12 @@ function mdns:recvfrom(data, src, srcport)
    --self:a(type(srcport) == 'number', 'non-number srcport', data, src, srcport)
 
    local l = mst.string_split(src, '%')
+   if #l < 2 
+   then
+      self:d('global? query received, ignoring', src)
+      return
+   end
+
    mst.a(#l == 2, 'invalid src', src)
    local addr, ifname = unpack(l)
    local ifo = self:get_if(ifname)

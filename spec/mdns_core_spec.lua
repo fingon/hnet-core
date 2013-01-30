@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Mon Jan 28 16:29:03 2013 mstenber
--- Edit time:     646 min
+-- Last modified: Wed Jan 30 11:24:42 2013 mstenber
+-- Edit time:     651 min
 --
 
 -- TO DO: 
@@ -426,6 +426,7 @@ local CLASS_IN=dns_const.CLASS_IN
 local DUMMY_ID1=7
 local DUMMY_ID2=1234
 local DUMMY_ID3=1235
+local DUMMY_GLOBAL_ADDRESS='2001:db8:1234::1'
 
 -- fake mdns announcement material
 local rr1 = {name={'Foo'}, rdata='Bar', rtype=DUMMY_TYPE, ttl=DUMMY_TTL}
@@ -713,6 +714,13 @@ describe("mdns", function ()
                   -- make sure we get only 2 messages to dummy
                   dsm:assert_receiveds_eq(2)
                   dsm:clear_receiveds()
+
+                  -- make sure we don't explode if we get something
+                  -- with global address instead of linklocal one
+                  -- (although we shouldn't do anything either,
+                  -- just debug-log it)
+                  mdns:recvfrom(query1_qu, 
+                                DUMMY_GLOBAL_ADDRESS, mdns_const.PORT)
 
                   -- make sure we get replies to ok requests
                   mdns:recvfrom(query1_qu, DUMMY_SRC, mdns_const.PORT)
