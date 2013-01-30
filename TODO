@@ -2,6 +2,37 @@
 
 * MDNS - Things to do
 
+** Try to get avahi fixed
+
+It joins ipv6 linklocal multicast groups with non-linklocal addresses, and
+also uses those as default source addresses when talking with other
+hosts. That's just broken.
+
+** Make codebase it work with non-linklocal addresses too
+
+Key idea:
+
+- maintain ~every now and then updated local IPv6 address table (code
+already exists in linux_if, although it isn't pretty as it just uses shell
+commands and does not use the real API)
+
+ - elegant way would be to figure OS level API, abstract it to Lua,
+   etc.. but that sounds just like major hassle
+
+- for any inbound packet, either it is
+  <fe80:...>%<ifname>
+  => just use <addr> + <ifname>
+ 
+  or
+
+  <addr>
+
+  in case of <addr>, look up <ifname> with matching prefix, and use that
+
+=> B.I.Y.U.
+
+This stuff covers a number of SHOULDs in the draft.
+
 ** Implement SKV <> OSPF sync
 
 + [1] just toss the cache entries to jsonblob (good short-term solution,
@@ -36,13 +67,13 @@ IETF process)
   require small changes, as currently ssloop operates on TCP only)
 
 + Luasocket (w/ IPv6 multicast join/leave support) for socket handling
- - need to integrate to OpenWRT build process own version
-  - replace the built-in luasocket with e.g. hnet-luasocket package (...)
+ + need to integrate to OpenWRT build process own version
+  + replace the built-in luasocket with e.g. hnet-luasocket package (...)
  - need to build(?) it for NetKit
  - need to get Diego to accept it
 
 + mdns.lua
- - tie together above bits => one coherent whole (TODO: mcast join/leave)
+ + tie together above bits => one coherent whole (TODO: mcast join/leave)
 
 ** Add some sort of 'initial state fetcher' 
 
