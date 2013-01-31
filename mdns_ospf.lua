@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Thu Jan 31 23:10:18 2013 mstenber
--- Edit time:     150 min
+-- Last modified: Fri Feb  1 00:28:40 2013 mstenber
+-- Edit time:     176 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -270,49 +270,61 @@ function mdns:publish_cache()
 
 end
 
+function mdns:ospf_should_run()
+   return self.update_lap or self.cache_dirty or self.update_ospf
+end
+
 function mdns:should_run()
-   if self.update_lap or self.cache_dirty or self.update_ospf then return true end
+   if self:ospf_should_run() then return true end
    return _mdns.should_run(self)
 end
 
+function mdns:next_time()
+   if self:ospf_should_run() then return 0 end
+   return _mdns.next_time(self)
+end
+
 function mdns:remove_own_from_if(fromif)
+   local ifo = self:get_if(fromif)
    -- remove 'own' ns entries for all interfaces we're master to,
    -- that originate from the ifname 'ifname' cache
-   local fromns = self.if2cache[fromif]
-   if not fromns then return end
+   local fromnsc = ifo.cache
    
    -- (or well, not necessarily _remove_, but set their state
    -- s.t. they will be removed shortly)
    for i, toif in ipairs(self.master_if_set:keys())
    do
-      local ns = self.if2own[toif]
+      local ifo2 = self:get_if(toif)
+      local ns = ifo2.own
       if ns
       then
-         fromns:iterate_rrs(function (rr)
-                               local nrr = ns:find_rr(rr)
-                               if nrr
-                               then
-                                  nrr:expire()
-                               end
-                            end)
+         fromnsc:iterate_rrs(function (rr)
+                                local nrr = ns:find_rr(rr)
+                                if nrr
+                                then
+                                   ifo2:start_expire_own_rr(nrr)
+                                end
+                             end)
       end
    end
 end
 
 function mdns:remove_own_to_if(ifname)
-   local ns = self.if2own[ifname]
-   if not ns then return end
+   local ifo = self:get_if(ifname)
+   local ns = ifo.own
    ns:iterate_rrs(function (rr)
-                     -- XXX do more?
-                     ns:remove_rr(rr)
+                     ifo:start_expire_own_rr(rr)
                   end)
 end
 
 function mdns:add_cache_set_to_own_set(fromset, toset)
-   for i, src in ipairs(fromset)
+   mst.d('add_cache_set_to_own_set', fromset, toset)
+   for src, _ in pairs(fromset)
    do
-      for i, dst in ipairs(toset)
+      for dst, _ in pairs(toset)
       do
+         mst.a(type(src) == 'string' and type(dst) == 'string',
+              'weird src/dst', src, dst)
          self:add_cache_if_to_own_if(src, dst)
       end
    end
@@ -321,9 +333,9 @@ end
 function mdns:add_cache_if_to_own_if(fromif, toif)
    -- these are always cache => own mappings;
    -- we never do own=>own
-   local src = self.if2cache[fromif]
-   if not src then return end
-   src:iterate_rrs(function (rr)
+   local ifo = self:get_if(fromif)
+   local nsc = ifo.cache
+   nsc:iterate_rrs(function (rr)
                       self:insert_if_own_rr(toif, rr)
                    end)
 end
@@ -360,15 +372,13 @@ function mdns:set_if_master_set(masterset)
    mst.sync_tables(self.ifname2if, self.master_if_set,
                    -- remove spurious
                    function (k, v)
-                      if v.active
-                      then
-                         self:d(' removing ', k)
-                         self:remove_own_from_if(k)
-                         self:remove_own_to_if(k)
-                         -- has implications on cache too
-                         self.cache_dirty = true
-                         v.active = nil
-                      end
+                      if not v.is_master then return end
+                      self:d(' removing ', k)
+                      self:remove_own_from_if(k)
+                      self:remove_own_to_if(k)
+                      -- has implications on cache too
+                      self.cache_dirty = true
+                      v.is_master = nil
                    end,
                    -- add missing
                    function (k, v)
@@ -376,12 +386,22 @@ function mdns:set_if_master_set(masterset)
                       local o = self:get_if(k)
 
                       fresh = fresh or mst.set:new{}
-                      fresh:insert(o)
-                      -- has implications on cache too
-                      self.cache_dirty = true
-                      o.active = true
+                      fresh:insert(k)
+                      o.is_master = true
+                   end,
+                   -- non-master if isn't _really_ the same,
+                   -- but we convert it to master one and just
+                   -- put it on fresh list to do new propagation
+                   -- there (this is bit of a kludge, but oh well)
+                   function (k, v1, v2)
+                      if not v1.is_master 
+                      then
+                         v1.is_master = true
+                         fresh = fresh or mst.set:new{}
+                         fresh:insert(k)
+                      end
+                      return true
                    end
-                   -- comparison omitted -> we don't _care_
                   )
    if fresh
    then
@@ -390,6 +410,7 @@ function mdns:set_if_master_set(masterset)
       then
          self:add_cache_set_to_own_set(non_fresh, fresh)
       end
+      self.cache_dirty = true
    end
 
 end
@@ -411,16 +432,24 @@ function mdns:try_multicast_op(ifname, is_join)
 end
 
 function mdns:join_multicast(ifname)
-   if self:try_multicast_op(ifname, true)
+   self:a(ifname, 'ifname mandatory')
+   local r, err = self:try_multicast_op(ifname, true)
+   if r
    then
       self.joined_if_set:insert(ifname)
+   else
+      mst.d('join_multicast failed', ifname, err)
    end
 end
 
 function mdns:leave_multicast(ifname)
-   if self:try_multicast_op(ifname, false)
+   self:a(ifname, 'ifname mandatory')
+   local r, err = self:try_multicast_op(ifname, false)
+   if r
    then
       self.joined_if_set:remove(ifname)
+   else
+      mst.d('leave_multicast failed', ifname, err)
    end
 end
 
@@ -432,6 +461,7 @@ function mdns:propagate_rr_to_ifo(rr, ifo)
    then
       -- there isn't conflict - so we can just peacefully insert
       -- the rr to the own list
+      mst.d('adding to', ifo)
       ifo:insert_own_rr(rr)
    end
 end

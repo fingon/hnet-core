@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Thu Jan 31 22:55:31 2013 mstenber
--- Edit time:     667 min
+-- Last modified: Fri Feb  1 00:13:44 2013 mstenber
+-- Edit time:     675 min
 --
 
 -- TO DO: 
@@ -1168,7 +1168,7 @@ end)
 
 describe("mdns_ospf w/o skv", function ()
             local DUMMY_IP='dummy'
-            local DUMMY_IF='eth1'
+            local DUMMY_IF='eth0'
             local DUMMY_SRC=DUMMY_IP .. '%' .. DUMMY_IF
             local n, dsm, mdns, dummy, s
             before_each(function ()
@@ -1184,15 +1184,51 @@ describe("mdns_ospf w/o skv", function ()
                            n:connect_neigh(mdns.rid, 'eth1',
                                            dummy.rid, 'dummyif')
                            -- instead of skv, configure it this way!
-                           mdns:set_if_joined_set(mst.set:new{eth1=true})
-                           mdns:set_if_master_set(mst.set:new{eth1=true})
+                           mdns:set_if_joined_set(mst.set:new{eth0=true, eth1=true})
+                           mdns:set_if_master_set(mst.set:new{eth0=true, eth1=true})
                         end)
             after_each(function ()
                           dsm:done()
                        end)
 
             it("works #wnsk", function ()
-                  -- XXX - what can we really do here? test setup+teardown?
+                  -- we play with master set changes here; to test:
+                  -- what happens if we get record and we've got different
+                  -- master interface? -> should pop on master if
+                  mdns:recvfrom(msg1, DUMMY_SRC, mdns_const.PORT)
+                  mst.d('a) waiting announce on new interface')
+                  dsm:wait_receiveds_counts(2)
+                  dsm:clear_receiveds()
+                  local ifo = mdns:get_if('eth1')
+                  mst.a(ifo.own:count() == 1)
+                                    
+                  -- then, when we remove master flag, it should disappear from
+                  -- that interface
+                  mdns:set_if_master_set(mst.set:new{eth0=true})
+                  mst.d('b) waiting expire ttl=0 on new interface')
+                  dsm:wait_receiveds_counts(1)
+                  dsm:clear_receiveds()
+                  local ifo = mdns:get_if('eth1')
+                  mst.a(ifo.own:count() == 0)
+
+                  -- and when we add it back, it should pop back up!
+                  mdns:set_if_master_set(mst.set:new{eth0=true, eth1=true})
+                  mst.d('c) waiting announce on re-added interface')
+                  dsm:wait_receiveds_counts(2)
+                  dsm:clear_receiveds()
+                  local ifo = mdns:get_if('eth1')
+                  mst.a(ifo.own:count() == 1)
+                  
+                  -- finally, if we pop the original master to
+                  -- non-master status, state should disappear from
+                  -- the propagated master if too
+                  mdns:set_if_master_set(mst.set:new{eth1=true})
+                  mst.d('d) waiting expire ttl=0 interface')
+                  dsm:wait_receiveds_counts(1)
+                  dsm:clear_receiveds()
+                  local ifo = mdns:get_if('eth1')
+                  mst.a(ifo.own:count() == 0)
+
                    end)
                               end)
 describe("degenerate multi-mdns setup (mdns_ospf)", function ()

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu Jan 31 11:30:37 2013 mstenber
--- Edit time:     403 min
+-- Last modified: Fri Feb  1 00:17:57 2013 mstenber
+-- Edit time:     412 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -1499,6 +1499,16 @@ end
 
 function mdns_if:expire_cache_rr(rr)
    self.parent:expire_if_cache_rr(self.ifname, rr)
+end
+
+function mdns_if:start_expire_own_rr(rr)
+   mst.d('start_expire_own_rr', rr)
+
+   -- start ttl=0 process for the rr, and process it on next event
+   self:update_rr_ttl(rr, 0)
+   
+   -- remove/insert it from own skiplist
+   self:update_next_own(rr)
 end
 
 function mdns_if:stop_propagate_conflicting_rr_sub(rr, clear_rrset)

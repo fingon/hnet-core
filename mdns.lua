@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 12:38:01 2013 mstenber
--- Last modified: Thu Jan 31 23:09:01 2013 mstenber
--- Edit time:     64 min
+-- Last modified: Thu Jan 31 23:48:01 2013 mstenber
+-- Edit time:     69 min
 --
 
 -- 'mdns' daemon, which shares state (via skv and then via OSPF AC LSA
@@ -32,8 +32,8 @@ function create_cli()
    cli:set_name('mdns.lua')
    -- XXX - think about command line options we might want
    cli:add_flag("--ipv4", "support IPv4 as much as we can (which may not be much)")
-   cli:add_opt("-j, --join=IFLIST","join multicast group on given (comma-separated) interfaces")
-   cli:add_opt("-m, --master=IFLIST","own the (comma-separated) interfaces (=forward records from joined interfaces; -m implies -j)")
+   cli:add_opt("-j, --join=IFLIST","join multicast group on given (comma-separated) interfaces", nil)
+   cli:add_opt("-m, --master=IFLIST","own the (comma-separated) interfaces (=forward records from joined interfaces; -m implies -j)", nil)
    return cli
 end
 
@@ -84,7 +84,7 @@ mst.d('initializing skv')
 -- implementation)
 local s = skv.skv:new{long_lived=true}
 
-mst.d('initializing pm')
+mst.d('initializing mdns')
 local mdns = mdns_ospf.mdns:new{skv=s,
                                 sendto=o.s.sendto,
                                 shell=mst.execute_to_string,
@@ -94,10 +94,9 @@ function mdns:try_multicast_op(ifname, isjoin)
    local mcast6 = mdns_const.MULTICAST_ADDRESS_IPV6
    local mct6 = {multiaddr=mcast6, interface=ifname}
    local opname = (isjoin and 'ipv6-add-membership') or 'ipv6-drop-membership'
-   if o.s:setoption(opname, mct6)
-   then
-      return true
-   end
+   mst.a(ifname and #ifname > 0)
+   mst.d('try_multicast_op', ifname, isjoin)
+   return o.s:setoption(opname, mct6)
 end
 
 -- permanently hanging around object, which implements the basic
@@ -123,8 +122,8 @@ function o.callback(...)
    mdns:recvfrom(...)
 end
 
-local tojoin = args.join and mst.string_split(args.join,",") or mst.array:new{}
-local tomaster = args.master and mst.string_split(args.master,",") or mst.array:new{}
+local tojoin = #args.join>0 and mst.string_split(args.join,",") or mst.array:new{}
+local tomaster = #args.master>0 and mst.string_split(args.master,",") or mst.array:new{}
 
 local joinset = tojoin:to_table()
 local masterset = tomaster:to_table()
@@ -134,7 +133,10 @@ setmetatable(masterset, mst.set)
 
 joinset = joinset:union(masterset)
 
+mst.d(' calling set_if_joined_set', joinset)
 mdns:set_if_joined_set(joinset)
+
+mst.d(' calling set_if_master_set', masterset)
 mdns:set_if_master_set(masterset)
 
 mst.d('entering event loop')
