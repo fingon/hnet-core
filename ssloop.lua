@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Tue Nov  6 14:26:30 2012 mstenber
--- Edit time:     130 min
+-- Last modified: Thu Jan 31 14:21:08 2013 mstenber
+-- Edit time:     159 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -28,16 +28,16 @@ require 'socket'
 
 module(..., package.seeall)
 
--- mstwrapper - basic wrapper with started state, and abstract raw_start/stop
-local mstwrapper = mst.create_class{started=false, class='mstwrapper'}
+-- startable - basic wrapper with started state, and abstract raw_start/stop
+local startable = mst.create_class{started=false, class='startable'}
 
-function mstwrapper:uninit()
+function startable:uninit()
    self:d('uninit')
    -- stop us in case caller didn't
    self:stop()
 end
 
-function mstwrapper:start()
+function startable:start()
    if not self.started
    then
       self.started = true
@@ -46,7 +46,7 @@ function mstwrapper:start()
    return self
 end
 
-function mstwrapper:stop()
+function startable:stop()
    if self.started
    then
       self.started = false
@@ -55,14 +55,14 @@ function mstwrapper:stop()
    return self
 end
 
---- mstio - wrapper for a single reader or writer
+--- iow - wrapper for a single reader or writer
 
 -- reader = if we're reader
 -- s = socket
 -- callback = who to call
-local mstio = mstwrapper:new_subclass{mandatory={'reader', 's', 'callback'}, 
-                                      class='mstio'}
-function mstio:raw_start()
+local iow = startable:new_subclass{mandatory={'reader', 's', 'callback'}, 
+                                   class='iow'}
+function iow:raw_start()
    local l = loop()
    local a = self.reader and l.r or l.w
    local h = self.reader and l.rh or l.wh
@@ -74,7 +74,7 @@ function mstio:raw_start()
    self:d('started')
 end
 
-function mstio:raw_stop()
+function iow:raw_stop()
    local l = loop()
    local a = self.reader and l.r or l.w
    local h = self.reader and l.rh or l.wh
@@ -86,7 +86,7 @@ function mstio:raw_stop()
    self:d('stopped')
 end
 
-function mstio:repr_data()
+function iow:repr_data()
    local fd = self.s:getfd()
    local s = mst.repr{fd=fd, 
                       p=self.p,
@@ -98,31 +98,48 @@ function mstio:repr_data()
    return 'writer '.. s
 end
 
---- msttimeout - wrapper for timeout 
+-- abstract API; all we expect is get_timeout() which returns when
+-- timeout wants to be ran, if at all, and run_timeout() which runs
+-- the timeout
 
-local msttimeout = mstwrapper:new_subclass{mandatory={'timeout', 'callback'},
-                                           class='msttimeout'}
+--- timeoutw - wrapper for timeouts, which provides single call of
+--- callback at the desired timeout time
+local timeoutw = startable:new_subclass{mandatory={'timeout', 'callback'},
+                                        class='timeoutw'}
 
-function msttimeout:init()
-   local l = loop()
-   self.started = false
-   table.insert(l.t, self)
+function timeoutw:init()
    self:d('init')
 
-end
+   self.started = false
 
-function msttimeout:uninit()
-   self:d('uninit')
    local l = loop()
-   mst.array_remove(l.t, self)
+   l:add_timeout(self)
 end
 
-function msttimeout:raw_start()
+function timeoutw:uninit()
+   self:d('uninit')
+
+   local l = loop()
+   l:remove_timeout(self)
+end
+
+function timeoutw:raw_start()
    -- nop - event loop calculates who's active
 end
 
-function msttimeout:raw_stop()
+function timeoutw:raw_stop()
    -- nop - event loop calculates who's active
+end
+
+function timeoutw:run_timeout()
+   self:a(self.callback, 'no callback')
+   self:callback()
+   -- by design, default timeout is single-use - override
+   self:done()
+end
+
+function timeoutw:get_timeout()
+   return self.started and self.timeout
 end
 
 --- ssloop - main eventloop
@@ -136,12 +153,20 @@ function ssloop:init()
    self.r = {}
    self.w = {}
    
-   -- hashes of mstio instances
+   -- hashes of iow instances
    self.rh = {}
    self.wh = {}
 
    -- array of timeouts
-   self.t = {}
+   self.t = mst.array:new{}
+end
+
+function ssloop:add_timeout(o)
+   self.t:insert(o)
+end
+
+function ssloop:remove_timeout(o)
+   self.t:remove(o)
 end
 
 function ssloop:uninit()
@@ -189,14 +214,14 @@ function ssloop:clear()
 end
 
 function ssloop:new_reader(s, callback, p)
-   local o = mstio:new{s=s, callback=callback, reader=true, p=p}
+   local o = iow:new{s=s, callback=callback, reader=true, p=p}
    -- not added anywhere before start()
    self:d('added new reader', o)
    return o
 end
 
 function ssloop:new_writer(s, callback, p)
-   local o = mstio:new{s=s, callback=callback, reader=false, p=p}
+   local o = iow:new{s=s, callback=callback, reader=false, p=p}
    -- not added anywhere before start()
    self:d('added new writer', o)
    return o
@@ -209,8 +234,8 @@ local function time()
 end
 
 function ssloop:new_timeout_delta(secs, callback)
-   local o = msttimeout:new{timeout=time()+secs,
-                            callback=callback}
+   local o = timeoutw:new{timeout=time()+secs,
+                          callback=callback}
    -- as a side effect, added to t
    self:d('added new timeout', o)
    return o
@@ -270,15 +295,15 @@ function ssloop:loop()
    self.stopping = false
    self.running = true
    mst.pcall_and_finally(function ()
-                               while not self.stopping
-                               do
-                                  -- just iterate through the poll loop 'forever'
-                                  self:poll()
-                               end
-                            end,
-                            function ()
-                               self.running = false
-                            end)
+                            while not self.stopping
+                            do
+                               -- just iterate through the poll loop 'forever'
+                               self:poll()
+                            end
+                         end,
+                         function ()
+                            self.running = false
+                         end)
 end
 
 -- loop while cond is not true, or timeout hasn't expired. return t if
@@ -323,7 +348,8 @@ function ssloop:run_timeouts(now)
    -- first gather a list of expired events
    for i, v in ipairs(self.t)
    do
-      if v.started and v.timeout <= now
+      local to = v:get_timeout()
+      if to and to <= now
       then
          table.insert(t, v)
       end
@@ -332,9 +358,8 @@ function ssloop:run_timeouts(now)
    for i, v in ipairs(t)
    do
       self:d('running timeout', v)
-      self:a(v.callback, 'no callback for', v)
-      v.callback()
-      v:done()
+      v:run_timeout()
+      --v:done()
       c = c + 1
    end
    return c
@@ -347,15 +372,13 @@ function ssloop:next_timeout(now)
    self:a(now, 'now mandatory in next_timeout')
    for i, v in ipairs(self.t)
    do
+      local t = v:get_timeout()
+      
       -- ignore if it's not started
-      if v.started
+      if t
       then
-         -- there shouldn't be any with v.timeout <= now 
-         self:a(v.timeout, 'timeout not set')
-
-
-         self:a(v.timeout > now, "timeout in past?")
-         local d = v.timeout - now
+         self:a(t > now, "timeout in past?")
+         local d = t - now
          if not best or best > d
          then
             best = d
@@ -428,3 +451,20 @@ function add_eventloop_terminator(o, n)
    inject_refcounted_terminator(o, n, c)
 end
 
+
+function repeat_every_timedelta(delta, callback)
+   local t
+
+   local reschedule
+
+   local function mycallback()
+      callback()
+      reschedule()
+   end
+
+   function reschedule()
+      t = loop():new_timeout_delta(delta, mycallback)
+   end
+
+   reschedule()
+end
