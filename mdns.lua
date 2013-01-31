@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 12:38:01 2013 mstenber
--- Last modified: Thu Jan 31 22:17:19 2013 mstenber
--- Edit time:     53 min
+-- Last modified: Thu Jan 31 23:09:01 2013 mstenber
+-- Edit time:     64 min
 --
 
 -- 'mdns' daemon, which shares state (via skv and then via OSPF AC LSA
@@ -32,7 +32,8 @@ function create_cli()
    cli:set_name('mdns.lua')
    -- XXX - think about command line options we might want
    cli:add_flag("--ipv4", "support IPv4 as much as we can (which may not be much)")
-
+   cli:add_opt("-j, --join=IFLIST","join multicast group on given (comma-separated) interfaces")
+   cli:add_opt("-m, --master=IFLIST","own the (comma-separated) interfaces (=forward records from joined interfaces; -m implies -j)")
    return cli
 end
 
@@ -121,6 +122,20 @@ function o.callback(...)
    -- just pass the callback data directly
    mdns:recvfrom(...)
 end
+
+local tojoin = args.join and mst.string_split(args.join,",") or mst.array:new{}
+local tomaster = args.master and mst.string_split(args.master,",") or mst.array:new{}
+
+local joinset = tojoin:to_table()
+local masterset = tomaster:to_table()
+
+setmetatable(joinset, mst.set)
+setmetatable(masterset, mst.set)
+
+joinset = joinset:union(masterset)
+
+mdns:set_if_joined_set(joinset)
+mdns:set_if_master_set(masterset)
 
 mst.d('entering event loop')
 loop:loop()

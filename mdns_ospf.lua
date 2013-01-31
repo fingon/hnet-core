@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Thu Jan 31 22:55:00 2013 mstenber
+-- Last modified: Thu Jan 31 23:10:18 2013 mstenber
 -- Edit time:     150 min
 --
 
@@ -330,7 +330,7 @@ end
 
 function mdns:calculate_if_master_set()
    local t = mst.set:new{}
-   local shouldjoin = {}
+   local shouldjoin = mst.set:new()
    -- for rest, we look at the SKV-LAP for stuff that we own, and that
    -- isn't depracated or external
    for i, lap in ipairs(self.ospf_lap)
