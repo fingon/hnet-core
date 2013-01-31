@@ -2,6 +2,10 @@
 
 * Done (last week of January, 2013)
 
+** Test OSPF LAP-based local interface stuff
+
+** Test multicast join/leave in luasocket
+
 ** Add multicast join/leave to all interfaces
 
 ** Create stand-alone daemon

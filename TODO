@@ -6,12 +6,6 @@
 
 - build even more recent!
 
-** Test multicast join/leave in luasocket
-
-- have to do interface=name tests in practise
-
-** Test OSPF LAP-based local interface stuff
-
 ** Write patch set for luasocket changes for Diego
 
 ** Add some sort of 'initial state fetcher' 
