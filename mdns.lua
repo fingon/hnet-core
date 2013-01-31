@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 12:38:01 2013 mstenber
--- Last modified: Thu Jan 31 23:48:01 2013 mstenber
--- Edit time:     69 min
+-- Last modified: Fri Feb  1 00:36:13 2013 mstenber
+-- Edit time:     70 min
 --
 
 -- 'mdns' daemon, which shares state (via skv and then via OSPF AC LSA
@@ -86,7 +86,9 @@ local s = skv.skv:new{long_lived=true}
 
 mst.d('initializing mdns')
 local mdns = mdns_ospf.mdns:new{skv=s,
-                                sendto=o.s.sendto,
+                                sendto=function (...)
+                                   o.s:sendto(...)
+                                end,
                                 shell=mst.execute_to_string,
                                }
 
