@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Thu Jan 31 11:32:23 2013 mstenber
--- Edit time:     107 min
+-- Last modified: Thu Jan 31 18:27:05 2013 mstenber
+-- Edit time:     132 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -52,6 +52,7 @@
 
 require 'mdns_core'
 require 'mdns_if'
+require 'elsa_pa'
 
 module(..., package.seeall)
 
@@ -67,14 +68,14 @@ function ospf_if:init()
    local old_removed_callback = self.cache.removed_callback
 
    function self.cache.removed_callback(x, rr)
-      -- set flag which indicates that the interface's cache is dirty
+      -- set flag which indicates that the local present rr cache is dirty
       self.parent.cache_dirty = true
 
       old_removed_callback(x, rr)
    end
 
    function self.cache.inserted_callback(x, rr)
-      -- set flag which indicates that the interface's cache is dirty
+      -- set flag which indicates that the local present rr is dirty
       self.parent.cache_dirty = true
    end
 end
@@ -122,6 +123,8 @@ function mdns:kv_changed(k, v)
       self:d('queueing lap update')
       self.ospf_lap = v
       self.update_lap = true
+      -- force recalculation of 'local prefix' data
+      self.local_binary2ifname_refresh = nil
    end
    if k == elsa_pa.MDNS_OSPF_SKV_KEY
    then
@@ -133,6 +136,27 @@ end
 
 function mdns:uninit()
    self.skv:remove_change_observer(self.f)
+end
+
+
+function mdns:calculate_local_binary_prefix_set()
+   local m = {}
+   for i, lap in ipairs(self.ospf_lap or {})
+   do
+      local p = ipv6s.new_prefix_from_ascii(lap.prefix)
+      if not p:is_ipv4()
+      then
+         local dep = lap.depracate      
+         local own = lap.owner 
+         local ext = lap.external
+         -- XXX - figure what's relevant - for time being, let's do non-ext?
+         if not ext
+         then
+            m[p:get_binary()] = lap.ifname
+         end
+      end
+   end
+   return m
 end
 
 function mdns:handle_ospf_cache()
@@ -217,6 +241,10 @@ function mdns:run()
                       function (k, v)
                          self:d(' adding ', k)
                          local o = self:get_if(k)
+
+                         -- XXX - we should figure what we need to 
+                         -- advertise there. 
+
                          table.insert(fresh, o)
                          -- has implications on cache too
                          self.cache_dirty = true
@@ -242,6 +270,13 @@ function mdns:run()
    then
       -- publish all owned interfaces' caches to skv
       self.cache_dirty = false
+
+      self:publish_cache()
+   end
+   return _mdns.run(self)
+end
+
+function mdns:publish_cache()
       local t = {}
       for ifname, ifo in pairs(self.ifname2if)
       do
@@ -251,22 +286,22 @@ function mdns:run()
             ifo.cache:iterate_rrs(function (rr)
                                      local rt = rr.rtype
                                      local to = dns_rdata.rtype_map[rt]
-                                     local f = to and to.field or 'rdata'
+                                     local f = (to and to.field) or 'rdata'
                                      local v = rr[f]
                                      self:a(v, 'no rdata?', to, rr)
-                                     table.insert(t,
-                                                  {name=rr.name,
-                                                   rtype=rt,
-                                                   rclass=dns_const.CLASS_IN,
-                                                   [f]=v,
-                                                  })
+                                     local d = {name=rr.name,
+                                                rtype=rt,
+                                                rclass=dns_const.CLASS_IN,
+                                                [f]=v,
+                                     }
+                                     mst.d(' found owned entry', d)
+                                     table.insert(t, d)
                                   end)
          end
       end
-      self:d('cache dirty, publishing cache', #t)
+      self:d('publishing cache', #t)
       self.skv:set(elsa_pa.MDNS_OWN_SKV_KEY, t)
-   end
-   return _mdns.run(self)
+
 end
 
 function mdns:should_run()
@@ -337,12 +372,22 @@ function mdns:calculate_if_master_set()
       local dep = lap.depracate      
       local own = lap.owner 
       local ext = lap.external
-      if own and not ext and not dep
+      if not dep and not ext
       then
-         t:insert(lap.ifname)
+         if own
+         then
+            t:insert(lap.ifname)
+         end
+         -- either way, we're interested about this interface - make
+         -- sure we're joined to multicast group for it
+         self:ensure_multicast_joined(lap.ifname)
       end
    end
    return t
+end
+
+function mdns:ensure_multicast_joined(ifname)
+   -- child/instance responsibility
 end
 
 function mdns:propagate_rr_to_ifo(rr, ifo)

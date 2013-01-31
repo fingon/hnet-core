@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 12:38:01 2013 mstenber
--- Last modified: Thu Jan 31 11:39:32 2013 mstenber
--- Edit time:     24 min
+-- Last modified: Thu Jan 31 14:58:41 2013 mstenber
+-- Edit time:     46 min
 --
 
 -- 'mdns' daemon, which shares state (via skv and then via OSPF AC LSA
@@ -74,7 +74,7 @@ end
 
 
 local mcast6 = mdns_const.MULTICAST_ADDRESS_IPV6
-local ifindex=nil
+local ifindex = nil
 local mct6 = {multiaddr=mcast6, interface=ifindex}
 
 checked_setoption(o.s, 'ipv6-add-membership', mct6)
@@ -87,7 +87,7 @@ mst.d('initializing skv')
 -- doesn't _have_ to be long lived, but _can_ be (pm should be the
 -- long-lived process, as it passes the data between mdns and ospf
 -- implementation)
-local s = skv.skv:new{long_lived=false}
+local s = skv.skv:new{long_lived=true}
 
 mst.d('initializing pm')
 local mdns = mdns_ospf.mdns:new{skv=s,
@@ -95,7 +95,25 @@ local mdns = mdns_ospf.mdns:new{skv=s,
                                 shell=mst.execute_to_string,
                                }
 
+-- permanently hanging around object, which implements the basic
+-- timeout API (=get_timeout, run_timeout)
+local runner = {}
+
+function runner:run_timeout()
+   -- just call run - timeouts are handled on per-iteration basis
+   -- using the get_timeout
+   mdns:run()
+end
+
+function runner:get_timeout()
+   return mdns:next_time()
+end
+
+loop:add_timeout(runner)
+
 function o.callback(...)
+   mst.d('calling mdns recvfrom', ...)
+
    -- just pass the callback data directly
    mdns:recvfrom(...)
 end

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Thu Jan 31 11:18:01 2013 mstenber
--- Edit time:     877 min
+-- Last modified: Thu Jan 31 18:25:20 2013 mstenber
+-- Edit time:     886 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -71,32 +71,37 @@ function mdns:init()
    self.ifname2if = {}
 end
 
+function mdns:calculate_local_binary_prefix_set()
+   -- TODO - consider if it is worth storing this if_table;
+   -- for the time being, we save memory by not keeping it around..
+   local if_table = linux_if.if_table:new{shell=self.shell} 
+
+   if_table:read_ip_ipv6()
+   local m = {}
+   for ifname, ifo in pairs(if_table.map)
+   do
+      for i, prefix in ipairs(ifo.ipv6 or {})
+      do
+         local p = ipv6s.new_prefix_from_ascii(prefix)
+         local b = p:get_binary()
+         local v = m[b]
+         -- intentionally produce always consistent mapping to interfaces
+         -- here - that's why we do this check
+         if not v or v > ifname
+         then
+            m[b] = ifname
+         end
+      end
+   end
+   return m
+end
+
 function mdns:get_local_binary_prefix_set()
    local now = self.time()
    local was = self.local_binary2ifname_refresh
    if not was or (was + IF_INFO_VALIDITY_PERIOD) < now
    then
-      -- TODO - consider if it is worth storing this if_table;
-      -- for the time being, we save memory by not keeping it around..
-      local if_table = linux_if.if_table:new{shell=self.shell} 
-
-      if_table:read_ip_ipv6()
-      local m = {}
-      for ifname, ifo in pairs(if_table.map)
-      do
-         for i, prefix in ipairs(ifo.ipv6 or {})
-         do
-            local p = ipv6s.new_prefix_from_ascii(prefix)
-            local b = p:get_binary()
-            local v = m[b]
-            -- intentionally produce always consistent mapping to interfaces
-            -- here - that's why we do this check
-            if not v or v > ifname
-            then
-               m[b] = ifname
-            end
-         end
-      end
+      local m = self:calculate_local_binary_prefix_set()
       self.local_binary2ifname_refresh = now
       self.local_binary2ifname = m
    end
