@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Fri Feb  1 00:28:40 2013 mstenber
--- Edit time:     176 min
+-- Last modified: Fri Feb  1 00:42:33 2013 mstenber
+-- Edit time:     178 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -192,7 +192,7 @@ function mdns:handle_ospf_cache()
       then
          orr.invalid = nil
       else
-         rr = ns:insert_rr(rr)
+         rr = ns:insert_rr(rr, true)
          self:d('added cache rr', rr)
       end
       if self:if_rr_has_cache_conflicts(nil, rr)
