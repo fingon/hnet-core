@@ -2,6 +2,8 @@
 
 * Done (last week of January, 2013)
 
+** Add multicast join/leave to all interfaces
+
 ** Create stand-alone daemon
 
 + mdns_ospf + skv

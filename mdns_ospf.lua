@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Thu Jan 31 18:27:05 2013 mstenber
--- Edit time:     132 min
+-- Last modified: Thu Jan 31 22:55:00 2013 mstenber
+-- Edit time:     150 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -109,7 +109,10 @@ mdns = _mdns:new_subclass{class='mdns_ospf',
 
 function mdns:init()
    -- by default, no master if's
-   self.master_if_set = {}
+   self.master_if_set = mst.set:new{}
+
+   -- similarly, also no joined if's
+   self.joined_if_set = mst.set:new{}
 
    _mdns.init(self)
    self.f = function (k, v) self:kv_changed(k, v) end
@@ -218,48 +221,11 @@ end
 function mdns:run()
    if self.update_lap
    then
-      local fresh = {}
+      self.update_lap = nil
+
       self:d('running lap update')
 
-      self.master_if_set = self:calculate_if_master_set()
-      self.update_lap = nil
-      self:d('syncing ifs')
-      mst.sync_tables(self.ifname2if, self.master_if_set,
-                      -- remove spurious
-                      function (k, v)
-                         if v.active
-                         then
-                            self:d(' removing ', k)
-                            self:remove_own_from_if(k)
-                            self:remove_own_to_if(k)
-                            -- has implications on cache too
-                            self.cache_dirty = true
-                            v.active = nil
-                         end
-                      end,
-                      -- add missing
-                      function (k, v)
-                         self:d(' adding ', k)
-                         local o = self:get_if(k)
-
-                         -- XXX - we should figure what we need to 
-                         -- advertise there. 
-
-                         table.insert(fresh, o)
-                         -- has implications on cache too
-                         self.cache_dirty = true
-                         o.active = true
-                      end
-                      -- comparison omitted -> we don't _care_
-                     )
-      if mst.table_count(fresh) > 0
-      then
-         local non_fresh = self.master_if_set:difference(fresh)
-         if non_fresh:count() > 0
-         then
-            self:add_cache_set_to_own_set(non_fresh, fresh)
-         end
-      end
+      self:set_if_master_set(self:calculate_if_master_set())
    end
    if self.update_ospf
    then
@@ -277,30 +243,30 @@ function mdns:run()
 end
 
 function mdns:publish_cache()
-      local t = {}
-      for ifname, ifo in pairs(self.ifname2if)
-      do
-         -- we care only about owned interfaces - rest can be ignored safely
-         if self.master_if_set[ifname]
-         then
-            ifo.cache:iterate_rrs(function (rr)
-                                     local rt = rr.rtype
-                                     local to = dns_rdata.rtype_map[rt]
-                                     local f = (to and to.field) or 'rdata'
-                                     local v = rr[f]
-                                     self:a(v, 'no rdata?', to, rr)
-                                     local d = {name=rr.name,
-                                                rtype=rt,
-                                                rclass=dns_const.CLASS_IN,
-                                                [f]=v,
-                                     }
-                                     mst.d(' found owned entry', d)
-                                     table.insert(t, d)
-                                  end)
-         end
+   local t = {}
+   for ifname, ifo in pairs(self.ifname2if)
+   do
+      -- we care only about owned interfaces - rest can be ignored safely
+      if self.master_if_set[ifname]
+      then
+         ifo.cache:iterate_rrs(function (rr)
+                                  local rt = rr.rtype
+                                  local to = dns_rdata.rtype_map[rt]
+                                  local f = (to and to.field) or 'rdata'
+                                  local v = rr[f]
+                                  self:a(v, 'no rdata?', to, rr)
+                                  local d = {name=rr.name,
+                                             rtype=rt,
+                                             rclass=dns_const.CLASS_IN,
+                                             [f]=v,
+                                  }
+                                  mst.d(' found owned entry', d)
+                                  table.insert(t, d)
+                               end)
       end
-      self:d('publishing cache', #t)
-      self.skv:set(elsa_pa.MDNS_OWN_SKV_KEY, t)
+   end
+   self:d('publishing cache', #t)
+   self.skv:set(elsa_pa.MDNS_OWN_SKV_KEY, t)
 
 end
 
@@ -364,7 +330,7 @@ end
 
 function mdns:calculate_if_master_set()
    local t = mst.set:new{}
-
+   local shouldjoin = {}
    -- for rest, we look at the SKV-LAP for stuff that we own, and that
    -- isn't depracated or external
    for i, lap in ipairs(self.ospf_lap)
@@ -380,14 +346,82 @@ function mdns:calculate_if_master_set()
          end
          -- either way, we're interested about this interface - make
          -- sure we're joined to multicast group for it
-         self:ensure_multicast_joined(lap.ifname)
+         shouldjoin[lap.ifname] = true
       end
    end
+   self:set_if_joined_set(shouldjoin)
    return t
 end
 
-function mdns:ensure_multicast_joined(ifname)
+function mdns:set_if_master_set(masterset)
+   self.master_if_set = masterset
+   local fresh
+   self:d('syncing ifs')
+   mst.sync_tables(self.ifname2if, self.master_if_set,
+                   -- remove spurious
+                   function (k, v)
+                      if v.active
+                      then
+                         self:d(' removing ', k)
+                         self:remove_own_from_if(k)
+                         self:remove_own_to_if(k)
+                         -- has implications on cache too
+                         self.cache_dirty = true
+                         v.active = nil
+                      end
+                   end,
+                   -- add missing
+                   function (k, v)
+                      self:d(' adding ', k)
+                      local o = self:get_if(k)
+
+                      fresh = fresh or mst.set:new{}
+                      fresh:insert(o)
+                      -- has implications on cache too
+                      self.cache_dirty = true
+                      o.active = true
+                   end
+                   -- comparison omitted -> we don't _care_
+                  )
+   if fresh
+   then
+      local non_fresh = self.master_if_set:difference(fresh)
+      if non_fresh:count() > 0
+      then
+         self:add_cache_set_to_own_set(non_fresh, fresh)
+      end
+   end
+
+end
+
+function mdns:set_if_joined_set(shouldjoin)
+   mst.sync_tables(self.joined_if_set, shouldjoin,
+                   -- remove spurious
+                   function (k, v)
+                      self:leave_multicast(k)
+                   end,
+                   -- join new
+                   function (k, v)
+                      self:join_multicast(k)
+                   end)
+end
+
+function mdns:try_multicast_op(ifname, is_join)
    -- child/instance responsibility
+end
+
+function mdns:join_multicast(ifname)
+   if self:try_multicast_op(ifname, true)
+   then
+      self.joined_if_set:insert(ifname)
+   end
+end
+
+function mdns:leave_multicast(ifname)
+   if self:try_multicast_op(ifname, false)
+   then
+      self.joined_if_set:remove(ifname)
+   end
 end
 
 function mdns:propagate_rr_to_ifo(rr, ifo)

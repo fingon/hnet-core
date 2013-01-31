@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Thu Jan 31 11:22:26 2013 mstenber
--- Edit time:     659 min
+-- Last modified: Thu Jan 31 22:55:31 2013 mstenber
+-- Edit time:     667 min
 --
 
 -- TO DO: 
@@ -1166,6 +1166,35 @@ describe("mdns", function ()
                    end)
 end)
 
+describe("mdns_ospf w/o skv", function ()
+            local DUMMY_IP='dummy'
+            local DUMMY_IF='eth1'
+            local DUMMY_SRC=DUMMY_IP .. '%' .. DUMMY_IF
+            local n, dsm, mdns, dummy, s
+            before_each(function ()
+                           n = dneigh.dneigh:new{}
+                           dsm = mydsm:new{e=n, 
+                                           port_offset=42536,
+                                           create_callback=create_node_callback}
+                           mdns = dsm:create_node{rid='n1'}
+                           dummy = dsm:create_node{rid='dummy', 
+                                                dsm=dsm, 
+                                                dummy=true}
+                           s = mdns.skv
+                           n:connect_neigh(mdns.rid, 'eth1',
+                                           dummy.rid, 'dummyif')
+                           -- instead of skv, configure it this way!
+                           mdns:set_if_joined_set(mst.set:new{eth1=true})
+                           mdns:set_if_master_set(mst.set:new{eth1=true})
+                        end)
+            after_each(function ()
+                          dsm:done()
+                       end)
+
+            it("works #wnsk", function ()
+                  -- XXX - what can we really do here? test setup+teardown?
+                   end)
+                              end)
 describe("degenerate multi-mdns setup (mdns_ospf)", function ()
             local DUMMY_IP='dummy2'
             local DUMMY_IF='id2'

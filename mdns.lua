@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 12:38:01 2013 mstenber
--- Last modified: Thu Jan 31 14:58:41 2013 mstenber
--- Edit time:     46 min
+-- Last modified: Thu Jan 31 22:17:19 2013 mstenber
+-- Edit time:     53 min
 --
 
 -- 'mdns' daemon, which shares state (via skv and then via OSPF AC LSA
@@ -49,11 +49,11 @@ then
 end
 
 mst.d('initializing socket')
-local o,err = scb.new_udp_socket{host='*', 
-                                 port=mdns_const.PORT,
-                                 callback=true,
-                                 v6only=(not args.ipv4),
-                                }
+local o, err = scb.new_udp_socket{host='*', 
+                                  port=mdns_const.PORT,
+                                  callback=true,
+                                  v6only=(not args.ipv4),
+                                 }
 mst.a(o, 'error initializing udp socket', err)
 
 -- by default, join on _all_ interfaces, what's the harm? we can
@@ -72,12 +72,6 @@ then
    end
 end
 
-
-local mcast6 = mdns_const.MULTICAST_ADDRESS_IPV6
-local ifindex = nil
-local mct6 = {multiaddr=mcast6, interface=ifindex}
-
-checked_setoption(o.s, 'ipv6-add-membership', mct6)
 checked_setoption(o.s, 'ipv6-unicast-hops', 255)
 checked_setoption(o.s, 'ipv6-multicast-hops', 255)
 checked_setoption(o.s, 'ipv6-multicast-loop', false)
@@ -94,6 +88,16 @@ local mdns = mdns_ospf.mdns:new{skv=s,
                                 sendto=o.s.sendto,
                                 shell=mst.execute_to_string,
                                }
+
+function mdns:try_multicast_op(ifname, isjoin)
+   local mcast6 = mdns_const.MULTICAST_ADDRESS_IPV6
+   local mct6 = {multiaddr=mcast6, interface=ifname}
+   local opname = (isjoin and 'ipv6-add-membership') or 'ipv6-drop-membership'
+   if o.s:setoption(opname, mct6)
+   then
+      return true
+   end
+end
 
 -- permanently hanging around object, which implements the basic
 -- timeout API (=get_timeout, run_timeout)

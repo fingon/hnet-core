@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Jan 10 15:59:42 2013 mstenber
--- Edit time:     621 min
+-- Last modified: Thu Jan 31 22:53:12 2013 mstenber
+-- Edit time:     623 min
 --
 
 -- data structure abstractions provided:
@@ -956,7 +956,7 @@ function set_intersection(self,t)
 end
 
 function set_difference(self,t)
-   mst.a(self)
+   mst.a(self, 'self missing')
    local r = set:new{}
    for k, _ in pairs(self)
    do
