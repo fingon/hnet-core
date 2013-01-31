@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Wed Jan 30 11:24:56 2013 mstenber
--- Edit time:     860 min
+-- Last modified: Thu Jan 31 11:18:01 2013 mstenber
+-- Edit time:     877 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -54,6 +54,9 @@ require 'dnscodec'
 require 'dnsdb'
 require 'mdns_if'
 require 'mdns_const'
+require 'linux_if'
+
+IF_INFO_VALIDITY_PERIOD=60
 
 module(..., package.seeall)
 
@@ -62,10 +65,71 @@ module(..., package.seeall)
 mdns = mst.create_class{class='mdns', 
                         ifclass=mdns_if.mdns_if,
                         time=os.time,
-                        mandatory={'sendto'}}
+                        mandatory={'sendto', 'shell'}}
 
 function mdns:init()
    self.ifname2if = {}
+end
+
+function mdns:get_local_binary_prefix_set()
+   local now = self.time()
+   local was = self.local_binary2ifname_refresh
+   if not was or (was + IF_INFO_VALIDITY_PERIOD) < now
+   then
+      -- TODO - consider if it is worth storing this if_table;
+      -- for the time being, we save memory by not keeping it around..
+      local if_table = linux_if.if_table:new{shell=self.shell} 
+
+      if_table:read_ip_ipv6()
+      local m = {}
+      for ifname, ifo in pairs(if_table.map)
+      do
+         for i, prefix in ipairs(ifo.ipv6 or {})
+         do
+            local p = ipv6s.new_prefix_from_ascii(prefix)
+            local b = p:get_binary()
+            local v = m[b]
+            -- intentionally produce always consistent mapping to interfaces
+            -- here - that's why we do this check
+            if not v or v > ifname
+            then
+               m[b] = ifname
+            end
+         end
+      end
+      self.local_binary2ifname_refresh = now
+      self.local_binary2ifname = m
+   end
+   return self.local_binary2ifname
+end
+
+function mdns:is_local_binary_prefix(b)
+   -- shortcut - if it was on last refresh, we don't really
+   -- care now (assume the host doesn't move that much)
+   local v = self.local_binary2ifname and self.local_binary2ifname[b]
+   if v
+   then
+      return v
+   end
+   return self:get_local_binary_prefix_set()[b]
+end
+
+function mdns:get_local_interface(addr)
+   -- it better be IPv6; IPv4 we don't care about for the time being
+   local r = ipv4s.address_to_binary_address(addr)
+   if r
+   then
+      return
+   end
+
+   -- ok, looks like IPv6 address
+   local b = ipv6s.address_to_binary_address(addr)
+   mst.a(#b == 16)
+
+   -- just use the prefix as key
+   b = string.sub(b, 1, 8)
+
+   return self:is_local_binary_prefix(b)
 end
 
 function mdns:get_if(ifname)
@@ -142,14 +206,21 @@ function mdns:recvfrom(data, src, srcport)
    --self:a(type(srcport) == 'number', 'non-number srcport', data, src, srcport)
 
    local l = mst.string_split(src, '%')
+   local addr, ifname
    if #l < 2 
    then
-      self:d('global? query received, ignoring', src)
-      return
+      addr = src
+      ifname = self:get_local_interface(src)
+      if not ifname
+      then
+         self:d('global? query received, ignoring', src)
+         return
+      end
+   else
+      mst.a(#l == 2, 'invalid src', src)
+      addr, ifname = unpack(l)
    end
 
-   mst.a(#l == 2, 'invalid src', src)
-   local addr, ifname = unpack(l)
    local ifo = self:get_if(ifname)
 
    ifo:handle_recvfrom(data, addr, srcport)

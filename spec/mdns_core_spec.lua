@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Wed Jan 30 11:24:42 2013 mstenber
--- Edit time:     651 min
+-- Last modified: Thu Jan 31 11:22:26 2013 mstenber
+-- Edit time:     659 min
 --
 
 -- TO DO: 
@@ -25,6 +25,7 @@ require "skv"
 require "elsa_pa"
 require "dnscodec"
 require "dneigh"
+require "dshell"
 
 local _dsm = require "dsm"
 
@@ -33,6 +34,19 @@ local _mdns = mdns_core.mdns
 local _mdns_ospf = mdns_ospf.mdns
 
 module("mdns_core_spec", package.seeall)
+
+
+local dshell_ip_check = {
+   {"ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary",
+    [[1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 
+2: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+  inet6 fdb2:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic 
+  inet6 dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic
+6: 6rd: <NOARP,UP,LOWER_UP> mtu 1480 
+  inet6 ::192.168.100.100/128 scope global 
+]]},
+}
+
 
 -- dospf is dummy ospf skv-state simulator; what it does is whatever
 -- normal OSPF would, in terms of skv functionality, for mdns; takes
@@ -400,6 +414,7 @@ function create_node_callback(o)
    end
    local cl = o.class or _mdns_ospf
    local n = cl:new{sendto=true,
+                    shell=true, -- blows up if it hits, but shouldn't
                     rid=o.rid,
                     skv=o.skv,
                     time=o.time,
@@ -426,7 +441,10 @@ local CLASS_IN=dns_const.CLASS_IN
 local DUMMY_ID1=7
 local DUMMY_ID2=1234
 local DUMMY_ID3=1235
+-- arbitrary 'foreign' address
 local DUMMY_GLOBAL_ADDRESS='2001:db8:1234::1'
+-- on local interface prefix
+local DUMMY_GLOBAL_LOCAL_ADDRESS='dead:2c26:f4e4:0:21c:42ff:fea7:1'
 
 -- fake mdns announcement material
 local rr1 = {name={'Foo'}, rdata='Bar', rtype=DUMMY_TYPE, ttl=DUMMY_TTL}
@@ -715,12 +733,25 @@ describe("mdns", function ()
                   dsm:assert_receiveds_eq(2)
                   dsm:clear_receiveds()
 
+                  local ds = dshell.dshell:new()
+                  mdns.shell = ds:get_shell()
+                  ds:set_array(dshell_ip_check)
+
                   -- make sure we don't explode if we get something
                   -- with global address instead of linklocal one
                   -- (although we shouldn't do anything either,
-                  -- just debug-log it)
+                  -- just debug-log it - s11.3 SHOULD)
                   mdns:recvfrom(query1_qu, 
                                 DUMMY_GLOBAL_ADDRESS, mdns_const.PORT)
+                  dsm:assert_receiveds_eq(0)
+                  dsm:clear_receiveds()
+
+                  -- but if we get from local prefix, we should get
+                  -- something!
+                  mdns:recvfrom(query1_qu, 
+                                DUMMY_GLOBAL_LOCAL_ADDRESS, mdns_const.PORT)
+                  dsm:assert_receiveds_eq(1)
+                  dsm:clear_receiveds()
 
                   -- make sure we get replies to ok requests
                   mdns:recvfrom(query1_qu, DUMMY_SRC, mdns_const.PORT)

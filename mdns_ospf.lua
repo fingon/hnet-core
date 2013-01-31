@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Sun Jan 27 10:32:45 2013 mstenber
--- Edit time:     106 min
+-- Last modified: Thu Jan 31 11:32:23 2013 mstenber
+-- Edit time:     107 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -107,6 +107,9 @@ mdns = _mdns:new_subclass{class='mdns_ospf',
                           mandatory={'sendto', 'skv'}}
 
 function mdns:init()
+   -- by default, no master if's
+   self.master_if_set = {}
+
    _mdns.init(self)
    self.f = function (k, v) self:kv_changed(k, v) end
    self.skv:add_change_observer(self.f)

@@ -2,78 +2,9 @@
 
 * MDNS - Things to do
 
-** Try to get avahi fixed
+** Build recent luasocket for NetKit
 
-It joins ipv6 linklocal multicast groups with non-linklocal addresses, and
-also uses those as default source addresses when talking with other
-hosts. That's just broken.
-
-** Make codebase it work with non-linklocal addresses too
-
-Key idea:
-
-- maintain ~every now and then updated local IPv6 address table (code
-already exists in linux_if, although it isn't pretty as it just uses shell
-commands and does not use the real API)
-
- - elegant way would be to figure OS level API, abstract it to Lua,
-   etc.. but that sounds just like major hassle
-
-- for any inbound packet, either it is
-  <fe80:...>%<ifname>
-  => just use <addr> + <ifname>
- 
-  or
-
-  <addr>
-
-  in case of <addr>, look up <ifname> with matching prefix, and use that
-
-=> B.I.Y.U.
-
-This stuff covers a number of SHOULDs in the draft.
-
-** Implement SKV <> OSPF sync
-
-+ [1] just toss the cache entries to jsonblob (good short-term solution,
-least efficient encoding, hardest to push through)
-
-(JSON_MDNS_KEY used to store the skv's MDNS_OWN_SKV_KEY, which should
-contain minimalist rr tables with {name=, rtype=, rdata=}..)
-
-[2] define new AC TLV, gzipped-jsonblob, and squeeze in the RR there? (much
-more efficient in terms of space usage, but even harder to push through the
-IETF process)
-
-[3] correct approach would be to define e.g. MDNS-CACHE-RR TLV, and put
-  those in there? no name compression though => relatively large entries =>
-  perhaps MDNS-CACHE-STATE TLV, which contains list of DNS RR's with shared
-  name compression?
-
-*** Consult Arkko/OT about shared problem
-
-- problem: what if LSA size (2^16-1 = 64k) is exceeded?
-
-- answer: need to do multiple lsid's worth?
-
-** Create stand-alone daemon
-
-+ mdns_ospf + skv
-
-+ elsa_pa: SKV<=>OSPF publishing
-
-+ ssloop for event handling (mainly, to deal with skv, and to handle
-  inbound UDP packets; ssloop in general is done, but UDP support may
-  require small changes, as currently ssloop operates on TCP only)
-
-+ Luasocket (w/ IPv6 multicast join/leave support) for socket handling
- + need to integrate to OpenWRT build process own version
-  + replace the built-in luasocket with e.g. hnet-luasocket package (...)
- - need to build(?) it for NetKit
- - need to get Diego to accept it
-
-+ mdns.lua
- + tie together above bits => one coherent whole (TODO: mcast join/leave)
+** Write patch set for luasocket changes for Diego
 
 ** Add some sort of 'initial state fetcher' 
 
@@ -210,6 +141,24 @@ TODO codereview
  [ done, stress/elsa_pa_stress.lua ]
 
 * Things to do if I have time (hah)
+
+** Use netlink instead of 'ip' command to interact with IP addresses
+
+Plan: 
+
+- Wrap a library (e.g. http://www.infradead.org/~tgr/libnl/) with SWIG
+ - Lua -> C provided by SWIG
+ - C -> Lua 
+
+- Write higher level abstraction library on top of that
+
+.. probably couple of days of coding, all in all, and yet another package
+dependency/even more bloated hnet-core (as we need to compile C
+extensions). Therefore only 'nice-to-have', not mandatory, yet..
+
+Unit testing using this needs to be considered too; the high level
+abstraction API has to be simple, so it can be mocked without too much
+pain, as in unit testing we trust..
 
 ** More effective handling of multimap memory usage
 
@@ -361,4 +310,28 @@ so, have to consider how to slim the count to 1..
 
 Currently ~2MB per process (pm.lua, bird6-elsa), which results in 4MB
 memory overheard compared to system with 0 Lua in it.
+
+** Try to get avahi fixed
+
+It joins ipv6 linklocal multicast groups with non-linklocal addresses, and
+also uses those as default source addresses when talking with other
+hosts. That's just broken.
+
+
+** Improve SKV <> OSPF sync for MDNS
+
+[2] define new AC TLV, gzipped-jsonblob, and squeeze in the RR there? (much
+more efficient in terms of space usage, but even harder to push through the
+IETF process)
+
+[3] correct approach would be to define e.g. MDNS-CACHE-RR TLV, and put
+  those in there? no name compression though => relatively large entries =>
+  perhaps MDNS-CACHE-STATE TLV, which contains list of DNS RR's with shared
+  name compression?
+
+*** Consult Arkko/OT about shared problem
+
+- problem: what if LSA size (2^16-1 = 64k) is exceeded?
+
+- answer: need to do multiple lsid's worth?
 

@@ -152,6 +152,7 @@ we filter them)
    source address has an on-link prefix) and silently ignore the packet if
    not.
 
+.. right now, we don't have API for this
 
 ** s6: responding [49]
 
@@ -714,10 +715,10 @@ n/a? we just mirror it?
 
 ** s11: source address check [4]
 
-![1] All Multicast DNS responses (including responses sent via unicast)
++[1] All Multicast DNS responses (including responses sent via unicast)
    SHOULD be sent with IP TTL set to 255.
 
-.. no normal API to change that
+.. no normal API to check that, but we _do_ have it in mdns.lua..)
 
 ![2] A host sending Multicast DNS queries to a link-local destination
    address (including the 224.0.0.251 and FF02::FB link-local multicast
@@ -726,11 +727,9 @@ n/a? we just mirror it?
 
 .. how do you identify answers to particular query? id=0 et al?
 
--[3] Since queriers will ignore responses apparently originating outside the
++[3] Since queriers will ignore responses apparently originating outside the
    local subnet, a Responder SHOULD avoid generating responses that it can
    reasonably predict will be ignored.
-
-.. should check source address?
 
 -[4] If a Responder receives a query addressed to the link-local multicast
    address 224.0.0.251, from a source address not apparently on the same

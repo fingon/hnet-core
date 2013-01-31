@@ -1,5 +1,54 @@
 -*- outline -*-
 
+* Done (last week of January, 2013)
+
+** Create stand-alone daemon
+
++ mdns_ospf + skv
+
++ elsa_pa: SKV<=>OSPF publishing
+
++ ssloop for event handling (mainly, to deal with skv, and to handle
+  inbound UDP packets; ssloop in general is done, but UDP support may
+  require small changes, as currently ssloop operates on TCP only)
+
++ Luasocket (w/ IPv6 multicast join/leave support) for socket handling
+ + need to integrate to OpenWRT build process own version
+  + replace the built-in luasocket with e.g. hnet-luasocket package (...)
+
++ mdns.lua
+ + tie together above bits => one coherent whole (TODO: mcast join/leave)
+
+** Implement SKV <> OSPF sync
+
++ [1] just toss the cache entries to jsonblob (good short-term solution,
+least efficient encoding, hardest to push through)
+
+** Make codebase it work with non-linklocal addresses too
+
+Key idea:
+
+- maintain ~every now and then updated local IPv6 address table (code
+already exists in linux_if, although it isn't pretty as it just uses shell
+commands and does not use the real API)
+
+ - elegant way would be to figure OS level API, abstract it to Lua,
+   etc.. but that sounds just like major hassle
+
+- for any inbound packet, either it is
+  <fe80:...>%<ifname>
+  => just use <addr> + <ifname>
+ 
+  or
+
+  <addr>
+
+  in case of <addr>, look up <ifname> with matching prefix, and use that
+
+=> B.I.Y.U.
+
+This stuff covers a number of SHOULDs in the draft.
+
 * Done (19.11.+)
 
 ** Shouldn't run radvd on interfaces we listen on

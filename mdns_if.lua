@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Mon Jan 28 16:31:58 2013 mstenber
+-- Last modified: Thu Jan 31 11:30:37 2013 mstenber
 -- Edit time:     403 min
 --
 
@@ -1398,7 +1398,7 @@ function mdns_if:handle_recvfrom(data, addr, srcport)
    local msg = dnscodec.dns_message:decode(data)
 
    -- ok, if it comes from non-mdns port, life's simple
-   if srcport ~= mdns_const.PORT 
+   if tonumber(srcport) ~= mdns_const.PORT 
    then
       if msg.qd and #msg.qd > 0
       then
@@ -1408,7 +1408,7 @@ function mdns_if:handle_recvfrom(data, addr, srcport)
       -- MUST accept unicast responses if they answer
       -- recently-sent query => as we never query over unicast, we NEVER
       -- accept unicast responses
-      self:d('spurious unicast response')
+      self:d('spurious unicast response', srcport)
       return
    end
 
