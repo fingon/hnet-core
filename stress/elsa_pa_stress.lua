@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:04:01 2012 mstenber
--- Last modified: Tue Nov 13 16:46:34 2012 mstenber
--- Edit time:     6 min
+-- Last modified: Mon Feb  4 16:58:36 2013 mstenber
+-- Edit time:     12 min
 --
 
 require 'busted'
@@ -23,13 +23,19 @@ local TEST_ADDITIONS_PER_ITERATION=20
 local TEST_REMOVALS_PER_ITERATION=15
 local ADVANCE_TIME_PER_ITERATION=10
 
+function create_elsa_callback(o)
+   return elsa_pa.elsa_pa:new{elsa=o.sm.e, skv=o.skv, rid=o.rid,
+                              time=o.time}
+end
+
 describe("elsa_pa N-node mutating topology", function ()
             local e, sm
             before_each(function ()
                            local iids = {}
                            local hwfs = {}
                            e = delsa:new{iid=iids, hwf=hwfs}
-                           sm = dsm:new{e=e, port_offset=42420}
+                           sm = dsm:new{e=e, port_offset=42420,
+                                        create_callback=create_elsa_callback}
                            
                            for i=1,TEST_NODES
                            do
@@ -37,7 +43,7 @@ describe("elsa_pa N-node mutating topology", function ()
                               iids[name] = {{index=42, name='eth0'},
                                             {index=43, name='eth1'}}
                               hwfs[name] = name
-                              local ep = sm:add_router(name)
+                              local ep = sm:create_node{rid=name}
                               ep.originate_min_interval=0
                            end
                         end)
@@ -46,9 +52,10 @@ describe("elsa_pa N-node mutating topology", function ()
                        end)
 
             local function ensure_sanity()
+               local nl = sm:get_nodes()
                -- make sure each node has on each interface at most 1
                -- v6 and at most 1 v4 address (that is in assigned state)
-               for i, ep in ipairs(sm.eps)
+               for i, ep in ipairs(nl)
                do
                   local found_v4 = {}
                   local found_v6 = {}
@@ -73,18 +80,19 @@ describe("elsa_pa N-node mutating topology", function ()
                end
             end
             it("works #n", function ()
+                  local nl = sm:get_nodes()
                   local n
                   -- iterations
                   for i=1,TEST_ITERATIONS
                   do
-                     mst.d('elsa_pa_stress N - iteration', i, #sm.eps, n)
+                     mst.d('elsa_pa_stress N - iteration', i, #nl, n)
 
                      -- topology changes - add 
                      for j=1,TEST_ADDITIONS_PER_ITERATION
                      do
-                        local src = mst.array_randitem(sm.eps)
+                        local src = mst.array_randitem(nl)
                         local srci = mst.randint(42, 43)
-                        local dst = mst.array_randitem(sm.eps)
+                        local dst = mst.array_randitem(nl)
                         local dsti = mst.randint(42, 43)
                         e:connect_neigh_one(src.rid, srci, dst.rid, dsti)
                      end
@@ -100,7 +108,7 @@ describe("elsa_pa N-node mutating topology", function ()
                         e:disconnect_neigh_one(unpack(o))
                      end
 
-                     sm:run_nodes(3, true)
+                     sm:run_nodes(3)
 
                      ensure_sanity()
                      sm:advance_time(ADVANCE_TIME_PER_ITERATION)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Jan 30 15:31:39 2013 mstenber
--- Edit time:     328 min
+-- Last modified: Mon Feb  4 17:31:14 2013 mstenber
+-- Edit time:     331 min
 --
 
 require 'mst'
@@ -406,7 +406,7 @@ describe("elsa_pa 2-node", function ()
                                          lsas=base_lsas}
                            e:connect_neigh('ep1', 123, 'ep2', 124)
                            sm = dsm:new{e=e, port_offset=31338,
-                                       create_callback=create_elsa_callback}
+                                        create_callback=create_elsa_callback}
                            ep1 = sm:create_node{rid='ep1'}
                            ep1.originate_min_interval=0
                            skv1 = sm.skvs[1]
@@ -492,7 +492,7 @@ describe("elsa_pa bird7-ish", function ()
                            hwfs = {}
                            e = delsa:new{iid=iids, hwf=hwfs}
                            sm = dsm:new{e=e, port_offset=42420,
-                                       create_callback=create_elsa_callback}
+                                        create_callback=create_elsa_callback}
                            for i=0,3
                            do
                               local name = 'bird' .. tostring(i)
