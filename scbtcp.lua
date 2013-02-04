@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 11:15:32 2013 mstenber
--- Last modified: Mon Jan 28 13:33:34 2013 mstenber
--- Edit time:     16 min
+-- Last modified: Mon Feb  4 17:29:19 2013 mstenber
+-- Edit time:     17 min
 --
 
 -- (Code has been moved here from scb.lua)
@@ -84,15 +84,12 @@ function ScbIO:handle_io_write()
 
       -- todo - handle writing errors here
 
-      if not r and err == 'closed'
+      if not r -- and err == 'closed'
       then
          self:call_callback_once('close_callback')
          self:done()
          return
       end
-
-      -- fallback
-      self:a(r, err)
       
       -- update the queue
       if r == #s
