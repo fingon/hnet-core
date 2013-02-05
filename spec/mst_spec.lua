@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Mon Feb  4 16:24:26 2013 mstenber
--- Edit time:     160 min
+-- Last modified: Tue Feb  5 20:39:12 2013 mstenber
+-- Edit time:     162 min
 --
 
 require "busted"
@@ -116,11 +116,16 @@ describe("ipi_skiplist", function ()
 
                -- check we can iterate through it using iterate_while
                local calls = 0
-               function f()
+               local prev = nil
+               function f(o)
                   calls = calls + 1
+                  mst.a(not prev or prev <= o, 
+                        'order constraint not met', prev, o)
+                  prev = o
                   return true
                end
-               function g()
+               function g(o)
+                  prev = o
                   calls = calls + 1
                end
                sl:iterate_while(f)
@@ -128,6 +133,8 @@ describe("ipi_skiplist", function ()
                calls = 0
                sl:iterate_while(g)
                mst.a(calls == 1)
+               mst.a(prev == sl:get_first())
+
 
                -- ok, next step is to remove the items, again
                -- in random order
