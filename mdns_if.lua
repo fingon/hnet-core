@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Tue Feb  5 15:48:17 2013 mstenber
--- Edit time:     491 min
+-- Last modified: Tue Feb  5 20:43:22 2013 mstenber
+-- Edit time:     498 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -274,7 +274,7 @@ function mdns_if:run_own_states(now)
    self.own_sl:iterate_while(function (rr)
                                 if rr.next > now 
                                 then
-                                   --self:d('too late', rr)
+                                   self:d('too late', now, rr)
                                    return
                                 end
                                 if rr.wait_until and rr.wait_until <= now
@@ -311,12 +311,15 @@ end
 
 
 function mdns_if:run_expire(now)
+   mst.a(type(now) == 'number', now)
+
    local pending
 
    -- get rid of own rr's that have expired
    self.own_sl:iterate_while(function (rr)
                                 if rr.next > now 
                                 then
+                                   self:d('too late', now, rr)
                                    return
                                 end
                                 if rr.valid and rr.valid <= now

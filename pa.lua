@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Wed Nov 21 18:57:34 2012 mstenber
+-- Last modified: Tue Feb  5 20:51:10 2013 mstenber
 -- Edit time:     832 min
 --
 
@@ -527,7 +527,7 @@ pa = mst.create_class{class='pa', lap_class=lap, mandatory={'rid'},
                       new_prefix_assignment=0,
                       new_ula_prefix=0,
                       random_prefix_tries=5,
-                      time=os.time,
+                      time=ssloop.time,
                      }
 
 function pa:init()

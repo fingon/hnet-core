@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Tue Feb  5 12:57:05 2013 mstenber
--- Edit time:     161 min
+-- Last modified: Tue Feb  5 20:52:12 2013 mstenber
+-- Edit time:     164 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -227,7 +227,7 @@ function ssloop:new_writer(s, callback, p)
    return o
 end
 
-local function time()
+function time()
    -- where can we get good time info? socket!
    -- (the normal os.time() returns only time in seconds)
    return socket.gettime()

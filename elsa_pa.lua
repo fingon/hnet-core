@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Feb  5 13:21:11 2013 mstenber
+-- Last modified: Tue Feb  5 20:50:57 2013 mstenber
 -- Edit time:     559 min
 --
 
@@ -180,7 +180,7 @@ end
 -- skv/elsa-wrapper
 elsa_pa = mst.create_class{class='elsa_pa', 
                            mandatory={'skv', 'elsa'},
-                           time=os.time,
+                           time=ssloop.time,
                            originate_min_interval=ORIGINATE_MIN_INTERVAL,
                           }
 

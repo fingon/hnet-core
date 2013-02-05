@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Tue Feb  5 15:41:00 2013 mstenber
--- Edit time:     895 min
+-- Last modified: Tue Feb  5 20:52:28 2013 mstenber
+-- Edit time:     899 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -55,6 +55,7 @@ require 'dnsdb'
 require 'mdns_if'
 require 'mdns_const'
 require 'linux_if'
+require 'ssloop'
 
 IF_INFO_VALIDITY_PERIOD=60
 
@@ -64,7 +65,7 @@ module(..., package.seeall)
 -- mdns_if instances
 mdns = mst.create_class{class='mdns', 
                         ifclass=mdns_if.mdns_if,
-                        time=os.time,
+                        time=ssloop.time,
                         mandatory={'sendto', 'shell'}}
 
 function mdns:init()
