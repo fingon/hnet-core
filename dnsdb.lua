@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Tue Feb  5 12:15:36 2013 mstenber
--- Edit time:     184 min
+-- Last modified: Tue Feb  5 14:08:35 2013 mstenber
+-- Edit time:     185 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -93,7 +93,14 @@ end
 rr = mst.create_class{class='rr'}
 
 function rr:repr_data()
-   local d = {name=self.name, rtype=self.rtype, cache_flush=self.cache_flush}
+   local d = {name=self.name, 
+              state=self.state,
+              wait_until=self.wait_until,
+              valid=self.valid,
+              next=self.next,
+              ttl=self.ttl,
+              rtype=self.rtype, 
+              cache_flush=self.cache_flush}
    local m = dns_rdata.rtype_map[self.rtype]
    local f = m and m.field
    if f and self[f]

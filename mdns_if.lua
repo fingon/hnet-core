@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Tue Feb  5 11:35:09 2013 mstenber
--- Edit time:     420 min
+-- Last modified: Tue Feb  5 15:07:49 2013 mstenber
+-- Edit time:     478 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -46,6 +46,12 @@ STATE_P3='p3'
 STATE_PW='pw'
 -- => a1 if no replies
 
+-- forcibly send probes every <this period>, even if there are more pending
+SEND_PROBES_EVERY=0.3
+
+-- forcibly send announces every <this period>, even if there are more pending
+SEND_ANNOUNCES_EVERY=1.2
+
 -- waiting to start probe again
 -- STATE_WP1='wp1' 
 -- as we treat failed probes 'definitely not our problem', there isn't
@@ -55,11 +61,6 @@ STATE_PW='pw'
 STATE_A1='a1'
 STATE_A2='a2'
 
--- waiting to announce ttl 0
-STATE_D1='d1'
--- waiting to die after ttl 0 sent (1 second)
-STATE_D2='d0'
-
 -- when do we call the 'run' method for a state after we have entered the state?
 STATE_DELAYS={[STATE_P1]={1, 250},
               [STATE_P2]={250, 250},
@@ -68,8 +69,6 @@ STATE_DELAYS={[STATE_P1]={1, 250},
               --[STATE_WP1]={1000, 1000},
               [STATE_A1]={20, 120},
               [STATE_A2]={1000, 1000},
-              [STATE_D1]={20, 120},
-              [STATE_D2]={1000, 1000},
 }
 
 function send_probes_cb(self)
@@ -95,7 +94,6 @@ NEXT_STATES={[STATE_P1]=STATE_P2,
              --[STATE_WP1]=STATE_P1,
              [STATE_A1]=STATE_A2,
              [STATE_A2]=false,
-             [STATE_D1]=STATE_D2,
 }
 
 -- when should we send announce-like message?
@@ -278,14 +276,15 @@ function mdns_if:run_own_states()
                                    --self:d('too late', rr)
                                    return
                                 end
-                                if rr.state 
-                                   and rr.wait_until and rr.wait_until <= now
+                                if rr.wait_until and rr.wait_until <= now
                                 then
+                                   self:a(rr.state, 'no state yet wait_until')
                                    self:d('picking to run', rr)
                                    -- stateful waiting is handled here
                                    -- (expire handles non-stateful)
-                                   self.own_sl:remove(rr)
                                    rr.wait_until = nil
+                                   self:update_next_own(rr)
+
                                    pending = pending or mst.map:new{}
                                    pending[rr] = rr.state
                                 end
@@ -301,7 +300,6 @@ function mdns_if:run_own_states()
             self:run_state(rr)
             -- make sure no matter what, rr's stay in own_sl
             -- (if it's relevant)
-            self.own_sl:insert_if_not_present(rr)
          end
       end
    end
@@ -385,6 +383,9 @@ function mdns_if:run_send_pending()
 end
 
 function mdns_if:run()
+   -- get current timestamp
+   local now = self:time()
+
    -- iteratively run through the object states until all are waiting
    -- for some future timestamp
    while self:run_own_states() do end
@@ -394,6 +395,10 @@ function mdns_if:run()
 
    -- send delayed multicast queries and responses
    self:run_send_pending()
+
+   local nt = self:next_time()
+   mst.a(not nt or nt >= now, 
+         'if we just did RTC step, why do we want to move to past?', now, nt)
 end
 
 function mdns_if:split_qd_to_qu_nqu(msg)
@@ -944,7 +949,7 @@ function mdns_if:upsert_cache_rr(rr)
    self:propagate_rr(o)
 end
 
-local function update_sl_if_changed(sl, o, v)
+function mdns_if:update_sl_if_changed(sl, o, v)
    if o.next == v
    then
       return
@@ -953,6 +958,8 @@ local function update_sl_if_changed(sl, o, v)
    o.next = v
    if v
    then
+      local now = self:time()
+      self:a(v >= now, 'trying to schedule to past')
       sl:insert(o)
    end
 end
@@ -971,7 +978,7 @@ function mdns_if:update_next_cached(o)
       local delta = (o.valid - o.time) * (800 + self.qofs + 50 * r) / 1000
       v = o.time + delta
    end
-   update_sl_if_changed(self.cache_sl, o, v)
+   self:update_sl_if_changed(self.cache_sl, o, v)
 end
 
 function mdns_if:query_cache_rr_perhaps(rr)
@@ -986,6 +993,7 @@ function mdns_if:query_cache_rr_perhaps(rr)
    local q = self:interested_in_cached(rr)
    if q
    then
+      self:d('scheduling query', q)
       -- schedule a query for the rr
       self:query(q)
    else
@@ -998,9 +1006,9 @@ function mdns_if:update_next_own(o)
    local v2 = o.valid
    if v1 and (not v2 or v1 < v2)
    then
-      update_sl_if_changed(self.own_sl, o, v1)
+      self:update_sl_if_changed(self.own_sl, o, v1)
    else
-      update_sl_if_changed(self.own_sl, o, v2)
+      self:update_sl_if_changed(self.own_sl, o, v2)
    end
 end
 
@@ -1090,8 +1098,7 @@ function mdns_if:insert_own_rrset(l)
 
       if o.cache_flush
       then
-         self:set_state(o, STATE_P1, self.p1_wu)
-         self.p1_wu = o.wait_until
+         self:set_state(o, STATE_P1)
       else
          self:set_state(o, STATE_A1)
       end
@@ -1122,7 +1129,7 @@ function mdns_if:insert_own_rr(rr)
    self:insert_own_rrset{rr}
 end
 
-function mdns_if:set_state(rr, st, wu)
+function mdns_if:set_state(rr, st)
    local w = STATE_DELAYS[st]
    self:d('setting state', rr, st)
    rr.state = st
@@ -1130,10 +1137,7 @@ function mdns_if:set_state(rr, st, wu)
    then
       local now = self:time()
       mst.a(type(now) == 'number', 'wierd time', now)
-      if not wu
-      then
-         wu = now + mst.randint(w[1], w[2]) / 1000.0
-      end
+      local wu = now + mst.randint(w[1], w[2]) / 1000.0
       rr.wait_until = wu
       self:update_next_own(rr)
       return
@@ -1163,14 +1167,12 @@ function mdns_if:run_state(rr)
    local cb = STATE_CALLBACKS[state]
    if cb
    then
+      -- callback is responsible for setting next state
       cb(self, rr)
+   else
+      -- if no callback, all we do is just set next state, if any
+      self:set_next_state(rr)
    end
-   -- if something happened automatically, skip next-state mechanism
-   if rr.state ~= state or rr.wait_until
-   then
-      return
-   end
-   self:set_next_state(rr)
 end
 
 function mdns_if:schedule_for_e_in_q(e, q)
@@ -1190,12 +1192,12 @@ end
 
 function mdns_if:next_time()
    local best, bestsrc
-   function maybe(t, src)
+   function maybe(t, src, o)
       if not t then return end
       if not best or t < best
       then
          best = t
-         bestsrc = src
+         bestsrc = {src, o}
       end
    end
    self:d('looking for next_time', self.cache_sl, self.own_sl, #self.pending)
@@ -1203,19 +1205,18 @@ function mdns_if:next_time()
    local o = self.cache_sl:get_first()
    if o
    then
-      maybe(o.valid, 'cache valid')
+      maybe(o.next, 'cache', o)
    end
    local o = self.own_sl:get_first()
    if o
    then
-      maybe(o.valid, 'own valid')
-      maybe(o.wait_until, 'own wait_until')
+      maybe(o.next, 'own', o)
    end
    local q = self.pending
    for e, _ in pairs(q)
    do
       local b = self:schedule_for_e_in_q(e, q)
-      maybe(b, 'multicast')
+      maybe(b, 'multicast', e)
    end
    if best
    then
@@ -1224,59 +1225,110 @@ function mdns_if:next_time()
    return best
 end
 
-function mdns_if:send_announces()
-   -- try to send _all_ eligible announcements at once.
-   -- e.g. entries that are in one of the send-announce states (a1, a2),
-   -- and their wait_until is not set, for that interface..
-   local ns = self.own
-   local an 
-   local now = self:time()
+function mdns_if:gather_in_states(states, lastfield, maxdelay)
 
-   -- the draft isn't very strict about how long we can delay until we
-   -- announce; so what we do, is wait until _all_ messages in
-   -- wait_until state disappear
-   local waitmore = false
+   -- first off, check if we succeeded too recently, that means
+   -- that this call is spurious
+   local now = self:time()
+   local last = self[lastfield]
+   if last == now
+   then
+      return 
+   end
+
+   local r 
+   local ns = self.own
+   local waitmore 
    ns:foreach(function (rr)
-                 if announce_states[rr.state] 
+                 if states[rr.state] 
                  then
                     if rr.wait_until
                     then
                        waitmore = rr.wait_until
-                    else
-                       -- xxx - do something more clever here?
-                       an = an or {}
-                       table.insert(an, rr)
                     end
                  end
-              end)
-   if waitmore 
-   then 
-      self:d('skipping announce - waiting for more at', waitmore)
-      if an
-      then
-         for i, rr in ipairs(an)
-         do
-            rr.wait_until = waitmore
-            self:update_next_own(rr)
-         end
-      end
+             end)
+   if waitmore and (not last or (now-last) < maxdelay)
+   then
+      -- as one callback is enough to send all (and update the states
+      -- accordingly at that point), we don't schedule new one
+      self:d('skipping - waiting for more at', waitmore)
       return 
    end
-   -- XXX ( handle fragmentation )
-   if an
+   ns:foreach(function (rr)
+                 if states[rr.state] 
+                 then
+                    r = r or {}
+                    table.insert(r, rr)
+                 end
+              end)
+   if r
    then
-      for i, rr in ipairs(an)
-      do
-         self:set_next_state(rr)
-         rr[FIELD_SENT_MCAST] = now
-      end
-      local h = mdns_const.DEFAULT_RESPONSE_HEADER
-      local s = dnscodec.dns_message:encode{an=an, h=h}
-      local dst = mdns_const.MULTICAST_ADDRESS_IPV6 .. '%' .. self.ifname
-      mst.d(now, 'sending announce(s)', #an)
-      self:sendto(s, dst, mdns_const.PORT)
+      -- as the next-state logic should ensure that if the 
+      -- earlier probe/announce causes callback, the rest of probe/callbacks
+      -- _also_ change state, there should be never two
+      -- concrete multicast-producing calls of same type, at same time.
+      -- so make sure it never happens here.
+      mst.a(not self[lastfield] or self[lastfield] < now, 
+            'logic flaw - cannot be spamming multicast')
+      self[lastfield] = now
    end
+   return r
 end
+
+function mdns_if:send_announces()
+   -- try to send _all_ eligible announcements at once.  e.g. entries
+   -- that are in one of the send-announce states (a1, a2), and their
+   -- wait_until is not set, for that interface (or
+   -- SEND_ANNOUNCES_EVERY is exceeded)
+   local an = self:gather_in_states(announce_states, 
+                                    'last_sent_announce', SEND_ANNOUNCES_EVERY)
+   if not an then return end
+   local now = self:time()
+   for i, rr in ipairs(an)
+   do
+      self:set_next_state(rr)
+      rr[FIELD_SENT_MCAST] = now
+   end
+   local h = mdns_const.DEFAULT_RESPONSE_HEADER
+   local s = dnscodec.dns_message:encode{an=an, h=h}
+   local dst = mdns_const.MULTICAST_ADDRESS_IPV6 .. '%' .. self.ifname
+   mst.d(now, 'sending announce(s)', #an)
+   -- XXX ( handle fragmentation )
+   self:sendto(s, dst, mdns_const.PORT)
+end
+
+function mdns_if:send_probes()
+   -- try to send _all_ eligible probes at once.  e.g. entries that
+   -- are in one of the send-probe states (a1, a2), and their
+   -- wait_until is not set, for that interface (or SEND_PROBES_EVERY
+   -- is exceeded)
+
+   local ons = self:gather_in_states(probe_states, 
+                                     'last_sent_probe', SEND_PROBES_EVERY)
+   if not ons then return end
+   local qd = {}
+   local tns = dnsdb.ns:new{}
+   for i, rr in ipairs(ons)
+   do
+      local found = false
+      tns:iterate_rrs_for_ll(rr.name, function () found=true end)
+      if not found
+      then
+         table.insert(qd, {qtype=dns_const.TYPE_ANY,
+                           qclass=rr.rclass,
+                           name=rr.name,
+                           qu=true})
+         tns:insert_rr(rr)
+      end
+      self:set_next_state(rr)
+   end
+   -- XXX ( handle fragmentation )
+   mst.d('sending probes', #qd, #ons)
+   self:send_multicast_query(qd, nil, ons)
+end
+
+
 
 function mdns_if:update_rr_related_nsec(rr)
    local bits = {}
@@ -1334,44 +1386,6 @@ function mdns_if:update_rr_related_nsec(rr)
       nsec.rdata_nsec.bits = bits
       -- XXX - should we proactively send updated nsec record if bits
       -- have changed?
-   end
-end
-
-function mdns_if:send_probes()
-   -- try to send _all_ eligible probes at once.
-   -- e.g. entries that are in one of the send-probe states (a1, a2),
-   -- and their wait_until is not set, for that interface..
-   local ns = self.own
-   local qd 
-   local ons
-   local tns = dnsdb.ns:new{}
-   ns:foreach(function (rr)
-                 if probe_states[rr.state] and not rr.wait_until
-                 then
-                    local found = false
-                    tns:iterate_rrs_for_ll(rr.name, function () found=true end)
-                    if not found
-                    then
-                       qd = qd or {}
-                       table.insert(qd, {qtype=dns_const.TYPE_ANY,
-                                         qclass=rr.rclass,
-                                         name=rr.name,
-                                         qu=true})
-                       tns:insert_rr(rr)
-                    end
-                    ons = ons or {}
-                    table.insert(ons, rr)
-                    self:set_next_state(rr)
-                 end
-              end)
-   -- XXX ( handle fragmentation )
-   if qd
-   then
-      mst.d('sending probes', #qd)
-
-      -- clear the 'next send probe' time
-      self.p1_wu = nil
-      self:send_multicast_query(qd, nil, ons)
    end
 end
 

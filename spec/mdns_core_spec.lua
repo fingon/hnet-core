@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Fri Feb  1 00:13:44 2013 mstenber
--- Edit time:     675 min
+-- Last modified: Tue Feb  5 15:01:06 2013 mstenber
+-- Edit time:     680 min
 --
 
 -- TO DO: 
@@ -1332,7 +1332,7 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   mst.a(r, 'basic run did not terminate')
 
                   mdns1:recvfrom(msg1_cf, 'dead:beef::1%id1', mdns_const.PORT)
-                  local r = dsm:run_nodes_and_advance_time(123)
+                  local r = dsm:run_nodes_and_advance_time(1234)
                   mst.a(r, 'propagation did not terminate')
 
                   -- make sure we got _something_ in each dummy
