@@ -1,6 +1,7 @@
 *~
 luacov.stats.out
 luacov.report.out
+luacov.report.fixed
 *.orig
 *.log
 *_sm.pdf

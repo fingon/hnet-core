@@ -16,6 +16,7 @@ clean:
 cov: clean test
 	busted -l "./run_lua_with_luacov.sh" spec
 	./run_luacov.sh
+	util/fix_luacov_results.sh
 
 mem:
 	./run_lua_memory_stats.sh
