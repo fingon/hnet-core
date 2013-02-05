@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Tue Feb  5 15:07:49 2013 mstenber
--- Edit time:     478 min
+-- Last modified: Tue Feb  5 15:48:17 2013 mstenber
+-- Edit time:     491 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -265,8 +265,9 @@ function mdns_if:repr_data()
    return self.ifname
 end
 
-function mdns_if:run_own_states()
-   local now = self:time()
+function mdns_if:run_own_states(now)
+   -- stateful waiting is handled here
+   -- (expire handles non-stateful)
    mst.a(type(now) == 'number', now)
    local ns = self.own
    local pending
@@ -280,10 +281,6 @@ function mdns_if:run_own_states()
                                 then
                                    self:a(rr.state, 'no state yet wait_until')
                                    self:d('picking to run', rr)
-                                   -- stateful waiting is handled here
-                                   -- (expire handles non-stateful)
-                                   rr.wait_until = nil
-                                   self:update_next_own(rr)
 
                                    pending = pending or mst.map:new{}
                                    pending[rr] = rr.state
@@ -293,13 +290,19 @@ function mdns_if:run_own_states()
    if pending
    then
       mst.d('running pending states', pending:count())
+      -- initially, clear wait_until of _all_ pending entries we
+      -- picked (not done during iterate_while to avoid breaking skiplist)
+      for rr, state in pairs(pending)
+      do
+         rr.wait_until = nil
+         self:update_next_own(rr)
+      end
+      -- then, as long as states are as expected, call run_state for them
       for rr, state in pairs(pending)
       do
          if rr.state == state
          then
             self:run_state(rr)
-            -- make sure no matter what, rr's stay in own_sl
-            -- (if it's relevant)
          end
       end
    end
@@ -307,9 +310,8 @@ function mdns_if:run_own_states()
 end
 
 
-function mdns_if:run_expire()
+function mdns_if:run_expire(now)
    local pending
-   local now = self:time()
 
    -- get rid of own rr's that have expired
    self.own_sl:iterate_while(function (rr)
@@ -388,10 +390,10 @@ function mdns_if:run()
 
    -- iteratively run through the object states until all are waiting
    -- for some future timestamp
-   while self:run_own_states() do end
+   while self:run_own_states(now) do end
    
    -- expire old records
-   self:run_expire()
+   self:run_expire(now)
 
    -- send delayed multicast queries and responses
    self:run_send_pending()
