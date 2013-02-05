@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:04:01 2012 mstenber
--- Last modified: Mon Feb  4 16:58:36 2013 mstenber
--- Edit time:     12 min
+-- Last modified: Tue Feb  5 13:23:58 2013 mstenber
+-- Edit time:     17 min
 --
 
 require 'busted'
@@ -108,7 +108,10 @@ describe("elsa_pa N-node mutating topology", function ()
                         e:disconnect_neigh_one(unpack(o))
                      end
 
-                     sm:run_nodes(3)
+                     -- forcibly start at least once - because
+                     -- we don't propagate the topology changes as lsa
+                     -- changes
+                     sm:run_nodes(3, nil, true)
 
                      ensure_sanity()
                      sm:advance_time(ADVANCE_TIME_PER_ITERATION)

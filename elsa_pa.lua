@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Jan 30 15:48:09 2013 mstenber
--- Edit time:     550 min
+-- Last modified: Tue Feb  5 13:21:11 2013 mstenber
+-- Edit time:     559 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -381,30 +381,19 @@ function elsa_pa:check_conflict(bonus_lsa)
    return true
 end
 
-function elsa_pa:should_run(ac_changes)
-   -- allow override of ac_changes
-   ac_changes = ac_changes or self.ac_changes
-
-   -- ! important to check pa.should_run() first, even if it's
-   -- inefficient; we never call should_run() within pa.run(), and
-   -- it's needed to get pa.run() to sane state..
-   if self.pa:should_run()
+-- API to check from outside if run() should be called yet (strict
+-- test runner won't call it unless it has to; however, in case of
+-- elsa stuff, we typically call it in tick() functions or so so this
+-- is mostly useful for unit testing)
+function elsa_pa:should_run()
+   if self.ac_changes > 0 or self.pa:should_run()
    then
-      -- debug message provided by self.pa..
       return true
    end
-   if ac_changes > 0
-   then
-      mst.d('should run - ac changes pending', self.ac_changes)
-      return true
-   end
-
-   -- TODO - do we want to do this? shouldn't be _necessary_,
-   -- but someday might be relevant?
-   -- .. if (self.time() - self.last_pa_run) > FORCE_PA_RUN_INTERVAL
-   -- .. self.last_pa_run = self.time()
-
-   
+   local s = self:get_mutable_state()
+   return self:should_publish{s=s,
+                              ac_changes=self.ac_changes, 
+                              lsa_changes=self.lsa_changes}
 end
 
 function elsa_pa:should_publish(d)
@@ -470,7 +459,7 @@ function elsa_pa:run()
    -- consider if either ospf change occured (we got callback), pa
    -- itself is in turbulent state, or the if state changed
    local r
-   if self:should_run(ac_changes) 
+   if self.pa:should_run() or ac_changes > 0
    then
       r = self.pa:run{checked_should=true}
       self:d('pa.run result', r)

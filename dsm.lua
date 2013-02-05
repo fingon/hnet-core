@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:02:05 2012 mstenber
--- Last modified: Sun Jan 27 10:37:08 2013 mstenber
--- Edit time:     43 min
+-- Last modified: Tue Feb  5 13:22:07 2013 mstenber
+-- Edit time:     48 min
 --
 
 -- wierd testing utility class, which simulates a whole topology
@@ -90,14 +90,22 @@ function dsm:uninit()
    mst.a(not r, 'event loop not clear')
 end
 
-function dsm:run_nodes(iters, run_callback)
+function dsm:run_nodes(iters, run_callback, all_first)
    -- run nodes up to X iterations, or when none of them
    -- don't want to run return true if stop condition was
    -- encountered before iters iterations
    for i=1,iters
    do
       mst.d('run_nodes iteration', i)
-      for i, n in ipairs(mst.array_randlist(self:get_nodes()))
+      -- for first run, we use all nodes (if all_first given),
+      -- and for subsequent runs, only filtered list no matter what
+      local l = (i == 1 and all_first and self:get_nodes()) or
+         self:get_nodes():filter(function (n) return n:should_run() end)
+      if #l == 0
+      then
+         return i
+      end
+      for i, n in ipairs(mst.array_randlist(l))
       do
          self:d(' ', n)
          if run_callback
@@ -106,12 +114,6 @@ function dsm:run_nodes(iters, run_callback)
          else
             n:run()
          end
-      end
-      local l = 
-         self:get_nodes():filter(function (n) return n:should_run() end)
-      if #l == 0
-      then
-         return i
       end
    end
 end

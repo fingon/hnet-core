@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Mon Feb  4 17:31:14 2013 mstenber
--- Edit time:     331 min
+-- Last modified: Tue Feb  5 13:22:28 2013 mstenber
+-- Edit time:     335 min
 --
 
 require 'mst'
@@ -541,12 +541,12 @@ describe("elsa_pa bird7-ish", function ()
 
             it("delayed connection #delay", function ()
                   
-                  mst.a(sm:run_nodes(2, dsm_run_with_clear_busy_callback), 
+                  mst.a(sm:run_nodes(3, dsm_run_with_clear_busy_callback), 
                         'did not halt in time')
 
                   connect_nodes()
                   
-                  mst.a(sm:run_nodes(10), 'did not halt in time')
+                  mst.a(sm:run_nodes(10, nil, true), 'did not halt in time')
 
                   ensure_dsm_same(sm)
 
@@ -556,14 +556,14 @@ describe("elsa_pa bird7-ish", function ()
 
 
             it("survive net burps #burp", function ()
-                  mst.a(sm:run_nodes(2, dsm_run_with_clear_busy_callback), 
+                  mst.a(sm:run_nodes(3, dsm_run_with_clear_busy_callback), 
                         'did not halt in time')
 
                   for i=1,3
                   do
                      connect_nodes()
                      
-                     mst.a(sm:run_nodes(10), 'did not halt in time')
+                     mst.a(sm:run_nodes(10, nil, true), 'did not halt in time')
 
                      ensure_dsm_same(sm)
 

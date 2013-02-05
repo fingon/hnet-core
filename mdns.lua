@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 12:38:01 2013 mstenber
--- Last modified: Fri Feb  1 00:36:13 2013 mstenber
--- Edit time:     70 min
+-- Last modified: Tue Feb  5 12:52:45 2013 mstenber
+-- Edit time:     72 min
 --
 
 -- 'mdns' daemon, which shares state (via skv and then via OSPF AC LSA
@@ -101,20 +101,8 @@ function mdns:try_multicast_op(ifname, isjoin)
    return o.s:setoption(opname, mct6)
 end
 
--- permanently hanging around object, which implements the basic
--- timeout API (=get_timeout, run_timeout)
-local runner = {}
-
-function runner:run_timeout()
-   -- just call run - timeouts are handled on per-iteration basis
-   -- using the get_timeout
-   mdns:run()
-end
-
-function runner:get_timeout()
-   return mdns:next_time()
-end
-
+-- create timeout object wrapper
+local runner = mdns_core.mdns_runner:new{mdns=mdns}
 loop:add_timeout(runner)
 
 function o.callback(...)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 21:35:07 2013 mstenber
--- Last modified: Wed Jan 16 14:34:58 2013 mstenber
--- Edit time:     188 min
+-- Last modified: Mon Feb  4 17:48:10 2013 mstenber
+-- Edit time:     196 min
 --
 
 local mst = require 'mst'
@@ -306,6 +306,10 @@ function ipi_skiplist:remove(o)
    local lk = self.lkey
    local l = o[lk]
 
+   mst.a(not self.iter or self.iter == o, 
+         'trying to remove wrong object mid-iteration!')
+
+
    self:a(l, 'already removed?', o)
    for i=#self.next,l+1,-1
    do
@@ -391,6 +395,7 @@ function ipi_skiplist:iterate_while(f)
    then
       return
    end
+   mst.a(not self.iter, 'nested iteration in progress - probably broken code')
    local nk = self:get_next_key(1)
    local n = self[nk]
    local i = 1
@@ -403,13 +408,16 @@ function ipi_skiplist:iterate_while(f)
       -- isn't)
       self:a(n[lk], 'somehow entry disappeared off list', n)
       local n2 = n[nk]
+      self.iter = n
       if not f(n, i)
       then
+         self.iter = nil
          return
       end
       i = i + 1
       n = n2
    end
+   self.iter = nil
 end
 
 -- utilities

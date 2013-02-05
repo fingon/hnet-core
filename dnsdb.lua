@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Thu Jan 31 12:02:30 2013 mstenber
--- Edit time:     178 min
+-- Last modified: Tue Feb  5 12:15:36 2013 mstenber
+-- Edit time:     184 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -53,6 +53,25 @@ function ll2name(ll)
    return table.concat(ll, '.')
 end
 
+function ll2nameish(ll)
+   local ltype = type(ll)
+   if ltype ~= 'table'
+   then
+      return ll
+   end
+   -- ok, it's table, let's see if we can actually convert it
+   for i, v in ipairs(ll)
+   do
+      if string.find(v, '[.]')
+      then
+         return ll
+      end
+   end
+
+   -- we can! so convert it to a name
+   return ll2name(ll)
+end
+
 -- extend dnscodec's dns_rr
 function ll_equal(ll1, ll2)
    if #ll1 ~= #ll2
@@ -93,17 +112,17 @@ function rr:rdata_equals(o)
    then
       local f = m.field
       local r = m:field_equal(self[f], o[f])
-      mst.d(' fallback field match?', r)
+      --mst.d(' fallback field match?', r)
       return r
    end
    --self:a(o.rdata, 'no rdata', o)
    if o.rdata
    then
       local r = o.rdata == self.rdata
-      mst.d(' rdata match?', r)
+      --mst.d(' rdata match?', r)
       return r
    end
-   mst.d(' fallback field not set, no rdata -> match')
+   --mst.d(' fallback field not set, no rdata -> match')
    return true
 end
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Fri Feb  1 00:17:57 2013 mstenber
--- Edit time:     412 min
+-- Last modified: Tue Feb  5 11:35:09 2013 mstenber
+-- Edit time:     420 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -939,14 +939,6 @@ function mdns_if:upsert_cache_rr(rr)
    -- remove/insert it from cached skiplist
    self:update_next_cached(o)
 
-   -- if information conflicts, don't propagate it
-   -- (but instead remove everything we have)
-   if self:rr_has_cache_conflicts(o)
-   then
-      self:stop_propagate_conflicting_rr(o)
-      return
-   end
-
    -- propagate the information (in some form) onwards
    self:d('propagating onward')
    self:propagate_rr(o)
@@ -1026,6 +1018,7 @@ function mdns_if:upsert_cache_rrs(rrlist)
       if rr.cache_flush
       then
          -- stop publishing potentially conflicting ones _everywhere_
+         -- (except if they're our own)
          self:stop_propagate_conflicting_rr(rr, true)
       end
       if rr.ttl == 0 and not nsc:find_rr(rr) and not ns:find_rr(rr)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:37:02 2012 mstenber
--- Last modified: Thu Jan 17 10:20:57 2013 mstenber
--- Edit time:     30 min
+-- Last modified: Tue Feb  5 12:16:05 2013 mstenber
+-- Edit time:     34 min
 --
 
 require "busted"
@@ -49,6 +49,20 @@ local fakeu = {rclass = dns_const.CLASS_IN,
                cache_flush = true,
 }
 
+
+describe("ll<>name functions", function ()
+            it("ll2nameish", function ()
+                  for i, v in ipairs{
+                     {{'foo', 'bar'}, 'foo.bar'},
+                     {{'foo.bar', 'baz'}, {'foo.bar', 'baz'}}
+                                    }
+                  do
+                     local l, n = unpack(v)
+                     local r = dnsdb.ll2nameish(l)
+                     mst.a(mst.repr_equal(n, r), 'll2nameish fail', r, n)
+                  end
+                   end)
+             end)
 
 
 describe("ns", function ()

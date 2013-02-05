@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Fri Feb  1 00:42:33 2013 mstenber
--- Edit time:     178 min
+-- Last modified: Tue Feb  5 12:04:29 2013 mstenber
+-- Edit time:     182 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -55,6 +55,10 @@ require 'mdns_if'
 require 'elsa_pa'
 
 module(..., package.seeall)
+
+-- this results in more efficient encoding, and better human
+-- readability, where applicable
+USE_STRINGS_INSTEAD_OF_NAMES_IN_SKV=true
 
 local _mdns_if = mdns_if.mdns_if
 local _mdns = mdns_core.mdns
@@ -187,6 +191,9 @@ function mdns:handle_ospf_cache()
    -- for them..)
    for i, rr in ipairs(l)
    do
+      -- convert the (potentially string name) to list of domains
+      rr.name = dnsdb.name2ll(rr.name)
+
       local orr = ns:find_rr(rr)
       if orr
       then
@@ -255,7 +262,8 @@ function mdns:publish_cache()
                                   local f = (to and to.field) or 'rdata'
                                   local v = rr[f]
                                   self:a(v, 'no rdata?', to, rr)
-                                  local d = {name=rr.name,
+                                  local n = USE_STRINGS_INSTEAD_OF_NAMES_IN_SKV and dnsdb.ll2nameish(rr.name) or rr.name
+                                  local d = {name=n,
                                              rtype=rt,
                                              rclass=dns_const.CLASS_IN,
                                              [f]=v,

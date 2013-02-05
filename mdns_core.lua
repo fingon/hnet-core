@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Thu Jan 31 18:25:20 2013 mstenber
--- Edit time:     886 min
+-- Last modified: Tue Feb  5 12:53:05 2013 mstenber
+-- Edit time:     888 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -345,3 +345,20 @@ function mdns:expire_if_cache_rr(ifname, rr)
 
    --self:stop_propagate_rr_sub(rr, ifname, false, true)
 end
+
+
+-- this implements timeout API, to make sure the MDNS
+-- gets all execution time it needs within ssloop 
+mdns_runner = mst.create_class{class='mdns_runner', mandatory={'mdns'}}
+
+function mdns_runner:run_timeout()
+   -- just call run - timeouts are handled on per-iteration basis
+   -- using the get_timeout
+   mst.d('calling mdns:run()')
+   self.mdns:run()
+end
+
+function mdns_runner:get_timeout()
+   return self.mdns:next_time()
+end
+
