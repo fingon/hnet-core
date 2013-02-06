@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb  4 16:24:43 2013 mstenber
--- Last modified: Mon Feb  4 16:28:05 2013 mstenber
--- Edit time:     2 min
+-- Last modified: Wed Feb  6 13:08:16 2013 mstenber
+-- Edit time:     5 min
 --
 
 
@@ -21,6 +21,7 @@ require "dint"
 local ipi_skiplist = mst_skiplist.ipi_skiplist
 local dummy_int = dint.dint
 
+local NUMBER_OF_ITEMS=1000
 describe("ipi_skiplist", function ()
             local function test_sim(enable_width)
                -- basic idea: we have 100 fake objects;
@@ -38,7 +39,7 @@ describe("ipi_skiplist", function ()
                local obj_in = mst.array:new{}
                local obj_out = mst.array:new{}
                local sl = ipi_skiplist:new{p=2, width=width}
-               for i=1,100
+               for i=1,NUMBER_OF_ITEMS
                do
                   obj_out:insert(dummy_int:new{v=i})
                end
@@ -55,6 +56,8 @@ describe("ipi_skiplist", function ()
                            obj_in:remove(o)
                            obj_out:insert(o)
                            sl:remove(o)
+                        else
+                           mst.a(#obj_in == 0)
                         end
                      else
                         -- add 
@@ -65,17 +68,33 @@ describe("ipi_skiplist", function ()
                            obj_in:insert(o)
                            sl:insert(o)
                            mst.a(sl:get_first())
+                        else
+                           mst.a(#obj_out == 0)
                         end
                      end
                   end
                end
-               sim(50, 1000)
-               sim(90, 200)
-               sim(100, 10)
+               -- first, lots of iterations ~empty
+               sim(50, NUMBER_OF_ITEMS * 10)
+
+               -- then ramp up to full, first with 90%
+               sim(90, NUMBER_OF_ITEMS * 2)
+
+               -- and then last bit with 100% add chance
+               sim(100, NUMBER_OF_ITEMS / 10)
                mst.a(#obj_out == 0)
-               sim(10, 200)
-               sim(0, 10)
-               mst.a(#obj_out == 100, #obj_out)
+               mst.a(#obj_in == NUMBER_OF_ITEMS, #obj_in)
+
+               -- then simulate lots of iterations ~full
+               sim(50, NUMBER_OF_ITEMS * 10)
+
+               -- and then ramp to down, with 10% chance of add
+               sim(10, NUMBER_OF_ITEMS * 2)
+
+               -- and last bit certain removes
+               sim(0, NUMBER_OF_ITEMS / 10)
+               mst.a(#obj_in == 0)
+               mst.a(#obj_out == NUMBER_OF_ITEMS, #obj_out)
             end
 
             it("simulated long run #lr", function ()
