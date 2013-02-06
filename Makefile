@@ -18,6 +18,11 @@ cov: clean test
 	./run_luacov.sh
 	util/fix_luacov_results.sh
 
+stresscov: test
+	busted -l "./run_lua_with_luacov.sh" -p '_stress.lua$$' stress
+	./run_luacov.sh
+	util/fix_luacov_results.sh
+
 mem:
 	./run_lua_memory_stats.sh
 
