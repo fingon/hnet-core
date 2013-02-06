@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Tue Feb  5 21:00:57 2013 mstenber
--- Edit time:     503 min
+-- Last modified: Wed Feb  6 16:12:25 2013 mstenber
+-- Edit time:     530 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -238,16 +238,35 @@ function mdns_if:init()
    function self.own.inserted_callback(x, rr)
       if rr.cache_flush
       then
-         self:update_rr_related_nsec(rr)
+         self:mark_nsec_dirty(rr)
       end
    end
    function self.own.removed_callback(x, rr)
       self.own_sl:remove_if_present(rr)
       if rr.cache_flush
       then
-         self:update_rr_related_nsec(rr)
+         self:mark_nsec_dirty(rr)
       end
    end
+end
+
+function mdns_if:mark_nsec_dirty(rr)
+   local d = self.dirty_nsec
+   if not d
+   then
+      d = dnsdb.ns:new{}
+      self.dirty_nsec = d
+   end
+   d:insert_rr{name=rr.name, rtype=0,rclass=0}
+end
+
+function mdns_if:refresh_dirty_nsecs()
+   local d = self.dirty_nsec
+   if not d then return end
+   self.dirty_nsec = nil
+   d:iterate_rrs(function (rr)
+                    self:update_rr_related_nsec(rr)
+                 end)
 end
 
 function mdns_if:sendto(...)
@@ -391,12 +410,20 @@ function mdns_if:run()
    -- get current timestamp
    local now = self:time()
 
+   -- clear up the dirty nsec entries, if any, that are around
+   -- as result of 'other' processing
+   self:refresh_dirty_nsecs()
+
    -- iteratively run through the object states until all are waiting
    -- for some future timestamp
    while self:run_own_states(now) do end
    
    -- expire old records
    self:run_expire(now)
+
+   -- check nsecs again - expire/own state running may have altered
+   -- the state we want to present to the world
+   self:refresh_dirty_nsecs()
 
    -- send delayed multicast queries and responses
    self:run_send_pending()
@@ -1416,6 +1443,10 @@ function mdns_if:handle_recvfrom(data, addr, srcport)
       mst.d('ignoring garbage - decode error', err)
       return
    end
+
+   -- clear up the dirty nsec entries, if any, that are around
+   -- as result of 'other' processing
+   self:refresh_dirty_nsecs()
 
    -- ok, if it comes from non-mdns port, life's simple
    if tonumber(srcport) ~= mdns_const.PORT 
