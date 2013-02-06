@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Wed Feb  6 16:12:25 2013 mstenber
--- Edit time:     530 min
+-- Last modified: Wed Feb  6 18:18:35 2013 mstenber
+-- Edit time:     543 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -428,9 +428,13 @@ function mdns_if:run()
    -- send delayed multicast queries and responses
    self:run_send_pending()
 
-   local nt = self:next_time()
-   mst.a(not nt or nt >= now, 
-         'if we just did RTC step, why do we want to move to past?', now, nt)
+   -- semi-interesting check, but like elsewhere, probably not
+   -- applicable always; therefore, should be skipped
+   -- ( see e.g. update_sl_if_changed )
+
+   --local nt = self:next_time()
+   --mst.a(not nt or nt >= now, 
+   --'if we just did RTC step, why do we want to move to past?', now, nt)
 end
 
 function mdns_if:split_qd_to_qu_nqu(msg)
@@ -887,7 +891,7 @@ function mdns_if:update_rr_ttl(o, ttl, update_field)
       ttl = 1
    end
    o.time = self:time()
-   o.valid = o.time + o.ttl
+   o.valid = o.time + ttl
    o.valid_kas = o.time + o.ttl / 2
    if update_field
    then
@@ -991,8 +995,12 @@ function mdns_if:update_sl_if_changed(sl, o, v)
    o.next = v
    if v
    then
-      local now = self:time()
-      self:a(v >= now, 'trying to schedule to past', was, v, now, o)
+      -- this isn't valid in many cases; for example, if we remove
+      -- wait_until, it may be that existing valid may be similar, but
+      -- already in past => we replace past with past. so can't assert
+      -- on this.
+      --local now = self:time()
+      --self:a(v >= now, 'trying to schedule to past', was, v, now, o)
       sl:insert(o)
    end
 end
