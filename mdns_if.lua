@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Tue Feb  5 20:43:22 2013 mstenber
--- Edit time:     498 min
+-- Last modified: Tue Feb  5 21:00:57 2013 mstenber
+-- Edit time:     503 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -955,7 +955,8 @@ function mdns_if:upsert_cache_rr(rr)
 end
 
 function mdns_if:update_sl_if_changed(sl, o, v)
-   if o.next == v
+   local was = o.next
+   if was == v
    then
       return
    end
@@ -964,7 +965,7 @@ function mdns_if:update_sl_if_changed(sl, o, v)
    if v
    then
       local now = self:time()
-      self:a(v >= now, 'trying to schedule to past')
+      self:a(v >= now, 'trying to schedule to past', was, v, now, o)
       sl:insert(o)
    end
 end
@@ -1407,7 +1408,14 @@ function mdns_if:stop_propagate_rr(rr)
 end
 
 function mdns_if:handle_recvfrom(data, addr, srcport)
-   local msg = dnscodec.dns_message:decode(data)
+   local msg, err = dnscodec.dns_message:decode(data)
+
+   -- if message is garbage, we just ignore
+   if not msg
+   then
+      mst.d('ignoring garbage - decode error', err)
+      return
+   end
 
    -- ok, if it comes from non-mdns port, life's simple
    if tonumber(srcport) ~= mdns_const.PORT 
