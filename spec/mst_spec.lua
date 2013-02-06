@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Tue Feb  5 20:39:12 2013 mstenber
--- Edit time:     162 min
+-- Last modified: Wed Feb  6 14:43:49 2013 mstenber
+-- Edit time:     163 min
 --
 
 require "busted"
@@ -155,7 +155,9 @@ describe("ipi_skiplist", function ()
                sl:sanity_check()
             end
             it("worksish (width) #sl2w", function ()
-                  test_random(true)
+                  mst.d_xpcall(function ()
+                                  test_random(true)
+                               end)
                                          end)
 
             it("worksish #sl2", function ()

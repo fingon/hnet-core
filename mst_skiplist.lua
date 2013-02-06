@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 21:35:07 2013 mstenber
--- Last modified: Wed Feb  6 14:20:16 2013 mstenber
--- Edit time:     232 min
+-- Last modified: Wed Feb  6 14:45:38 2013 mstenber
+-- Edit time:     252 min
 --
 
 local mst = require 'mst'
@@ -94,6 +94,16 @@ local function traverse_p_lt(p, k, o, lt)
       return p
    end
    return traverse_p_lt(n, k, o, lt)
+end
+
+local function traverse_p_idx_lt(p, nk, wk, now, idx)
+   local n = p[nk]
+   local w = p[wk] + now
+   if w >= idx
+   then
+      return p, now
+   end
+   return traverse_p_idx_lt(n, nk, wk, w, idx)
 end
 
 -- traverse from object p while the next object is not o
@@ -312,24 +322,36 @@ function ipi_skiplist:remove(o)
 
 
    self:a(l, 'already removed?', o)
-   for i=#self.next,l+1,-1
-   do
-      nk = self:get_next_key(i)
-      -- we can only traverse to less than node at most here as
-      -- otherwise we may wind up skipping cases where o equal
-      -- p.next, but ordering happens to be off..
-      p = traverse_p_lt(p, nk, o, lt)
-      if width_enabled
-      then
+   if width_enabled
+   then
+      local idx = self:find_index_of(o)
+      local w = 0
+      for i=#self.next,l+1,-1
+      do
+         nk = self:get_next_key(i)
          wk = self:get_width_key(i)
+         p, w = traverse_p_idx_lt(p, nk, wk, w, idx)
+         mst.d('remove in progress', i, w, p, idx, o)
+
          -- decrement width by 1
          p[wk] = p[wk] - 1
       end
-   end
 
-   -- have to make sure p is strictly less than o; 
-   -- otherwise equal-o cases may not work as advertised
-   mst.a(p==self or lt(p, o), 'went too far')
+      -- make sure o >= p (or self)
+      mst.a(p == self or not lt(o, p), 'went too far', o, p)
+   else
+      for i=#self.next,l+1,-1
+      do
+         nk = self:get_next_key(i)
+         -- we can only traverse to less than node at most here as
+         -- otherwise we may wind up skipping cases where o equal
+         -- p.next, but ordering happens to be off..
+         p = traverse_p_lt(p, nk, o, lt)
+      end
+      -- have to make sure p is strictly less than o; 
+      -- otherwise equal-o cases may not work as advertised
+      mst.a(p==self or lt(p, o), 'went too far')
+   end
 
    for i=l,1,-1
    do

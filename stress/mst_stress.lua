@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb  4 16:24:43 2013 mstenber
--- Last modified: Wed Feb  6 14:20:48 2013 mstenber
--- Edit time:     9 min
+-- Last modified: Wed Feb  6 14:46:15 2013 mstenber
+-- Edit time:     12 min
 --
 
 
@@ -59,6 +59,7 @@ describe("ipi_skiplist", function ()
                         local o = mst.array_randitem(obj_in)
                         if o
                         then
+                           mst.d('performing remove', o)
                            mst.a(sl:get_first())
                            obj_in:remove(o)
                            obj_out:insert(o)
@@ -71,6 +72,7 @@ describe("ipi_skiplist", function ()
                         local o = mst.array_randitem(obj_out)
                         if o
                         then
+                           mst.d('performing add', o)
                            obj_out:remove(o)
                            obj_in:insert(o)
                            sl:insert(o)
