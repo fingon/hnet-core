@@ -8,11 +8,12 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 21:35:07 2013 mstenber
--- Last modified: Wed Feb  6 13:25:19 2013 mstenber
--- Edit time:     208 min
+-- Last modified: Wed Feb  6 14:20:16 2013 mstenber
+-- Edit time:     232 min
 --
 
 local mst = require 'mst'
+local unpack = unpack
 
 module(...)
 
@@ -469,23 +470,55 @@ function ipi_skiplist:sanity_check()
    then
       for i=1,#self.next
       do
-      local nk = self:get_next_key(i)
-      local o = self[nk]
+         local nk = self:get_next_key(i)
+         local o = self[nk]
 
-      local wk = i > 1 and self:get_width_key(i)
-      local tw = (i > 1 and self[wk]) or 1
-      while o
-      do
-         local o2 = o[nk]
-         if i == 1
-         then
-            tw = tw + 1
-         else
-            tw = tw + o[wk]
+         local wk = i > 1 and self:get_width_key(i)
+         local tw = (i > 1 and self[wk]) or 1
+         while o
+         do
+            local o2 = o[nk]
+            if i == 1
+            then
+               tw = tw + 1
+            else
+               tw = tw + o[wk]
+            end
+            o = o2
          end
-         o = o2
+         self:a(tw == self.c + 1, 'weight mismatch i/tw', i, tw)
       end
-      self:a(tw == self.c + 1, 'weight mismatch i/tw', i, tw)
-      end
+      -- super-painful approach - make sure _all_ weights are correct
+      -- for _each_ item; however, transitively, we can do this by
+      -- simply keeping track of the most recent entry they were
+      -- correct for (and the value), and just incrementing the number
+      -- of items since..
+      
+      local w = 0
+      local lk = self.lkey
+      -- store {object, weight} pairs for each level
+      local pw = {}
+      self:iterate_while(function (o)
+                            w = w + 1
+                            local l = o[lk]
+                            -- for 1st level, no point, they're
+                            -- implicitly correct
+                            for i=2,l
+                            do
+                               local nk = self:get_next_key(i)
+                               local wk = self:get_width_key(i)
+                               local t = pw[i] or {self, 0}
+                               local o2, w2 = unpack(t)
+                               while o2 and o2 ~= o
+                               do
+                                  w2 = w2 + o2[wk]
+                                  o2 = o2[nk]
+                               end
+                               mst.a(o2, 'not found at all on level', i)
+                               mst.a(w2 == w, 'weight mismatch', w, w2)
+                               pw[i] = {o, w}
+                            end
+                            return true
+                         end)
    end
 end

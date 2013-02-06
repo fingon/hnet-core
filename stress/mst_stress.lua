@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb  4 16:24:43 2013 mstenber
--- Last modified: Wed Feb  6 13:50:47 2013 mstenber
--- Edit time:     6 min
+-- Last modified: Wed Feb  6 14:20:48 2013 mstenber
+-- Edit time:     9 min
 --
 
 
@@ -24,6 +24,7 @@ local dummy_int = dint.dint
 local NUMBER_OF_VALUES=100
 local DUP_FACTOR=10
 local NUMBER_OF_ITEMS=NUMBER_OF_VALUES * DUP_FACTOR
+local SANITY_EVERY=10
 
 describe("ipi_skiplist", function ()
             local function test_sim(enable_width)
@@ -77,6 +78,10 @@ describe("ipi_skiplist", function ()
                         else
                            mst.a(#obj_out == 0)
                         end
+                     end
+                     if i % SANITY_EVERY == 0
+                     then
+                        sl:sanity_check()
                      end
                   end
                end
