@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 21:35:07 2013 mstenber
--- Last modified: Mon Feb  4 17:48:10 2013 mstenber
--- Edit time:     196 min
+-- Last modified: Wed Feb  6 13:25:19 2013 mstenber
+-- Edit time:     208 min
 --
 
 local mst = require 'mst'
@@ -354,6 +354,7 @@ end
 function ipi_skiplist:clear_object_fields(o)
    local lk = self.lkey
    local l = o[lk]
+   local width_enabled = self.width
 
    if not l
    then
@@ -369,7 +370,7 @@ function ipi_skiplist:clear_object_fields(o)
       local nk = self:get_next_key(i)
       self:a(nk, 'weird i', i, l)
       o[nk] = nil
-      if i > 0 and width_enabled
+      if i > 1 and width_enabled
       then
          local wk = self:get_width_key(i)
          o[wk] = nil
