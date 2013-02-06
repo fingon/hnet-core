@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb  4 16:24:43 2013 mstenber
--- Last modified: Wed Feb  6 13:08:16 2013 mstenber
--- Edit time:     5 min
+-- Last modified: Wed Feb  6 13:50:47 2013 mstenber
+-- Edit time:     6 min
 --
 
 
@@ -21,7 +21,10 @@ require "dint"
 local ipi_skiplist = mst_skiplist.ipi_skiplist
 local dummy_int = dint.dint
 
-local NUMBER_OF_ITEMS=1000
+local NUMBER_OF_VALUES=100
+local DUP_FACTOR=10
+local NUMBER_OF_ITEMS=NUMBER_OF_VALUES * DUP_FACTOR
+
 describe("ipi_skiplist", function ()
             local function test_sim(enable_width)
                -- basic idea: we have 100 fake objects;
@@ -39,9 +42,12 @@ describe("ipi_skiplist", function ()
                local obj_in = mst.array:new{}
                local obj_out = mst.array:new{}
                local sl = ipi_skiplist:new{p=2, width=width}
-               for i=1,NUMBER_OF_ITEMS
+               for i=1,NUMBER_OF_VALUES
                do
-                  obj_out:insert(dummy_int:new{v=i})
+                  for j=1,DUP_FACTOR
+                  do
+                     obj_out:insert(dummy_int:new{v=i})
+                  end
                end
                local function sim(chance_insert, ic)
                   for i=1,ic
