@@ -6,7 +6,7 @@
 
 LUA_SMS=skv_sm.lua pa_lap_sm.lua
 TESTS=$(wildcard spec/*.lua)
-SMC=../smc/bin/smc.jar
+SMC=../software/smc/bin/smc.jar
 
 all: test
 
