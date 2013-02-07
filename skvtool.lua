@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 13:18:34 2012 mstenber
--- Last modified: Wed Oct 31 15:48:55 2012 mstenber
--- Edit time:     48 min
+-- Last modified: Thu Feb  7 13:10:49 2013 mstenber
+-- Edit time:     55 min
 --
 
 -- minimalist tool for playing with SKV
@@ -23,6 +23,7 @@
 require 'mst'
 require 'skv'
 require 'socket'
+local json = require "dkjson"
 
 _TEST = false
 
@@ -37,7 +38,7 @@ function create_cli()
    cli:add_flag('-l', 'list all key-value pairs')
    cli:add_flag("-v, --version", "prints the program's version and exits")
    cli:add_flag('-w', 'wait for other end to go up')
-
+   cli:add_flag('-r', 'read key=value pairs from stdin, in -l format')
    return cli
 end
 
@@ -73,10 +74,10 @@ then
    keys = {}
 end
 
-if #keys == 0  and not args.l
+if #keys == 0  and not args.l and not args.r
 then
    create_cli():print_help()
-   return print('either key, key=value, or -l are required')
+   return print('either key, key=value, -l, or -r are required')
 end
 
 -- ok, we're on a mission. get skv to ~stable state
@@ -107,6 +108,22 @@ then
       print(string.format("%s=%s", k, mst.repr(v)))
    end
    return
+end
+
+if args.r
+then
+   local str = io.read()
+   for i, line in ipairs(mst.string_split(str, '\n'))
+   do
+      local k, v = unpack(mst.string_split(line, '=', 2))
+      if v
+      then
+         local o = json.decode(v)
+         print('setting', k)
+         s:set(k, o)
+         setted = true
+      end
+   end
 end
 
 for i, str in ipairs(keys)
