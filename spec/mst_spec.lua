@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Feb  6 14:43:49 2013 mstenber
--- Edit time:     163 min
+-- Last modified: Thu Feb  7 13:05:20 2013 mstenber
+-- Edit time:     166 min
 --
 
 require "busted"
@@ -287,20 +287,21 @@ describe("array_to_table", function ()
 describe('string_split', function()
             it("works", function()
                   local ir = {
-                     {"foo:bar", {"foo", "bar"}},
-                     {"foo:", {"foo", ""}},
-                     {":foo", {"", "foo"}},
-                     {"foo:bar:baz", {"foo", "bar", "baz"}},
-                     {"foo:bar::baz", {"foo", "bar", "", "baz"}},
+                     {{"foo:bar", ':'}, {"foo", "bar"}},
+                     {{"foo:",  ':'}, {"foo", ""}},
+                     {{":foo", ':'}, {"", "foo"}},
+                     {{"foo:bar:baz", ':'}, {"foo", "bar", "baz"}},
+                     {{"foo:bar:baz", ':', 1}, {"foo:bar:baz"}},
+                     {{"foo:bar:baz", ':', 2}, {"foo", "bar:baz"}},
+                     {{"foo:bar::baz", ':'}, {"foo", "bar", "", "baz"}},
                   }
                   for i, v in ipairs(ir)
                   do
                      local input, output = unpack(v)
-                     local got = mst.repr(mst.string_split(input, ':'))
+                     local got = mst.repr(mst.string_split(unpack(input)))
                      local expected = mst.repr(output) 
                      assert.are.same(expected, got)
                   end
-                  
                         end)
                          end)
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Feb  5 20:52:16 2013 mstenber
--- Edit time:     625 min
+-- Last modified: Thu Feb  7 13:02:40 2013 mstenber
+-- Edit time:     626 min
 --
 
 -- data structure abstractions provided:
@@ -577,13 +577,13 @@ function string_to_set(s)
 end
 
 function string_strip(s)
-  -- from PiL2 20.4
-  return (s:gsub("^%s*(.-)%s*$", "%1"))
+   -- from PiL2 20.4
+   return (s:gsub("^%s*(.-)%s*$", "%1"))
 end
 
 function string_rstrip(s)
-  -- from PiL2 20.4
-  return (s:gsub("^(.-)%s*$", "%1"))
+   -- from PiL2 20.4
+   return (s:gsub("^(.-)%s*$", "%1"))
 end
 
 function string_endswith(s, x)
@@ -631,27 +631,30 @@ function string_is_ascii(s)
 end
 
 
-function string_split_rec(s, delim, ofs, t)
+function string_split_rec(s, delim, ofs, t, part, maxparts)
    mst.a(s and delim and ofs and t)
-   for i=ofs,#s
-   do
-      if string.sub(s, i, i+#delim-1) == delim
-      then
-         t:insert(string.sub(s, ofs, i-1))
-         string_split_rec(s, delim, i+#delim, t)
-         return
+   if not maxparts or part < maxparts
+   then
+      for i=ofs,#s
+      do
+         if string.sub(s, i, i+#delim-1) == delim
+         then
+            t:insert(string.sub(s, ofs, i-1))
+            string_split_rec(s, delim, i+#delim, t, part + 1, maxparts)
+            return
+         end
       end
    end
    t:insert(string.sub(s, ofs))
 end
 
-function string_split(s, delim)
+function string_split(s, delim, maxparts)
    mst.a(type(s) == 'string', 'non-string to string_split', s)
    delim = delim or ' '
    mst.a(s, 'undefined argument to string_split', s, delim)
 
    local t = array:new()
-   string_split_rec(s, delim, 1, t)
+   string_split_rec(s, delim, 1, t, 1, maxparts)
    return t
 end
 
@@ -1530,7 +1533,7 @@ function validity_sync:remove_all_invalid()
                         else
                            ok = ok + 1
                         end
-                    end)
+                     end)
 
    else
       self.t:foreach(function (k, v)
@@ -1541,7 +1544,7 @@ function validity_sync:remove_all_invalid()
                         else
                            ok = ok + 1
                         end
-                    end)
+                     end)
    end
    self:d('remove_all_invalid - ok/zapping', ok, #t)
    for i, v in ipairs(t)
