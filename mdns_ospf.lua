@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Tue Feb  5 12:04:29 2013 mstenber
--- Edit time:     182 min
+-- Last modified: Thu Feb  7 20:04:16 2013 mstenber
+-- Edit time:     187 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -251,28 +251,40 @@ end
 
 function mdns:publish_cache()
    local t = {}
+
+   -- gather the rr's in dnsdb.ns, to prevent duplicates from hitting
+   -- the wire
+   local ns = dnsdb.ns:new{}
+   
    for ifname, ifo in pairs(self.ifname2if)
    do
       -- we care only about owned interfaces - rest can be ignored safely
       if self.master_if_set[ifname]
       then
          ifo.cache:iterate_rrs(function (rr)
-                                  local rt = rr.rtype
-                                  local to = dns_rdata.rtype_map[rt]
-                                  local f = (to and to.field) or 'rdata'
-                                  local v = rr[f]
-                                  self:a(v, 'no rdata?', to, rr)
-                                  local n = USE_STRINGS_INSTEAD_OF_NAMES_IN_SKV and dnsdb.ll2nameish(rr.name) or rr.name
-                                  local d = {name=n,
-                                             rtype=rt,
-                                             rclass=dns_const.CLASS_IN,
-                                             [f]=v,
-                                  }
-                                  mst.d(' found owned entry', d)
-                                  table.insert(t, d)
+                                  mst.d(' found owned', rr)
+                                  ns:insert_rr(rr)
                                end)
       end
    end
+   -- now, look at what we have in ns, and put it to flat list
+   ns:iterate_rrs(function (rr)
+                     local rt = rr.rtype
+                     local to = dns_rdata.rtype_map[rt]
+                     local f = (to and to.field) or 'rdata'
+                     local v = rr[f]
+                     self:a(v, 'no rdata?', to, rr)
+                     local n = USE_STRINGS_INSTEAD_OF_NAMES_IN_SKV and dnsdb.ll2nameish(rr.name) or rr.name
+                     local d = {name=n,
+                                rtype=rt,
+                                rclass=dns_const.CLASS_IN,
+                                [f]=v,
+                     }
+                     mst.d(' adding entry', d)
+                     table.insert(t, d)
+                  end
+                 )
+
    self:d('publishing cache', #t)
    self.skv:set(elsa_pa.MDNS_OWN_SKV_KEY, t)
 
@@ -332,7 +344,7 @@ function mdns:add_cache_set_to_own_set(fromset, toset)
       for dst, _ in pairs(toset)
       do
          mst.a(type(src) == 'string' and type(dst) == 'string',
-              'weird src/dst', src, dst)
+               'weird src/dst', src, dst)
          self:add_cache_if_to_own_if(src, dst)
       end
    end

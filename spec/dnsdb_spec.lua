@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:37:02 2012 mstenber
--- Last modified: Tue Feb  5 12:16:05 2013 mstenber
--- Edit time:     34 min
+-- Last modified: Thu Feb  7 20:17:30 2013 mstenber
+-- Edit time:     39 min
 --
 
 require "busted"
@@ -47,6 +47,46 @@ local fakeu = {rclass = dns_const.CLASS_IN,
                name = {'foo', 'Bar'},
                rdata = 'foo',
                cache_flush = true,
+}
+
+-- _exactly_ same objects, just different instances
+local ptr1 = {rclass=dns_const.CLASS_IN,
+              rtype=dns_const.TYPE_PTR,
+              name={'dummyptr1', 'y'},
+              rdata_ptr={'z', '1'}
+}
+
+local ptr11 = {rclass=dns_const.CLASS_IN,
+              rtype=dns_const.TYPE_PTR,
+              name={'dummyptr1', 'y'},
+              rdata_ptr={'z', '1'}
+}
+
+
+local ptr2 = {rclass=dns_const.CLASS_IN,
+              rtype=dns_const.TYPE_PTR,
+              name={'dummyptr2', 'y', 'z'},
+              rdata_ptr={'z1', '2'}
+}
+
+
+-- _exactly_ same objects, just different instances
+local srv1 = {rclass=dns_const.CLASS_IN,
+              rtype=dns_const.TYPE_SRV,
+              name={'dummysrv1', 'y'},
+              rdata_srv={port=1, priority=0, target={'target', 'y'}, weight=0},
+}
+
+local srv11 = {rclass=dns_const.CLASS_IN,
+              rtype=dns_const.TYPE_SRV,
+              name={'dummysrv1', 'y'},
+              rdata_srv={port=1, priority=0, target={'target', 'y'}, weight=0},
+}
+
+local srv2 = {rclass=dns_const.CLASS_IN,
+              rtype=dns_const.TYPE_SRV,
+              name={'dummysrv2', 'y'},
+              rdata_srv={port=1, priority=0, target={'target2', 'y'}, weight=0},
 }
 
 
@@ -122,5 +162,23 @@ describe("ns", function ()
                   ns:remove_rr(fake2)
                   mst.a(ns:count() == 0)
 
+                   end)
+
+            it("has robust deduplication", function ()
+                  local ns = dnsdb.ns:new{enable_copy=true}
+                  ns:insert_rr(ptr1)
+                  ns:insert_rr(ptr11)
+                  ns:insert_rr(ptr2)
+                  ns:insert_rr(ptr2)
+                  ns:insert_rr(srv1)
+                  ns:insert_rr(srv11)
+                  ns:insert_rr(srv2)
+                  ns:insert_rr(srv2)
+                  mst.a(ns:count() == 4)
+                  ns:remove_rr(ptr1)
+                  ns:remove_rr(ptr2)
+                  ns:remove_rr(srv1)
+                  ns:remove_rr(srv2)
+                  mst.a(ns:count() == 0)
                    end)
 end)

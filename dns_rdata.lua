@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:08:00 2013 mstenber
--- Last modified: Fri Jan 18 12:52:13 2013 mstenber
--- Edit time:     9 min
+-- Last modified: Thu Feb  7 20:17:44 2013 mstenber
+-- Edit time:     10 min
 --
 
 require 'dns_const'
@@ -49,7 +49,7 @@ rtype_map = {[dns_const.TYPE_PTR]={
                    o[self.field] = name
                    return true
                 end,
-                field_equal=simple_equal,
+                field_equal=repr_equal,
                         },
              [dns_const.TYPE_A]={
                 field='rdata_a',
