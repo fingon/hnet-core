@@ -22,6 +22,13 @@ should be just used as backup solution)
 
 * PA - Bugs to fix
 
+** BIRD - doesn't handle too big LSAs gracefully
+
+.. blows up due to rx-buf used for sending being smaller than what is being
+stuffed down there. 
+
+Workaround: use 'rx buffer large' in config files.
+
 ** BIRD - dridd p#2
 
 Duplicate rid detected correctly even if router connected to ~self. But
