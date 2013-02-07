@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Wed Feb  6 18:18:35 2013 mstenber
--- Edit time:     543 min
+-- Last modified: Thu Feb  7 21:27:38 2013 mstenber
+-- Edit time:     578 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -166,7 +166,7 @@ function iterate_ns_matching_query(ns, q, kas, f)
    local found_cf
 
    kas = convert_anish_to_kas(kas)
-   mst.d('iterate_ns_matching_query', kas)
+   mst.d('iterate_ns_matching_query', ns, kas)
    --mst.d('iterate_ns_matching_query', kas, q, kas:values())
 
    for i, rr in ipairs(ns:find_rr_list_for_ll(q.name))
@@ -180,7 +180,7 @@ function iterate_ns_matching_query(ns, q, kas, f)
          matched = true
          if not kas_matches_rr(kas, rr)
          then
-            --mst.d(' calling callback', rr)
+            mst.d(' calling callback', rr)
             f(rr)
          end
       end
@@ -456,7 +456,8 @@ function mdns_if:split_qd_to_qu_nqu(msg)
       iterate_ns_matching_query(ns, q, msg.an,
                                 function (rr)
                                    local last = rr[FIELD_SENT_MCAST]
-                                   if not last or last < (now-rr.ttl/4)
+                                   local ttl = self:get_rr_full_ttl(rr)
+                                   if not last or last < (now-ttl/4)
                                    then
                                       found = true
                                    end
@@ -465,6 +466,18 @@ function mdns_if:split_qd_to_qu_nqu(msg)
       return not found
    end
    return mst.array_filter2(msg.qd, is_qu)
+end
+
+function mdns_if:get_rr_full_ttl(rr)
+   if rr.ttl
+   then
+      return rr.ttl
+   end
+   -- otherwise, default to type
+   local v = (dns_rdata.rtype_map[rr.rtype] or {}).default_ttl 
+      or mdns_const.DEFAULT_NONAME_TTL
+   mst.a(v, 'empty ttl somehow is not possible')
+   return v
 end
 
 function mdns_if:find_own_matching_queries(ql, an)
@@ -510,17 +523,14 @@ function mdns_if:get_own_rr_current_ttl(rr, now)
    end
    if not rr.valid
    then
-      -- we do stuff based on the defaults for the rtype
-      local v = (dns_rdata.rtype_map[rr.rtype] or {}).default_ttl 
-         or mdns_const.DEFAULT_NONAME_TTL
-      return v
+      return self:get_rr_full_ttl(rr)
    end
    local now = now or self:time()
    local ttl = math.floor(rr.valid-now)
    return ttl
 end
 
-function mdns_if:copy_rrs_with_updated_ttl(rrl, unicast, legacy)
+function mdns_if:copy_rrs_with_updated_ttl(rrl, unicast, legacy, force)
    local now = self:time()
    local r = {}
    for i, rr in ipairs(rrl)
@@ -528,17 +538,23 @@ function mdns_if:copy_rrs_with_updated_ttl(rrl, unicast, legacy)
       local ttl = self:get_own_rr_current_ttl(rr, now)
       if not unicast 
       then
-         if rr[FIELD_SENT_MCAST] and rr[FIELD_SENT_MCAST] > (now - 1)
+         if rr[FIELD_SENT_MCAST] and rr[FIELD_SENT_MCAST] > (now - 1) and not force
          then
+            --self:d('omitting - too recently sent', rr)
             ttl = 0
-         elseif rr[FIELD_RECEIVED] and rr[FIELD_RECEIVED] > (now - 1)
+         elseif rr[FIELD_RECEIVED] and rr[FIELD_RECEIVED] > (now - 1) and not force
          then
+            --self:d('omitting - too recently received', rr)
             ttl = 0
          elseif ttl > 0
          then
             -- mark it sent
             rr[FIELD_SENT_MCAST] = now
+         else
+            --self:d('invalid ttl?', rr, ttl)
          end
+      else
+         mst.d('unicast entry', ttl, rr)
       end
       if ttl > 0
       then
@@ -599,13 +615,13 @@ function mdns_if:send_reply(an, ar, kas, id, dst, dstport, unicast)
    -- ok, here we finally reduce duplicates, update ttl's, etc.
    local legacy = dstport ~= mdns_const.PORT
 
-   mst.d('send_reply', an, kas, id, dst, dstport, unicast, legacy)
+   self:d('send_reply', an, kas, id, dst, dstport, unicast, legacy)
 
    an = self:copy_rrs_with_updated_ttl(an, unicast, legacy)
    if #an == 0 then return end
 
    -- we also determine additional records
-   ar = self:copy_rrs_with_updated_ttl(ar, unicast)
+   ar = self:copy_rrs_with_updated_ttl(ar, unicast, legacy)
 
    -- ok, we have valid things to send with >0 ttl; here we go!
    local o = {an=an, ar=ar}
@@ -881,6 +897,7 @@ function mdns_if:handle_multicast_query(msg, addr)
 end
 
 function mdns_if:update_rr_ttl(o, ttl, update_field)
+   self:d('update_rr_ttl', o, ttl)
    ttl = ttl or o.ttl
    self:a(ttl, 'no ttl?!?', o)
    o.ttl = ttl
@@ -932,6 +949,8 @@ function mdns_if:upsert_cache_rr(rr)
       local q = {name=rr.name,
                  qtype=rr.rtype,
                  qclass=rr.rclass}
+
+      self:a(rr.ttl, 'no ttl for cache rr')
 
       iterate_ns_matching_query(self.own, q, nil,
                                 function (rr2)
@@ -1151,6 +1170,9 @@ function mdns_if:insert_own_rrset(l)
       if rr.ttl
       then
          self:update_rr_ttl(o, rr.ttl)
+      else
+         o.ttl = nil
+         o.valid = nil
       end
 
       -- remove/insert it from own skiplist
@@ -1158,9 +1180,12 @@ function mdns_if:insert_own_rrset(l)
 
       if rr.ttl
       then
-         mst.a(o.valid, 'valid not set for own w/ ttlrr?!?')
+         mst.a(o.valid, 'valid not set for own w/ ttl')
+         mst.a(o.next, 'next not set for own w/ ttl')
       else
-         mst.a(not o.valid, 'valid set for own rr w/o ttl?!?')
+         mst.a(not o.valid, 'valid set for own rr w/o ttl')
+         -- next may be set, if we're just probing on the interface
+         -- (for example)
       end
    end
 end
@@ -1331,6 +1356,7 @@ function mdns_if:send_announces()
       self:set_next_state(rr)
       rr[FIELD_SENT_MCAST] = now
    end
+   an = self:copy_rrs_with_updated_ttl(an, true, false, true)
    local h = mdns_const.DEFAULT_RESPONSE_HEADER
    local s = dnscodec.dns_message:encode{an=an, h=h}
    local dst = mdns_const.MULTICAST_ADDRESS_IPV6 .. '%' .. self.ifname
@@ -1366,6 +1392,9 @@ function mdns_if:send_probes()
    end
    -- XXX ( handle fragmentation )
    mst.d('sending probes', #qd, #ons)
+   -- copy the objects s.t. we DON'T update sent timestamps etc
+   -- (as these are not considered authoritative), but we DO update ttls
+   ons = self:copy_rrs_with_updated_ttl(ons)
    self:send_multicast_query(qd, nil, ons)
 end
 

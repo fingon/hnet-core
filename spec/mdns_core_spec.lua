@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Tue Feb  5 15:01:06 2013 mstenber
--- Edit time:     680 min
+-- Last modified: Thu Feb  7 21:29:38 2013 mstenber
+-- Edit time:     689 min
 --
 
 -- TO DO: 
@@ -1143,25 +1143,55 @@ describe("mdns", function ()
                    end)
 
             it("keeps own no-ttl records forever #fe", function ()
+                  local function check_no_ttl_rr(rr)
+                     mst.a(not rr.ttl, 
+                           'ttl should not be set', rr)
+                  end
+                  local function ensure_no_own_ttl()
+                     mdns:get_if('eth1').own:iterate_rrs(check_no_ttl_rr)
+                     mst.d('no ttls found')
+                  end
+                  local function ensure_reply_sane()
+                     -- everything must have ttl > 0, despite
+                     -- tl not being set within our data structures
+                     -- (dnscodec defaults to 0, so this is sanity)
+                     local msg = dummy:get_last_msg()
+                     mst.array_foreach(msg.an or {},
+                                       function (rr)
+                                          mst.a(rr.ttl > 0)
+                                       end)
+                     mst.array_foreach(msg.ar or {},
+                                       function (rr)
+                                          mst.a(rr.ttl > 0)
+                                       end)
+                  end
+
                   mdns:insert_if_own_rr('eth1', rr_dummy_a_cf_nottl)
+                  ensure_no_own_ttl()
+
                   dsm:wait_receiveds_counts(5)
+                  ensure_reply_sane()
                   dsm:clear_receiveds()
-                  
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'propagation did not terminate')
+                  ensure_no_own_ttl()
+
                   dsm:advance_time(12345)
                   local r = dsm:run_nodes(123)
                   mst.a(r, 'propagation did not terminate')
                   dsm:assert_receiveds_eq(0)
+                  ensure_no_own_ttl()
 
                   -- let's make sure we still get response if we ask for it
                   mdns:recvfrom(query_dummy_local_a_qu, DUMMY_SRC, mdns_const.PORT+1)
                   dsm:assert_receiveds_eq(1)
+                  ensure_reply_sane()
                   dummy:sanity_check_last_unicast_response()
                   local msg = dummy:get_last_msg()
                   check_f('an', dns_const.TYPE_A)
                   check_f('ar', dns_const.TYPE_NSEC)
                   dsm:clear_receiveds()
+                  ensure_no_own_ttl()
 
                    end)
 end)
