@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:37:02 2012 mstenber
--- Last modified: Thu Feb  7 20:17:30 2013 mstenber
--- Edit time:     39 min
+-- Last modified: Fri Feb  8 11:18:46 2013 mstenber
+-- Edit time:     43 min
 --
 
 require "busted"
@@ -49,19 +49,13 @@ local fakeu = {rclass = dns_const.CLASS_IN,
                cache_flush = true,
 }
 
--- _exactly_ same objects, just different instances
+-- assorted examples of valid rtyped rrs
+
 local ptr1 = {rclass=dns_const.CLASS_IN,
               rtype=dns_const.TYPE_PTR,
               name={'dummyptr1', 'y'},
               rdata_ptr={'z', '1'}
 }
-
-local ptr11 = {rclass=dns_const.CLASS_IN,
-              rtype=dns_const.TYPE_PTR,
-              name={'dummyptr1', 'y'},
-              rdata_ptr={'z', '1'}
-}
-
 
 local ptr2 = {rclass=dns_const.CLASS_IN,
               rtype=dns_const.TYPE_PTR,
@@ -70,14 +64,7 @@ local ptr2 = {rclass=dns_const.CLASS_IN,
 }
 
 
--- _exactly_ same objects, just different instances
 local srv1 = {rclass=dns_const.CLASS_IN,
-              rtype=dns_const.TYPE_SRV,
-              name={'dummysrv1', 'y'},
-              rdata_srv={port=1, priority=0, target={'target', 'y'}, weight=0},
-}
-
-local srv11 = {rclass=dns_const.CLASS_IN,
               rtype=dns_const.TYPE_SRV,
               name={'dummysrv1', 'y'},
               rdata_srv={port=1, priority=0, target={'target', 'y'}, weight=0},
@@ -89,6 +76,26 @@ local srv2 = {rclass=dns_const.CLASS_IN,
               rdata_srv={port=1, priority=0, target={'target2', 'y'}, weight=0},
 }
 
+local a1 = {rclass=dns_const.CLASS_IN,
+            rtype=dns_const.TYPE_A,
+            name={'dummya', 'y'},
+            rdata_a='1.2.3.4',
+}
+
+local aaaa1 = {rclass=dns_const.CLASS_IN,
+            rtype=dns_const.TYPE_AAAA,
+            name={'dummya', 'y'},
+            rdata_aaaa='dead:beef::1',
+}
+
+
+local nsec1 = {rclass=dns_const.CLASS_IN,
+            rtype=dns_const.TYPE_NSEC,
+            name={'dummya', 'y'},
+            rdata_nsec={bits={1,2,3,42,280}},
+}
+
+local all_rrs = {ptr1, ptr2, srv1, srv2, a1, aaaa1, nsec1}
 
 describe("ll<>name functions", function ()
             it("ll2nameish", function ()
@@ -166,19 +173,16 @@ describe("ns", function ()
 
             it("has robust deduplication", function ()
                   local ns = dnsdb.ns:new{enable_copy=true}
-                  ns:insert_rr(ptr1)
-                  ns:insert_rr(ptr11)
-                  ns:insert_rr(ptr2)
-                  ns:insert_rr(ptr2)
-                  ns:insert_rr(srv1)
-                  ns:insert_rr(srv11)
-                  ns:insert_rr(srv2)
-                  ns:insert_rr(srv2)
-                  mst.a(ns:count() == 4)
-                  ns:remove_rr(ptr1)
-                  ns:remove_rr(ptr2)
-                  ns:remove_rr(srv1)
-                  ns:remove_rr(srv2)
+                  for _, rr in ipairs(all_rrs)
+                  do
+                     ns:insert_rr(mst.table_deep_copy(rr))
+                     ns:insert_rr(mst.table_deep_copy(rr))
+                  end
+                  mst.a(ns:count() == #all_rrs)
+                  for _, rr in ipairs(all_rrs)
+                  do
+                     ns:remove_rr(rr)
+                  end
                   mst.a(ns:count() == 0)
                    end)
 end)

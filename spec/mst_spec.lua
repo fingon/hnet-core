@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Thu Feb  7 13:05:20 2013 mstenber
--- Edit time:     166 min
+-- Last modified: Fri Feb  8 11:12:17 2013 mstenber
+-- Edit time:     168 min
 --
 
 require "busted"
@@ -259,6 +259,13 @@ describe("table_deep_copy", function ()
                   t1['bar'] = t1
                   local t2 = mst.table_deep_copy(t1)
                   assert(t2.bar == t2)
+                  assert(t1.bar ~= t2.bar)
+                  mst.a(mst.repr_equal(t1, t2))
+
+                  local t1 = {foo={bar=2}, baz=3}
+                  local t2 = mst.table_deep_copy(t1)
+                  mst.a(mst.repr_equal(t1, t2), 'deep copy failure', t1, t2)
+
                                        end)
                             end)
 

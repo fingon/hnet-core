@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Feb  7 13:02:40 2013 mstenber
--- Edit time:     626 min
+-- Last modified: Fri Feb  8 11:15:02 2013 mstenber
+-- Edit time:     629 min
 --
 
 -- data structure abstractions provided:
@@ -736,15 +736,15 @@ function table_deep_copy(t, already)
    then
       return na
    end
-   n = {}
-   setmetatable(n, getmetatable(t))
+   local n = {}
    already[t] = n
    for k, v in pairs(t)
    do
-      nk = deep_copy(k, already)
-      nv = deep_copy(v, already)
+      local nk = deep_copy(k, already)
+      local nv = deep_copy(v, already)
       n[nk] = nv
    end
+   setmetatable(n, getmetatable(t))
    return n
 end
 
