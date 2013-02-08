@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Thu Feb  7 21:29:38 2013 mstenber
--- Edit time:     689 min
+-- Last modified: Fri Feb  8 13:30:32 2013 mstenber
+-- Edit time:     693 min
 --
 
 -- TO DO: 
@@ -1383,6 +1383,8 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   dsm:assert_receiveds_eq(0, 0, 0)
                    end)
             it("shared records - 2x announce, 1x ttl=0 #shb", function ()
+                  mst.d('starting shared record test (3 messages expected)')
+
                   local r = dsm:run_nodes(3)
                   mst.a(r, 'basic run did not terminate')
 

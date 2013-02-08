@@ -2,6 +2,16 @@
 
 * MDNS - Things to do
 
+** Determine why some state saves across test cases
+
+make => fail; individual busted run => success (bisect done, test case is
+mdns_core_spec #shb which fails, it apparently starts announcing something
+else, and expiring something else too, for some reason).
+
+Chances are, the nondeterministic run order of nodes is different when run
+individually as opposed to when run as part of the whole, but if that is
+the cause, there is something fundamentally broken _somewhere_. 
+
 ** Write patch set for luasocket changes for Diego
 
 ** Add some sort of 'initial state fetcher' 
