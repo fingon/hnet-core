@@ -2,10 +2,6 @@
 
 * MDNS - Things to do
 
-** Build recent luasocket for NetKit
-
-- build even more recent!
-
 ** Write patch set for luasocket changes for Diego
 
 ** Add some sort of 'initial state fetcher' 
@@ -20,7 +16,7 @@ i.e. q {'_services', '_dns-sd', '_udp', 'local'}
 those explicitly in initial query; that's also perfectly valid option, but
 should be just used as backup solution)
 
-* PA - Bugs to fix
+* Not-exactly-our software - Bugs to fix
 
 ** BIRD - doesn't handle too big LSAs gracefully
 
@@ -29,18 +25,20 @@ stuffed down there.
 
 Workaround: use 'rx buffer large' in config files.
 
+** BIRD - OSPFv3
+
+lsalib.c: 86 => what happens of time moves backwards?
+
+nothing good happens if time moves much forwards, _either_. *sigh*
+
+* PA - Bugs to fix
+
 ** BIRD - dridd p#2
 
 Duplicate rid detected correctly even if router connected to ~self. But
 problem is, it won't behave consistently (=form neigh's with other
 routers), as the packets coming with different LL address using same RID on
 same link confuse the other party. 
-
-** BIRD - OSPFv3
-
-lsalib.c: 86 => what happens of time moves backwards?
-
-nothing good happens if time moves much forwards, _either_. *sigh*
 
 ** rhf bit flaky
 
