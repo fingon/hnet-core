@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Tue Feb  5 20:52:28 2013 mstenber
+-- Last modified: Mon Feb 11 17:52:54 2013 mstenber
 -- Edit time:     899 min
 --
 
@@ -158,11 +158,11 @@ function mdns:iterate_ifs_ns(key, f)
    end
 end
 
-function mdns:iterate_ifs_ns_matching_q(key, q, f)
+function mdns:iterate_ifs_matching_q(is_own, q, f)
    for ifname, o in pairs(self.ifname2if)
    do
       -- nil = no kas
-      mdns_if.iterate_ns_matching_query(o[key], q, nil, f)
+      o:iterate_matching_query(is_own, q, nil, f)
    end
 end
 

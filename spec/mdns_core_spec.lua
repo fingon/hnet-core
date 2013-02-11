@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Mon Feb 11 15:41:05 2013 mstenber
--- Edit time:     735 min
+-- Last modified: Mon Feb 11 17:35:38 2013 mstenber
+-- Edit time:     749 min
 --
 
 -- TO DO: 
@@ -586,32 +586,37 @@ local query1_kas_low_ttl = dnscodec.dns_message:encode{
    an={rr1_low_ttl},
                                                       }
 
-local query_dummy_local_a = dnscodec.dns_message:encode{
+local query_dummy_a = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A}},
                                                        }
 
 
-local query_dummy_local_qu = dnscodec.dns_message:encode{
+local query_dummy_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_ANY, qu=true}},
                                                         }
 
 local q_dummy_a = {name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}
 
-local query_dummy_local_a_qu = dnscodec.dns_message:encode{
+local query_dummy_a_qu = dnscodec.dns_message:encode{
    qd={q_dummy_a},
                                                           }
 
-local query_dummy_local_a_kas_a_qu = dnscodec.dns_message:encode{
+local query_dummy_a_kas_a = dnscodec.dns_message:encode{
+   qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A}},
+   an={rr_dummy_a_cf},
+                                                                }
+
+local query_dummy_a_kas_a_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}},
    an={rr_dummy_a_cf},
                                                                 }
 
-local query_dummy_local_a_kas_aaaa_qu = dnscodec.dns_message:encode{
+local query_dummy_a_kas_aaaa_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}},
    an={rr_dummy_aaaa_cf},
                                                                    }
 
-local query_dummy_local_any_tc = dnscodec.dns_message:encode{
+local query_dummy_any_tc = dnscodec.dns_message:encode{
    h={tc=true},
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_ANY}},
                                                             }
@@ -621,7 +626,7 @@ local query_kas_dummy_a_cf = dnscodec.dns_message:encode{
    an={rr_dummy_a_cf},
                                                         }
 
-local query_dummy_local_aaaa_qu = dnscodec.dns_message:encode{
+local query_dummy_aaaa_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_AAAA, qu=true}},
                                                              }
 
@@ -919,7 +924,7 @@ describe("mdns", function ()
                   -- All should result in 2 results, if no KAS.
                   -- (One in an, one in ar).
                   mst.d('a) AAAA request => both')
-                  mdns:recvfrom(query_dummy_local_aaaa_qu, DUMMY_SRC, mdns_const.PORT+1)
+                  mdns:recvfrom(query_dummy_aaaa_qu, DUMMY_SRC, mdns_const.PORT+1)
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_legacy_unicast_response()
                   local msg = dummy:get_last_msg()
@@ -928,7 +933,7 @@ describe("mdns", function ()
                   dsm:clear_receiveds()
 
                   mst.d('b) A request => both')
-                  mdns:recvfrom(query_dummy_local_a_qu, DUMMY_SRC, mdns_const.PORT)
+                  mdns:recvfrom(query_dummy_a_qu, DUMMY_SRC, mdns_const.PORT)
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_unicast_response()
                   local msg = dummy:get_last_msg()
@@ -938,12 +943,12 @@ describe("mdns", function ()
 
                   -- With KAS, if it hits an, no reply at all
                   mst.d('c) A request with A KAS => nop')
-                  mdns:recvfrom(query_dummy_local_a_kas_a_qu, DUMMY_SRC, mdns_const.PORT)
+                  mdns:recvfrom(query_dummy_a_kas_a_qu, DUMMY_SRC, mdns_const.PORT)
                   dsm:assert_receiveds_eq(0)
 
                   -- With KAS, if it hits ar, no ar but an
                   mst.d('d) A request with AAAA kas => A')
-                  mdns:recvfrom(query_dummy_local_a_kas_aaaa_qu, DUMMY_SRC, mdns_const.PORT)
+                  mdns:recvfrom(query_dummy_a_kas_aaaa_qu, DUMMY_SRC, mdns_const.PORT)
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_unicast_response()
                   local msg = dummy:get_last_msg()
@@ -955,7 +960,7 @@ describe("mdns", function ()
                   -- s7.3 MUST
                   dsm:advance_time(2)
                   dsm:run_nodes()
-                  mdns:recvfrom(query_dummy_local_any_tc, DUMMY_SRC, mdns_const.PORT)
+                  mdns:recvfrom(query_dummy_any_tc, DUMMY_SRC, mdns_const.PORT)
                   dsm:advance_time(0.2)
                   dsm:run_nodes()
                   dsm:assert_receiveds_eq(0)
@@ -1003,8 +1008,8 @@ describe("mdns", function ()
                   -- we should get replies in one message
                   -- s6.40/41 SHOULD test
                   mst.d('b) receive 2x dummy q, and then foo q => one resp')
-                  mdns:recvfrom(query_dummy_local_a, DUMMY_SRC, mdns_const.PORT)
-                  mdns:recvfrom(query_dummy_local_a, DUMMY_SRC, mdns_const.PORT)
+                  mdns:recvfrom(query_dummy_a, DUMMY_SRC, mdns_const.PORT)
+                  mdns:recvfrom(query_dummy_a, DUMMY_SRC, mdns_const.PORT)
                   mdns:recvfrom(query_foo_local_a, DUMMY_SRC, mdns_const.PORT)
                   dsm:assert_receiveds_eq(0)
                   dsm:wait_receiveds_counts(1)
@@ -1207,7 +1212,7 @@ describe("mdns", function ()
                   ensure_no_own_ttl()
 
                   -- let's make sure we still get response if we ask for it
-                  mdns:recvfrom(query_dummy_local_a_qu, DUMMY_SRC, mdns_const.PORT+1)
+                  mdns:recvfrom(query_dummy_a_qu, DUMMY_SRC, mdns_const.PORT+1)
                   dsm:assert_receiveds_eq(1)
                   ensure_reply_sane()
                   dummy:sanity_check_last_unicast_response()
@@ -1757,6 +1762,23 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                   ensure_mdns_ttl_set(mdns1, 'i1', true, true)
                   ensure_mdns_ttl_set(mdns2, 'id2', true, false)
                   ensure_mdns_ttl_set(mdns3, 'id3', true, false)
+
+                  -- prod mdns2 with query that has KAS - 
+                  -- make sure that having 'own' won't break it
+                  local r = dsm:run_nodes_until_delta(nil, 2)
+                  mst.a(r, 'propagation did not terminate')
+
+                  mst.d('b1) checking KAS is not broken by own.ttl=nil')
+
+                  mdns2:recvfrom(query_dummy_a,
+                                 'dead::1%id2', mdns_const.PORT)
+                  local r = dsm:run_nodes_until_delta(nil, 2)
+                  mst.a(r, 'propagation did not terminate')
+
+                  mdns2:recvfrom(query_dummy_a_kas_a,
+                                 'dead::1%id2', mdns_const.PORT)
+                  local r = dsm:run_nodes_until_delta(nil, 2)
+                  mst.a(r, 'propagation did not terminate')
 
                   mst.d('c) waiting AWHILE')
                   -- wait a long while, see that entries stick around

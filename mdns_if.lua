@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Mon Feb 11 14:42:57 2013 mstenber
--- Edit time:     596 min
+-- Last modified: Mon Feb 11 18:09:06 2013 mstenber
+-- Edit time:     628 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -150,61 +150,6 @@ local function convert_anish_to_kas(kas)
    return tns
 end
 
-local function kas_matches_rr(kas, rr)
-   if not kas then return end
-   local orr = kas:find_rr(rr)
-   if not orr then return end
-
-   -- finally, ttl must be >= half.. but if not set, it's just general
-   -- availability check and we pretend ttl is valid
-   if not rr.ttl then return true end
-
-   -- rr = propsed answer
-   -- orr = what we got in KAS
-   local r = orr.ttl >= rr.ttl / 2
-   mst.d('kas_matches_rr - ttl check', r, orr.ttl, rr.ttl)
-   return r
-end
-
-function iterate_ns_matching_query(ns, q, kas, f)
-   local matched
-   local found_cf
-
-   mst.a(type(q) == 'table', 'weird q', q)
-   kas = convert_anish_to_kas(kas)
-   mst.d('iterate_ns_matching_query', ns, kas)
-   --mst.d('iterate_ns_matching_query', kas, q, kas:values())
-
-   for i, rr in ipairs(ns:find_rr_list_for_ll(q.name))
-   do
-      if rr.cache_flush
-      then
-         found_cf = true
-      end
-      if match_q_rr(q, rr)
-      then  
-         matched = true
-         if not kas_matches_rr(kas, rr)
-         then
-            mst.d(' calling callback', rr)
-            f(rr)
-         end
-      end
-   end
-   -- if no match, _but_ we own the name
-   -- => look up for negative NSEC 
-   -- (assuming this wasn't already NSEC query, of course)
-   if found_cf and not matched 
-      and q.qtype ~= dns_const.TYPE_NSEC
-   then
-      iterate_ns_matching_query(ns, {
-                                   name=q.name,
-                                   qtype=dns_const.TYPE_NSEC,
-                                   qclass=q.qclass,
-                                    }, kas, f)
-   end
-end
-
 -- mdns for single interface; leveraged by mdns_core, and subclassable
 -- if needed
 
@@ -253,6 +198,73 @@ function mdns_if:init()
       then
          self:mark_nsec_dirty(rr)
       end
+   end
+end
+
+function mdns_if:kas_matches_rr(is_own, kas, rr)
+   if not kas then return end
+   local orr = kas:find_rr(rr)
+   if not orr then return end
+
+   -- ({o,}rr.ttl can be nil, if it's from our own OSPF source, for
+   -- example; it is clearly still valid match as it has 'infinite'
+   -- lifetime)
+
+   -- if not set in kas, we pretend ttl is valid
+   local ttl_kas = orr.ttl
+   if not ttl_kas then return true end
+
+   local ttl_rr 
+   if is_own
+   then
+      ttl_rr = self:get_own_rr_current_ttl(rr)
+   else
+      ttl_rr = self:get_cache_rr_current_ttl(rr)
+   end
+
+   -- rr = propsed answer
+   -- orr = what we got in KAS
+   local r = ttl_kas >= ttl_rr / 2
+   mst.d('kas_matches_rr - ttl check', r, orr.ttl, rr.ttl)
+   return r
+end
+
+function mdns_if:iterate_matching_query(is_own, q, kas, f)
+   local ns = is_own and self.own or self.cache
+   local matched
+   local found_cf
+
+   mst.a(type(q) == 'table', 'weird q', q)
+   kas = convert_anish_to_kas(kas)
+   self:d('iterate_matching_query', ns, kas)
+
+   for i, rr in ipairs(ns:find_rr_list_for_ll(q.name))
+   do
+      if rr.cache_flush
+      then
+         found_cf = true
+      end
+      if match_q_rr(q, rr)
+      then  
+         matched = true
+         if not self:kas_matches_rr(is_own, kas, rr)
+         then
+            mst.d(' calling callback', rr)
+            f(rr)
+         end
+      end
+   end
+   -- if no match, _but_ we own the name
+   -- => look up for negative NSEC 
+   -- (assuming this wasn't already NSEC query, of course)
+   if found_cf and not matched 
+      and q.qtype ~= dns_const.TYPE_NSEC
+   then
+      self:iterate_matching_query(is_own, {
+                                     name=q.name,
+                                     qtype=dns_const.TYPE_NSEC,
+                                     qclass=q.qclass,
+                                          }, kas, f)
    end
 end
 
@@ -459,15 +471,15 @@ function mdns_if:split_qd_to_qu_nqu(msg)
       -- looks multicast worthy,
       -- then we pretend it's nqu
       local found 
-      iterate_ns_matching_query(ns, q, msg.an,
-                                function (rr)
-                                   local last = rr[FIELD_SENT_MCAST]
-                                   local ttl = self:get_rr_full_ttl(rr)
-                                   if not last or last < (now-ttl/4)
-                                   then
-                                      found = true
-                                   end
-                                end)
+      self:iterate_matching_query(true, q, msg.an,
+                                  function (rr)
+                                     local last = rr[FIELD_SENT_MCAST]
+                                     local ttl = self:get_rr_full_ttl(rr)
+                                     if not last or last < (now-ttl/4)
+                                     then
+                                        found = true
+                                     end
+                                  end)
       -- if found - pretend it's nqu
       return not found
    end
@@ -488,14 +500,13 @@ end
 
 function mdns_if:find_own_matching_queries(ql, an)
    local r = mst.set:new{}
-   local ns = self.own
    local kas = convert_anish_to_kas(an)
    for i, q in ipairs(ql)
    do
-      iterate_ns_matching_query(ns, q, kas, 
-                                function (rr)
-                                   r:insert(rr)
-                                end)
+      self:iterate_matching_query(true, q, kas, 
+                                  function (rr)
+                                     r:insert(rr)
+                                  end)
    end
    return r:keys()
 end
@@ -546,6 +557,13 @@ function mdns_if:get_own_rr_current_ttl(rr, now)
    return ttl
 end
 
+function mdns_if:get_cache_rr_current_ttl(rr, now)
+   self:a(rr.valid, 'entries in cache MUST have valid set (and therefore also set ttl)')
+   local now = now or self:time()
+   local ttl = math.floor(rr.valid-now)
+   return ttl
+end
+
 function mdns_if:copy_rrs_with_updated_ttl(rrl, unicast, legacy, force)
    local now = self:time()
    local r = {}
@@ -589,7 +607,6 @@ end
 function mdns_if:determine_ar(an, kas)
    local ar = {}
    local all = dnsdb.ns:new{}
-   local ns = self.own
 
    -- initially, seed 'all' with whatever is already in answer; we 
    -- do NOT want to send those
@@ -603,17 +620,17 @@ function mdns_if:determine_ar(an, kas)
          local cand = {name=a.name, rtype=t2, rclass=a.rclass}
          if a.rtype == t1 
             and not all:find_rr(cand)
-            and not kas_matches_rr(kas, cand)
+            and not self:kas_matches_rr(true, kas, cand)
          then
             -- if we have something like this, cool, let's add it
-            iterate_ns_matching_query(ns,
+            self:iterate_matching_query(true,
                                       {name=a.name,
                                        qtype=t2,
                                        qclass=a.rclass},
                                       kas,
                                       function (rr)
                                          if not all:find_rr(rr) 
-                                            and not kas_matches_rr(kas, rr)
+                                            and not self:kas_matches_rr(true, kas, rr)
                                          then
                                             all:insert_rr(rr)
                                             table.insert(ar, rr)
@@ -773,8 +790,8 @@ function mdns_if:send_delayed_multicast_queries(ql)
    do
       local q = e.query 
       qd:insert(q)
-      iterate_ns_matching_query(ns, q, kas, maybe_insert_kas)
-      iterate_ns_matching_query(nsc, q, kas, maybe_insert_kas)
+      self:iterate_matching_query(true, q, kas, maybe_insert_kas)
+      self:iterate_matching_query(false, q, kas, maybe_insert_kas)
       if e.rep
       then
          self:query(q, e.rep)
@@ -849,17 +866,16 @@ function mdns_if:handle_multicast_probe(msg)
 end
 
 function mdns_if:msg_if_all_answers_known_and_unique(msg)
-   local ns = self.own
    for i, q in ipairs(msg.qd)
    do
       local found = false
-      iterate_ns_matching_query(ns, q, msg.an,
-                                function (rr)
-                                   if rr.cache_flush
-                                   then
-                                      found = true
-                                   end
-                                end)
+      self:iterate_matching_query(true, q, msg.an,
+                                  function (rr)
+                                     if rr.cache_flush
+                                     then
+                                        found = true
+                                     end
+                                  end)
       if not found then return false end
    end
    return true
@@ -968,7 +984,7 @@ function mdns_if:upsert_cache_rr(rr)
 
       self:a(rr.ttl, 'no ttl for cache rr')
 
-      iterate_ns_matching_query(self.own, q, nil,
+      self:iterate_matching_query(true, q, nil,
                                 function (rr2)
                                    if rr2:equals(rr)
                                    then
@@ -990,13 +1006,13 @@ function mdns_if:upsert_cache_rr(rr)
       -- => now we do expensive check of checking through _all_ own
       -- entries for a match, and if found, we silently ignore this
 
-      self.parent:iterate_ifs_ns_matching_q('own', q,
-                                            function (rr2)
-                                               if rr2:equals(rr)
-                                               then
-                                                  found = true
-                                               end
-                                            end)
+      self.parent:iterate_ifs_matching_q(true, q,
+                                         function (rr2)
+                                            if rr2:equals(rr)
+                                            then
+                                               found = true
+                                            end
+                                         end)
       if found then return end
    end
 
