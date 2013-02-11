@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Mon Feb 11 12:41:01 2013 mstenber
--- Edit time:     726 min
+-- Last modified: Mon Feb 11 15:41:05 2013 mstenber
+-- Edit time:     735 min
 --
 
 -- TO DO: 
@@ -149,7 +149,7 @@ end
 function mydsm:wait_queries_done()
    if self:check_queries_done() then return end
    local r = 
-      self:run_nodes_and_advance_time(123, 
+      self:run_nodes_and_advance_time(nil, 
                                       {until_callback=
                                        function ()
                                           return self:check_queries_done()
@@ -175,7 +175,7 @@ function mydsm:wait_receiveds_counts(...)
       return ok
    end
    if dummies_desired() then return end
-   local r = self:run_nodes_and_advance_time(123, 
+   local r = self:run_nodes_and_advance_time(nil, 
                                              {until_callback=dummies_desired})
    self:a(r, 'propagation did not terminate')
    self:a(dummies_desired(), 'dummies not in desired state')
@@ -722,7 +722,7 @@ describe("mdns", function ()
                   -- some time can pass (so that we skip multicast
                   -- re-broadcast time limitations)
                   dsm:advance_time(2)
-                  local r = dsm:run_nodes(123)
+                  local r = dsm:run_nodes()
                   mst.a(r, 'propagation did not terminate')
 
                   -- check that we get instant response to a query
@@ -743,7 +743,7 @@ describe("mdns", function ()
 
                   dsm:clear_receiveds()
 
-                  local r = dsm:run_nodes_and_advance_time(123)
+                  local r = dsm:run_nodes_and_advance_time()
                   mst.a(r, 'propagation did not terminate')
                   dsm:assert_receiveds_eq(0)
 
@@ -801,7 +801,7 @@ describe("mdns", function ()
                   -- re-broadcast time limitations)
                   mst.d('advancing 2 seconds')
                   dsm:advance_time(2)
-                  local r = dsm:run_nodes(123)
+                  local r = dsm:run_nodes()
                   mst.a(r, 'propagation did not terminate')
 
                   -- make sure we get _delayed_ response 
@@ -832,7 +832,7 @@ describe("mdns", function ()
                   
                   -- make sure we get final ttl=0 message eventually
                   mst.d('waiting for final ttl=0')
-                  local r = dsm:run_nodes_and_advance_time(123)
+                  local r = dsm:run_nodes_and_advance_time()
                   mst.a(r, 'propagation did not terminate')
                   dsm:assert_receiveds_eq(1)
                   -- make sure it looks sane
@@ -885,7 +885,7 @@ describe("mdns", function ()
 
                   -- finally, even at end of ttl, there should be no
                   -- messages
-                  local r = dsm:run_nodes_and_advance_time(123)
+                  local r = dsm:run_nodes_and_advance_time()
                   mst.a(r, 'propagation did not terminate')
                   dsm:assert_receiveds_eq(0)
                                      end)
@@ -954,15 +954,15 @@ describe("mdns", function ()
                   -- Delayed KAS case (which we do only for multicast)
                   -- s7.3 MUST
                   dsm:advance_time(2)
-                  dsm:run_nodes(123)
+                  dsm:run_nodes()
                   mdns:recvfrom(query_dummy_local_any_tc, DUMMY_SRC, mdns_const.PORT)
                   dsm:advance_time(0.2)
-                  dsm:run_nodes(123)
+                  dsm:run_nodes()
                   dsm:assert_receiveds_eq(0)
                   -- no tc bit -> should receive answer 'soon'
                   mdns:recvfrom(query_kas_dummy_a_cf, DUMMY_SRC, mdns_const.PORT)
                   dsm:advance_time(0.15)
-                  dsm:run_nodes(123)
+                  dsm:run_nodes()
                   dsm:assert_receiveds_eq(1)
                   dummy:sanity_check_last_multicast_response()
                   local msg = dummy:get_last_msg()
@@ -1015,7 +1015,7 @@ describe("mdns", function ()
 
                   -- advance few seconds, make sure we have nothing else coming
                   dsm:advance_time(2)
-                  dsm:run_nodes(123)
+                  dsm:run_nodes()
                   dsm:assert_receiveds_eq(0)
 
                                                          end)
@@ -1126,7 +1126,7 @@ describe("mdns", function ()
                   -- stop query
                   mdns:stop_query('eth1', q_rr1)
                   
-                  local r = dsm:run_nodes_and_advance_time(123)
+                  local r = dsm:run_nodes_and_advance_time()
                   mst.a(r, 'propagation did not terminate')
                   dsm:assert_receiveds_eq(0)
                                                    end)
@@ -1162,7 +1162,7 @@ describe("mdns", function ()
 
                   -- but in two seconds, it should be gone
                   dsm:advance_time(2)
-                  local r = dsm:run_nodes(123)
+                  local r = dsm:run_nodes()
                   mst.a(r, 'propagation did not terminate')
 
                   local cnt = c.cache:count()
@@ -1196,12 +1196,12 @@ describe("mdns", function ()
                   dsm:wait_receiveds_counts(5)
                   ensure_reply_sane()
                   dsm:clear_receiveds()
-                  local r = dsm:run_nodes(123)
+                  local r = dsm:run_nodes()
                   mst.a(r, 'propagation did not terminate')
                   ensure_no_own_ttl()
 
                   dsm:advance_time(12345)
-                  local r = dsm:run_nodes(123)
+                  local r = dsm:run_nodes()
                   mst.a(r, 'propagation did not terminate')
                   dsm:assert_receiveds_eq(0)
                   ensure_no_own_ttl()
@@ -1366,7 +1366,7 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
             after_each(function ()
                           -- wait awhile
                           -- make sure state empties eventually clearly
-                          local r = dsm:run_nodes_and_advance_time(123)
+                          local r = dsm:run_nodes_and_advance_time()
                           mst.a(r, 'propagation did not terminate')
 
                           -- ensure that state is really empty
@@ -1386,12 +1386,14 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   mst.a(r, 'basic run did not terminate')
 
                   mdns1:recvfrom(msg1_cf, 'dead:beef::1%id1', mdns_const.PORT)
-                  local r = dsm:run_nodes_and_advance_time(1234)
+                  local r = dsm:run_nodes_and_advance_time()
                   mst.a(r, 'propagation did not terminate')
 
                   -- make sure we got _something_ in each dummy
-                  -- (1 shouldn't, as it's same interface)
-                  dsm:assert_receiveds_eq(0, 5, 5)
+
+                  -- (should just get 4 attempts to query for it; the
+                  -- rest should get 3x probe 2x announce)
+                  dsm:assert_receiveds_eq(4, 5, 5)
 
                                end)
             it("won't propagate 0 ttl stuff", function ()
@@ -1399,7 +1401,7 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   mst.a(r, 'basic run did not terminate')
 
                   mdns1:recvfrom(msg1_ttl0, 'dead:beef::1%id1', mdns_const.PORT)
-                  local r = dsm:run_nodes_and_advance_time(123)
+                  local r = dsm:run_nodes_and_advance_time()
                   mst.a(r, 'propagation did not terminate')
 
                   -- make sure we got _something_ in each dummy
@@ -1413,13 +1415,14 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   mst.a(r, 'basic run did not terminate')
 
                   mdns1:recvfrom(msg1, 'dead:beef::1%id1', mdns_const.PORT)
-                  local r = dsm:run_nodes_and_advance_time(123)
+                  local r = dsm:run_nodes_and_advance_time()
                   mst.a(r, 'propagation did not terminate')
 
                   -- make sure we got _something_ in each dummy
                   -- two announcements, final ttl=0
+                  -- (should just get 4 attempts to query for it on 1)
                   -- (1 shouldn't, as it's same interface)
-                  dsm:assert_receiveds_eq(0, 3, 3)
+                  dsm:assert_receiveds_eq(4, 3, 3)
                                                               end)
             it("query works #q", function ()
                   local r = dsm:run_nodes(3)
@@ -1474,7 +1477,7 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   dsm:clear_receiveds()
                   mdns2:recvfrom(query1, DUMMY_SRC, mdns_const.PORT)
                   dsm:advance_time(0.2)
-                  local r = dsm:run_nodes(123)
+                  local r = dsm:run_nodes()
                   mst.a(r, 'did not terminate')
                   dsm:wait_receiveds_counts(0, 0, 0)
 
@@ -1486,18 +1489,18 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   -- try first with rcode set - shouldn't do a thing
                   -- (s18.27)
                   mdns2:recvfrom(query1_rcode, DUMMY_SRC, mdns_const.PORT)
-                  local r = dsm:run_nodes(123)
+                  local r = dsm:run_nodes()
                   dsm:assert_receiveds_eq(0, 0, 0)
                   dsm:assert_queries_done()
 
                   mdns2:recvfrom(query1, DUMMY_SRC, mdns_const.PORT)
-                  local r = dsm:run_nodes(123)
+                  local r = dsm:run_nodes()
                   mst.a(r, 'did not terminate')
                   -- no immediate reply - should wait bit before replying
                   dsm:assert_receiveds_eq(0, 0, 0)
                   -- but eventually we should get what we want
                   dsm:advance_time(0.6)
-                  local r = dsm:run_nodes(123)
+                  local r = dsm:run_nodes()
                   mst.a(r, 'did not terminate')
                   dsm:assert_receiveds_eq(0, 1, 0)
                   dummy2:sanity_check_last_multicast_response()
@@ -1510,10 +1513,10 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   -- within 0,8sec (1sec spam limit)
                   -- s6.21 MUST
                   mdns2:recvfrom(query1, DUMMY_SRC, mdns_const.PORT)
-                  local r = dsm:run_nodes(123)
+                  local r = dsm:run_nodes()
                   mst.a(r, 'did not terminate')
                   dsm:advance_time(0.2)
-                  local r = dsm:run_nodes(123)
+                  local r = dsm:run_nodes()
                   mst.a(r, 'did not terminate')
                   dsm:assert_receiveds_eq(0, 0, 0)
 
@@ -1523,13 +1526,13 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   dsm:advance_time(2)
                   mst.d('d) KAS 1')
                   mdns2:recvfrom(query1_kas, DUMMY_SRC, mdns_const.PORT)
-                  local r = dsm:run_nodes(123)
+                  local r = dsm:run_nodes()
                   mst.a(r, 'did not terminate')
                   -- no immediate reply - should wait bit before replying
                   dsm:assert_receiveds_eq(0, 0, 0)
                   -- but eventually we should get what we want
                   dsm:advance_time(0.6)
-                  local r = dsm:run_nodes(123)
+                  local r = dsm:run_nodes()
                   mst.a(r, 'did not terminate')
                   dsm:assert_receiveds_eq(0, 0, 0)
 
@@ -1537,7 +1540,7 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   mst.d('d) KAS 2')
                   -- s7.2 MUST - KAS ttl < real ttl / 2
                   mdns2:recvfrom(query1_kas_low_ttl, DUMMY_SRC, mdns_const.PORT)
-                  local r = dsm:run_nodes(123)
+                  local r = dsm:run_nodes()
                   mst.a(r, 'did not terminate')
                   dsm:assert_receiveds_eq(0, 1, 0)
                   dsm:clear_receiveds()
@@ -1669,7 +1672,7 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
             after_each(function ()
                           -- wait awhile
                           -- make sure state empties eventually clearly
-                          local r = dsm:run_nodes_and_advance_time(123)
+                          local r = dsm:run_nodes_and_advance_time()
                           mst.a(r, 'propagation did not terminate')
 
                           -- ensure that state is really empty
@@ -1705,7 +1708,7 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                   return true
                end
                if count_desired() then return end
-               local r = dsm:run_nodes_and_advance_time(123, 
+               local r = dsm:run_nodes_and_advance_time(nil, 
                                                         {until_callback=count_desired})
                mst.a(r, 'propagation did not terminate')
                mst.a(count_desired(), 'dummies not in desired state')
@@ -1758,7 +1761,7 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                   mst.d('c) waiting AWHILE')
                   -- wait a long while, see that entries stick around
                   -- (due to active querying etc)
-                  local r = dsm:run_nodes_until_delta(12345,
+                  local r = dsm:run_nodes_until_delta(nil,
                                                       DUMMY_TTL * 10)
                   mst.a(r, 'propagation did not terminate')
 

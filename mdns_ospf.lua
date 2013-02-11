@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Mon Feb 11 12:31:47 2013 mstenber
--- Edit time:     194 min
+-- Last modified: Mon Feb 11 15:42:16 2013 mstenber
+-- Edit time:     197 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -87,10 +87,13 @@ end
 -- by default, OSPF based interfaces are interested in EVERYTHING, 
 -- as long as they're master
 function ospf_if:interested_in_cached(rr)
-   -- if not master, not interested
-   if not self.parent.master_if_set[self.ifname] then return end
-
-   return _mdns_if.interested_in_cached(self, rr)
+   -- if not master, not interested (unless there's ongoing continuous query)
+   if not self.parent.master_if_set[self.ifname] 
+   then 
+      return _mdns_if.interested_in_cached(self, rr)
+   end
+   -- if master, yes, we're interested
+   return self:query_for_rr(rr)
 end
 
 
@@ -318,7 +321,7 @@ function mdns:remove_own_from_if(fromif)
    
    -- (or well, not necessarily _remove_, but set their state
    -- s.t. they will be removed shortly)
-   for i, toif in ipairs(self.master_if_set:keys())
+   for toif, _ in pairs(self.master_if_set)
    do
       local ifo2 = self:get_if(toif)
       local ns = ifo2.own

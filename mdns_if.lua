@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Mon Feb 11 13:29:55 2013 mstenber
--- Edit time:     593 min
+-- Last modified: Mon Feb 11 14:42:57 2013 mstenber
+-- Edit time:     596 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -170,6 +170,7 @@ function iterate_ns_matching_query(ns, q, kas, f)
    local matched
    local found_cf
 
+   mst.a(type(q) == 'table', 'weird q', q)
    kas = convert_anish_to_kas(kas)
    mst.d('iterate_ns_matching_query', ns, kas)
    --mst.d('iterate_ns_matching_query', kas, q, kas:values())
@@ -1071,8 +1072,6 @@ function mdns_if:query_cache_rr_perhaps(rr)
       self:d('scheduling query', q)
       -- schedule a query for the rr
       self:query(q)
-   else
-      self:d('nobody interested about', rr)
    end
 end
 
@@ -1583,6 +1582,14 @@ end
 
 -- subclassable functionality
 
+function mdns_if:query_for_rr(rr)
+   -- (very specific one, sigh.. would it not be more efficient
+   -- just to ask for 'all'?)
+   return {name=rr.name,
+           qtype=rr.rtype,
+           qclass=rr.rclass}
+end
+
 -- do we have 'active client interest' in this specific rr?
 -- subclasses can obviously override this
 function mdns_if:interested_in_cached(rr)
@@ -1592,13 +1599,10 @@ function mdns_if:interested_in_cached(rr)
       if q and match_q_rr(q, rr)
       then
          self:d('found interested query in us', q, rr)
-         -- (very specific one, sigh.. would it not be more efficient
-         -- just to ask for 'all'?)
-         return {name=q.name,
-                 qtype=rr.rtype,
-                 qclass=rr.rclass}
+         return self:query_for_rr(rr)
       end
    end
+   self:d('no queries matching', rr)
 end
 
 function mdns_if:propagate_rr(rr)

@@ -2,6 +2,8 @@
 
 * MDNS - Things to do
 
+** Track down Avahi crazy renumbering episodes' reasons
+
 ** Write patch set for luasocket changes for Diego
 
 ** Add some sort of 'initial state fetcher' 

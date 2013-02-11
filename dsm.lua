@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:02:05 2012 mstenber
--- Last modified: Mon Feb 11 12:39:17 2013 mstenber
--- Edit time:     53 min
+-- Last modified: Mon Feb 11 15:42:43 2013 mstenber
+-- Edit time:     55 min
 --
 
 -- wierd testing utility class, which simulates a whole topology
@@ -19,11 +19,15 @@ require 'skv'
 
 module(..., package.seeall)
 
+local DEFAULT_MAX_ITERATIONS = 1234
+
 -- simulation master entity - some shared functionality among the
 -- different testcases
 dsm = mst.create_class{class='dsm', mandatory={'e', 
                                                'port_offset',
-                                               'create_callback'}}
+                                               'create_callback'},
+                       max_iterations=DEFAULT_MAX_ITERATIONS,
+                      }
 
 function dsm:init()
    self.skvs = mst.array:new{}
@@ -91,6 +95,7 @@ function dsm:uninit()
 end
 
 function dsm:run_nodes(iters, run_callback, all_first)
+   iters = iters or self.max_iterations
    -- run nodes up to X iterations, or when none of them
    -- don't want to run return true if stop condition was
    -- encountered before iters iterations
@@ -123,6 +128,7 @@ function dsm:get_elapsed_time()
 end
 
 function dsm:run_nodes_and_advance_time(iters, o)
+   iters = iters or self.max_iterations
    o = o or {}
    local i = 1
    while i <= iters
