@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 21:35:07 2013 mstenber
--- Last modified: Wed Feb  6 14:45:38 2013 mstenber
--- Edit time:     252 min
+-- Last modified: Mon Feb 11 11:19:11 2013 mstenber
+-- Edit time:     254 min
 --
 
 local mst = require 'mst'
@@ -123,7 +123,7 @@ function ipi_skiplist:insert_up_to_level(o, l)
    local lt = self.lt
 
    self:ensure_levels(l)
-   mst.a(l >= 1, 'invalid random level', l)
+   self:a(l >= 1, 'invalid random level', l)
    for i=#self.next,l+1,-1
    do
       local nk = self:get_next_key(i)
@@ -145,7 +145,7 @@ function ipi_skiplist:insert_up_to_level(o, l)
       -- and adjust widths, if i > 1
       if i > 1 and width_enabled
       then
-         self:d('weight update level', i, o)
+         --self:d('weight update level', i, o)
          local wk = self:get_width_key(i)
          -- have to determine the # of items in [p, o[ and [o, old[
          local pie = p[wk] + 1
@@ -317,8 +317,8 @@ function ipi_skiplist:remove(o)
    local lk = self.lkey
    local l = o[lk]
 
-   mst.a(not self.iter or self.iter == o, 
-         'trying to remove wrong object mid-iteration!')
+   self:a(not self.iter or self.iter == o, 
+          'trying to remove wrong object mid-iteration!')
 
 
    self:a(l, 'already removed?', o)
@@ -331,14 +331,15 @@ function ipi_skiplist:remove(o)
          nk = self:get_next_key(i)
          wk = self:get_width_key(i)
          p, w = traverse_p_idx_lt(p, nk, wk, w, idx)
-         mst.d('remove in progress', i, w, p, idx, o)
+         
+         --self:d('remove in progress', i, w, p, idx, o)
 
          -- decrement width by 1
          p[wk] = p[wk] - 1
       end
 
       -- make sure o >= p (or self)
-      mst.a(p == self or not lt(o, p), 'went too far', o, p)
+      self:a(p == self or not lt(o, p), 'went too far', o, p)
    else
       for i=#self.next,l+1,-1
       do
@@ -350,7 +351,7 @@ function ipi_skiplist:remove(o)
       end
       -- have to make sure p is strictly less than o; 
       -- otherwise equal-o cases may not work as advertised
-      mst.a(p==self or lt(p, o), 'went too far')
+      self:a(p==self or lt(p, o), 'went too far')
    end
 
    for i=l,1,-1
@@ -385,7 +386,7 @@ function ipi_skiplist:clear_object_fields(o)
    end
    -- if it's of different list of same type, it's still ok
    -- => create fields here
-   --mst.a(l <= #self.next, 'fields from wrong list?', o)
+   --self:a(l <= #self.next, 'fields from wrong list?', o)
    self:ensure_levels(l)
    o[lk] = nil
    for i=1,l
@@ -419,7 +420,7 @@ function ipi_skiplist:iterate_while(f)
    then
       return
    end
-   mst.a(not self.iter, 'nested iteration in progress - probably broken code')
+   self:a(not self.iter, 'nested iteration in progress - probably broken code')
    local nk = self:get_next_key(1)
    local n = self[nk]
    local i = 1
@@ -536,8 +537,8 @@ function ipi_skiplist:sanity_check()
                                   w2 = w2 + o2[wk]
                                   o2 = o2[nk]
                                end
-                               mst.a(o2, 'not found at all on level', i)
-                               mst.a(w2 == w, 'weight mismatch', w, w2)
+                               self:a(o2, 'not found at all on level', i)
+                               self:a(w2 == w, 'weight mismatch', w, w2)
                                pw[i] = {o, w}
                             end
                             return true
