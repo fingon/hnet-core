@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:02:05 2012 mstenber
--- Last modified: Tue Feb  5 13:22:07 2013 mstenber
--- Edit time:     48 min
+-- Last modified: Mon Feb 11 12:39:17 2013 mstenber
+-- Edit time:     53 min
 --
 
 -- wierd testing utility class, which simulates a whole topology
@@ -136,7 +136,22 @@ function dsm:run_nodes_and_advance_time(iters, o)
       local nt = mst.min(unpack(self.nodes:map(function (n) return n:next_time() end)))
       -- success, nobody wants to run anymore
       if not nt then return true end
-      if o.until_callback and o.until_callback() then return true end
+      if o.until_callback and o.until_callback(nt) then return true end
       self:set_time(nt)
    end
+end
+
+function dsm:run_nodes_until_delta(iters, dt)
+   local t = self.t + dt
+   local r = self:run_nodes_and_advance_time(iters,
+                                             {until_callback=function (nt)
+                                                 mst.d('until', nt, t)
+                                                 return not nt or nt > t
+                                             end,
+                                             })
+   if r
+   then
+      self:set_time(t)
+   end
+   return r
 end

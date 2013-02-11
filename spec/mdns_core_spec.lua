@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Fri Feb  8 13:30:32 2013 mstenber
--- Edit time:     693 min
+-- Last modified: Mon Feb 11 12:41:01 2013 mstenber
+-- Edit time:     726 min
 --
 
 -- TO DO: 
@@ -154,8 +154,8 @@ function mydsm:wait_queries_done()
                                        function ()
                                           return self:check_queries_done()
                                        end})
-   self:a(r, 'propagation did not terminate')
-   self:a(check_queries_done(), 'queries still not done')
+      self:a(r, 'propagation did not terminate')
+      self:a(check_queries_done(), 'queries still not done')
 end
 
 
@@ -429,7 +429,7 @@ function create_node_callback(o)
                                   local dn = o.sm.e.nodes[t.rid]
                                   mst.d('calling dn:recvfrom', t.iid)
                                   dn:recvfrom(data, src, mdns_const.PORT, to)
-                                             end)
+                                              end)
    end
    return n
 end
@@ -462,6 +462,14 @@ local rr_dummy_a_cf_nottl = {name={'dummy', 'local'},
                              cache_flush=true,
 }
 
+local rr_dummy_a_cf_ttl0 = {name={'dummy', 'local'},
+                            rdata_a='1.2.3.4', 
+                            rtype=dns_const.TYPE_A,
+                            rclass=dns_const.CLASS_IN,
+                            cache_flush=true,
+                            ttl=0,
+}
+
 local rr_dummy_a_cf = {name={'dummy', 'local'},
                        rdata_a='1.2.3.4', 
                        rtype=dns_const.TYPE_A,
@@ -472,11 +480,11 @@ local rr_dummy_a_cf = {name={'dummy', 'local'},
 
 
 local rr_dummy_a2_cf = {name={'dummy', 'local'},
-                         rdata_a='1.2.3.5', 
-                         rtype=dns_const.TYPE_A,
-                         rclass=dns_const.CLASS_IN,
-                         cache_flush=true,
-                         ttl=DUMMY_TTL,
+                        rdata_a='1.2.3.5', 
+                        rtype=dns_const.TYPE_A,
+                        rclass=dns_const.CLASS_IN,
+                        cache_flush=true,
+                        ttl=DUMMY_TTL,
 }
 
 local rr_dummy_aaaa_cf = {name={'dummy', 'local'},
@@ -488,11 +496,11 @@ local rr_dummy_aaaa_cf = {name={'dummy', 'local'},
 }
 
 local rr_foo_a_cf = {name={'foo', 'local'},
-                       rdata_a='192.168.1.1', 
-                       rtype=dns_const.TYPE_A,
-                       rclass=dns_const.CLASS_IN,
-                       cache_flush=true,
-                       ttl=DUMMY_TTL,
+                     rdata_a='192.168.1.1', 
+                     rtype=dns_const.TYPE_A,
+                     rclass=dns_const.CLASS_IN,
+                     cache_flush=true,
+                     ttl=DUMMY_TTL,
 }
 
 
@@ -545,11 +553,11 @@ local query1_qu = dnscodec.dns_message:encode{
    -- to check s18.5
    h={id=DUMMY_ID2}, 
    qd={{name={'Foo'}, qtype=DUMMY_TYPE, qu=true}},
-                                          }
+                                             }
 
 local query1_type_any_qu = dnscodec.dns_message:encode{
    qd={{name={'Foo'}, qtype=dns_const.TYPE_ANY, qu=true}},
-                                                 }
+                                                      }
 
 local query1_class_any_qu = dnscodec.dns_message:encode{
    qd={{name={'Foo'}, qtype=DUMMY_TYPE, qclass=dns_const.CLASS_ANY, qu=true}},
@@ -563,12 +571,12 @@ local query1_type_nomatch_qu = dnscodec.dns_message:encode{
 
 local query1_class_nomatch_qu = dnscodec.dns_message:encode{
    qd={{name={'Foo'}, qtype=DUMMY_TYPE, qclass=(dns_const.CLASS_IN+1), qu=true}},
-                                                          }
+                                                           }
 
 local query1_kas = dnscodec.dns_message:encode{
    qd={{name={'Foo'}, qtype=DUMMY_TYPE, qu=true}},
    an={rr1},
-                                          }
+                                              }
 
 rr1_low_ttl = mst.table_copy(rr1)
 rr1_low_ttl.ttl = math.floor(rr1.ttl / 4)
@@ -576,7 +584,7 @@ rr1_low_ttl.ttl = math.floor(rr1.ttl / 4)
 local query1_kas_low_ttl = dnscodec.dns_message:encode{
    qd={{name={'Foo'}, qtype=DUMMY_TYPE, qu=true}},
    an={rr1_low_ttl},
-                                          }
+                                                      }
 
 local query_dummy_local_a = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A}},
@@ -591,17 +599,17 @@ local q_dummy_a = {name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}
 
 local query_dummy_local_a_qu = dnscodec.dns_message:encode{
    qd={q_dummy_a},
-                                          }
+                                                          }
 
 local query_dummy_local_a_kas_a_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}},
    an={rr_dummy_a_cf},
-                                          }
+                                                                }
 
 local query_dummy_local_a_kas_aaaa_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}},
    an={rr_dummy_aaaa_cf},
-                                          }
+                                                                   }
 
 local query_dummy_local_any_tc = dnscodec.dns_message:encode{
    h={tc=true},
@@ -615,7 +623,7 @@ local query_kas_dummy_a_cf = dnscodec.dns_message:encode{
 
 local query_dummy_local_aaaa_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_AAAA, qu=true}},
-                                          }
+                                                             }
 
 local q_foo_a = {name=rr_foo_a_cf.name, qtype=dns_const.TYPE_A, qu=true}
 
@@ -625,7 +633,23 @@ local query_dummy_foo_qu = dnscodec.dns_message:encode{
 
 local query_foo_local_a = dnscodec.dns_message:encode{
    qd={{name=rr_foo_a_cf.name, qtype=dns_const.TYPE_A}},
-                                                        }
+
+                                                     }
+local function check_ttl_rr(rr)
+   mst.a(rr.ttl, 
+         'ttl should be set', rr)
+end
+
+local function check_no_ttl_rr(rr)
+   mst.a(not rr.ttl, 
+         'ttl should not be set', rr)
+end
+
+local function ensure_mdns_ttl_set(mdns, ifname, is_own, is_set)
+   local ifo = mdns:get_if('eth1')
+   local ns = is_own and ifo.own or ifo.cache
+   ns:iterate_rrs(is_set and check_ttl_rr or check_no_ttl_rr)
+end
 
 describe("mdns", function ()
             local DUMMY_IP='dummy'
@@ -639,8 +663,8 @@ describe("mdns", function ()
                                            create_callback=create_node_callback}
                            mdns = dsm:create_node{rid='n1', class=_mdns}
                            dummy = dsm:create_node{rid='dummy', 
-                                                dsm=dsm, 
-                                                dummy=true}
+                                                   dsm=dsm, 
+                                                   dummy=true}
                            s = mdns.skv
                            s:set(elsa_pa.OSPF_LAP_KEY, {
                                     {ifname='eth0', owner=true},
@@ -654,28 +678,32 @@ describe("mdns", function ()
                        end)
 
             function run_rr_states(orr, expected_states)
-                  mdns:run()
-                  mdns:insert_if_own_rr('eth1', orr)
-                  --mdns:recvfrom(msg, 'dead:beef::1%eth0', mdns_const.PORT)
-                  local rr = mdns:get_if('eth1').own:values()[1]
-                  local dummies = 0
-                  for k, v in pairs(expected_states)
+               mdns:run()
+               mdns:insert_if_own_rr('eth1', orr)
+               --mdns:recvfrom(msg, 'dead:beef::1%eth0', mdns_const.PORT)
+               local rr = mdns:get_if('eth1').own:values()[1]
+               local dummies = 0
+               for k, v in pairs(expected_states)
+               do
+                  if not v then dummies = dummies + 1 end
+               end
+               while (mst.table_count(expected_states) - dummies) > 0
+               do
+                  local st = rr.state
+                  mst.d('in state', st)
+                  mst.a(expected_states[st])
+                  expected_states[st] = nil
+                  while rr.state == st
                   do
-                     if not v then dummies = dummies + 1 end
-                  end
-                  while (mst.table_count(expected_states) - dummies) > 0
-                  do
-                     mst.d('in state', rr.state)
-                     mst.a(expected_states[rr.state])
-                     expected_states[rr.state] = nil
                      local nt = mdns:next_time()
                      mst.a(nt)
                      dsm:set_time(nt)
                      mdns:run()
                   end
-                  s:set(elsa_pa.OSPF_LAP_KEY, {})
-                  mdns:run()
-                  mst.d('run_rr_states done')
+               end
+               s:set(elsa_pa.OSPF_LAP_KEY, {})
+               mdns:run()
+               mst.d('run_rr_states done')
             end
             it("works (CF=~unique) #cf", function ()
                   expected_states = {[mdns_if.STATE_P1]=true,
@@ -719,7 +747,7 @@ describe("mdns", function ()
                   mst.a(r, 'propagation did not terminate')
                   dsm:assert_receiveds_eq(0)
 
-                        end)
+                                         end)
             it("works (!CF=~shared) #ncf", function ()
                   expected_states = {[mdns_if.STATE_P1]=false,
                                      [mdns_if.STATE_P2]=false,
@@ -811,7 +839,7 @@ describe("mdns", function ()
                   dummy:sanity_check_last_multicast_response()
                   local msg = dummy:get_last_msg()
                   mst.a(#msg.an > 0 and msg.an[1].ttl == 0)
-                        end)
+                                           end)
 
             it("works - 2x CF #rr2", function ()
                   -- 
@@ -847,7 +875,7 @@ describe("mdns", function ()
                   local rr = msg.an[1]
                   mst.a(rr.rtype == dns_const.TYPE_NSEC)
                   mst.a(mst.repr_equal(rr.rdata_nsec.ndn, {'Foo'}),
-                       'ndn missing/wrong', rr)
+                        'ndn missing/wrong', rr)
                   -- s6.30 - NSEC bits MUST NOT contain NSEC
                   mst.a(mst.repr_equal(rr.rdata_nsec.bits, 
                                        {DUMMY_TYPE, DUMMY_TYPE2}),
@@ -860,7 +888,7 @@ describe("mdns", function ()
                   local r = dsm:run_nodes_and_advance_time(123)
                   mst.a(r, 'propagation did not terminate')
                   dsm:assert_receiveds_eq(0)
-                   end)
+                                     end)
 
             function check_f(f, t, cnt)
                local msg = dummy:get_last_msg()
@@ -946,7 +974,7 @@ describe("mdns", function ()
                   check_f('ar')
                   dsm:clear_receiveds()
 
-                   end)
+                                              end)
             it("handles multiple queries correctly #mq", function ()
                   mdns:insert_if_own_rr('eth1', rr_dummy_a_cf)
                   mdns:insert_if_own_rr('eth1', rr_foo_a_cf)
@@ -990,7 +1018,7 @@ describe("mdns", function ()
                   dsm:run_nodes(123)
                   dsm:assert_receiveds_eq(0)
 
-                   end)
+                                                         end)
 
             it("handles non-repeating query ok #nrq", function ()
                   -- set up initial state
@@ -1060,7 +1088,7 @@ describe("mdns", function ()
                   dsm:advance_time(200)
                   mdns:run()
                   dsm:assert_receiveds_eq(0)
-                   end)
+                                                 end)
 
             it("asks for queried things #refresh", function ()
                   mdns:recvfrom(msg1_cf, DUMMY_SRC, mdns_const.PORT)
@@ -1111,13 +1139,13 @@ describe("mdns", function ()
                   -- be in cache
                   mdns:recvfrom(msg_dummy_aaaa_cf, DUMMY_SRC, mdns_const.PORT+1)
                   mst.a(c.cache:count() == 1)
-                   end)
+                                                                     end)
             it("handles cache flush on per rr set, not per rr basis #rrset", function ()
                   mdns:recvfrom(msg_dummy_a_a2_cf, DUMMY_SRC, mdns_const.PORT)
                   local c = mdns:get_if("eth1")
                   local cnt = c.cache:count()
                   mst.a(cnt == 2, 'both records not there?', cnt)
-                   end)
+                                                                             end)
             
             it("won't immediately destroy ttl0 stuff", function ()
                   -- s9.3 SHOULD
@@ -1140,17 +1168,9 @@ describe("mdns", function ()
                   local cnt = c.cache:count()
                   mst.a(cnt == 0, 'record there?', cnt)
 
-                   end)
+                                                       end)
 
             it("keeps own no-ttl records forever #fe", function ()
-                  local function check_no_ttl_rr(rr)
-                     mst.a(not rr.ttl, 
-                           'ttl should not be set', rr)
-                  end
-                  local function ensure_no_own_ttl()
-                     mdns:get_if('eth1').own:iterate_rrs(check_no_ttl_rr)
-                     mst.d('no ttls found')
-                  end
                   local function ensure_reply_sane()
                      -- everything must have ttl > 0, despite
                      -- tl not being set within our data structures
@@ -1164,6 +1184,10 @@ describe("mdns", function ()
                                        function (rr)
                                           mst.a(rr.ttl > 0)
                                        end)
+                  end
+
+                  local function ensure_no_own_ttl()
+                     ensure_mdns_ttl_set(mdns, 'eth1', true, false)
                   end
 
                   mdns:insert_if_own_rr('eth1', rr_dummy_a_cf_nottl)
@@ -1193,8 +1217,8 @@ describe("mdns", function ()
                   dsm:clear_receiveds()
                   ensure_no_own_ttl()
 
-                   end)
-end)
+                                                       end)
+                 end)
 
 describe("mdns_ospf w/o skv", function ()
             local DUMMY_IP='dummy'
@@ -1208,8 +1232,8 @@ describe("mdns_ospf w/o skv", function ()
                                            create_callback=create_node_callback}
                            mdns = dsm:create_node{rid='n1'}
                            dummy = dsm:create_node{rid='dummy', 
-                                                dsm=dsm, 
-                                                dummy=true}
+                                                   dsm=dsm, 
+                                                   dummy=true}
                            s = mdns.skv
                            n:connect_neigh(mdns.rid, 'eth1',
                                            dummy.rid, 'dummyif')
@@ -1231,7 +1255,7 @@ describe("mdns_ospf w/o skv", function ()
                   dsm:clear_receiveds()
                   local ifo = mdns:get_if('eth1')
                   mst.a(ifo.own:count() == 1)
-                                    
+                  
                   -- then, when we remove master flag, it should disappear from
                   -- that interface
                   mdns:set_if_master_set(mst.set:new{eth0=true})
@@ -1259,7 +1283,7 @@ describe("mdns_ospf w/o skv", function ()
                   local ifo = mdns:get_if('eth1')
                   mst.a(ifo.own:count() == 0)
 
-                   end)
+                              end)
                               end)
 describe("degenerate multi-mdns setup (mdns_ospf)", function ()
             local DUMMY_IP='dummy2'
@@ -1270,74 +1294,74 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
             local mdns1, mdns2, mdns3
             local dummy1, dummy2, dummy3
             before_each(function ()
-                  -- basic idea: 'a source' behind one mdns node two
-                  -- other mdns nodes (connected in a triangle) and
-                  -- 'dummy' nodes connected to each mdns interface of
-                  -- interest
+                           -- basic idea: 'a source' behind one mdns node two
+                           -- other mdns nodes (connected in a triangle) and
+                           -- 'dummy' nodes connected to each mdns interface of
+                           -- interest
 
-                  -- this is pathological case where everyone owns all
-                  -- of their interfaces. it should still work, though..
-                  n = dneigh.dneigh:new{}
-                  dsm = mydsm:new{e=n, port_offset=42576,
-                                  create_callback=create_node_callback}
-                  function not_interested()
-                     return
-                  end
-                  mdns1 = dsm:create_node{rid='n1'}
-                  mdns1.interested_in_cached = not_interested
-                  mdns2 = dsm:create_node{rid='n2'}
-                  mdns2.interested_in_cached = not_interested
-                  mdns3 = dsm:create_node{rid='n3'}
-                  mdns3.interested_in_cached = not_interested
-                  dummy1 = dsm:create_node{rid='dummy1', dsm=dsm, dummy=true}
-                  dummy2 = dsm:create_node{rid='dummy2', dsm=dsm, dummy=true}
-                  dummy3 = dsm:create_node{rid='dummy3', dsm=dsm, dummy=true}
-                  local s = mdns1.skv
-                  s:set(elsa_pa.OSPF_LAP_KEY, {
-                           {ifname='id1', owner=true},
-                           {ifname='i123', owner=true},
-                           {ifname='i12', owner=true},
-                           {ifname='i13', owner=true},
-                                              })
+                           -- this is pathological case where everyone owns all
+                           -- of their interfaces. it should still work, though..
+                           n = dneigh.dneigh:new{}
+                           dsm = mydsm:new{e=n, port_offset=42576,
+                                           create_callback=create_node_callback}
+                           function not_interested()
+                              return
+                           end
+                           mdns1 = dsm:create_node{rid='n1'}
+                           mdns1.interested_in_cached = not_interested
+                           mdns2 = dsm:create_node{rid='n2'}
+                           mdns2.interested_in_cached = not_interested
+                           mdns3 = dsm:create_node{rid='n3'}
+                           mdns3.interested_in_cached = not_interested
+                           dummy1 = dsm:create_node{rid='dummy1', dsm=dsm, dummy=true}
+                           dummy2 = dsm:create_node{rid='dummy2', dsm=dsm, dummy=true}
+                           dummy3 = dsm:create_node{rid='dummy3', dsm=dsm, dummy=true}
+                           local s = mdns1.skv
+                           s:set(elsa_pa.OSPF_LAP_KEY, {
+                                    {ifname='id1', owner=true},
+                                    {ifname='i123', owner=true},
+                                    {ifname='i12', owner=true},
+                                    {ifname='i13', owner=true},
+                                                       })
 
-                  local s = mdns2.skv
-                  s:set(elsa_pa.OSPF_LAP_KEY, {
-                           {ifname='id2', owner=true},
-                           {ifname='i213', owner=true},
-                           {ifname='i21', owner=true},
-                           {ifname='i23', owner=true},
-                                              })
+                           local s = mdns2.skv
+                           s:set(elsa_pa.OSPF_LAP_KEY, {
+                                    {ifname='id2', owner=true},
+                                    {ifname='i213', owner=true},
+                                    {ifname='i21', owner=true},
+                                    {ifname='i23', owner=true},
+                                                       })
 
-                  local s = mdns3.skv
-                  s:set(elsa_pa.OSPF_LAP_KEY, {
-                           {ifname='id3', owner=true},
-                           {ifname='i312', owner=true}, 
-                           {ifname='i31', owner=true}, 
-                           {ifname='i32', owner=true}, 
-                                              })
+                           local s = mdns3.skv
+                           s:set(elsa_pa.OSPF_LAP_KEY, {
+                                    {ifname='id3', owner=true},
+                                    {ifname='i312', owner=true}, 
+                                    {ifname='i31', owner=true}, 
+                                    {ifname='i32', owner=true}, 
+                                                       })
 
-                  -- one shared segment
-                  n:connect_neigh(mdns1.rid, 'i123',
-                                  mdns2.rid, 'i213',
-                                  mdns3.rid, 'i312')
+                           -- one shared segment
+                           n:connect_neigh(mdns1.rid, 'i123',
+                                           mdns2.rid, 'i213',
+                                           mdns3.rid, 'i312')
 
-                  -- point-to-point connections
-                  n:connect_neigh(mdns1.rid, 'i12',
-                                  mdns2.rid, 'i21')
+                           -- point-to-point connections
+                           n:connect_neigh(mdns1.rid, 'i12',
+                                           mdns2.rid, 'i21')
 
-                  n:connect_neigh(mdns1.rid, 'i13', 
-                                  mdns3.rid, 'i31')
+                           n:connect_neigh(mdns1.rid, 'i13', 
+                                           mdns3.rid, 'i31')
 
-                  n:connect_neigh(mdns2.rid, 'i23', 
-                                  mdns3.rid, 'i32')
+                           n:connect_neigh(mdns2.rid, 'i23', 
+                                           mdns3.rid, 'i32')
 
-                  -- interface to each dummy node
-                  n:connect_neigh(mdns1.rid, 'id1',
-                                  dummy1.rid, 'dummyif')
-                  n:connect_neigh(mdns2.rid, 'id2',
-                                  dummy2.rid, 'dummyif')
-                  n:connect_neigh(mdns3.rid, 'id3',
-                                  dummy3.rid, 'dummyif')
+                           -- interface to each dummy node
+                           n:connect_neigh(mdns1.rid, 'id1',
+                                           dummy1.rid, 'dummyif')
+                           n:connect_neigh(mdns2.rid, 'id2',
+                                           dummy2.rid, 'dummyif')
+                           n:connect_neigh(mdns3.rid, 'id3',
+                                           dummy3.rid, 'dummyif')
                         end)
             after_each(function ()
                           -- wait awhile
@@ -1369,7 +1393,7 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   -- (1 shouldn't, as it's same interface)
                   dsm:assert_receiveds_eq(0, 5, 5)
 
-                   end)
+                               end)
             it("won't propagate 0 ttl stuff", function ()
                   local r = dsm:run_nodes(3)
                   mst.a(r, 'basic run did not terminate')
@@ -1381,7 +1405,7 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   -- make sure we got _something_ in each dummy
                   -- (1 shouldn't, as it's same interface)
                   dsm:assert_receiveds_eq(0, 0, 0)
-                   end)
+                                              end)
             it("shared records - 2x announce, 1x ttl=0 #shb", function ()
                   mst.d('starting shared record test (3 messages expected)')
 
@@ -1396,7 +1420,7 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   -- two announcements, final ttl=0
                   -- (1 shouldn't, as it's same interface)
                   dsm:assert_receiveds_eq(0, 3, 3)
-                   end)
+                                                              end)
             it("query works #q", function ()
                   local r = dsm:run_nodes(3)
                   mst.a(r, 'basic run did not terminate')
@@ -1547,8 +1571,8 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   mst.d('received', dummy2.received)
                   -- make sure it is unicast
                   dummy2:sanity_check_last_multicast_response()
-                   end)
-end)
+                                 end)
+                                                    end)
 
 describe("realistic multi-mdns setup (mdns_ospf)", function ()
             local DUMMY_IP='dummy2'
@@ -1560,89 +1584,87 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
             local mdns1, mdns2, mdns3
             local dummy1, dummy2, dummy3
             before_each(function ()
-                  -- basic idea: 'a source' behind one mdns node two
-                  -- other mdns nodes (connected in a triangle) and
-                  -- 'dummy' nodes connected to each mdns interface of
-                  -- interest
+                           -- basic idea: 'a source' behind one mdns node two
+                           -- other mdns nodes (connected in a triangle) and
+                           -- 'dummy' nodes connected to each mdns interface of
+                           -- interest
 
-                  -- this is pathological case where everyone owns all
-                  -- of their interfaces. it should still work, though..
-                  n = dneigh.dneigh:new{}
-                  dsm = mydsm:new{e=n, port_offset=43576,
-                                  create_callback=create_node_callback}
-                  mdns1 = dsm:create_node{rid='n1'}
-                  mdns2 = dsm:create_node{rid='n2'}
-                  mdns3 = dsm:create_node{rid='n3'}
+                           -- this is pathological case where everyone owns all
+                           -- of their interfaces. it should still work, though..
+                           n = dneigh.dneigh:new{}
+                           dsm = mydsm:new{e=n, port_offset=43576,
+                                           create_callback=create_node_callback}
+                           mdns1 = dsm:create_node{rid='n1'}
+                           mdns2 = dsm:create_node{rid='n2'}
+                           mdns3 = dsm:create_node{rid='n3'}
 
-                  d = dospf:new{dsm=dsm, rid='dospf'}
-                  dsm:add_node(d)
-                  d:register_to_skvs()
-                  
-                  -- in this topology, dummies are replaced by real
-                  -- mdns implementations, using the non-ospf-aware
-                  -- mdns code; the network is also NOT pathological,
-                  -- that is, only only one owner per network
-                  -- (one with highest name)
+                           d = dospf:new{dsm=dsm, rid='dospf'}
+                           dsm:add_node(d)
+                           d:register_to_skvs()
+                           
+                           -- in this topology, dummies are replaced by real
+                           -- mdns implementations, using the non-ospf-aware
+                           -- mdns code; the network is also NOT pathological,
+                           -- that is, only only one owner per network
+                           -- (one with highest name)
 
-                  dummy1 = dsm:create_node{rid='dummy1', class=_mdns}
-                  dummy2 = dsm:create_node{rid='dummy2', class=_mdns}
-                  dummy3 = dsm:create_node{rid='dummy3', class=_mdns}
-                  dummy1.skv:set(elsa_pa.OSPF_LAP_KEY, {
-                                    {ifname='dummyif', owner=true}
-                                                       })
-                  dummy2.skv:set(elsa_pa.OSPF_LAP_KEY, {
-                                    {ifname='dummyif', owner=true}
-                                                       })
-                  dummy3.skv:set(elsa_pa.OSPF_LAP_KEY, {
-                                    {ifname='dummyif', owner=true}
-                                                       })
+                           dummy1 = dsm:create_node{rid='dummy1', class=_mdns}
+                           dummy2 = dsm:create_node{rid='dummy2', class=_mdns}
+                           dummy3 = dsm:create_node{rid='dummy3', class=_mdns}
+                           dummy1.skv:set(elsa_pa.OSPF_LAP_KEY, {
+                                             {ifname='dummyif', owner=true}
+                                                                })
+                           dummy2.skv:set(elsa_pa.OSPF_LAP_KEY, {
+                                             {ifname='dummyif', owner=true}
+                                                                })
+                           dummy3.skv:set(elsa_pa.OSPF_LAP_KEY, {
+                                             {ifname='dummyif', owner=true}
+                                                                })
 
-                  local s = mdns1.skv
-                  s:set(elsa_pa.OSPF_LAP_KEY, {
-                           {ifname='id1', owner=true},
-                           {ifname='i123'},
-                           {ifname='i12'},
-                           {ifname='i13'},
-                                              })
+                           mdns1.skv:set(elsa_pa.OSPF_LAP_KEY, {
+                                            {ifname='id1', owner=true},
+                                            {ifname='i1', owner=true}, 
+                                            {ifname='i123'},
+                                            {ifname='i12'},
+                                            {ifname='i13'},
+                                                               })
 
-                  local s = mdns2.skv
-                  s:set(elsa_pa.OSPF_LAP_KEY, {
-                           {ifname='id2', owner=true},
-                           {ifname='i213'},
-                           {ifname='i21', owner=true},
-                           {ifname='i23'},
-                                              })
+                           mdns2.skv:set(elsa_pa.OSPF_LAP_KEY, {
+                                            {ifname='id2', owner=true},
+                                            {ifname='i213'},
+                                            {ifname='i21', owner=true},
+                                            {ifname='i23'},
+                                                               })
 
-                  local s = mdns3.skv
-                  s:set(elsa_pa.OSPF_LAP_KEY, {
-                           {ifname='id3', owner=true},
-                           {ifname='i312', owner=true}, 
-                           {ifname='i31', owner=true}, 
-                           {ifname='i32', owner=true}, 
-                                              })
+                           mdns3.skv:set(elsa_pa.OSPF_LAP_KEY, {
+                                            {ifname='id3', owner=true},
+                                            {ifname='i312', owner=true}, 
+                                            {ifname='i31', owner=true}, 
+                                            {ifname='i32', owner=true}, 
+                                                               })
 
-                  -- one shared segment
-                  n:connect_neigh(mdns1.rid, 'i123',
-                                  mdns2.rid, 'i213',
-                                  mdns3.rid, 'i312')
+                           -- one shared segment
+                           n:connect_neigh(mdns1.rid, 'i123',
+                                           mdns2.rid, 'i213',
+                                           mdns3.rid, 'i312')
 
-                  -- point-to-point connections
-                  n:connect_neigh(mdns1.rid, 'i12',
-                                  mdns2.rid, 'i21')
+                           -- point-to-point connections
+                           n:connect_neigh(mdns1.rid, 'i12',
+                                           mdns2.rid, 'i21')
 
-                  n:connect_neigh(mdns1.rid, 'i13', 
-                                  mdns3.rid, 'i31')
+                           n:connect_neigh(mdns1.rid, 'i13', 
+                                           mdns3.rid, 'i31')
 
-                  n:connect_neigh(mdns2.rid, 'i23', 
-                                  mdns3.rid, 'i32')
+                           n:connect_neigh(mdns2.rid, 'i23', 
+                                           mdns3.rid, 'i32')
 
-                  -- interface to each dummy node
-                  n:connect_neigh(mdns1.rid, 'id1',
-                                  dummy1.rid, 'dummyif')
-                  n:connect_neigh(mdns2.rid, 'id2',
-                                  dummy2.rid, 'dummyif')
-                  n:connect_neigh(mdns3.rid, 'id3',
-                                  dummy3.rid, 'dummyif')
+                           -- interface to each dummy node
+                           n:connect_neigh(mdns1.rid, 'id1',
+                                           dummy1.rid, 'dummyif')
+                           n:connect_neigh(mdns2.rid, 'id2',
+                                           dummy2.rid, 'dummyif')
+                           n:connect_neigh(mdns3.rid, 'id3',
+                                           dummy3.rid, 'dummyif')
                         end)
             after_each(function ()
                           -- wait awhile
@@ -1684,7 +1706,7 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                end
                if count_desired() then return end
                local r = dsm:run_nodes_and_advance_time(123, 
-                                                         {until_callback=count_desired})
+                                                        {until_callback=count_desired})
                mst.a(r, 'propagation did not terminate')
                mst.a(count_desired(), 'dummies not in desired state')
 
@@ -1705,14 +1727,49 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
 
                   -- insert rr with ttl to own of dummy1; it should
                   -- propagate eventually to dummy2 and dummy3
-                  dummy1:insert_if_own_rr('dummyif', rr1_cf)
+                  dummy1:insert_if_own_rr('dummyif', rr_dummy_a_cf)
 
                   -- each dummy should receive this, eventually
                   wait_cache_counts(1, 0, 0)
-                  wait_own_counts(0, 2, 4)
+
+                  -- # of own interfaces * 2 (record + nsec)
+                  wait_own_counts(2, 4, 8)
 
                   -- eventually, cache and own entries should also disappear
                   wait_cache_counts(0, 0, 0)
                   wait_own_counts(0, 0, 0)
-                   end)
-end)
+                             end)
+            it("maintains state ~forever #rf", function ()
+                  mst.d('a) inserting rr')
+
+                  dummy1:insert_if_own_rr('dummyif', rr_dummy_a_cf_nottl)
+
+                  mst.d('b) waiting propagation')
+                  wait_cache_counts(1, 0, 0)
+                  wait_own_counts(2, 4, 8)
+                  -- random inspection - on mdns1,
+                  -- the entries _should_ have ttl,
+                  -- but on others, owned entries shouldn't
+                  -- as they're learned across OSPF
+                  ensure_mdns_ttl_set(mdns1, 'i1', true, true)
+                  ensure_mdns_ttl_set(mdns2, 'id2', true, false)
+                  ensure_mdns_ttl_set(mdns3, 'id3', true, false)
+
+                  mst.d('c) waiting AWHILE')
+                  -- wait a long while, see that entries stick around
+                  -- (due to active querying etc)
+                  local r = dsm:run_nodes_until_delta(12345,
+                                                      DUMMY_TTL * 10)
+                  mst.a(r, 'propagation did not terminate')
+
+
+                  -- should eventually die out
+                  mst.d('d) inserting TTL 0')
+                  dummy1:insert_if_own_rr('dummyif', rr_dummy_a_cf_ttl0)
+                  mst.d('e) waiting expiration')
+                  wait_cache_counts(0, 0, 0)
+                  wait_own_counts(0, 0, 0)
+
+                  
+                                               end)
+                                                   end)

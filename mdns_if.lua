@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Mon Feb 11 10:27:32 2013 mstenber
--- Edit time:     583 min
+-- Last modified: Mon Feb 11 12:17:34 2013 mstenber
+-- Edit time:     585 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -1267,6 +1267,11 @@ function mdns_if:schedule_for_e_in_q(e, q)
 end
 
 function mdns_if:next_time()
+   if self.dirty_nsec
+   then
+      return 0
+   end
+
    local best, bestsrc
    function maybe(t, src, o)
       if not t then return end

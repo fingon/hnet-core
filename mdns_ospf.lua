@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Thu Feb  7 20:04:16 2013 mstenber
--- Edit time:     187 min
+-- Last modified: Mon Feb 11 12:31:47 2013 mstenber
+-- Edit time:     194 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -199,6 +199,8 @@ function mdns:handle_ospf_cache()
       then
          orr.invalid = nil
       else
+         -- assume EVERYTHING except PTR are unique
+         rr.cache_flush = rr.rtype ~= dns_const.TYPE_PTR
          rr = ns:insert_rr(rr, true)
          self:d('added cache rr', rr)
       end
@@ -263,7 +265,11 @@ function mdns:publish_cache()
       then
          ifo.cache:iterate_rrs(function (rr)
                                   mst.d(' found owned', rr)
-                                  ns:insert_rr(rr)
+                                  -- NSEC can be generated on other side too
+                                  if rr.rtype ~= dns_const.RTYPE_NSEC
+                                  then
+                                     ns:insert_rr(rr)
+                                  end
                                end)
       end
    end
@@ -476,13 +482,16 @@ end
 function mdns:propagate_rr_to_ifo(rr, ifo)
    -- if we have received the entry _from_ that interface,
    -- we don't want to propagate it there
-   local ns = ifo.cache
-   if not ns:find_rr(rr)
+   local nsc = ifo.cache
+   if not nsc:find_rr(rr)
    then
       -- there isn't conflict - so we can just peacefully insert
       -- the rr to the own list
-      mst.d('adding to', ifo)
+      self:d('adding to', ifo)
       ifo:insert_own_rr(rr)
+   else
+      self:d('in cache of interface', ifo)
+
    end
 end
 
