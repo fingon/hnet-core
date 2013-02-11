@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Mon Feb 11 12:17:34 2013 mstenber
--- Edit time:     585 min
+-- Last modified: Mon Feb 11 13:29:55 2013 mstenber
+-- Edit time:     593 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -235,7 +235,7 @@ function mdns_if:init()
    function self.cache.removed_callback(x, rr)
       self.cache_sl:remove_if_present(rr)
    end
-                            
+   
    self.own_sl = mst_skiplist.ipi_skiplist:new{p=2,
                                                prefix='own_sl',
                                                lt=next_is_less,
@@ -292,7 +292,7 @@ end
 function mdns_if:run_own_states(now)
    -- stateful waiting is handled here
    -- (expire handles non-stateful)
-   mst.a(type(now) == 'number', now)
+   self:a(type(now) == 'number', now)
    local ns = self.own
    local pending
    self.own_sl:iterate_while(function (rr)
@@ -313,7 +313,7 @@ function mdns_if:run_own_states(now)
                              end)
    if pending
    then
-      mst.d('running pending states', pending:count())
+      self:d('running pending states', pending:count())
       -- initially, clear wait_until of _all_ pending entries we
       -- picked (not done during iterate_while to avoid breaking skiplist)
       for rr, state in pairs(pending)
@@ -335,7 +335,7 @@ end
 
 
 function mdns_if:run_expire(now)
-   mst.a(type(now) == 'number', now)
+   self:a(type(now) == 'number', now)
 
    local pending
 
@@ -438,7 +438,7 @@ function mdns_if:run()
    -- ( see e.g. update_sl_if_changed )
 
    --local nt = self:next_time()
-   --mst.a(not nt or nt >= now, 
+   --self:a(not nt or nt >= now, 
    --'if we just did RTC step, why do we want to move to past?', now, nt)
 end
 
@@ -481,7 +481,7 @@ function mdns_if:get_rr_full_ttl(rr)
    -- otherwise, default to type
    local v = (dns_rdata.rtype_map[rr.rtype] or {}).default_ttl 
       or mdns_const.DEFAULT_NONAME_TTL
-   mst.a(v, 'empty ttl somehow is not possible')
+   self:a(v, 'empty ttl somehow is not possible')
    return v
 end
 
@@ -508,7 +508,7 @@ function mdns_if:get_own_nsec_rr_current_ttl(rr, now)
       then
          local ttl = self:get_own_rr_current_ttl(rr2, now)
          self:a(ttl, 'no ttl for rr', rr2)
-         if not least or least > ttl
+         if not least or (ttl and least > ttl)
          then
             least = ttl
          end
@@ -516,8 +516,13 @@ function mdns_if:get_own_nsec_rr_current_ttl(rr, now)
    end
    -- nsec should exist only as long as other rr's do; therefore,
    -- if it still exists, but nothing else does, things have gone ..
-   -- wrong.
-   self:a(least, 'no ttl found?!?')
+   -- wrong. 
+
+   -- pretend it is at ttl 0, as this is possible now that
+   -- the nsec calculation is handled via 'dirty' mechanism, and
+   -- not in quite real time.
+   least = least or 0
+
    return least
 end
 
@@ -564,7 +569,7 @@ function mdns_if:copy_rrs_with_updated_ttl(rrl, unicast, legacy, force)
             --self:d('invalid ttl?', rr, ttl)
          end
       else
-         mst.d('unicast entry', ttl, rr)
+         self:d('unicast entry', ttl, rr)
       end
       if ttl > 0
       then
@@ -643,7 +648,7 @@ function mdns_if:send_reply(an, ar, kas, id, dst, dstport, unicast)
    h.aa = true
 
    local s = dnscodec.dns_message:encode(o)
-   mst.d('sending reply', o)
+   self:d('sending reply', o)
    self:sendto(s, dst, dstport)
 
 end
@@ -660,7 +665,7 @@ function mdns_if:send_multicast_query(qd, kas, ns)
       -- also pretend to be legacy - according to section 10 of the
       -- draft, cache flush should not be set 
       an = self:copy_rrs_with_updated_ttl(oan, true, true)
-      mst.d('kas ttl update', #oan, #an)
+      self:d('kas ttl update', #oan, #an)
    end
    local s = dnscodec.dns_message:encode{qd=qd, an=an, ns=ns}
    self:sendto(s, dst, mdns_const.PORT)
@@ -717,7 +722,7 @@ function mdns_if:query(q, rep)
    local now = self:time()
    local when = now + delay
    local latest = when + 0.5
-   mst.d(now, 'adding query', when, latest, q, rep)
+   self:d(now, 'adding query', when, latest, q, rep)
    self.pending:insert{when=when, latest=latest, query=q, rep=rep}
 end
 
@@ -744,23 +749,23 @@ function mdns_if:send_delayed_multicast_queries(ql)
    local kas = dnsdb.ns:new{}
    local now = self:time()
 
-   mst.d('send_delayed_multicast_queries', #ql)
+   self:d('send_delayed_multicast_queries', #ql)
    -- note: we _shouldn't_ have duplicate queries, and even if
    -- we do, it doesn't really _matter_.. 
    function maybe_insert_kas(rr)
       -- if too much time has expired, don't bother
       if rr.valid_kas and rr.valid_kas < now
       then
-         mst.d('valid_kas < now, skipped')
+         self:d('valid_kas < now, skipped')
          return
       end
       -- if it's already in, don't bother
       if kas:find_rr(rr)
       then
-         mst.d('already in kas')
+         self:d('already in kas')
          return
       end
-      mst.d('new kas', rr)
+      self:d('new kas', rr)
       kas:insert_rr(rr)
    end
    for i, e in ipairs(ql)
@@ -779,7 +784,7 @@ end
 
 function mdns_if:send_delayed_multicast_replies(q)
    if #q == 0 then return end
-   mst.d('send_delayed_multicast_replies', #q)
+   self:d('send_delayed_multicast_replies', #q)
 
    -- what we do, is go through the queries, and answer to anything
    -- not on kas of that particular query (or answered with one of the
@@ -819,7 +824,7 @@ function mdns_if:send_delayed_multicast(p)
    local function is_query(p)
       return p.query
    end
-   mst.d('send_delayed_multicast', #p)
+   self:d('send_delayed_multicast', #p)
    local q, r = mst.array_filter2(p, is_query)
    self:send_delayed_multicast_queries(q)
    self:send_delayed_multicast_replies(r)
@@ -968,7 +973,7 @@ function mdns_if:upsert_cache_rr(rr)
                                    then
                                       found = true
                                       local ttl = self:get_own_rr_current_ttl(rr2)
-                                      if ttl >= (rr.ttl * 2)
+                                      if ttl > (rr.ttl * 2)
                                       then
                                          -- pretend to have received
                                          -- query for it => matching stuff
@@ -1190,10 +1195,10 @@ function mdns_if:insert_own_rrset(l)
 
       if rr.ttl
       then
-         mst.a(o.valid, 'valid not set for own w/ ttl')
-         mst.a(o.next, 'next not set for own w/ ttl')
+         self:a(o.valid, 'valid not set for own w/ ttl')
+         self:a(o.next, 'next not set for own w/ ttl')
       else
-         mst.a(not o.valid, 'valid set for own rr w/o ttl')
+         self:a(not o.valid, 'valid set for own rr w/o ttl')
          -- next may be set, if we're just probing on the interface
          -- (for example)
       end
@@ -1212,7 +1217,7 @@ function mdns_if:set_state(rr, st)
    if w
    then
       local now = self:time()
-      mst.a(type(now) == 'number', 'wierd time', now)
+      self:a(type(now) == 'number', 'wierd time', now)
       local wu = now + mst.randint(w[1], w[2]) / 1000.0
       rr.wait_until = wu
       self:update_next_own(rr)
@@ -1328,7 +1333,7 @@ function mdns_if:gather_in_states(states, lastfield, maxdelay)
                        waitmore = rr.wait_until
                     end
                  end
-             end)
+              end)
    if waitmore and (not last or (now-last) < maxdelay)
    then
       -- as one callback is enough to send all (and update the states
@@ -1350,8 +1355,8 @@ function mdns_if:gather_in_states(states, lastfield, maxdelay)
       -- _also_ change state, there should be never two
       -- concrete multicast-producing calls of same type, at same time.
       -- so make sure it never happens here.
-      mst.a(not self[lastfield] or self[lastfield] < now, 
-            'logic flaw - cannot be spamming multicast')
+      self:a(not self[lastfield] or self[lastfield] < now, 
+             'logic flaw - cannot be spamming multicast')
       self[lastfield] = now
    end
    return r
@@ -1375,7 +1380,7 @@ function mdns_if:send_announces()
    local h = mdns_const.DEFAULT_RESPONSE_HEADER
    local s = dnscodec.dns_message:encode{an=an, h=h}
    local dst = mdns_const.MULTICAST_ADDRESS_IPV6 .. '%' .. self.ifname
-   mst.d(now, 'sending announce(s)', #an)
+   self:d(now, 'sending announce(s)', #an)
    -- XXX ( handle fragmentation )
    self:sendto(s, dst, mdns_const.PORT)
 end
@@ -1406,7 +1411,7 @@ function mdns_if:send_probes()
       self:set_next_state(rr)
    end
    -- XXX ( handle fragmentation )
-   mst.d('sending probes', #qd, #ons)
+   self:d('sending probes', #qd, #ons)
    -- copy the objects s.t. we DON'T update sent timestamps etc
    -- (as these are not considered authoritative), but we DO update ttls
    ons = self:copy_rrs_with_updated_ttl(ons)
@@ -1492,7 +1497,7 @@ function mdns_if:handle_recvfrom(data, addr, srcport)
    -- if message is garbage, we just ignore
    if not msg
    then
-      mst.d('ignoring garbage - decode error', err)
+      self:d('ignoring garbage - decode error', err)
       return
    end
 
@@ -1605,7 +1610,7 @@ function mdns_if:expire_cache_rr(rr)
 end
 
 function mdns_if:start_expire_own_rr(rr)
-   mst.d('start_expire_own_rr', rr)
+   self:d('start_expire_own_rr', rr)
 
    -- start ttl=0 process for the rr, and process it on next event
    self:update_rr_ttl(rr, 0)
