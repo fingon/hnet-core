@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu Feb  7 21:27:38 2013 mstenber
--- Edit time:     578 min
+-- Last modified: Mon Feb 11 10:27:32 2013 mstenber
+-- Edit time:     583 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -38,6 +38,11 @@ require 'mdns_const'
 require 'mst_skiplist'
 
 module(..., package.seeall)
+
+-- Ignore the TTL values below this; the TTL due to clock differences
+-- can skew a bit, and lead to unneccessary network churn if we
+-- e.g. re-broadcast TTL below 5
+IGNORE_TTL_BELOW=5
 
 -- probing states (waiting to send message N)
 STATE_P1='p1'
@@ -521,6 +526,11 @@ function mdns_if:get_own_rr_current_ttl(rr, now)
    then
       return self:get_own_nsec_rr_current_ttl(rr, now)
    end
+   -- if we received(/sent) 0, it means 0, regardless of validity
+   if rr.ttl and rr.ttl < IGNORE_TTL_BELOW
+   then
+      return 0
+   end
    if not rr.valid
    then
       return self:get_rr_full_ttl(rr)
@@ -988,7 +998,7 @@ function mdns_if:upsert_cache_rr(rr)
    if not o 
    then 
       -- if we didn't announce it, no need to start with 0 announce
-      if rr.ttl == 0 then return end
+      if rr.ttl < IGNORE_TTL_BELOW then return end
       o = nsc:insert_rr(rr) 
       self:d('[cache] added RR', o)
    end
@@ -1089,7 +1099,7 @@ function mdns_if:upsert_cache_rrs(rrlist)
          -- (except if they're our own)
          self:stop_propagate_conflicting_rr(rr, true)
       end
-      if rr.ttl == 0 and not nsc:find_rr(rr) and not ns:find_rr(rr)
+      if rr.ttl < IGNORE_TTL_BELOW and not nsc:find_rr(rr) and not ns:find_rr(rr)
       then
          -- skip
       else
@@ -1128,7 +1138,7 @@ function mdns_if:insert_own_rrset(l)
       if rr.rtype == dns_const.TYPE_NSEC
       then
          -- nop
-      elseif rr.ttl == 0
+      elseif rr.ttl and rr.ttl < IGNORE_TTL_BELOW
       then
          local o = ns:find_rr(rr)
          if not o

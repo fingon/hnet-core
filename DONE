@@ -1,5 +1,20 @@
 -*- outline -*-
 
+* Done (11.2.2013+)
+
+** Determine why some state saves across test cases
+
+make => fail; individual busted run => success (bisect done, test case is
+mdns_core_spec #shb which fails, it apparently starts announcing something
+else, and expiring something else too, for some reason).
+
+Chances are, the nondeterministic run order of nodes is different when run
+individually as opposed to when run as part of the whole, but if that is
+the cause, there is something fundamentally broken _somewhere_. 
+
+- seems like the ttl=0 handling was bit too severe; added IGNORE_TTL_BELOW,
+  below which we consider ttls 'not interesting' 
+
 * Done (last week of January, 2013)
 
 ** Test OSPF LAP-based local interface stuff
