@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:37:02 2012 mstenber
--- Last modified: Fri Feb  8 11:18:46 2013 mstenber
--- Edit time:     43 min
+-- Last modified: Thu Feb 14 10:37:01 2013 mstenber
+-- Edit time:     47 min
 --
 
 require "busted"
@@ -184,5 +184,25 @@ describe("ns", function ()
                      ns:remove_rr(rr)
                   end
                   mst.a(ns:count() == 0)
+                   end)
+            it("handles removal of bunch of entries correctly", function ()
+                  local ns = dnsdb.ns:new{enable_copy=true}
+                  local n = 100
+                  for i=1,n
+                  do
+                     ns:insert_rr{rtype=42, rclass=1, name={'foo'}, rdata=i}
+                  end
+                  local ic = 0
+                  ns:iterate_rrs_for_ll_safe({'foo'},
+                                             function (rr)
+                                                ic = ic + 1
+                                                local orr = ns:find_rr(rr)
+                                                mst.a(orr)
+                                                ns:remove_rr(orr)
+                                             end)
+                  local cnt = ns:count()
+                  mst.a(ic == n, 'iterate did not go through all', ic, n)
+                  mst.a(cnt == 0, 'iterate+find+remove broken', cnt)
+
                    end)
 end)

@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Fri Jan 18 10:37:48 2013 mstenber
+-- Last modified: Thu Feb 14 11:09:53 2013 mstenber
 -- Edit time:     270 min
 --
 
@@ -130,13 +130,12 @@ function dns_rr:try_decode(cur, context)
    local handler = dns_rdata.rtype_map[r.rtype]
    if handler 
    then 
-      self:d('using handler')
-      self:d('using handler', cur)
+      --self:d('using handler', cur)
       local ok, err = handler:decode(r, cur, context)
       if not ok then return nil, err end
    else
       local l = r.rdlength
-      self:d('default rdata handling (as-is)', r.rtype, l)
+      --self:d('default rdata handling (as-is)', r.rtype, l)
       if l > 0
       then
          if not cursor_has_left(cur, l)

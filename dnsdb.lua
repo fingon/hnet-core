@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Tue Feb  5 14:08:35 2013 mstenber
--- Edit time:     185 min
+-- Last modified: Thu Feb 14 10:39:08 2013 mstenber
+-- Edit time:     189 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -167,6 +167,18 @@ function ns:iterate_rrs(f)
                       end)
 end
 
+function ns:iterate_rrs_safe(f)
+   self:a(f, 'nil function')
+   local r = {}
+   self:iterate_rrs(function (rr)
+                       table.insert(r, rr)
+                    end)
+   for i, rr in ipairs(r)
+   do
+      f(rr)
+   end
+end
+
 function ns:iterate_rrs_for_ll(ll, f)
    -- just in case, make sure it's ll
    ll = name2ll(ll)
@@ -180,6 +192,22 @@ function ns:iterate_rrs_for_ll(ll, f)
       end
    end
 end
+
+function ns:iterate_rrs_for_ll_safe(ll, f)
+   local r 
+   self:iterate_rrs_for_ll(ll, function (rr)
+                              r = r or {}
+                              table.insert(r, rr)
+                               end)
+   if r
+   then
+      for i, rr in ipairs(r)
+      do
+         f(rr)
+      end
+   end
+end
+
 
 function ns:find_rr_list_for_ll(ll)
    local r = {}

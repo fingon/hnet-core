@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Mon Feb 11 17:35:38 2013 mstenber
--- Edit time:     749 min
+-- Last modified: Thu Feb 14 11:29:45 2013 mstenber
+-- Edit time:     751 min
 --
 
 -- TO DO: 
@@ -323,6 +323,9 @@ function dummynode:sanity_check_last_probe()
    
    -- s8.6 SHOULD
    mst.a(msg.qd[1].qu == true, 'non-qu probe')
+
+   -- general sanity check - we should have # of questions <= # of answers
+   mst.a(#msg.qd <= #msg.ns)
 end
 
 function dummynode:sanity_check_last_announce()
@@ -853,6 +856,8 @@ describe("mdns", function ()
                   dsm:wait_receiveds_counts(1)
                   -- now we have one query (=probe) packet to analyze.
                   -- let's!
+                  dummy:sanity_check_last_probe()
+                  dsm:wait_receiveds_counts(2)
                   dummy:sanity_check_last_probe()
 
                   dsm:wait_receiveds_counts(5)

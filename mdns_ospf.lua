@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Mon Feb 11 15:42:16 2013 mstenber
--- Edit time:     197 min
+-- Last modified: Thu Feb 14 11:13:05 2013 mstenber
+-- Edit time:     211 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -25,9 +25,6 @@
 
 -- ospf-mdns, and mdns contain entries with {name={'x','y','z'},
 -- rtype=N, rdata_N='...'} format. Omitted things: 
-
--- - cache_flush bit (we assume we know which rtypes are; typically,
--- everything not PTR seems to be)
 
 -- - ttl (we use mdns defaults, as stuff in OSPF is 'valid for now',
 -- and once it disappears from OSPF, it should also disappear from
@@ -93,6 +90,7 @@ function ospf_if:interested_in_cached(rr)
       return _mdns_if.interested_in_cached(self, rr)
    end
    -- if master, yes, we're interested
+   self:d('master interface, interested in cached', rr)
    return self:query_for_rr(rr)
 end
 
@@ -202,8 +200,6 @@ function mdns:handle_ospf_cache()
       then
          orr.invalid = nil
       else
-         -- assume EVERYTHING except PTR are unique
-         rr.cache_flush = rr.rtype ~= dns_const.TYPE_PTR
          rr = ns:insert_rr(rr, true)
          self:d('added cache rr', rr)
       end
@@ -219,15 +215,15 @@ function mdns:handle_ospf_cache()
    end
    
    -- then, look for invalid ones
-   ns:iterate_rrs(function (rr)
-                     if not rr.invalid then return end
-                     self:d('setting ttl=0', rr)
-                     -- wtf should we do with this anyway? update with
-                     -- ttl=0, and then get rid of it?
-                     rr.ttl = 0
-                     self:propagate_if_rr(nil, rr)
-                     ns:remove_rr(rr)
-                  end)
+   ns:iterate_rrs_safe(function (rr)
+                          if not rr.invalid then return end
+                          self:d('setting ttl=0', rr)
+                          -- wtf should we do with this anyway? update with
+                          -- ttl=0, and then get rid of it?
+                          rr.ttl = 0
+                          self:propagate_if_rr(nil, rr)
+                          ns:remove_rr(rr)
+                       end)
 end
 
 function mdns:run()
@@ -257,6 +253,7 @@ end
 function mdns:publish_cache()
    local t = {}
 
+
    -- gather the rr's in dnsdb.ns, to prevent duplicates from hitting
    -- the wire
    local ns = dnsdb.ns:new{}
@@ -267,7 +264,7 @@ function mdns:publish_cache()
       if self.master_if_set[ifname]
       then
          ifo.cache:iterate_rrs(function (rr)
-                                  mst.d(' found owned', rr)
+                                  --mst.d(' found owned', rr)
                                   -- NSEC can be generated on other side too
                                   if rr.rtype ~= dns_const.RTYPE_NSEC
                                   then
@@ -284,9 +281,12 @@ function mdns:publish_cache()
                      local v = rr[f]
                      self:a(v, 'no rdata?', to, rr)
                      local n = USE_STRINGS_INSTEAD_OF_NAMES_IN_SKV and dnsdb.ll2nameish(rr.name) or rr.name
+                     -- if 'false', don't include it at all
+                     local cf = rr.cache_flush and rr.cache_flush
                      local d = {name=n,
                                 rtype=rt,
                                 rclass=dns_const.CLASS_IN,
+                                cache_flush=cf,
                                 [f]=v,
                      }
                      mst.d(' adding entry', d)
@@ -397,7 +397,7 @@ end
 function mdns:set_if_master_set(masterset)
    self.master_if_set = masterset
    local fresh
-   self:d('syncing ifs')
+   self:d('syncing ifs', masterset)
    mst.sync_tables(self.ifname2if, self.master_if_set,
                    -- remove spurious
                    function (k, v)
@@ -425,6 +425,7 @@ function mdns:set_if_master_set(masterset)
                    function (k, v1, v2)
                       if not v1.is_master 
                       then
+                         self:d(' enabling ', k)
                          v1.is_master = true
                          fresh = fresh or mst.set:new{}
                          fresh:insert(k)

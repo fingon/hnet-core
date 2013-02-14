@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Mon Feb 11 18:09:06 2013 mstenber
--- Edit time:     628 min
+-- Last modified: Thu Feb 14 11:33:47 2013 mstenber
+-- Edit time:     639 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -282,6 +282,7 @@ function mdns_if:refresh_dirty_nsecs()
    local d = self.dirty_nsec
    if not d then return end
    self.dirty_nsec = nil
+   -- non-safe version is ok, as we don't mutate d, but self instead
    d:iterate_rrs(function (rr)
                     self:update_rr_related_nsec(rr)
                  end)
@@ -1391,7 +1392,8 @@ function mdns_if:send_announces()
       self:set_next_state(rr)
       rr[FIELD_SENT_MCAST] = now
    end
-   an = self:copy_rrs_with_updated_ttl(an, true, false, true)
+   -- not unicast, not legacy, force sending (no last sent checks)
+   an = self:copy_rrs_with_updated_ttl(an, false, false, true)
    local h = mdns_const.DEFAULT_RESPONSE_HEADER
    local s = dnscodec.dns_message:encode{an=an, h=h}
    local dst = mdns_const.MULTICAST_ADDRESS_IPV6 .. '%' .. self.ifname
@@ -1429,7 +1431,9 @@ function mdns_if:send_probes()
    self:d('sending probes', #qd, #ons)
    -- copy the objects s.t. we DON'T update sent timestamps etc
    -- (as these are not considered authoritative), but we DO update ttls
-   ons = self:copy_rrs_with_updated_ttl(ons)
+   -- not unicast, not legacy, force sending (no last sent checks)
+   ons = self:copy_rrs_with_updated_ttl(ons, false, false, true)
+   mst.a(#qd <= #ons, 'somehow eliminated too many prospective answers?')
    self:send_multicast_query(qd, nil, ons)
 end
 
@@ -1651,12 +1655,12 @@ function mdns_if:stop_propagate_conflicting_rr_sub(rr, clear_rrset)
    end
 
    -- find similar rr's that are not equal to this rr
-   self.own:iterate_rrs_for_ll(rr.name,
-                               function (rr2)
-                                  -- if exactly same, skip
-                                  self:d('[conflict] removing own', rr2)
-                                  self:stop_propagate_rr(rr2)
-                               end)
+   self.own:iterate_rrs_for_ll_safe(rr.name,
+                                    function (rr2)
+                                       -- if exactly same, skip
+                                       self:d('[conflict] removing own', rr2)
+                                       self:stop_propagate_rr(rr2)
+                                    end)
 end
 
 
