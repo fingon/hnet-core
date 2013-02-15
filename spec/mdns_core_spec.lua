@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Fri Feb 15 14:13:13 2013 mstenber
--- Edit time:     774 min
+-- Last modified: Fri Feb 15 14:21:21 2013 mstenber
+-- Edit time:     780 min
 --
 
 -- TO DO: 
@@ -1278,6 +1278,144 @@ describe("mdns", function ()
                   mst.a(ifo.cache:count() == 1, 'ttl=0 for older cf did not work')
 
                    end)
+
+            it("handles various queries correctly #q", function ()
+                  mdns:recvfrom(msg1, DUMMY_SRC, mdns_const.PORT)
+                  dsm:wait_receiveds_counts(2)
+                  dsm:clear_receiveds()
+
+                  -- couple of different cases
+
+                  -- a) unicast should work always (even when stuff
+                  -- has just been multicast)
+                  -- dummy asks => dummy gets (3 times)
+                  -- s5.20 SHOULD
+                  mst.d('a) 2x unicast query')
+
+                  -- s6.46 MUST handle legacy unicast's
+                  mdns:recvfrom(query1, DUMMY_SRC, mdns_const.PORT + 1)
+                  mdns:recvfrom(query1, DUMMY_SRC, mdns_const.PORT + 1)
+                  dsm:wait_receiveds_counts(2)
+                  -- make sure it is unicast
+                  dummy:assert_received_to(DUMMY_IP)
+                  dummy:sanity_check_last_unicast_response(DUMMY_ID1)
+                  dsm:clear_receiveds()
+
+                  -- s5.18 SHOULD
+                  mst.d('a1) qu')
+                  mdns:recvfrom(query1_qu, DUMMY_SRC, mdns_const.PORT)
+                  dsm:wait_receiveds_counts(1)
+                  mst.d('received', dummy.received)
+                  -- make sure it is unicast
+                  dummy:assert_received_to(DUMMY_IP)
+                  dummy:sanity_check_last_unicast_response(DUMMY_ID2)
+
+                  -- b) multicast should NOT work right after
+                  -- multicast was received (0.2 to account for
+                  -- processing delay)
+                  mst.d('b) no-direct-multicast-reply')
+                  dsm:clear_receiveds()
+                  mdns:recvfrom(query1, DUMMY_SRC, mdns_const.PORT)
+                  dsm:advance_time(0.2)
+                  local r = dsm:run_nodes()
+                  mst.a(r, 'did not terminate')
+                  dsm:wait_receiveds_counts(0)
+
+                  -- c) multicast should work 'a bit' after
+                  mst.d('c) advancing time')
+                  dsm:clear_receiveds()
+                  dsm:advance_time(2)
+
+                  -- try first with rcode set - shouldn't do a thing
+                  -- (s18.27)
+                  mdns:recvfrom(query1_rcode, DUMMY_SRC, mdns_const.PORT)
+                  local r = dsm:run_nodes()
+                  dsm:assert_receiveds_eq(0)
+                  dsm:assert_queries_done()
+
+                  mdns:recvfrom(query1, DUMMY_SRC, mdns_const.PORT)
+                  local r = dsm:run_nodes()
+                  mst.a(r, 'did not terminate')
+                  -- no immediate reply - should wait bit before replying
+                  dsm:assert_receiveds_eq(0)
+                  -- but eventually we should get what we want
+                  dsm:advance_time(0.6)
+                  local r = dsm:run_nodes()
+                  mst.a(r, 'did not terminate')
+                  dsm:assert_receiveds_eq(1)
+                  dummy:sanity_check_last_multicast_response()
+                  dsm:clear_receiveds()
+
+                  -- move time forward bit
+                  dsm:advance_time(0.7)
+
+                  -- yet another query should not provide result
+                  -- within 0,8sec (1sec spam limit)
+                  -- s6.21 MUST
+                  mdns:recvfrom(query1, DUMMY_SRC, mdns_const.PORT)
+                  local r = dsm:run_nodes()
+                  mst.a(r, 'did not terminate')
+                  dsm:advance_time(0.2)
+                  local r = dsm:run_nodes()
+                  mst.a(r, 'did not terminate')
+                  dsm:assert_receiveds_eq(0)
+
+                  -- d) KAS should work
+                  -- => no answer if known
+                  -- s7.1 MUST - KAS ttl >= real ttl / 2
+                  dsm:advance_time(2)
+                  mst.d('d) KAS 1')
+                  mdns:recvfrom(query1_kas, DUMMY_SRC, mdns_const.PORT)
+                  local r = dsm:run_nodes()
+                  mst.a(r, 'did not terminate')
+                  -- no immediate reply - should wait bit before replying
+                  dsm:assert_receiveds_eq(0)
+                  -- but eventually we should get what we want
+                  dsm:advance_time(0.6)
+                  local r = dsm:run_nodes()
+                  mst.a(r, 'did not terminate')
+                  dsm:assert_receiveds_eq(0)
+
+
+                  mst.d('d) KAS 2')
+                  -- s7.2 MUST - KAS ttl < real ttl / 2
+                  mdns:recvfrom(query1_kas_low_ttl, DUMMY_SRC, mdns_const.PORT)
+                  local r = dsm:run_nodes()
+                  mst.a(r, 'did not terminate')
+                  dsm:assert_receiveds_eq(1)
+                  dsm:clear_receiveds()
+
+                  -- e) check that different queries work
+                  -- as expected; that is, type=all results something,
+                  -- but no type => no answer
+                  -- s6.2
+                  dsm:advance_time(2)
+                  mdns:recvfrom(query1_type_any_qu, DUMMY_SRC, mdns_const.PORT)
+                  mdns:recvfrom(query1_class_any_qu, DUMMY_SRC, mdns_const.PORT)
+                  mdns:recvfrom(query1_class_any_qu, DUMMY_SRC, mdns_const.PORT)
+                  mdns:recvfrom(query1_type_nomatch_qu, DUMMY_SRC, mdns_const.PORT)
+                  mdns:recvfrom(query1_class_nomatch_qu, DUMMY_SRC, mdns_const.PORT)
+
+                  -- shouldn't have caused any query to be waiting..
+                  dsm:assert_queries_done()
+                  -- Just one reply (qtype=any); qtype=nonexistent
+                  -- => no answer
+                  dsm:assert_receiveds_eq(3)
+                  dsm:clear_receiveds()
+
+                  -- .. last ..) should reply with multicast to qu
+                  -- if enough time has elapsed
+                  -- s5.19 SHOULD
+                  dsm:advance_time(DUMMY_TTL / 2)
+                  mdns:recvfrom(query1_qu, DUMMY_SRC, mdns_const.PORT)
+                  -- can't be instant
+                  dsm:assert_receiveds_eq(0)
+                  dsm:wait_receiveds_counts(1)
+                  mst.d('received', dummy.received)
+                  -- make sure it is unicast
+                  dummy:sanity_check_last_multicast_response()
+
+                   end)
                  end)
 
 describe("mdns_ospf w/o skv", function ()
@@ -1486,7 +1624,7 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   -- (1 shouldn't, as it's same interface)
                   dsm:assert_receiveds_eq(4, 3, 3)
                                                               end)
-            it("query works #q", function ()
+            it("announce works", function ()
                   if not DEGENERATE_CASES_WORK then return end
                   local r = dsm:run_nodes(3)
                   mst.a(r, 'basic run did not terminate')
@@ -1506,137 +1644,6 @@ describe("degenerate multi-mdns setup (mdns_ospf)", function ()
                   -- typically ~1.3 second?
                   mst.a(elapsed < 1.5, 'took too long', elapsed, #dummy1.received, #dummy2.received, #dummy3.received)
                   dsm:clear_receiveds()
-
-                  -- couple of different cases
-
-                  -- a) unicast should work always (even when stuff
-                  -- has just been multicast)
-                  -- dummy2 asks => dummy2 gets (3 times)
-                  -- s5.20 SHOULD
-                  mst.d('a) 2x unicast query')
-
-                  -- s6.46 MUST handle legacy unicast's
-                  mdns2:recvfrom(query1, DUMMY_SRC, mdns_const.PORT + 1)
-                  mdns2:recvfrom(query1, DUMMY_SRC, mdns_const.PORT + 1)
-                  dsm:wait_receiveds_counts(0, 2, 0)
-                  -- make sure it is unicast
-                  dummy2:assert_received_to(DUMMY_IP)
-                  dummy2:sanity_check_last_unicast_response(DUMMY_ID1)
-                  dsm:clear_receiveds()
-
-                  -- s5.18 SHOULD
-                  mst.d('a1) qu')
-                  mdns2:recvfrom(query1_qu, DUMMY_SRC, mdns_const.PORT)
-                  dsm:wait_receiveds_counts(0, 1, 0)
-                  mst.d('received', dummy2.received)
-                  -- make sure it is unicast
-                  dummy2:assert_received_to(DUMMY_IP)
-                  dummy2:sanity_check_last_unicast_response(DUMMY_ID2)
-
-                  -- b) multicast should NOT work right after
-                  -- multicast was received (0.2 to account for
-                  -- processing delay)
-                  mst.d('b) no-direct-multicast-reply')
-                  dsm:clear_receiveds()
-                  mdns2:recvfrom(query1, DUMMY_SRC, mdns_const.PORT)
-                  dsm:advance_time(0.2)
-                  local r = dsm:run_nodes()
-                  mst.a(r, 'did not terminate')
-                  dsm:wait_receiveds_counts(0, 0, 0)
-
-                  -- c) multicast should work 'a bit' after
-                  mst.d('c) advancing time')
-                  dsm:clear_receiveds()
-                  dsm:advance_time(2)
-
-                  -- try first with rcode set - shouldn't do a thing
-                  -- (s18.27)
-                  mdns2:recvfrom(query1_rcode, DUMMY_SRC, mdns_const.PORT)
-                  local r = dsm:run_nodes()
-                  dsm:assert_receiveds_eq(0, 0, 0)
-                  dsm:assert_queries_done()
-
-                  mdns2:recvfrom(query1, DUMMY_SRC, mdns_const.PORT)
-                  local r = dsm:run_nodes()
-                  mst.a(r, 'did not terminate')
-                  -- no immediate reply - should wait bit before replying
-                  dsm:assert_receiveds_eq(0, 0, 0)
-                  -- but eventually we should get what we want
-                  dsm:advance_time(0.6)
-                  local r = dsm:run_nodes()
-                  mst.a(r, 'did not terminate')
-                  dsm:assert_receiveds_eq(0, 1, 0)
-                  dummy2:sanity_check_last_multicast_response()
-                  dsm:clear_receiveds()
-
-                  -- move time forward bit
-                  dsm:advance_time(0.7)
-
-                  -- yet another query should not provide result
-                  -- within 0,8sec (1sec spam limit)
-                  -- s6.21 MUST
-                  mdns2:recvfrom(query1, DUMMY_SRC, mdns_const.PORT)
-                  local r = dsm:run_nodes()
-                  mst.a(r, 'did not terminate')
-                  dsm:advance_time(0.2)
-                  local r = dsm:run_nodes()
-                  mst.a(r, 'did not terminate')
-                  dsm:assert_receiveds_eq(0, 0, 0)
-
-                  -- d) KAS should work
-                  -- => no answer if known
-                  -- s7.1 MUST - KAS ttl >= real ttl / 2
-                  dsm:advance_time(2)
-                  mst.d('d) KAS 1')
-                  mdns2:recvfrom(query1_kas, DUMMY_SRC, mdns_const.PORT)
-                  local r = dsm:run_nodes()
-                  mst.a(r, 'did not terminate')
-                  -- no immediate reply - should wait bit before replying
-                  dsm:assert_receiveds_eq(0, 0, 0)
-                  -- but eventually we should get what we want
-                  dsm:advance_time(0.6)
-                  local r = dsm:run_nodes()
-                  mst.a(r, 'did not terminate')
-                  dsm:assert_receiveds_eq(0, 0, 0)
-
-
-                  mst.d('d) KAS 2')
-                  -- s7.2 MUST - KAS ttl < real ttl / 2
-                  mdns2:recvfrom(query1_kas_low_ttl, DUMMY_SRC, mdns_const.PORT)
-                  local r = dsm:run_nodes()
-                  mst.a(r, 'did not terminate')
-                  dsm:assert_receiveds_eq(0, 1, 0)
-                  dsm:clear_receiveds()
-
-                  -- e) check that different queries work
-                  -- as expected; that is, type=all results something,
-                  -- but no type => no answer
-                  -- s6.2
-                  dsm:advance_time(2)
-                  mdns2:recvfrom(query1_type_any_qu, DUMMY_SRC, mdns_const.PORT)
-                  mdns2:recvfrom(query1_class_any_qu, DUMMY_SRC, mdns_const.PORT)
-                  mdns2:recvfrom(query1_class_any_qu, DUMMY_SRC, mdns_const.PORT)
-                  mdns2:recvfrom(query1_type_nomatch_qu, DUMMY_SRC, mdns_const.PORT)
-                  mdns2:recvfrom(query1_class_nomatch_qu, DUMMY_SRC, mdns_const.PORT)
-
-                  -- shouldn't have caused any query to be waiting..
-                  dsm:assert_queries_done()
-                  -- Just one reply (qtype=any); qtype=nonexistent
-                  -- => no answer
-                  dsm:assert_receiveds_eq(0, 3, 0)
-                  dsm:clear_receiveds()
-
-                  -- .. last ..) should reply with multicast to qu
-                  -- if enough time has elapsed
-                  -- s5.19 SHOULD
-                  dsm:advance_time(DUMMY_TTL / 2)
-                  mdns2:recvfrom(query1_qu, DUMMY_SRC, mdns_const.PORT)
-                  -- can't be instant
-                  dsm:assert_receiveds_eq(0, 0, 0)
-                  dsm:wait_receiveds_counts(0, 1, 0)
-                  mst.d('received', dummy2.received)
-                  -- make sure it is unicast
-                  dummy2:sanity_check_last_multicast_response()
                                  end)
                                                     end)
 
