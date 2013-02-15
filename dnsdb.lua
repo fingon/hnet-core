@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Thu Feb 14 10:39:08 2013 mstenber
--- Edit time:     189 min
+-- Last modified: Fri Feb 15 12:57:46 2013 mstenber
+-- Edit time:     191 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -110,6 +110,10 @@ function rr:repr_data()
       d.rdata = self.rdata
    end
    return mst.repr(d)
+end
+
+function rr:get_rdata()
+   return dnscodec.dns_rr:produce_rdata(self)
 end
 
 function rr:rdata_equals(o)
@@ -214,6 +218,21 @@ function ns:find_rr_list_for_ll(ll)
    self:iterate_rrs_for_ll(ll, function (rr)
                               table.insert(r, rr)
                                end)
+   return r
+end
+
+function ns:find_rr_list(o)
+   local r 
+   self:a(o.name, 'missing name', o)
+   self:a(o.rtype, 'missing rtype', o)
+   for i, rr in ipairs(self:find_rr_list_for_ll(o.name))
+   do
+      if rr:equals(o)
+      then
+         r = r or {}
+         table.insert(r, rr)
+      end
+   end
    return r
 end
 

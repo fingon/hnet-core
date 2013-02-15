@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu Feb 14 11:33:47 2013 mstenber
--- Edit time:     639 min
+-- Last modified: Fri Feb 15 13:39:15 2013 mstenber
+-- Edit time:     713 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -56,6 +56,12 @@ SEND_PROBES_EVERY=0.3
 
 -- forcibly send announces every <this period>, even if there are more pending
 SEND_ANNOUNCES_EVERY=1.2
+
+-- how often can RR be sent on link (probe overrides this)
+MINIMAL_RR_SEND_INTERVAL=1
+
+-- how long we maintain idea about what others are probing for
+KEEP_PROBES_FOR=1
 
 -- waiting to start probe again
 -- STATE_WP1='wp1' 
@@ -178,14 +184,19 @@ function mdns_if:init()
                                                  prefix='cache_sl',
                                                  lt=next_is_less,
                                                 }
+   function self.cache.inserted_callback(x, rr)
+      self:cache_changed_rr(rr, true)
+   end
    function self.cache.removed_callback(x, rr)
       self.cache_sl:remove_if_present(rr)
+      self:cache_changed_rr(rr, false)
    end
    
    self.own_sl = mst_skiplist.ipi_skiplist:new{p=2,
                                                prefix='own_sl',
                                                lt=next_is_less,
                                               }
+
    function self.own.inserted_callback(x, rr)
       if rr.cache_flush
       then
@@ -199,6 +210,21 @@ function mdns_if:init()
          self:mark_nsec_dirty(rr)
       end
    end
+
+   self.probe = dnsdb.ns:new{}
+   self.probe_sl = mst_skiplist.ipi_skiplist:new{p=2,
+                                                 prefix='probe_sl',
+                                                 lt=next_is_less,
+                                                }
+end
+
+function mdns_if:cache_changed_rr(rr, mode)
+   -- parent doesn't really need to know
+   --self.parent:cache_changed_if_rr(self.ifname, rr, mode)
+
+   -- anything else than the fact taht rr state for this entry may be
+   -- suspicious
+   self.parent:queue_check_propagate_if_rr(self.ifname, rr)
 end
 
 function mdns_if:kas_matches_rr(is_own, kas, rr)
@@ -389,7 +415,6 @@ function mdns_if:run_expire(now)
                                      return true
                                   end
                                   self:d('[cache] getting rid of', rr)
-                                  self:expire_cache_rr(rr)
                                   self.cache:remove_rr(rr)
                                   return true
                                end)
@@ -428,6 +453,9 @@ end
 function mdns_if:run()
    -- get current timestamp
    local now = self:time()
+
+   -- get rid of old probes if any
+   self:prune_probes()
 
    -- clear up the dirty nsec entries, if any, that are around
    -- as result of 'other' processing
@@ -566,18 +594,19 @@ function mdns_if:get_cache_rr_current_ttl(rr, now)
 end
 
 function mdns_if:copy_rrs_with_updated_ttl(rrl, unicast, legacy, force)
-   local now = self:time()
    local r = {}
+   local now = self:time()
+   local invalid_since = (now - MINIMAL_RR_SEND_INTERVAL)
    for i, rr in ipairs(rrl)
    do
       local ttl = self:get_own_rr_current_ttl(rr, now)
       if not unicast 
       then
-         if rr[FIELD_SENT_MCAST] and rr[FIELD_SENT_MCAST] > (now - 1) and not force
+         if rr[FIELD_SENT_MCAST] and rr[FIELD_SENT_MCAST] > invalid_since and not force
          then
             --self:d('omitting - too recently sent', rr)
             ttl = 0
-         elseif rr[FIELD_RECEIVED] and rr[FIELD_RECEIVED] > (now - 1) and not force
+         elseif rr[FIELD_RECEIVED] and rr[FIELD_RECEIVED] > invalid_since and not force
          then
             --self:d('omitting - too recently received', rr)
             ttl = 0
@@ -852,18 +881,41 @@ end
 function mdns_if:handle_multicast_probe(msg)
    self:d('got probe')
 
-   -- XXX - this breaks MDNS idea somewhat, as we never defend
-   -- something we claim is unique!
-
-   -- zap _all_ conflicting records matching the entries being probed
    for i, rr in ipairs(msg.ns)
    do
-      if rr.cache_flush
-      then
-         -- non-conflicting ones we don't need to care about!
-         self:stop_propagate_conflicting_rr(rr)
-      end
+      self:probed_rr(rr)
    end
+end
+
+function mdns_if:probed_rr(rr)
+   -- get rid of old probes if any
+   self:prune_probes()
+
+   local now = self:time()
+   rr = self.probe:insert_rr(rr)
+   self:update_sl_if_changed(self.probe_sl, rr, now)
+
+   self:queue_check_propagate_rr(rr)
+end
+
+function mdns_if:prune_probes()
+   local now = self:time()
+   local invalid_before = now - KEEP_PROBES_FOR
+
+   self.probe_sl:iterate_while(function (rr)
+                                  if rr.next > invalid_before
+                                  then
+                                     return
+                                  end
+                                  self.probe:remove_rr(rr)
+                                  self.probe_sl:remove(rr)
+                                  self:queue_check_propagate_rr(rr)
+                                  return true
+                               end)
+end
+
+function mdns_if:queue_check_propagate_rr(rr)
+   self.parent:queue_check_propagate_if_rr(self.ifname, rr)
 end
 
 function mdns_if:msg_if_all_answers_known_and_unique(msg)
@@ -1033,8 +1085,7 @@ function mdns_if:upsert_cache_rr(rr)
    self:update_next_cached(o)
 
    -- propagate the information (in some form) onwards
-   self:d('propagating onward')
-   self:propagate_rr(o)
+   self:queue_check_propagate_rr(o)
 end
 
 function mdns_if:update_sl_if_changed(sl, o, v)
@@ -1103,33 +1154,44 @@ function mdns_if:update_next_own(o)
    end
 end
 
+function mdns_if:expire_cache_rr(rr)
+   self:update_rr_ttl(rr, 0)
+   self:update_next_cached(rr)
+end
+
+function mdns_if:expire_cache_old_same_name_rtype(rr, invalid_since)
+   self.cache:iterate_rrs_for_ll_safe(rr.name,
+                                      function (rr2)
+                                         if rr2.rtype == rr.rtype 
+                                            and rr2.rclass == rr.rclass
+                                            and rr2[FIELD_RECEIVED] <= invalid_since
+                                         then
+                                            self:expire_cache_rr(rr2)
+                                         else
+                                            self:d('ignoring', rr2)
+                                         end
+                                      end)
+end
+
 
 function mdns_if:upsert_cache_rrs(rrlist)
    if not rrlist or not #rrlist then return end
-   -- initially, get rid of the conflicting ones based on
-   -- cache_flush being set; due to this, we insert whole set's
-   -- worth of cache_flushed entries at once, later..
-   local todo = {}
    local ns = self.own
    local nsc = self.cache
+   local now = self:time()
+   local invalid_since = now - 1
    for i, rr in ipairs(rrlist)
    do
       if rr.cache_flush
       then
-         -- stop publishing potentially conflicting ones _everywhere_
-         -- (except if they're our own)
-         self:stop_propagate_conflicting_rr(rr, true)
+         self:expire_cache_old_same_name_rtype(rr, invalid_since)
       end
       if rr.ttl < IGNORE_TTL_BELOW and not nsc:find_rr(rr) and not ns:find_rr(rr)
       then
          -- skip
       else
-         table.insert(todo, rr)
+         self:upsert_cache_rr(rr)
       end
-   end
-   for i, rr in ipairs(todo)
-   do
-      self:upsert_cache_rr(rr)
    end
 end
 
@@ -1147,6 +1209,8 @@ function mdns_if:handle_multicast_response(msg)
 end
 
 function mdns_if:insert_own_rrset(l)
+   if not l then return end
+
    local ns = self.own
 
    local todo = {}
@@ -1417,7 +1481,9 @@ function mdns_if:send_probes()
    do
       local found = false
       tns:iterate_rrs_for_ll(rr.name, function () found=true end)
-      if not found
+      -- sending query for something that is about to expire doesn't make
+      -- sense
+      if not found and self:get_own_rr_current_ttl(rr) > 0
       then
          table.insert(qd, {qtype=dns_const.TYPE_ANY,
                            qclass=rr.rclass,
@@ -1429,12 +1495,16 @@ function mdns_if:send_probes()
    end
    -- XXX ( handle fragmentation )
    self:d('sending probes', #qd, #ons)
+   if #qd == 0
+   then
+      return
+   end
    -- copy the objects s.t. we DON'T update sent timestamps etc
    -- (as these are not considered authoritative), but we DO update ttls
    -- not unicast, not legacy, force sending (no last sent checks)
-   ons = self:copy_rrs_with_updated_ttl(ons, false, false, true)
-   mst.a(#qd <= #ons, 'somehow eliminated too many prospective answers?')
-   self:send_multicast_query(qd, nil, ons)
+   ttl_ons = self:copy_rrs_with_updated_ttl(ons, true, true)
+   mst.a(#qd <= #ttl_ons, 'somehow eliminated too many prospective answers?', qd, ons)
+   self:send_multicast_query(qd, nil, ttl_ons)
 end
 
 
@@ -1600,6 +1670,42 @@ function mdns_if:handle_recvfrom(data, addr, srcport)
 
 end
 
+function mdns_if:propagate_o_l(o, l)
+   -- project: update the 'own' s.t. for anything matching 'o', it
+   -- roughly matches 'l' => update own state accordingly.
+   
+
+   -- O(n log n)
+   local rdata2own = {}
+   local ol = self.own:find_rr_list(o)
+   for i, rr in ipairs(ol or {})
+   do
+      rdata2own[dnsdb.rr.get_rdata(rr)] = rr
+   end
+
+   -- O(n log n)
+   local rdata2l = {}
+   for i, rr in ipairs(l or {})
+   do
+      rdata2l[dnsdb.rr.get_rdata(rr)] = rr
+   end
+   
+   -- (?) - hopefully efficient
+   self:insert_own_rrset(l)
+
+   -- O(n log n-ish)
+   for k, rr in pairs(rdata2own)
+   do
+      local rr2 = rdata2l[k]
+      if not rr2
+      then
+         -- this should be destroyed
+         self:start_expire_own_rr(rr)
+      end
+   end
+
+end
+
 -- subclassable functionality
 
 function mdns_if:query_for_rr(rr)
@@ -1625,16 +1731,14 @@ function mdns_if:interested_in_cached(rr)
    self:d('no queries matching', rr)
 end
 
-function mdns_if:propagate_rr(rr)
-   self.parent:propagate_if_rr(self.ifname, rr)
-end
-
-function mdns_if:expire_cache_rr(rr)
-   self.parent:expire_if_cache_rr(self.ifname, rr)
-end
-
 function mdns_if:start_expire_own_rr(rr)
    self:d('start_expire_own_rr', rr)
+
+   -- nop if already being expired
+   if rr.ttl == 0
+   then
+      return
+   end
 
    -- start ttl=0 process for the rr, and process it on next event
    self:update_rr_ttl(rr, 0)
@@ -1643,32 +1747,3 @@ function mdns_if:start_expire_own_rr(rr)
    self:update_next_own(rr)
 end
 
-function mdns_if:stop_propagate_conflicting_rr_sub(rr, clear_rrset)
-   if not clear_rrset
-   then
-      -- see if it exists within the rr - if it does, no
-      -- need to zap anything
-      if self.own:find_rr(rr)
-      then
-         return
-      end
-   end
-
-   -- find similar rr's that are not equal to this rr
-   self.own:iterate_rrs_for_ll_safe(rr.name,
-                                    function (rr2)
-                                       -- if exactly same, skip
-                                       self:d('[conflict] removing own', rr2)
-                                       self:stop_propagate_rr(rr2)
-                                    end)
-end
-
-
-
-function mdns_if:stop_propagate_conflicting_rr(rr, clear_rrset)
-   self.parent:stop_propagate_conflicting_if_rr(self.ifname, rr, clear_rrset)
-end
-
-function mdns_if:rr_has_cache_conflicts(rr)
-   return self.parent:if_rr_has_cache_conflicts(self.ifname, rr)
-end

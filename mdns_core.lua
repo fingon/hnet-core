@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Mon Feb 11 17:52:54 2013 mstenber
--- Edit time:     899 min
+-- Last modified: Fri Feb 15 14:09:39 2013 mstenber
+-- Edit time:     960 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -149,12 +149,12 @@ function mdns:get_if(ifname)
    return o
 end
 
-function mdns:iterate_ifs_ns(key, f)
+function mdns:iterate_ifs_ns(is_own, f)
    self:a(f, 'nil function')
    for ifname, o in pairs(self.ifname2if)
    do
-      local ns = o[key]
-      ns:iterate_rrs(f)
+      local ns = is_own and o.own or o.cache
+      f(ns, o)
    end
 end
 
@@ -167,10 +167,11 @@ function mdns:iterate_ifs_matching_q(is_own, q, f)
 end
 
 function mdns:repr_data()
-   return '?'
+   return mst.repr{rid=self.rid}
 end
 
 function mdns:run()
+   self:run_propagate_check()
    self.now = self.time()
    -- expire items
    for ifname, ifo in pairs(self.ifname2if)
@@ -189,12 +190,17 @@ end
 
 function mdns:next_time()
    local best
-   for ifname, ifo in pairs(self.ifname2if)
-   do
-      local b = ifo:next_time()
-      if not best or (b and b < best)
-      then
-         best = b
+   if self.pending_propagate_check
+   then
+      best = 0
+   else
+      for ifname, ifo in pairs(self.ifname2if)
+      do
+         local b = ifo:next_time()
+         if not best or (b and b < best)
+         then
+            best = b
+         end
       end
    end
    mst.d('next_time returning', best)
@@ -244,19 +250,18 @@ end
 
 function mdns:own_count()
    local c = 0
-   self:iterate_ifs_ns('own', 
-                       function ()
-                          c = c + 1
+   self:iterate_ifs_ns(true, 
+                       function (ns)
+                          c = c + ns:count()
                        end)
    return c
 end
 
 function mdns:cache_count()
    local c = 0
-   self:iterate_caches(function (ns)
-                          ns:iterate_rrs(function (rr)
-                                            c = c + 1
-                                         end)
+   self:iterate_ifs_ns(false, 
+                       function (ns)
+                          c = c + ns:count()
                        end)
    return c
 end
@@ -283,70 +288,204 @@ function mdns:insert_if_own_rr(ifname, rr)
    ifo:insert_own_rr(rr)
 end
 
-function mdns:iterate_caches(f)
-   for toif, ifo in pairs(self.ifname2if)
-   do
-      f(ifo.cache, ifo)
-   end
-end
+function mdns:queue_check_propagate_if_rr(ifname, rr)
+   local p = self.pending_propagate_check
 
-function mdns:if_rr_has_cache_conflicts(ifname, rr)
-   -- if it's non-cache-flush-entry, it's probably ok
-   -- XXX - what should be the behavior be with mixed unique/shared
-   -- entries for same names?
-   if not rr.cache_flush
+   -- we don't propagate NSEC records, instead we produce them
+   if rr.rtype == dns_const.TYPE_NSEC
    then
       return
    end
 
-   -- look if we have cache_flush enabled rr in _some_ cache, that
-   -- isn't _exactly_ same as this. if we do, it's a conflict
-   -- (regardless of whether this one is cache_flush=true)
-   self:iterate_caches(function (ns, ifo)
-                          if ifo.ifname ~=  ifname
-                          then
-                             -- unfortunately, we have to consider
-                             -- _all_ records that match the name =>
-                             -- not insanely efficient.. but oh
-                             -- well. we know specifically what we're
-                             -- looking for, after all.
-                             local conflict
-                             ns:iterate_rrs_for_ll(rr.name, 
-                                                   function (o)
-                                                      if o.cache_flush
-                                                      then
-                                                         self:d('found conflict for ', rr, o)
-                                                         conflict = true
-                                                      end
-                                                   end)
-                             if conflict then return true end
-                          end
-
-                       end)
-end
-
--- These four are 'overridable' functionality for the
--- subclasses; basically, how the different cases of propagating
--- cache rr's state onward are handled
--- (.. or if they are!)
-function mdns:propagate_if_rr(ifname, rr)
-end
-
-function mdns:stop_propagate_conflicting_if_rr(ifname, rr, clear_rrset)
-   -- same we can keep
-   for ifname, ifo in pairs(self.ifname2if)
-   do
-      ifo:stop_propagate_conflicting_rr_sub(rr, clear_rrset)
+   if not p
+   then
+      p = dnsdb.ns:new{}
+      self.pending_propagate_check = p
+   end
+   local o = p:insert_rr{name=rr.name,
+                         rtype=rr.rtype,
+                         rclass=dns_const.CLASS_IN,
+                         ifname=ifname}
+   if o.ifname and o.ifname ~= ifname
+   then
+      o.ifname = nil
    end
 end
 
-function mdns:expire_if_cache_rr(ifname, rr)
-   --this should happen on it's own as the own entries also have
-   --(by default) assumedly ttl's
+function mdns:queue_check_propagate_all()
+   -- this is rather brute-force; for EVERY cache interface, check
+   -- _everything_. hopefully configuration doesn't change that often..
 
-   --self:stop_propagate_rr_sub(rr, ifname, false, true)
+   -- (we take entries both from cache + own on all interfaces to be
+   -- thorough)
+   self:iterate_ifs_ns(false, 
+                       function (ns, ifo)
+                          ns:iterate_rrs(function (rr)
+                                            local n = ifo and ifo.ifname
+                                            self:queue_check_propagate_if_rr(n, rr)
+                                         end)
+                       end)
+   self:iterate_ifs_ns(true, 
+                       function (ns, ifo)
+                          ns:iterate_rrs(function (rr)
+                                            local n = ifo and ifo.ifname
+                                            self:queue_check_propagate_if_rr(n, rr)
+                                         end)
+                       end)
 end
 
+function mdns:run_propagate_check()
+   if not self.pending_propagate_check
+   then
+      return
+   end
+   local p = self.pending_propagate_check
+   self.pending_propagate_check = nil
+   p:iterate_rrs(function (rr)
+                    self:run_propagate_check_o(rr)
+                 end)
+end
+
+function mdns:valid_propagate_src_ifo(ifo)
+   return true
+end
+
+function mdns:valid_propagate_dst_ifo(ifo)
+   return true
+end
+
+function mdns:run_propagate_check_o(o)
+   -- o is rr-ish, but cache_flush, rdata, and so forth are not set
+   
+   -- first off, detect if there's conflict for this name+rtype
+   -- across _all_ caches; if there is, all we need to do is
+   -- just remove all related own entries
+   local c = 0
+   local foundifo
+   o.cache_flush = true
+   self:iterate_ifs_ns(false, function (ns, ifo)
+                          if not self:valid_propagate_src_ifo(ifo)
+                          then
+                             return
+                          end
+                          -- see if we can find cache_flush
+                          local r = ns:find_rr_list(o)
+                          if r
+                          then
+                             for _, rr in ipairs(r)
+                             do
+                                if rr.cache_flush
+                                then
+                                   foundifo = ifo
+                                   c = c + 1
+                                   return
+                                end
+                             end
+                          end
+                          -- similarly, if it has been probed
+                          -- for, it is CF name+rtype
+                          if ifo and ifo.probe
+                          then
+                             r = ifo.probe:find_rr_list(o)
+                             if r
+                             then
+                                foundifo = ifo
+                                c = c + 1
+                             end
+                          end
+                              end)
+   self:d('run_propagate_check_o', o, c, foundifo)
+   if c > 1
+   then
+      -- XXX - we should probably ensure that if the content seen
+      -- on both interfaces is same, we can still propagate it;
+      -- however, for the time being, we choose not to do that
+      self:stop_propagate_unique_o(o)
+      return
+   end
+   
+   if c == 1
+   then
+      self:propagate_unique_ifo_o(foundifo, o)
+      return
+   end
+
+   -- nothing cache flush found in the whole system; so we can
+   -- do the more peaceful 'let all live' kind of propagation occur
+   o.cache_flush = false
+   self:propagate_shared_o(o)
+end
+
+function mdns:stop_propagate_unique_o(o)
+   -- go through all interfaces, and propagate empty set for the given o
+   self:propagate_o_l_ifo_to_ifs(o)
+end
+
+function mdns:propagate_unique_ifo_o(ifo, o)
+   -- rather simple - get the set, and propagate that to each
+   -- interface
+   local r = ifo and ifo.own:find_rr_list(o) 
+      or self:find_all_cache_rr_matching_o(o)
+   self:propagate_o_l_ifo_to_ifs(o, r, ifo)
+end
+
+function mdns:iterate_all_cache_rr_matching_o(o, f)
+   self:iterate_ifs_ns(false, function (ns, ifo)
+                          ns:iterate_rrs_for_ll(o.name,
+                                                function (rr)
+                                                   if rr.rtype == o.rtype
+                                                   then
+                                                      f(rr)
+                                                   end
+                                               end)
+                              end)
+end
+
+function mdns:find_all_cache_rr_matching_o(o)
+   -- not super lightweight operation, but oh well..
+   -- basic idea:
+
+   -- first, gather each entry from caches, taking the one with longest
+   -- ttl if same entry encountered multiple times
+   local rns = dnsdb.ns:new{}
+
+   self:iterate_all_cache_rr_matching_o(o, function (rr)
+                                           if rr.rtype ~= o.rtype
+                                           then
+                                              return
+                                           end
+                                           local orr = 
+                                              rns:insert_rr(rr, true)
+                                           if not rr.ttl 
+                                              or (orr.ttl 
+                                              and orr.ttl < rr.ttl)
+                                           then
+                                              orr.ttl = rr.ttl
+                                           end
+                                           end)
+
+   return rns:values()
+end
+
+function mdns:propagate_shared_o(o)
+   local l = self:find_all_cache_rr_matching_o(o)
+   -- then, for each target interface, propagate that set to that interface
+   self:propagate_o_l_ifo_to_ifs(o, l)
+end
+
+function mdns:propagate_o_l_ifo_to_ifs(o, l, skip_ifo)
+   for ifname, ifo in pairs(self.ifname2if)
+   do
+      if ifo ~= skip_ifo and self:valid_propagate_dst_ifo(ifo)
+      then
+         -- upsert entries
+         ifo:propagate_o_l(o, l)
+      else
+         -- clear propagation of that stuff on this interface (if any)
+         ifo:propagate_o_l(o)
+      end
+   end
+end
 
 -- this implements timeout API, to make sure the MDNS
 -- gets all execution time it needs within ssloop 
