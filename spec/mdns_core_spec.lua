@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Fri Feb 15 14:21:21 2013 mstenber
--- Edit time:     780 min
+-- Last modified: Fri Feb 15 14:50:52 2013 mstenber
+-- Edit time:     783 min
 --
 
 -- TO DO: 
@@ -1851,6 +1851,8 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                   local r = dsm:run_nodes_until_delta(nil,
                                                       DUMMY_TTL * 10)
                   mst.a(r, 'propagation did not terminate')
+
+                  mst.a(mdns1:cache_count() > 0, 'cache entry disappeared')
 
 
                   -- should eventually die out

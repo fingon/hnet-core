@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Fri Feb 15 13:39:15 2013 mstenber
--- Edit time:     713 min
+-- Last modified: Fri Feb 15 14:51:02 2013 mstenber
+-- Edit time:     717 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -1076,6 +1076,9 @@ function mdns_if:upsert_cache_rr(rr)
       if rr.ttl < IGNORE_TTL_BELOW then return end
       o = nsc:insert_rr(rr) 
       self:d('[cache] added RR', o)
+   else
+      -- reset active query counter
+      o.queries = nil
    end
 
    -- update ttl fields of the received (and stored/updated) rr
@@ -1167,8 +1170,6 @@ function mdns_if:expire_cache_old_same_name_rtype(rr, invalid_since)
                                             and rr2[FIELD_RECEIVED] <= invalid_since
                                          then
                                             self:expire_cache_rr(rr2)
-                                         else
-                                            self:d('ignoring', rr2)
                                          end
                                       end)
 end
