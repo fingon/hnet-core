@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Fri Feb 15 12:46:59 2013 mstenber
--- Edit time:     273 min
+-- Last modified: Mon Feb 18 12:19:06 2013 mstenber
+-- Edit time:     274 min
 --
 
 -- Functionality for en-decoding various DNS structures;
@@ -74,7 +74,7 @@ dns_header = abstract_data:new{class='dns_header',
                               }
 
 dns_query = abstract_data:new{class='dns_query',
-                              format='qtype:u2 [2|qclass:u15 qu:b1]',
+                              format='qtype:u2 [2|qu:b1 qclass:u15]',
                               header_default={qtype=0, qclass=dns_const.CLASS_IN},
                              }
 
