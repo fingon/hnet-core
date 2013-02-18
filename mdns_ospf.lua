@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Mon Feb 18 12:10:47 2013 mstenber
--- Edit time:     237 min
+-- Last modified: Mon Feb 18 15:10:43 2013 mstenber
+-- Edit time:     258 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -260,10 +260,71 @@ function mdns:run()
    return _mdns.run(self)
 end
 
+function mdns:reduce_ns_to_nondangling_array(ns)
+   local a = mst.array:new{}
+   local ok = mst.set:new{} -- names that are 'ok'
+   local pending = mst.multimap:new{} -- pending entries
+
+   -- forward decl
+   local process
+
+   local function add_to_ok(k)
+      ok:insert(k)
+      while pending[k] and #pending[k] > 0
+      do
+         local v = pending[k][1]
+         pending:remove(k, v)
+         process(v)
+      end
+   end
+
+   local function depend(rr, n)
+      local kv = dnsdb.ll2key(n)
+      if not ok[kv]
+      then
+         -- add to pending
+         pending:insert(kv, rr)
+         return
+      end
+      -- yay, it is already covered target -> we can note that this
+      -- name is ok too
+      local k = dnsdb.ll2key(rr.name)
+      add_to_ok(k)
+      a:insert(rr)
+   end
+
+   function process(rr)
+      self:a(type(rr) == 'table', 'weird rr', rr)
+      if rr.rtype == dns_const.TYPE_AAAA
+      then
+         local k = dnsdb.ll2key(rr.name)
+         add_to_ok(k)
+         a:insert(rr)
+         return
+      end
+
+      if rr.rtype == dns_const.TYPE_SRV
+      then
+         depend(rr, rr.rdata_srv.target)
+         return
+      end
+      
+      if rr.rtype == dns_const.TYPE_PTR
+      then
+         depend(rr, rr.rdata_ptr)
+         return
+      end
+
+      -- if we don't know, we hope they're ok
+      a:insert(rr)
+   end
+
+   ns:iterate_rrs(process)
+
+   return a
+end
+
 function mdns:publish_cache()
-   local t = {}
-
-
    -- gather the rr's in dnsdb.ns, to prevent duplicates from hitting
    -- the wire
    local ns = dnsdb.ns:new{}
@@ -274,35 +335,36 @@ function mdns:publish_cache()
       if self.master_if_set[ifname]
       then
          ifo.cache:iterate_rrs(function (rr)
-                                  --mst.d(' found owned', rr)
-                                  -- NSEC can be generated on other side too
-                                  if rr.rtype ~= dns_const.RTYPE_NSEC
+                                  if not self:is_forwardable_rr(rr)
                                   then
-                                     ns:insert_rr(rr)
+                                     return
                                   end
+                                  ns:insert_rr(rr)
                                end)
       end
    end
+
+   local t = self:reduce_ns_to_nondangling_array(ns)
+
    -- now, look at what we have in ns, and put it to flat list
-   ns:iterate_rrs(function (rr)
-                     local rt = rr.rtype
-                     local to = dns_rdata.rtype_map[rt]
-                     local f = (to and to.field) or 'rdata'
-                     local v = rr[f]
-                     self:a(v, 'no rdata?', to, rr)
-                     local n = USE_STRINGS_INSTEAD_OF_NAMES_IN_SKV and dnsdb.ll2nameish(rr.name) or rr.name
-                     -- if 'false', don't include it at all
-                     local cf = rr.cache_flush and rr.cache_flush or nil
-                     local d = {name=n,
-                                rtype=rt,
-                                rclass=rr.rclass,
-                                cache_flush=cf,
-                                [f]=v,
-                     }
-                     mst.d(' adding entry', d)
-                     table.insert(t, d)
-                  end
-                 )
+   t:map(function (rr)
+            local rt = rr.rtype
+            local to = dns_rdata.rtype_map[rt]
+            local f = (to and to.field) or 'rdata'
+            local v = rr[f]
+            self:a(v, 'no rdata?', to, rr)
+            local n = USE_STRINGS_INSTEAD_OF_NAMES_IN_SKV and dnsdb.ll2nameish(rr.name) or rr.name
+            -- if 'false', don't include it at all
+            local cf = rr.cache_flush and rr.cache_flush or nil
+            local d = {name=n,
+                       rtype=rt,
+                       rclass=rr.rclass,
+                       cache_flush=cf,
+                       [f]=v,
+            }
+            mst.d(' adding entry', d)
+            return d
+         end)
 
    self:d('publishing cache', #t)
    self.skv:set(elsa_pa.MDNS_OWN_SKV_KEY, t)

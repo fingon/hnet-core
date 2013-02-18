@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Fri Feb 15 12:57:46 2013 mstenber
--- Edit time:     191 min
+-- Last modified: Mon Feb 18 14:22:55 2013 mstenber
+-- Edit time:     199 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -51,6 +51,20 @@ function ll2name(ll)
       return ll
    end
    return table.concat(ll, '.')
+end
+
+function ll2key(ll)
+   -- just in case, make sure it's ll
+   ll = name2ll(ll)
+   local lowercase_ll = mst.array_map(ll, string.lower)
+
+   -- space-efficient, but perhaps painful to calculate?
+   --local s = mst.repr(lowercase_ll)
+   --return mst.create_hash(s)
+
+   -- computationally efficient (all we do is just concatenate lengths + data)
+   local t = dns_name.encode_name_rec(lowercase_ll)
+   return table.concat(t)
 end
 
 function ll2nameish(ll)
@@ -156,14 +170,6 @@ function ns:repr_data()
    return mst.repr({count=self:count()})
 end
 
-function ns:ll_key(ll)
-   -- just in case, make sure it's ll
-   ll = name2ll(ll)
-   local lowercase_ll = mst.array_map(ll, string.lower)
-   local s = mst.repr(lowercase_ll)
-   return mst.create_hash(s)
-end
-
 function ns:iterate_rrs(f)
    self:a(f, 'nil function')
    self.nh2rr:foreach(function (k, v)
@@ -186,7 +192,7 @@ end
 function ns:iterate_rrs_for_ll(ll, f)
    -- just in case, make sure it's ll
    ll = name2ll(ll)
-   local key = self:ll_key(ll)
+   local key = ll2key(ll)
    local l = self.nh2rr[key]
    for i, v in ipairs(l or {})
    do
@@ -310,7 +316,7 @@ end
 function ns:insert_raw(o)
    -- not found - have to add
    local ll = o.name
-   local key = self:ll_key(ll)
+   local key = ll2key(ll)
    self.nh2rr:insert(key, o)
    self:inserted_callback(o)
    return o, true
@@ -321,7 +327,7 @@ function ns:remove_rr(o)
    if not old_rr then return end
    --self:d('remove_rr', old_rr)
    local ll = o.name
-   local key = self:ll_key(ll)
+   local key = ll2key(ll)
    self.nh2rr:remove(key, old_rr)
    self:removed_callback(old_rr)
    return old_rr

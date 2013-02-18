@@ -1,5 +1,30 @@
 -*- outline -*-
 
+* Done (18.2.2013+)
+
+** Write OSPF state sanitizer
+
+- no linklocal addresses
+ - filter them out
+( simple pass through list)
+
+- no dangling SRVs
+ make sure mdns state contains addresses for srv
+( can create dnsdb of a/aaaa records, and look those up; ~linear time
+ albeit with high constant factor )
+
+ make sure mdns state contains destination of ptr
+
+- no dangling PTRs
+ harder; effectively, graph verification algorithm. it _can_ be done in
+ linear time though, given graph lookups are O(1), by keeping nested hash
+ of to do items <> resolved items
+
+(This is bit mid-way, but..)
+
+.. see OmniGraffle diagram for design, but basically single pass is enough
+for both filtering _and_ dangling reference elimination ..
+
 * Done (11.2.2013+)
 
 ** Determine why some state saves across test cases

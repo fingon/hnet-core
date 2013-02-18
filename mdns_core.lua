@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Fri Feb 15 14:09:39 2013 mstenber
--- Edit time:     960 min
+-- Last modified: Mon Feb 18 14:36:25 2013 mstenber
+-- Edit time:     962 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -288,11 +288,28 @@ function mdns:insert_if_own_rr(ifname, rr)
    ifo:insert_own_rr(rr)
 end
 
+function mdns:is_forwardable_rr(rr)
+   -- we don't want to publish NSEC entries
+   if rr.rtype == dns_const.TYPE_NSEC
+   then
+      return false
+   end
+
+   if rr.rtype == dns_const.TYPE_AAAA
+   then
+      -- nor do we want to publish linklocal AAAA records
+      return not mst.string_startswith(rr.rdata_aaaa, 'fe80:')
+   end
+   return true
+end
+
+
+
 function mdns:queue_check_propagate_if_rr(ifname, rr)
    local p = self.pending_propagate_check
 
    -- we don't propagate NSEC records, instead we produce them
-   if rr.rtype == dns_const.TYPE_NSEC
+   if not self:is_forwardable_rr(rr)
    then
       return
    end

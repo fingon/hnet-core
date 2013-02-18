@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 12:06:56 2012 mstenber
--- Last modified: Mon Feb 18 12:18:27 2013 mstenber
+-- Last modified: Mon Feb 18 14:47:45 2013 mstenber
 -- Edit time:     80 min
 --
 
@@ -35,6 +35,7 @@ local tests = {
    {dns_query, {name={'y'}, qtype=255, qclass=42}},
    {rdata_srv, {priority=123, weight=42, port=234, target={'foo', 'bar'}}},
    {dns_rr, {name={}, rtype=dns_const.TYPE_A, rdata_a='1.2.3.4'}},
+   {dns_rr, {name={}, rtype=dns_const.TYPE_PTR, rdata_ptr={'foo', 'bar'}}},
    {dns_rr, {name={}, rtype=dns_const.TYPE_AAAA, rdata_aaaa='f80:dead:beef::'}},
 }
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Mon Feb 18 11:46:26 2013 mstenber
--- Edit time:     802 min
+-- Last modified: Mon Feb 18 15:11:26 2013 mstenber
+-- Edit time:     819 min
 --
 
 -- TO DO: 
@@ -1490,6 +1490,7 @@ describe("mdns_ospf w/o skv", function ()
 
                               end)
                               end)
+
 describe("degenerate multi-mdns setup (mdns_ospf)", function ()
             local DUMMY_IP='dummy2'
             local DUMMY_IF='id2'
@@ -1898,4 +1899,96 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
 
                   
                                                end)
+            it("propagates only valid MDNS data structures", function ()
+                  -- check that SRV, PTR, AAAA content handling checks
+                  -- work ok; that is, that we publish only SRV's for
+                  -- which AAAA record exists, and PTRs that point at
+                  -- valid SRV/AAAAs
+
+                  -- cases to cover:
+                  local cases = {
+                     {
+                        -- valid aaaa 
+                        {{name={'1valid'},
+                          rtype=dns_const.TYPE_AAAA,
+                          rdata_aaaa='dead:beef::1'},
+                        },
+                        1,
+                     },
+                     {
+                        -- invalid aaaa (linklocal)
+                        {{name={'0invalidaaaa'},
+                          rtype=dns_const.TYPE_AAAA,
+                          rdata_aaaa='fe80::dead:beef:1'},
+                        },
+                        0,
+                     },
+                     {
+                        -- valid srv (at aaaa)
+                        {{name={'1validsrv'}, 
+                         rtype=dns_const.TYPE_SRV,
+                         rdata_srv={target={'1valid'}}, 
+                         },
+                        },
+                        1
+                     },
+                  -- valid ptr (at srv/ptr/aaaa)
+                     {
+                        {{name={'2vptr1'}, 
+                         rtype=dns_const.TYPE_PTR,
+                         rdata_ptr={'1valid'},
+                         },
+                         {name={'2vptr2'}, 
+                         rtype=dns_const.TYPE_PTR,
+                         rdata_ptr={'1validsrv'},
+                         },
+                         {name={'2vptr3'}, 
+                         rtype=dns_const.TYPE_PTR,
+                         rdata_ptr={'2vptr2'},
+                         },
+                        },
+                        3,
+                     },
+                  -- dangling ptr
+                     {
+                        {{name={'3dangling'}, 
+                          rtype=dns_const.TYPE_PTR,
+                          rdata_ptr={'invalid'},
+                         },
+                        },
+                        0
+                     },
+                  
+                     {
+                        -- dangling srv
+                        {{name={'1validsrv'}, 
+                         rtype=dns_const.TYPE_SRV,
+                         rdata_srv={target={'invalid'}}, 
+                         },
+                        },
+                        0
+                     },
+                  }
+                  local c = 0
+                  for i, v in ipairs(cases)
+                  do
+                     local rrl, ec = unpack(v)
+                     for j, rr in ipairs(rrl)
+                     do
+                        rr.rclass = rr.rclass or dns_const.CLASS_IN
+                        rr.ttl = 120
+                        leaf1:insert_if_own_rr('leafif', rr)
+                     end
+
+                     local r = dsm:run_nodes_until_delta(nil, 10)
+                     mst.a(r, 'propagation did not terminate')
+                     -- check that number of entries in OSPF SKV is valid
+                     c = c + ec
+                     local l = mdns1.skv:get(elsa_pa.MDNS_OWN_SKV_KEY)
+                     mst.a(l, 'no skv key for mdns at all?')
+                     local gotc = #l
+                     mst.a(gotc == c, 'iteration', i, 
+                           'got count != expected count', c, ec)
+                  end
+                                                             end)
                                                    end)
