@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Fri Feb 15 14:51:02 2013 mstenber
--- Edit time:     717 min
+-- Last modified: Mon Feb 18 12:11:16 2013 mstenber
+-- Edit time:     751 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -124,6 +124,26 @@ local function msg_has_qu_qd(msg)
    do
       if q.qu then return true end
    end
+end
+
+function q_for_q(oq, q)
+   q = q or {}
+   q.name = q.name or oq.name
+   q.qtype = q.qtype or oq.qtype
+   q.qclass = q.qclass or oq.qclass
+   -- sanity check - this shouldn't happen in production code, hopefully
+   --mst.a(q.qclass == dns_const.CLASS_IN or q.qclass == dns_const.CLASS_ANY)
+   return q
+end
+
+function q_for_rr(rr, q)
+   q = q or {}
+   q.name = q.name or rr.name
+   q.qtype = q.qtype or rr.rtype
+   q.qclass = q.qclass or rr.rclass
+   -- sanity check - this shouldn't happen in production code, hopefully
+   --mst.a(q.qclass == dns_const.CLASS_IN or q.qclass == dns_const.CLASS_ANY)
+   return q
 end
 
 local function match_q_rr(q, rr)
@@ -286,11 +306,9 @@ function mdns_if:iterate_matching_query(is_own, q, kas, f)
    if found_cf and not matched 
       and q.qtype ~= dns_const.TYPE_NSEC
    then
-      self:iterate_matching_query(is_own, {
-                                     name=q.name,
-                                     qtype=dns_const.TYPE_NSEC,
-                                     qclass=q.qclass,
-                                          }, kas, f)
+      self:iterate_matching_query(is_own, 
+                                  q_for_q(q, {qtype=dns_const.TYPE_NSEC}),
+                                  kas, f)
    end
 end
 
@@ -567,7 +585,17 @@ function mdns_if:get_own_nsec_rr_current_ttl(rr, now)
    return least
 end
 
+function mdns_if:get_rr_current_ttl(rr, now)
+   if rr.is_own
+   then
+      return self:get_own_rr_current_ttl(rr, now)
+   else
+      return self:get_cache_rr_current_ttl(rr, now)
+   end
+end
+
 function mdns_if:get_own_rr_current_ttl(rr, now)
+   self:a(rr.is_own == true)
    if rr.rtype == dns_const.TYPE_NSEC
    then
       return self:get_own_nsec_rr_current_ttl(rr, now)
@@ -581,13 +609,16 @@ function mdns_if:get_own_rr_current_ttl(rr, now)
    then
       return self:get_rr_full_ttl(rr)
    end
-   local now = now or self:time()
-   local ttl = math.floor(rr.valid-now)
-   return ttl
+   return self:get_valid_rr_current_ttl(rr, now)
 end
 
 function mdns_if:get_cache_rr_current_ttl(rr, now)
+   self:a(not rr.is_own)
    self:a(rr.valid, 'entries in cache MUST have valid set (and therefore also set ttl)')
+   return self:get_valid_rr_current_ttl(rr, now)
+end
+
+function mdns_if:get_valid_rr_current_ttl(rr, now)
    local now = now or self:time()
    local ttl = math.floor(rr.valid-now)
    return ttl
@@ -599,7 +630,7 @@ function mdns_if:copy_rrs_with_updated_ttl(rrl, unicast, legacy, force)
    local invalid_since = (now - MINIMAL_RR_SEND_INTERVAL)
    for i, rr in ipairs(rrl)
    do
-      local ttl = self:get_own_rr_current_ttl(rr, now)
+      local ttl = self:get_rr_current_ttl(rr, now)
       if not unicast 
       then
          if rr[FIELD_SENT_MCAST] and rr[FIELD_SENT_MCAST] > invalid_since and not force
@@ -654,18 +685,16 @@ function mdns_if:determine_ar(an, kas)
          then
             -- if we have something like this, cool, let's add it
             self:iterate_matching_query(true,
-                                      {name=a.name,
-                                       qtype=t2,
-                                       qclass=a.rclass},
-                                      kas,
-                                      function (rr)
-                                         if not all:find_rr(rr) 
-                                            and not self:kas_matches_rr(true, kas, rr)
-                                         then
-                                            all:insert_rr(rr)
-                                            table.insert(ar, rr)
-                                         end
-                                      end)
+                                        q_for_rr(a, {qtype=t2}),
+                                        kas,
+                                        function (rr)
+                                           if not all:find_rr(rr) 
+                                              and not self:kas_matches_rr(true, kas, rr)
+                                           then
+                                              all:insert_rr(rr)
+                                              table.insert(ar, rr)
+                                           end
+                                        end)
          end
       end
    end
@@ -1031,11 +1060,10 @@ function mdns_if:upsert_cache_rr(rr)
       -- two cases
 
       -- in own of same interface
-      local q = {name=rr.name,
-                 qtype=rr.rtype,
-                 qclass=rr.rclass}
 
       self:a(rr.ttl, 'no ttl for cache rr')
+
+      local q = q_for_rr(rr)
 
       self:iterate_matching_query(true, q, nil,
                                 function (rr2)
@@ -1249,6 +1277,8 @@ function mdns_if:insert_own_rrset(l)
    local all, fresh = ns:insert_rrs(todo, true)
    for rr, o in pairs(fresh)
    do
+      o.is_own = true
+
       -- clear out the membership information (could have been in cache)
       self.cache_sl:clear_object_fields(o)
 
@@ -1486,10 +1516,8 @@ function mdns_if:send_probes()
       -- sense
       if not found and self:get_own_rr_current_ttl(rr) > 0
       then
-         table.insert(qd, {qtype=dns_const.TYPE_ANY,
-                           qclass=rr.rclass,
-                           name=rr.name,
-                           qu=true})
+         table.insert(qd, q_for_rr(rr, {qtype=dns_const.TYPE_ANY,
+                                                 qu=true}))
          tns:insert_rr(rr)
       end
       self:set_next_state(rr)
@@ -1559,6 +1587,8 @@ function mdns_if:update_rr_related_nsec(rr)
                  ndn=rr.name,
                  bits=bits, 
               },
+              
+              is_own=true,
       }
       nsec = ns:insert_rr(nsec)
       self:d('[own] added NSEC RR', nsec)
@@ -1709,14 +1739,6 @@ end
 
 -- subclassable functionality
 
-function mdns_if:query_for_rr(rr)
-   -- (very specific one, sigh.. would it not be more efficient
-   -- just to ask for 'all'?)
-   return {name=rr.name,
-           qtype=rr.rtype,
-           qclass=rr.rclass}
-end
-
 -- do we have 'active client interest' in this specific rr?
 -- subclasses can obviously override this
 function mdns_if:interested_in_cached(rr)
@@ -1726,7 +1748,7 @@ function mdns_if:interested_in_cached(rr)
       if q and match_q_rr(q, rr)
       then
          self:d('found interested query in us', q, rr)
-         return self:query_for_rr(rr)
+         return q_for_rr(rr)
       end
    end
    self:d('no queries matching', rr)

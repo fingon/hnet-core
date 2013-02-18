@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Fri Feb 15 13:53:30 2013 mstenber
--- Edit time:     235 min
+-- Last modified: Mon Feb 18 12:10:47 2013 mstenber
+-- Edit time:     237 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -72,7 +72,7 @@ function ospf_if:interested_in_cached(rr)
    end
    -- if master, yes, we're interested
    self:d('master interface, interested in cached', rr)
-   return self:query_for_rr(rr)
+   return mdns_if.q_for_rr(rr)
 end
 
 function ospf_if:cache_changed_rr(rr, mode)
@@ -292,10 +292,10 @@ function mdns:publish_cache()
                      self:a(v, 'no rdata?', to, rr)
                      local n = USE_STRINGS_INSTEAD_OF_NAMES_IN_SKV and dnsdb.ll2nameish(rr.name) or rr.name
                      -- if 'false', don't include it at all
-                     local cf = rr.cache_flush and rr.cache_flush
+                     local cf = rr.cache_flush and rr.cache_flush or nil
                      local d = {name=n,
                                 rtype=rt,
-                                rclass=dns_const.CLASS_IN,
+                                rclass=rr.rclass,
                                 cache_flush=cf,
                                 [f]=v,
                      }
