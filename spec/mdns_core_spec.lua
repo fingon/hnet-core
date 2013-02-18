@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Fri Feb 15 14:50:52 2013 mstenber
--- Edit time:     783 min
+-- Last modified: Mon Feb 18 11:46:26 2013 mstenber
+-- Edit time:     802 min
 --
 
 -- TO DO: 
@@ -386,8 +386,8 @@ function dummynode:sanity_check_last_multicast()
    self:a(msg.h.rcode == 0, 'rcode set in multicast', msg)
 end
 
-function dummynode:sanity_check_last_query()
-   local msg = self:get_last_msg()
+function dummynode:sanity_check_last_query(msg)
+   local msg = msg or self:get_last_msg()
 
    -- s18.6/7 MUST
    self:a(not msg.h.qr, 'QR must not be set in query', msg)
@@ -397,6 +397,13 @@ function dummynode:sanity_check_last_query()
    for i, rr in ipairs(msg.an)
    do
       mst.a(not rr.cache_flush, 'cache flush set in query answers')
+   end
+   for i, q in ipairs(msg.qd)
+   do
+      -- no garage query class, please
+      -- (we manually test some invalid classes, but code should not
+      -- generate any)
+      self:a(q.qclass == dns_const.CLASS_IN or q.qclass == dns_const.CLASS_ANY, 'garbage qclass', q)
    end
 end
 
@@ -1655,11 +1662,12 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
             local d
             local dsm
             local mdns1, mdns2, mdns3
-            local dummy1, dummy2, dummy3
+            local leaf1, leaf2, leaf3
+            local dummy1
             before_each(function ()
                            -- basic idea: 'a source' behind one mdns node two
                            -- other mdns nodes (connected in a triangle) and
-                           -- 'dummy' nodes connected to each mdns interface of
+                           -- 'leaf' nodes connected to each mdns interface of
                            -- interest
 
                            -- this is pathological case where everyone owns all
@@ -1681,17 +1689,18 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                            -- that is, only only one owner per network
                            -- (one with highest name)
 
-                           dummy1 = dsm:create_node{rid='dummy1', class=_mdns}
-                           dummy2 = dsm:create_node{rid='dummy2', class=_mdns}
-                           dummy3 = dsm:create_node{rid='dummy3', class=_mdns}
-                           dummy1.skv:set(elsa_pa.OSPF_LAP_KEY, {
-                                             {ifname='dummyif', owner=true}
+                           leaf1 = dsm:create_node{rid='leaf1', class=_mdns}
+                           leaf2 = dsm:create_node{rid='leaf2', class=_mdns}
+                           leaf3 = dsm:create_node{rid='leaf3', class=_mdns}
+                           dummy1 = dsm:create_node{rid='dummy1', dsm=dsm, dummy=true}
+                           leaf1.skv:set(elsa_pa.OSPF_LAP_KEY, {
+                                             {ifname='leafif', owner=true}
                                                                 })
-                           dummy2.skv:set(elsa_pa.OSPF_LAP_KEY, {
-                                             {ifname='dummyif', owner=true}
+                           leaf2.skv:set(elsa_pa.OSPF_LAP_KEY, {
+                                             {ifname='leafif', owner=true}
                                                                 })
-                           dummy3.skv:set(elsa_pa.OSPF_LAP_KEY, {
-                                             {ifname='dummyif', owner=true}
+                           leaf3.skv:set(elsa_pa.OSPF_LAP_KEY, {
+                                             {ifname='leafif', owner=true}
                                                                 })
 
                            mdns1.skv:set(elsa_pa.OSPF_LAP_KEY, {
@@ -1731,13 +1740,14 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                            n:connect_neigh(mdns2.rid, 'i23', 
                                            mdns3.rid, 'i32')
 
-                           -- interface to each dummy node
+                           -- interface to each leaf node
                            n:connect_neigh(mdns1.rid, 'id1',
+                                           leaf1.rid, 'leafif',
                                            dummy1.rid, 'dummyif')
                            n:connect_neigh(mdns2.rid, 'id2',
-                                           dummy2.rid, 'dummyif')
+                                           leaf2.rid, 'leafif')
                            n:connect_neigh(mdns3.rid, 'id3',
-                                           dummy3.rid, 'dummyif')
+                                           leaf3.rid, 'leafif')
                         end)
             after_each(function ()
                           -- wait awhile
@@ -1746,7 +1756,7 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                           mst.a(r, 'propagation did not terminate')
 
                           -- ensure that state is really empty
-                          for i, mdns in ipairs{dummy1, dummy2, dummy3, 
+                          for i, mdns in ipairs{leaf1, leaf2, leaf3, 
                                                 mdns1, mdns2, mdns3}
                           do
                              local oc = mdns:own_count()
@@ -1798,11 +1808,11 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
             it("works #skv", function ()
                   -- setup + teardown test
 
-                  -- insert rr with ttl to own of dummy1; it should
-                  -- propagate eventually to dummy2 and dummy3
-                  dummy1:insert_if_own_rr('dummyif', rr_dummy_a_cf)
+                  -- insert rr with ttl to own of leaf1; it should
+                  -- propagate eventually to leaf2 and leaf3
+                  leaf1:insert_if_own_rr('leafif', rr_dummy_a_cf)
 
-                  -- each dummy should receive this, eventually
+                  -- each leaf should receive this, eventually
                   --wait_cache_counts(1, 0, 0)
 
                   -- # of own interfaces * 2 (record + nsec)
@@ -1815,7 +1825,7 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
             it("maintains state ~forever #rf", function ()
                   mst.d('a) inserting rr')
 
-                  dummy1:insert_if_own_rr('dummyif', rr_dummy_a_cf_nottl)
+                  leaf1:insert_if_own_rr('leafif', rr_dummy_a_cf_nottl)
 
                   mst.d('b) waiting propagation')
                   --wait_cache_counts(1, 0, 0)
@@ -1848,16 +1858,40 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                   mst.d('c) waiting AWHILE')
                   -- wait a long while, see that entries stick around
                   -- (due to active querying etc)
+                  local MUL = 10
+                  local A_TTL = 120
                   local r = dsm:run_nodes_until_delta(nil,
-                                                      DUMMY_TTL * 10)
+                                                      A_TTL * MUL)
                   mst.a(r, 'propagation did not terminate')
 
+                  -- number of received messages should be < 2 * MUL
+                  local cnt = #dummy1.received
+                  -- should have query + reply + some overhead (sub-100% repeat window)
+                  mst.a(cnt > 0 and cnt < 3 * MUL, 'too few/many messages', cnt, 0, 2 * MUL)
+
+                  -- make sure most recent entry looks still like sane
+                  -- query; that is, it shouldn't have any KAS
+                  local msg = dummy1:get_last_msg()
+                  local msg1 = dummy1:get_last_msg(1)
+                  if #msg.qd == 0
+                  then
+                     msg = msg1
+                  end
+
+
+                  mst.a(#msg.qd > 0 and #msg.an == 0 and #msg.ns == 0)
+                  mst.a(msg.qd[1].qclass == rr_dummy_a_cf_nottl.rclass)
+                  dummy1:sanity_check_last_query(msg)
+
+                  
+                  -- final and most important assertion - cache should
+                  -- not have disappeared
                   mst.a(mdns1:cache_count() > 0, 'cache entry disappeared')
 
 
                   -- should eventually die out
                   mst.d('d) inserting TTL 0')
-                  dummy1:insert_if_own_rr('dummyif', rr_dummy_a_cf_ttl0)
+                  leaf1:insert_if_own_rr('leafif', rr_dummy_a_cf_ttl0)
                   mst.d('e) waiting expiration')
                   wait_cache_counts(0, 0, 0)
                   wait_own_counts(0, 0, 0)
