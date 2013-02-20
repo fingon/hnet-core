@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Tue Jan  8 14:47:05 2013 mstenber
--- Edit time:     224 min
+-- Last modified: Wed Feb 20 19:01:36 2013 mstenber
+-- Edit time:     226 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -82,6 +82,7 @@ function abstract_data:init()
       --mst.d('init header_length', self.header, self.header_default)
       self:a(self.header, 'header missing')
       self:a(self.header_default, 'header_default missing')
+      self:a(self.header.pack, 'no self.header.pack?')
       self.header_length = #self.header.pack(self.header_default)
    end
 end

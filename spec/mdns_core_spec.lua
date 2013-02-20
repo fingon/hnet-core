@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Mon Feb 18 15:11:26 2013 mstenber
--- Edit time:     819 min
+-- Last modified: Mon Feb 18 15:21:38 2013 mstenber
+-- Edit time:     820 min
 --
 
 -- TO DO: 
@@ -614,38 +614,38 @@ local query1_kas_low_ttl = dnscodec.dns_message:encode{
 
 local query_dummy_a = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A}},
-                                                       }
+                                                 }
 
 
 local query_dummy_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_ANY, qu=true}},
-                                                        }
+                                                  }
 
 local q_dummy_a = {name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}
 
 local query_dummy_a_qu = dnscodec.dns_message:encode{
    qd={q_dummy_a},
-                                                          }
+                                                    }
 
 local query_dummy_a_kas_a = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A}},
    an={rr_dummy_a_cf},
-                                                                }
+                                                       }
 
 local query_dummy_a_kas_a_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}},
    an={rr_dummy_a_cf},
-                                                                }
+                                                          }
 
 local query_dummy_a_kas_aaaa_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}},
    an={rr_dummy_aaaa_cf},
-                                                                   }
+                                                             }
 
 local query_dummy_any_tc = dnscodec.dns_message:encode{
    h={tc=true},
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_ANY}},
-                                                            }
+                                                      }
 
 
 local query_kas_dummy_a_cf = dnscodec.dns_message:encode{
@@ -654,7 +654,7 @@ local query_kas_dummy_a_cf = dnscodec.dns_message:encode{
 
 local query_dummy_aaaa_qu = dnscodec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_AAAA, qu=true}},
-                                                             }
+                                                       }
 
 local q_foo_a = {name=rr_foo_a_cf.name, qtype=dns_const.TYPE_A, qu=true}
 
@@ -1284,7 +1284,7 @@ describe("mdns", function ()
                   mst.a(r, 'propagation did not terminate')
                   mst.a(ifo.cache:count() == 1, 'ttl=0 for older cf did not work')
 
-                   end)
+                                                             end)
 
             it("handles various queries correctly #q", function ()
                   mdns:recvfrom(msg1, DUMMY_SRC, mdns_const.PORT)
@@ -1422,7 +1422,7 @@ describe("mdns", function ()
                   -- make sure it is unicast
                   dummy:sanity_check_last_multicast_response()
 
-                   end)
+                                                       end)
                  end)
 
 describe("mdns_ospf w/o skv", function ()
@@ -1695,14 +1695,14 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                            leaf3 = dsm:create_node{rid='leaf3', class=_mdns}
                            dummy1 = dsm:create_node{rid='dummy1', dsm=dsm, dummy=true}
                            leaf1.skv:set(elsa_pa.OSPF_LAP_KEY, {
-                                             {ifname='leafif', owner=true}
-                                                                })
+                                            {ifname='leafif', owner=true}
+                                                               })
                            leaf2.skv:set(elsa_pa.OSPF_LAP_KEY, {
-                                             {ifname='leafif', owner=true}
-                                                                })
+                                            {ifname='leafif', owner=true}
+                                                               })
                            leaf3.skv:set(elsa_pa.OSPF_LAP_KEY, {
-                                             {ifname='leafif', owner=true}
-                                                                })
+                                            {ifname='leafif', owner=true}
+                                                               })
 
                            mdns1.skv:set(elsa_pa.OSPF_LAP_KEY, {
                                             {ifname='id1', owner=true},
@@ -1926,30 +1926,30 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                      {
                         -- valid srv (at aaaa)
                         {{name={'1validsrv'}, 
-                         rtype=dns_const.TYPE_SRV,
-                         rdata_srv={target={'1valid'}}, 
+                          rtype=dns_const.TYPE_SRV,
+                          rdata_srv={target={'1valid'}}, 
                          },
                         },
                         1
                      },
-                  -- valid ptr (at srv/ptr/aaaa)
+                     -- valid ptr (at srv/ptr/aaaa)
                      {
                         {{name={'2vptr1'}, 
-                         rtype=dns_const.TYPE_PTR,
-                         rdata_ptr={'1valid'},
+                          rtype=dns_const.TYPE_PTR,
+                          rdata_ptr={'1valid'},
                          },
                          {name={'2vptr2'}, 
-                         rtype=dns_const.TYPE_PTR,
-                         rdata_ptr={'1validsrv'},
+                          rtype=dns_const.TYPE_PTR,
+                          rdata_ptr={'1validsrv'},
                          },
                          {name={'2vptr3'}, 
-                         rtype=dns_const.TYPE_PTR,
-                         rdata_ptr={'2vptr2'},
+                          rtype=dns_const.TYPE_PTR,
+                          rdata_ptr={'2vptr2'},
                          },
                         },
                         3,
                      },
-                  -- dangling ptr
+                     -- dangling ptr
                      {
                         {{name={'3dangling'}, 
                           rtype=dns_const.TYPE_PTR,
@@ -1958,12 +1958,31 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                         },
                         0
                      },
-                  
+                     
                      {
                         -- dangling srv
                         {{name={'1validsrv'}, 
-                         rtype=dns_const.TYPE_SRV,
-                         rdata_srv={target={'invalid'}}, 
+                          rtype=dns_const.TYPE_SRV,
+                          rdata_srv={target={'invalid'}}, 
+                         },
+                        },
+                        0
+                     },
+                     -- self-referential ptr
+                     {
+                        {{name={'4selfptr'}, 
+                          rtype=dns_const.TYPE_PTR,
+                          rdata_ptr={'4selfptr'},
+                         },
+                        },
+                        0
+                     },
+                     
+                     {
+                        -- self-referential srv
+                        {{name={'5selfsrv'}, 
+                          rtype=dns_const.TYPE_SRV,
+                          rdata_srv={target={'5selfsrv'}}, 
                          },
                         },
                         0
@@ -1980,7 +1999,7 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                         leaf1:insert_if_own_rr('leafif', rr)
                      end
 
-                     local r = dsm:run_nodes_until_delta(nil, 10)
+                     local r = dsm:run_nodes_until_delta(nil, 1)
                      mst.a(r, 'propagation did not terminate')
                      -- check that number of entries in OSPF SKV is valid
                      c = c + ec

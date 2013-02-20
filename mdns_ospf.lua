@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Mon Feb 18 15:10:43 2013 mstenber
--- Edit time:     258 min
+-- Last modified: Mon Feb 18 15:29:14 2013 mstenber
+-- Edit time:     265 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -269,6 +269,10 @@ function mdns:reduce_ns_to_nondangling_array(ns)
    local process
 
    local function add_to_ok(k)
+      if ok[k]
+      then
+         return
+      end
       ok:insert(k)
       while pending[k] and #pending[k] > 0
       do
@@ -290,7 +294,7 @@ function mdns:reduce_ns_to_nondangling_array(ns)
       -- name is ok too
       local k = dnsdb.ll2key(rr.name)
       add_to_ok(k)
-      a:insert(rr)
+      return true
    end
 
    function process(rr)
@@ -299,23 +303,14 @@ function mdns:reduce_ns_to_nondangling_array(ns)
       then
          local k = dnsdb.ll2key(rr.name)
          add_to_ok(k)
-         a:insert(rr)
-         return
+      elseif rr.rtype == dns_const.TYPE_SRV
+      then
+         if not depend(rr, rr.rdata_srv.target) then return end
+      elseif rr.rtype == dns_const.TYPE_PTR
+      then
+         if not depend(rr, rr.rdata_ptr) then return end
       end
 
-      if rr.rtype == dns_const.TYPE_SRV
-      then
-         depend(rr, rr.rdata_srv.target)
-         return
-      end
-      
-      if rr.rtype == dns_const.TYPE_PTR
-      then
-         depend(rr, rr.rdata_ptr)
-         return
-      end
-
-      -- if we don't know, we hope they're ok
       a:insert(rr)
    end
 
@@ -346,25 +341,26 @@ function mdns:publish_cache()
 
    local t = self:reduce_ns_to_nondangling_array(ns)
 
-   -- now, look at what we have in ns, and put it to flat list
-   t:map(function (rr)
-            local rt = rr.rtype
-            local to = dns_rdata.rtype_map[rt]
-            local f = (to and to.field) or 'rdata'
-            local v = rr[f]
-            self:a(v, 'no rdata?', to, rr)
-            local n = USE_STRINGS_INSTEAD_OF_NAMES_IN_SKV and dnsdb.ll2nameish(rr.name) or rr.name
-            -- if 'false', don't include it at all
-            local cf = rr.cache_flush and rr.cache_flush or nil
-            local d = {name=n,
-                       rtype=rt,
-                       rclass=rr.rclass,
-                       cache_flush=cf,
-                       [f]=v,
-            }
-            mst.d(' adding entry', d)
-            return d
-         end)
+   -- then, convert the raw cached rr's to simpler structure we want
+   -- to stick in skv
+   t = t:map(function (rr)
+                local rt = rr.rtype
+                local to = dns_rdata.rtype_map[rt]
+                local f = (to and to.field) or 'rdata'
+                local v = rr[f]
+                self:a(v, 'no rdata?', to, rr)
+                local n = USE_STRINGS_INSTEAD_OF_NAMES_IN_SKV and dnsdb.ll2nameish(rr.name) or rr.name
+                -- if 'false', don't include it at all
+                local cf = rr.cache_flush and rr.cache_flush or nil
+                local d = {name=n,
+                           rtype=rt,
+                           rclass=rr.rclass,
+                           cache_flush=cf,
+                           [f]=v,
+                }
+                mst.d(' adding entry', d)
+                return d
+             end)
 
    self:d('publishing cache', #t)
    self.skv:set(elsa_pa.MDNS_OWN_SKV_KEY, t)
