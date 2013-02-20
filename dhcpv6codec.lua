@@ -8,13 +8,14 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Feb 20 18:30:04 2013 mstenber
--- Last modified: Wed Feb 20 20:17:58 2013 mstenber
--- Edit time:     69 min
+-- Last modified: Wed Feb 20 20:33:51 2013 mstenber
+-- Edit time:     74 min
 --
 
 require 'codec'
 require 'ipv6s'
 require 'dhcpv6_const'
+require 'dns_name'
 
 module(..., package.seeall)
 
@@ -72,7 +73,34 @@ option_map = {
          end
          return table.concat(t)
       end
-   }
+   },
+   [dhcpv6_const.O_DOMAIN_SEARCH]={
+      decode = function (data)
+         local cur = vstruct.cursor(data)
+         local t = {}
+         while true
+         do
+            local r = dns_name.try_decode_name_rec(cur)
+            if not r
+            then
+               mst.d('decode', mst.repr(data), t)
+               return t
+            end
+            table.insert(t, r)
+         end
+      end,
+      encode = function (o)
+         local t = {}
+         for i, v in ipairs(o)
+         do
+            local t2 = dns_name.encode_name_rec(v)
+            mst.array_extend(t, t2)
+         end
+         local data = table.concat(t)
+         mst.d('encode', o, mst.repr(data))
+         return data
+      end,
+   },
 }
 
 -- single DHCPv6 option _instance_

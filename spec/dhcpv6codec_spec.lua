@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Feb 20 18:24:16 2013 mstenber
--- Last modified: Wed Feb 20 20:22:34 2013 mstenber
--- Edit time:     17 min
+-- Last modified: Wed Feb 20 20:34:34 2013 mstenber
+-- Edit time:     18 min
 --
 
 require "busted"
@@ -25,7 +25,7 @@ local known_messages = {
        [1]={data="0001000118b77eb3ee6e75234e28", 
             option=dhcpv6_const.O_CLIENTID}, 
        [2]={option=dhcpv6_const.O_ORO,
-            [1]=23, [2]=24, 
+            [1]=dhcpv6_const.O_DNS_RNS, [2]=dhcpv6_const.O_DOMAIN_SEARCH, 
        }, 
        [3]={value=0, option=8}, 
        [4]={iaid=1965248040, option=25, t1=3600, t2=5400}, 
@@ -48,7 +48,7 @@ local known_messages = {
        [3]={data="0001000118b77eb3ee6e75234e28", option=1}, 
        [4]={option=7, value=0}, 
        [5]={[1]="2000::2", option=23}, 
-       [6]={data="027636036c6162076578616d706c6503636f6d00", option=24}, 
+       [6]={[1]={"v6", "lab", "example", "com"}, option=24}, 
     },
    },
    
