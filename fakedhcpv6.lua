@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Feb 21 11:47:15 2013 mstenber
--- Last modified: Thu Feb 21 12:59:56 2013 mstenber
--- Edit time:     35 min
+-- Last modified: Thu Feb 21 14:47:17 2013 mstenber
+-- Edit time:     37 min
 --
 
 -- This is very, very minimal fake DHCPv6 PD server; what it does, is
@@ -110,21 +110,23 @@ function o.callback(data, src, srcport)
       end
       if v.option == dhcpv6_const.O_IA_PD
       then
+         local v2 = {option=v.option,
+                     iaid=v.iaid,
+                     t1=v.t1,
+                     t2=v.t2}
          -- produce IA_PD with IAPREFIXes
-         table.insert(o2, v)
-         -- make sure there are no child nodes in the list
-         v[1] = nil
+         table.insert(o2, v2)
          for prefix, class in pairs(prefix2class)
          do
-            local v2 = {option=dhcpv6_const.O_IAPREFIX,
+            local v3 = {option=dhcpv6_const.O_IAPREFIX,
                         preferred=v.t1,
                         valid=v.t2,
                         prefix=prefix}
-            table.insert(v, v2)
+            table.insert(v2, v3)
             -- add class option to IAPREFIX also if necessary
             if class
             then
-               table.insert(v2, {option=dhcpv6_const.O_PREFIX_CLASS, value=class})
+               table.insert(v3, {option=dhcpv6_const.O_PREFIX_CLASS, value=class})
             end
          end
       end
