@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Feb 20 18:30:04 2013 mstenber
--- Last modified: Wed Feb 20 20:33:51 2013 mstenber
--- Edit time:     74 min
+-- Last modified: Thu Feb 21 12:21:52 2013 mstenber
+-- Edit time:     75 min
 --
 
 require 'codec'
@@ -272,6 +272,7 @@ end
 option_to_class_map = {[dhcpv6_const.O_IA_PD]=data_ia_pd,
                        [dhcpv6_const.O_PREFERENCE]=data_uint8,
                        [dhcpv6_const.O_ELAPSED_TIME]=data_uint16,
+                       [dhcpv6_const.O_PREFIX_CLASS]=data_uint16,
                        [dhcpv6_const.O_IAPREFIX]=data_iaprefix,
                        [dhcpv6_const.O_STATUS_CODE]=data_status_code,
                        

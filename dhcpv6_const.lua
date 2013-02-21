@@ -8,14 +8,15 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Feb 20 18:14:36 2013 mstenber
--- Last modified: Wed Feb 20 19:45:14 2013 mstenber
--- Edit time:     8 min
+-- Last modified: Thu Feb 21 12:30:09 2013 mstenber
+-- Edit time:     15 min
 --
 
 module(...)
 
 -- RFC3315 stuff
-
+CLIENT_PORT = 546
+SERVER_PORT = 547
 ALL_RELAY_AGENTS_AND_SERVERS_ADDRESS = 'ff02::1:2'
 
 -- message types
@@ -57,6 +58,8 @@ O_DNS_RNS        = 23 -- RFC3646
 O_DOMAIN_SEARCH  = 24 -- RFC3646 
 O_IA_PD          = 25 -- RFC3633
 O_IAPREFIX       = 26 -- RFC3633
+
+O_PREFIX_CLASS   = 4201 -- draft-bhandari-dhc-class-based-prefix-04
 
 -- status codes
 S_SUCCESS         = 0

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Mon Feb 18 15:29:14 2013 mstenber
--- Edit time:     265 min
+-- Last modified: Thu Feb 21 11:55:52 2013 mstenber
+-- Edit time:     266 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -101,9 +101,6 @@ end
 function mdns:init()
    -- by default, no master if's
    self.master_if_set = mst.set:new{}
-
-   -- similarly, also no joined if's
-   self.joined_if_set = mst.set:new{}
 
    _mdns.init(self)
    self.f = function (k, v) self:kv_changed(k, v) end
@@ -446,44 +443,6 @@ function mdns:set_if_master_set(masterset)
       self:d('master set changed, scheduling full propagation')
       self:queue_check_propagate_all()
       self:run_propagate_check()
-   end
-end
-
-function mdns:set_if_joined_set(shouldjoin)
-   mst.sync_tables(self.joined_if_set, shouldjoin,
-                   -- remove spurious
-                   function (k, v)
-                      self:leave_multicast(k)
-                   end,
-                   -- join new
-                   function (k, v)
-                      self:join_multicast(k)
-                   end)
-end
-
-function mdns:try_multicast_op(ifname, is_join)
-   -- child/instance responsibility
-end
-
-function mdns:join_multicast(ifname)
-   self:a(ifname, 'ifname mandatory')
-   local r, err = self:try_multicast_op(ifname, true)
-   if r
-   then
-      self.joined_if_set:insert(ifname)
-   else
-      mst.d('join_multicast failed', ifname, err)
-   end
-end
-
-function mdns:leave_multicast(ifname)
-   self:a(ifname, 'ifname mandatory')
-   local r, err = self:try_multicast_op(ifname, false)
-   if r
-   then
-      self.joined_if_set:remove(ifname)
-   else
-      mst.d('leave_multicast failed', ifname, err)
    end
 end
 

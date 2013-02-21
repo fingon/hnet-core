@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 12:38:01 2013 mstenber
--- Last modified: Tue Feb  5 12:52:45 2013 mstenber
--- Edit time:     72 min
+-- Last modified: Thu Feb 21 12:01:22 2013 mstenber
+-- Edit time:     73 min
 --
 
 -- 'mdns' daemon, which shares state (via skv and then via OSPF AC LSA
@@ -90,16 +90,10 @@ local mdns = mdns_ospf.mdns:new{skv=s,
                                    o.s:sendto(...)
                                 end,
                                 shell=mst.execute_to_string,
+                                -- for multicastjoiner
+                                mcast6=mdns_const.MULTICAST_ADDRESS_IPV6,
+                                mcasts=o.s,                               
                                }
-
-function mdns:try_multicast_op(ifname, isjoin)
-   local mcast6 = mdns_const.MULTICAST_ADDRESS_IPV6
-   local mct6 = {multiaddr=mcast6, interface=ifname}
-   local opname = (isjoin and 'ipv6-add-membership') or 'ipv6-drop-membership'
-   mst.a(ifname and #ifname > 0)
-   mst.d('try_multicast_op', ifname, isjoin)
-   return o.s:setoption(opname, mct6)
-end
 
 -- create timeout object wrapper
 local runner = mdns_core.mdns_runner:new{mdns=mdns}

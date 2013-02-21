@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Mon Feb 18 14:36:25 2013 mstenber
--- Edit time:     962 min
+-- Last modified: Thu Feb 21 11:57:24 2013 mstenber
+-- Edit time:     964 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -56,6 +56,7 @@ require 'mdns_if'
 require 'mdns_const'
 require 'linux_if'
 require 'ssloop'
+require 'mcastjoiner'
 
 IF_INFO_VALIDITY_PERIOD=60
 
@@ -63,12 +64,14 @@ module(..., package.seeall)
 
 -- global mdns structure, which mostly just deals with different
 -- mdns_if instances
-mdns = mst.create_class{class='mdns', 
+local _mj = mcastjoiner.mcj
+mdns = _mj:new_subclass{class='mdns', 
                         ifclass=mdns_if.mdns_if,
                         time=ssloop.time,
                         mandatory={'sendto', 'shell'}}
 
 function mdns:init()
+   _mj.init(self)
    self.ifname2if = {}
 end
 
