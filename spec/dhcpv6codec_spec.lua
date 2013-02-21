@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Feb 20 18:24:16 2013 mstenber
--- Last modified: Thu Feb 21 11:06:53 2013 mstenber
--- Edit time:     25 min
+-- Last modified: Thu Feb 21 13:33:32 2013 mstenber
+-- Edit time:     33 min
 --
 
 require "busted"
@@ -28,7 +28,7 @@ local known_messages = {
             [1]=dhcpv6_const.O_DNS_RNS, [2]=dhcpv6_const.O_DOMAIN_SEARCH, 
        }, 
        [3]={value=0, option=8}, 
-       [4]={iaid=1965248040, option=25, t1=3600, t2=5400}, 
+       [4]={iaid=1965248040, option=dhcpv6_const.O_IA_PD, t1=3600, t2=5400}, 
     }
    },
 
@@ -44,11 +44,11 @@ local known_messages = {
                valid=7200}, 
           [2]={code=0, message="Assigned 1 prefix(es).", option=13}, 
        }, 
-       [2]={data="0001000118b4e92e4e65b47f205e", option=2}, 
-       [3]={data="0001000118b77eb3ee6e75234e28", option=1}, 
-       [4]={option=7, value=0}, 
-       [5]={[1]="2000::2", option=23}, 
-       [6]={[1]={"v6", "lab", "example", "com"}, option=24}, 
+       [2]={data="0001000118b4e92e4e65b47f205e", option=dhcpv6_const.O_SERVERID}, 
+       [3]={data="0001000118b77eb3ee6e75234e28", option=dhcpv6_const.O_CLIENTID}, 
+       [4]={option=dhcpv6_const.O_PREFERENCE, value=0}, 
+       [5]={[1]="2000::2", option=dhcpv6_const.O_DNS_RNS}, 
+       [6]={[1]={"v6", "lab", "example", "com"}, option=dhcpv6_const.O_DOMAIN_SEARCH}, 
     },
    },
    
