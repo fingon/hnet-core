@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Feb 20 18:24:16 2013 mstenber
--- Last modified: Wed Feb 20 20:34:34 2013 mstenber
--- Edit time:     18 min
+-- Last modified: Thu Feb 21 11:06:53 2013 mstenber
+-- Edit time:     25 min
 --
 
 require "busted"
@@ -73,6 +73,13 @@ local known_messages = {
    -- reply
    {'078e237d0019000c75234e2800000e10000015180002000e0001000118b4e92e4e65b47f205e0001000e0001000118b77eb3ee6e75234e280007000100001700102000000000000000000000000000000200180014027636036c6162076578616d706c6503636f6d00', nil,
    },
+   -- info request
+   {'0ba34e900001000a00030001827f5ea42778000800020000', 
+    {[1]={data="00030001827f5ea42778", option=1}, 
+     [2]={option=8, value=0}, 
+     type=11, xid=10702480},
+   },
+   
 }
 
 
@@ -80,6 +87,8 @@ describe("dhcpv6_message", function ()
             it("endecode is sane", function ()
                   for i, v in ipairs(known_messages)
                   do
+                     mst.d('iteration', i)
+
                      -- first try decode(h)
                      local h, r = unpack(v)
                      h = string.gsub(h, "\n", "")
