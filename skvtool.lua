@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 13:18:34 2012 mstenber
--- Last modified: Thu Feb  7 13:10:49 2013 mstenber
--- Edit time:     55 min
+-- Last modified: Mon Feb 25 12:48:33 2013 mstenber
+-- Edit time:     61 min
 --
 
 -- minimalist tool for playing with SKV
@@ -99,14 +99,11 @@ do
    socket.sleep(1)
 end
 
+local stc = skvtool_core.stc:new{}
+
 if args.l
 then
-   local st = s:get_combined_state()
-   mst.d('dumping entries', mst.table_count(st))
-   for k, v in pairs(st)
-   do
-      print(string.format("%s=%s", k, mst.repr(v)))
-   end
+   stc:list_all()
    return
 end
 
@@ -115,53 +112,8 @@ then
    local str = io.read()
    for i, line in ipairs(mst.string_split(str, '\n'))
    do
-      local k, v = unpack(mst.string_split(line, '=', 2))
-      if v
-      then
-         local o = json.decode(v)
-         print('setting', k)
-         s:set(k, o)
-         setted = true
-      end
+      stc:process_key(s, line)
    end
 end
 
-for i, str in ipairs(keys)
-do
-   local i = string.find(str, '=')
-   if i
-   then
-      local k = string.sub(str, 1, i-1)
-      local v = string.sub(str, i+1, #str)
-      --local f, err = loadstring('return ' .. v)
-      --mst.a(f, 'unable to loadstring', err)
-      --rv, err = f()
-      rv = v
-      mst.a(rv, 'invalid value', v, rv)
-      mst.d('.. setting', k, v)
-      s:set(k, v)
-      mst.d('.. done')
-      setted = true
-   else
-      if setted
-      then
-         s:wait_in_sync()
-         setted = false
-      end
-      k = str
-      v = s:get(str)
-      if #keys > 1
-      then
-         print(string.format("%s=%s", k, mst.repr(v)))
-      else
-         print(mst.repr(v))
-      end
-   end
-end
-
-if setted
-then
-   mst.d('.. waiting for sync')
-   s:wait_in_sync()
-   mst.d('.. done')
-end
+stc:process_keys(keys)
