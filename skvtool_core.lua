@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb 25 12:21:09 2013 mstenber
--- Last modified: Mon Feb 25 13:37:58 2013 mstenber
--- Edit time:     28 min
+-- Last modified: Mon Feb 25 14:58:19 2013 mstenber
+-- Edit time:     33 min
 --
 
 -- this is the 'utility' functionality of skvtool, which is used by
@@ -56,7 +56,13 @@ function stc:process_keys(l)
    self:wait_in_sync_if_needed()
 end
 
-function stc:list_all()
+function stc:list_all(encode)
+   if not encode
+   then
+      encode = function (s)
+         return self:encode_value_to_string(s)
+      end
+   end
    self:wait_in_sync_if_needed()
    local st = self.skv:get_combined_state()
    self:d('dumping entries', mst.table_count(st))
@@ -65,7 +71,7 @@ function stc:list_all()
    for i, k in ipairs(kl)
    do
       local v = st[k]
-      self:output(string.format("%s=%s", k, self:encode_value_to_string(v)))
+      self:output(string.format("%s=%s", k, encode(v)))
    end
 end
 
@@ -90,10 +96,10 @@ function stc:handle_set(k, v)
 
    self:set(k, v)
    self:d('.. done')
-   self.did_set = true
 end
 
 function stc:handle_list_add(k, v)
+   self:wait_in_sync_if_needed()
    k = mst.string_strip(k)
    local l = self:get(k)
    if not l
@@ -108,6 +114,7 @@ function stc:handle_list_add(k, v)
 end
 
 function stc:handle_list_delete(k, v)
+   self:wait_in_sync_if_needed()
    k = mst.string_strip(k)
    local l = self:get(k)
    if not l
@@ -148,6 +155,7 @@ end
 -- by default we pass them to local 'skv' object'
 function stc:set(k, v)
    self.skv:set(k, v)
+   self.did_set = true
 end
 
 function stc:get(k)

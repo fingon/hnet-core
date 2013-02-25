@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb 25 12:31:27 2013 mstenber
--- Last modified: Mon Feb 25 13:24:55 2013 mstenber
--- Edit time:     19 min
+-- Last modified: Mon Feb 25 15:00:40 2013 mstenber
+-- Edit time:     26 min
 --
 
 
@@ -78,6 +78,14 @@ describe("skvtool_core", function ()
                   local exp = '{"bar=\\"baz\\"", "foo=\\"bar\\""}'
                   mst.a(rt == exp, rt, exp)
 
+                  t = {}
+                  stc:list_all(function (x)
+                                  return x
+                               end)
+                  local rt = mst.repr(t)
+                  local exp = '{"bar=baz", "foo=bar"}'
+                  mst.a(rt == exp, rt, exp)
+
                    end)
             it("works sensibly with various inputs", function ()
                   -- check that lua => print output works
@@ -102,7 +110,10 @@ describe("skvtool_core", function ()
                    end)
             it("fake prefix manipulation operations", function ()
                   stc:process_key('test += {"k":"x", "v":1}')
+                  mst.a(not waited)
                   stc:process_key('test += {"k":"y", "v":2}')
+                  mst.a(waited)
+                  waited = false
                   stc:process_key('test += {"k":"z", "v":3}')
                   local l = s:get('test')
                   mst.a(l, 'no key at all')
