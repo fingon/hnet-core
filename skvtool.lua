@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 13:18:34 2012 mstenber
--- Last modified: Mon Feb 25 12:48:33 2013 mstenber
--- Edit time:     61 min
+-- Last modified: Mon Feb 25 15:04:33 2013 mstenber
+-- Edit time:     70 min
 --
 
 -- minimalist tool for playing with SKV
@@ -22,6 +22,7 @@
 
 require 'mst'
 require 'skv'
+require 'skvtool_core'
 require 'socket'
 local json = require "dkjson"
 
@@ -35,7 +36,8 @@ function create_cli()
    cli:optarg('KEYS', 'list of keys, or key=value pairs (=set)', '', 999)
 
    cli:add_flag('-d', 'enable debugging (spammy)')
-   cli:add_flag('-l', 'list all key-value pairs')
+   cli:add_flag('-l, --list-lua', 'list all key-value pairs [Lua]')
+   cli:add_flag('-L, --list-json', 'list all key-value pairs [json]')
    cli:add_flag("-v, --version", "prints the program's version and exits")
    cli:add_flag('-w', 'wait for other end to go up')
    cli:add_flag('-r', 'read key=value pairs from stdin, in -l format')
@@ -74,12 +76,6 @@ then
    keys = {}
 end
 
-if #keys == 0  and not args.l and not args.r
-then
-   create_cli():print_help()
-   return print('either key, key=value, -l, or -r are required')
-end
-
 -- ok, we're on a mission. get skv to ~stable state
 local s
 
@@ -99,9 +95,17 @@ do
    socket.sleep(1)
 end
 
-local stc = skvtool_core.stc:new{}
+local stc = skvtool_core.stc:new{skv=s}
 
 if args.l
+then
+   stc:list_all(function (x)
+                   return mst.repr(x)
+                end)
+   return
+end
+
+if args.L
 then
    stc:list_all()
    return
