@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb 25 12:31:27 2013 mstenber
--- Last modified: Mon Feb 25 13:09:12 2013 mstenber
--- Edit time:     15 min
+-- Last modified: Mon Feb 25 13:24:55 2013 mstenber
+-- Edit time:     19 min
 --
 
 
@@ -99,6 +99,20 @@ describe("skvtool_core", function ()
                      stc:process_key('test=' .. exps)
                      mst.a(mst.repr_equal(s:get('test'), luao))
                   end
+                   end)
+            it("fake prefix manipulation operations", function ()
+                  stc:process_key('test += {"k":"x", "v":1}')
+                  stc:process_key('test += {"k":"y", "v":2}')
+                  stc:process_key('test += {"k":"z", "v":3}')
+                  local l = s:get('test')
+                  mst.a(l, 'no key at all')
+                  mst.a(#l == 3)
+                  mst.a(l[1].k == 'x')
+                  stc:process_key('test -= {"k":"y"}')
+                  local l = s:get('test')
+                  mst.a(#l == 2)
+                  mst.a(l[1].k == 'x')
+                  mst.a(l[2].k == 'z')
                    end)
              end)
 

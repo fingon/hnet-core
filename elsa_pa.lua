@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Feb  5 20:50:57 2013 mstenber
--- Edit time:     559 min
+-- Last modified: Mon Feb 25 12:12:25 2013 mstenber
+-- Edit time:     588 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -47,34 +47,39 @@ AC_TYPE=0xAC0F
 --FORCE_PA_RUN_INTERVAL=120
 FORCE_SKV_AC_CHECK_INTERVAL=60
 
--- SKV-related things
-PD_SKVPREFIX='pd-'
-SIXRD_SKVPREFIX='6rd-'
+-- New scheme for encoding the received PD/6RD/DHCPv4 in the SKV is as
+-- follows:
+
+-- <source>.<ifname> = { {key1=value1, key2=value2}, {key3=value3, key4=value4, ..} }
+
+PD_SKVPREFIX='pd.'
+DHCPV4_SKVPREFIX='dhcp.'
+SIXRD_SKVPREFIX='6rd.'
+
+-- hardcoded device for 6rd (it's not associated with real devices)
 SIXRD_DEV='6rd'
 
--- used to convey DHCPv4-sourced information
-DHCPV4_SKVPREFIX='dhcp-'
+-- these keys are used within the objects to describe found information
+PREFIX_KEY='prefix'
+DNS_KEY='dns'
+DNS_SEARCH_KEY='dns-search'
+NH_KEY='nh'
 
 -- used to indicate that interface shouldn't be assigned to
-DISABLE_SKVPREFIX='disable-pa-'
+DISABLE_SKVPREFIX='disable-pa.'
 
 -- used to indicate that no IPv4 prefix assignment on the interface
-DISABLE_V4_SKVPREFIX='disable-pa-v4-'
-
--- skv key is formed of *_SKVPREFIX + one of these + interface name
-PREFIX_KEY='prefix.'
-DNS_KEY='dns.'
-DNS_SEARCH_KEY='dns-search.'
-NH_KEY='nh.'
+DISABLE_V4_SKVPREFIX='disable-pa-v4.'
 
 -- SKV 'singleton' keys
-PD_IFLIST_KEY='pd-iflist'
-OSPF_RID_KEY='ospf-rid'
-OSPF_LAP_KEY='ospf-lap'
-OSPF_USP_KEY='ospf-usp'
-OSPF_DNS_KEY='ospf-dns'
+OSPF_RID_KEY='ospf-rid' -- OSPF router ID
+OSPF_LAP_KEY='ospf-lap' -- PA alg locally assigned prefixes
+OSPF_USP_KEY='ospf-usp' -- usable prefixes from PA alg
+OSPF_IFLIST_KEY='ospf-iflist' -- active set of interfaces
+-- IPv6 DNS 
+OSPF_DNS_KEY='ospf-dns' 
 OSPF_DNS_SEARCH_KEY='ospf-dns-search'
-OSPF_IFLIST_KEY='ospf-iflist'
+-- IPv4 DNS 
 OSPF_IPV4_DNS_KEY='ospf-v4-dns'
 OSPF_IPV4_DNS_SEARCH_KEY='ospf-v4-dns-search'
 -- locally owned (owner) interfaces' cache rr data
@@ -85,6 +90,8 @@ MDNS_OSPF_SKV_KEY='ospf-mdns'
 -- allow for configuration of prefix assignment algorithm
 -- via skv too
 PA_CONFIG_SKV_KEY='pa-config'
+
+PD_IFLIST_KEY='pd-iflist' -- allow overriding of active interfaces
 
 -- JSON fields within jsonblob AC TLV
 JSON_ASA_KEY='asa'
@@ -746,57 +753,44 @@ end
 
 function elsa_pa:update_skvp()
    self.skvp = mst.map:new()
-   self:iterate_skv_prefix_real(function (p)
-                                   self.skvp[p.prefix] = p
-                                end)
+   self:iterate_all_skv_prefixes(function (p)
+                                    self.skvp[p.prefix] = p
+                                 end)
    self.skvp_repr = mst.repr(self.skvp)
 end
 
-function elsa_pa:iterate_skv_if_real(ifname, skvprefix, metric, f)
-   local o = self.skv:get(string.format('%s%s%s', 
-                                        skvprefix, PREFIX_KEY, ifname))
-   if not o
-   then
-      return
-   end
-   -- enter to the fallback lottery - the interface set we check
-   -- should NOT decrease in size
-   self.all_seen_if_names:insert(ifname)
-   
-   local prefix, valid
-   if type(o) == 'string'
-   then
-      prefix = o
-      valid = nil
-   else
-      prefix, valid = unpack(o)
-   end
-   local nh
-   local o2 = self.skv:get(string.format('%s%s%s', 
-                                         skvprefix, NH_KEY, ifname))
-   if o2
-   then
-      self:a(type(o2) == 'string')
-      nh = o2
-   end
-   if not valid or valid >= self.time()
-   then
-      f{prefix=prefix, ifname=ifname, nh=nh, metric=metric}
-   end
-end
-
 function elsa_pa:iterate_skv_pd_prefix_real(f)
-   local pdlist = self.skv:get(PD_IFLIST_KEY)
-   for i, ifname in ipairs(pdlist or self.all_seen_if_names:keys())
-   do
-      self:iterate_skv_if_real(ifname, PD_SKVPREFIX, 1000, f)
-   end
 end
 
-
-function elsa_pa:iterate_skv_prefix_real(f)
-   self:iterate_skv_pd_prefix_real(f)
-   self:iterate_skv_if_real(SIXRD_DEV, SIXRD_SKVPREFIX, 2000, f)
+function elsa_pa:iterate_all_skv_prefixes(f)
+   function create_metric_callback(metric)
+      function g(o, ifname)
+         -- enter to the fallback lottery - the interface set we check
+         -- should NOT decrease in size
+         self.all_seen_if_names:insert(ifname)
+   
+         -- old prefixes don't exist
+         if o.valid and o.valid < self.time()
+         then
+            return
+         end
+         -- may be non-prefix information too
+         local p = o[PREFIX_KEY]
+         if not p
+         then
+            return
+         end
+         f{prefix=p, ifname=ifname, nh=o[NH_KEY], metric=metric}
+      end
+      return g
+   end
+   self:iterate_skvprefix_o(PD_SKVPREFIX, 
+                            create_metric_callback(1000)
+                           )
+   self:iterate_skvprefix_o(SIXRD_SKVPREFIX, 
+                            create_metric_callback(2000),
+                            {SIXRD_DEV}
+                           )
 end
 
 function elsa_pa:get_field_array(locala, jsonfield, cl, get_keys)
@@ -833,18 +827,37 @@ function elsa_pa:get_field_array(locala, jsonfield, cl, get_keys)
    return s
 end
 
-function elsa_pa:get_local_field_array(prefix, field)
-   local t
-   for i, ifname in ipairs(self.all_seen_if_names:keys())
+
+-- iterate callback called with object + name of interface (possibly N
+-- times per interface name)
+function elsa_pa:iterate_skvprefix_o(prefix, f, l)
+   for i, ifname in ipairs(l or self.skv:get(PD_IFLIST_KEY) 
+                           or self.all_seen_if_names:keys())
    do
-      local o = self.skv:get(string.format('%s%s%s', 
-                                           prefix, field, ifname))
-      if o
+      local l = self.skv:get(string.format('%s%s', 
+                                           prefix, ifname))
+      if l
       then
-         if not t then t = mst.array:new{} end
-         t:insert(o)
+         for i, o in ipairs(l)
+         do
+            f(o, ifname)
+         end
       end
    end
+end
+
+function elsa_pa:get_local_field_array(prefix, field)
+   local t
+   self:iterate_skvprefix_o(prefix,
+                            function (o, ifname)
+                               local v = o[field]
+                               if not v
+                               then
+                                  return
+                               end
+                               if not t then t = mst.array:new{} end
+                               t:insert(v)
+                            end)
    return t
 end
 

@@ -51,11 +51,6 @@ same link confuse the other party.
 
 * PA - Things to do
 
-** Add support for multiple prefixes per interface
-
-(or more generically, implement the ~real data structure handling, the raw
-skv primitives seem too .. primitive?)
-
 ** Add prefix option support
 
 Backward compatible approach: Define 'USP/ASP with options' TLVs. Use those
@@ -73,13 +68,6 @@ support altogether.
 .. few things not correct, I think
 
 - add memory usage caveats
-
-** refactor skv fields to be more sensible
-
-- some sort of self-describing nested-table approach
-
-- skvtool may need some sort of better data structure manipulation tools?
-  (add/remove to list?)
 
 ** Cleanup BIRD changes
 

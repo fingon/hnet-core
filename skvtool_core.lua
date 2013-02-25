@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb 25 12:21:09 2013 mstenber
--- Last modified: Mon Feb 25 12:53:36 2013 mstenber
--- Edit time:     18 min
+-- Last modified: Mon Feb 25 13:37:58 2013 mstenber
+-- Edit time:     28 min
 --
 
 -- this is the 'utility' functionality of skvtool, which is used by
@@ -34,18 +34,11 @@ end
 
 function stc:process_key(str)
    local k, v = unpack(mst.string_split(str, '=', 2))
+   k = mst.string_strip(k)
    if v
    then
-      --local f, err = loadstring('return ' .. v)
-      --mst.a(f, 'unable to loadstring', err)
-      --rv, err = f()
-      rv = v
-      mst.a(rv, 'invalid value', v, rv)
-      self:d('.. setting', k, v)
-      v = self:decode_value_from_string(v)
-      self:set(k, v)
-      self:d('.. done')
-      self.did_set = true
+      v = mst.string_strip(v)
+      self:handle_set(k, v)
    else
       self:wait_in_sync_if_needed()
       k = str
@@ -77,6 +70,56 @@ function stc:list_all()
 end
 
 -- private functionality
+
+function stc:handle_set(k, v)
+   mst.a(v, 'missing value')
+   self:d('.. setting', k, v)
+   v = self:decode_value_from_string(v)
+   -- let's see if the key terminates with + or -; 
+   -- in that case, this is list operation instead
+   if mst.string_endswith(k, '+')
+   then
+      self:handle_list_add(string.sub(k, 1, #k-1), v)
+      return
+   end
+   if mst.string_endswith(k, '-')
+   then
+      self:handle_list_delete(string.sub(k, 1, #k-1), v)
+      return
+   end
+
+   self:set(k, v)
+   self:d('.. done')
+   self.did_set = true
+end
+
+function stc:handle_list_add(k, v)
+   k = mst.string_strip(k)
+   local l = self:get(k)
+   if not l
+   then
+      self:set(k, {v})
+      return
+   end
+   -- otherwise, have to make copy of list, add one item, and set it.. ugh
+   l = mst.table_copy(l)
+   table.insert(l, v)
+   self:set(k, l)
+end
+
+function stc:handle_list_delete(k, v)
+   k = mst.string_strip(k)
+   local l = self:get(k)
+   if not l
+   then
+      return
+   end
+   l = mst.array_filter(l, function (o)
+                           return not mst.table_contains(o, v)
+                           end
+                       )
+   self:set(k, l)
+end
 
 function stc:decode_value_from_string(v)
    local o, err = json.decode(v)

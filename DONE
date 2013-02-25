@@ -1,5 +1,19 @@
 -*- outline -*-
 
+* Done (25.2.2013+)
+
+** Add support for multiple prefixes per interface
+
+(or more generically, implement the ~real data structure handling, the raw
+skv primitives seem too .. primitive?)
+
+** refactor skv fields to be more sensible
+
+- some sort of self-describing nested-table approach
+
+- skvtool may need some sort of better data structure manipulation tools?
+  (add/remove to list?)
+
 * Done (18.2.2013+)
 
 ** Write OSPF state sanitizer

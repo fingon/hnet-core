@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Feb  5 13:22:28 2013 mstenber
--- Edit time:     335 min
+-- Last modified: Mon Feb 25 12:06:47 2013 mstenber
+-- Edit time:     347 min
 --
 
 require 'mst'
@@ -40,11 +40,6 @@ local FAKE_DNS_SEARCH='dummy.local'
 -- override timeouts so that this won't take forever..
 elsa_pa.LAP_DEPRACATE_TIMEOUT=0.01
 elsa_pa.LAP_EXPIRE_TIMEOUT=0.01
-
-local PD_PREFIX_KEY=elsa_pa.PD_SKVPREFIX .. elsa_pa.PREFIX_KEY
-local PD_DNS_KEY=elsa_pa.PD_SKVPREFIX .. elsa_pa.DNS_KEY
-local PD_DNS_SEARCH_KEY=elsa_pa.PD_SKVPREFIX .. elsa_pa.DNS_SEARCH_KEY
-local PD_NH_KEY=elsa_pa.PD_SKVPREFIX .. elsa_pa.NH_KEY
 
 function ensure_skv_usp_has_nh(s, should_nh, should_if)
    local uspkey = s:get(elsa_pa.OSPF_USP_KEY)
@@ -260,24 +255,19 @@ describe("elsa_pa [one node]", function ()
                   -- now we fake it that we got prefix from pd
                   -- (skv changes - both interface list, and pd info)
                   s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth1'})
-                  s:set(PD_PREFIX_KEY .. 'eth0', 
-                        -- prefix[,valid]
-                        {'dead::/16'}
+                  s:set(elsa_pa.PD_SKVPREFIX .. 'eth0', 
+                        {
+                           {
+                              [elsa_pa.PREFIX_KEY]='dead::/16',
+                              [elsa_pa.DNS_KEY]=FAKE_DNS_ADDRESS,
+                              [elsa_pa.DNS_SEARCH_KEY]=FAKE_DNS_SEARCH,
+                           },
+                        }
                        )
-                  s:set(PD_PREFIX_KEY .. 'eth1', 
-                        -- just the string should also work
-                        'beef::/16'
-                       )
-
-                  s:set(PD_DNS_KEY .. 'eth1',
-                        FAKE_DNS_ADDRESS)
-                  
-                  s:set(PD_DNS_SEARCH_KEY .. 'eth1',
-                        FAKE_DNS_SEARCH)
                   
                   -- make sure it's recognized as usp
                   ep:run()
-                  mst.a(usp_added)
+                  mst.a(usp_added, 'no USP added')
                   mst.a(not asp_added, 'asp was added?!?')
 
                   -- but without ifs, no asp assignment
@@ -304,18 +294,15 @@ describe("elsa_pa [one node]", function ()
                   -- now we fake it that we got prefix from pd
                   -- (skv changes - both interface list, and pd info)
                   s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth2'})
-                  s:set(PD_PREFIX_KEY .. 'eth0', 
-                        -- prefix[,valid]
-                        {'dead::/16'}
+                  s:set(elsa_pa.PD_SKVPREFIX .. 'eth0', 
+                        {
+                           {[elsa_pa.PREFIX_KEY]='dead::/16'},
+                        }
                        )
-                  s:set(PD_PREFIX_KEY .. 'eth2', 
-                        -- just the string should also work
-                        'beef::/16'
-                       )
-                  
+
                   -- make sure it's recognized as usp
                   ep:run()
-                  mst.a(usp_added)
+                  mst.a(usp_added, 'no USP added')
                   mst.a(not asp_added)
 
                   -- and then we should get our own asp back too
@@ -329,10 +316,12 @@ describe("elsa_pa [one node]", function ()
                   ensure_skv_usp_has_nh(s, false, true)
 
                   -- now, we add the NH info -> it should be available too
-                  s:set(PD_NH_KEY .. 'eth0', 
-                        'fe80:1234:2345:3456:4567:5678:6789:789a')
-                  s:set(PD_NH_KEY .. 'eth2', 
-                        'fe80:1234:2345:3456:4567:5678:6789:789b')
+                  s:set(elsa_pa.PD_SKVPREFIX .. 'eth0', 
+                        {
+                           {[elsa_pa.PREFIX_KEY]='dead::/16',
+                            [elsa_pa.NH_KEY]='fe80:1234:2345:3456:4567:5678:6789:789a'},
+                        }
+                       )
 
                   ep:run(ep)
                   ensure_skv_usp_has_nh(s, true, true)
@@ -348,15 +337,15 @@ describe("elsa_pa [one node]", function ()
 
                   -- now we fake it that we got prefix from pd
                   -- (skv changes - both interface list, and pd info)
-                  s:set(elsa_pa.SIXRD_SKVPREFIX .. elsa_pa.PREFIX_KEY .. 
-                        elsa_pa.SIXRD_DEV,
-                        -- prefix[,valid]
-                        {'dead::/16'}
+                  s:set(elsa_pa.SIXRD_SKVPREFIX .. elsa_pa.SIXRD_DEV,
+                        {
+                           {prefix='dead::/16'},
+                        }
                        )
                   
                   -- make sure it's recognized as usp
                   ep:run()
-                  mst.a(usp_added)
+                  mst.a(usp_added, 'no USP added in 6rd config')
                   mst.a(not asp_added)
                                                              end)
 
@@ -421,8 +410,12 @@ describe("elsa_pa 2-node", function ()
                   --mst.d_xpcall(function ()
 
                   -- store DNS information
-                  skv1:set(PD_DNS_KEY .. 'eth1', FAKE_DNS_ADDRESS)
-                  skv1:set(PD_DNS_SEARCH_KEY .. 'eth1', FAKE_DNS_SEARCH)
+                  skv1:set(elsa_pa.PD_SKVPREFIX .. 'eth1',
+                           {
+                              {[elsa_pa.DNS_KEY] = FAKE_DNS_ADDRESS},
+                              {[elsa_pa.DNS_SEARCH_KEY] = FAKE_DNS_SEARCH},
+                           }
+                          )
 
                   -- fake mdns data - all that matters is that the list
                   -- gets propagated 
@@ -452,7 +445,8 @@ describe("elsa_pa 2-node", function ()
                   end
 
                   local v = skv2:get(elsa_pa.OSPF_DNS_KEY)
-                  mst.a(mst.repr_equal(v, {FAKE_DNS_ADDRESS}))
+                  local exp = {FAKE_DNS_ADDRESS}
+                  mst.a(mst.repr_equal(v, exp), 'result not expected', v, exp)
 
                   local v = skv2:get(elsa_pa.OSPF_DNS_SEARCH_KEY)
                   mst.a(mst.repr_equal(v, {FAKE_DNS_SEARCH}))

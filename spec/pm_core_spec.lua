@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Wed Dec 19 13:19:00 2012 mstenber
--- Edit time:     229 min
+-- Last modified: Mon Feb 25 12:18:01 2013 mstenber
+-- Edit time:     239 min
 --
 
 -- testsuite for the pm_core
@@ -230,6 +230,13 @@ default via 1.2.3.4 dev eth0
 
 }
 
+local eth0_prefix1 = 
+   {[elsa_pa.PREFIX_KEY]='dead::/16',
+    [elsa_pa.NH_KEY]='fe80:1234:2345:3456:4567:5678:6789:789a',
+    [elsa_pa.DNS_KEY]='dead::1',
+    [elsa_pa.DNS_SEARCH_KEY]='dummy.local',
+   }
+
 describe("pm", function ()
             local s, e, ep, pm, ds
 
@@ -249,23 +256,11 @@ describe("pm", function ()
                            e:add_node(ep)
                            s:set(elsa_pa.OSPF_RID_KEY, myrid)
                            s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth1'})
-                           s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.PREFIX_KEY .. 'eth0', 
-                                 -- prefix[,valid]
-                                 'dead::/16'
+                           s:set(elsa_pa.PD_SKVPREFIX .. 'eth0',
+                                 {
+                                    eth0_prefix1,
+                                 }
                                 )
-                           s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.DNS_KEY .. 'eth0', 
-                                 -- dns
-                                 'dead::1'
-                                )
-                           s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.DNS_SEARCH_KEY .. 'eth0', 
-                                 -- dns search
-                                 'dummy.local'
-                                )
-                           s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.NH_KEY .. 'eth0', 
-                                 -- just address
-                                 'fe80:1234:2345:3456:4567:5678:6789:789a'
-                                )
-
                            pm = pm_core.pm:new{skv=s, shell=ds:get_shell(),
                                                radvd_conf_filename=TEMP_RADVD_CONF,
                                                dhcpd_conf_filename=TEMP_DHCPD_CONF,
@@ -343,11 +338,17 @@ describe("pm", function ()
                   mst.a(string.find(s, 'server'), 'server missing')
                   mst.a(string.find(s, 'range'), 'dhcp-range missing')
                         end)
-            it("works - but no nh => table should be empty", function ()
+            it("works - but no nh => table should be empty #nonh", function ()
                   local d = mst.array:new{}
 
                   -- get rid of the nh
-                  s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.NH_KEY .. 'eth0', nil)
+                  local eth0_prefix2 = mst.table_copy(eth0_prefix1)
+                  eth0_prefix2[elsa_pa.NH_KEY] = nil
+                  s:set(elsa_pa.PD_SKVPREFIX .. 'eth0',
+                        {
+                           eth0_prefix2,
+                        }
+                       )
 
                   d:extend(unpack{
                               --bird_start, -- n/a, no v4?
