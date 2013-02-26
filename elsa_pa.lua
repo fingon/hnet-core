@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Mon Feb 25 12:12:25 2013 mstenber
--- Edit time:     588 min
+-- Last modified: Tue Feb 26 17:16:56 2013 mstenber
+-- Edit time:     690 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -64,6 +64,11 @@ PREFIX_KEY='prefix'
 DNS_KEY='dns'
 DNS_SEARCH_KEY='dns-search'
 NH_KEY='nh'
+PREFIX_CLASS_KEY='pclass'
+
+-- list of keys which are passed verbatim from 
+-- IF-specific prefix SKV [=> JSON_USP_INFO_KEY] => LAP/USP SKV lists
+PREFIX_INFO_SKV_KEYS={PREFIX_CLASS_KEY}
 
 -- used to indicate that interface shouldn't be assigned to
 DISABLE_SKVPREFIX='disable-pa.'
@@ -101,6 +106,8 @@ JSON_IPV4_DNS_KEY='ipv4-dns'
 JSON_IPV4_DNS_SEARCH_KEY='ipv4-dns-search'
 -- local mdns rr cache
 JSON_MDNS_KEY='mdns'
+-- extra USP information
+JSON_USP_INFO_KEY='usp-info'
 
 -- from the draft; time from boot to wait iff no other routers around
 -- before starting new assignments
@@ -526,6 +533,80 @@ function elsa_pa:run_handle_new_lsa()
 
 end
 
+local function non_empty(x)
+   if not x then return end
+   local t = type(x)
+   if t == 'number' then return x end
+   mst.a(t == 'string', 'non-string', t, x)
+   if #x == 0 then return end
+   return x
+end
+
+function elsa_pa:copy_prefix_info_to_o(prefix, dst)
+   self:a(type(prefix) == 'string', 'non-string prefix', prefix)
+   self:d('copy_prefix_info_to_o', prefix)
+
+   -- given ascii USP prefix p, we have to find the 'extra'
+   -- information about it, and dump it to object o
+
+   -- two options: 
+   -- - local skv prefix
+   -- - 'some' jsonblob AC TLV with the information we want
+   local o
+   self:iterate_skv_prefix(function (p)
+                              if p.prefix == prefix
+                              then
+                                 o = p
+                                 self:d('found from local', o)
+                              end
+                          end)
+   if not o
+   then
+
+      -- backup plan - look for JSONBLOB with corresponding
+      -- JSON_USP_INFO_KEY and prefix key
+      self:iterate_ac_lsa_tlv(function (json, lsa)
+                                 local t = json.table
+                                 local h = t[JSON_USP_INFO_KEY]
+                                 self:d('considering', t)
+
+                                 if not h then return end
+                                 local v = h[prefix]
+                                 if v
+                                 then
+                                    o = v
+                                    self:d('found from remote', o)
+                                 end
+                              end, {type=ospfcodec.AC_TLV_JSONBLOB})
+   end
+   if not o then return end
+   for _, key in ipairs(PREFIX_INFO_SKV_KEYS)
+   do
+      dst[key] = o[key]
+   end
+end
+
+function elsa_pa:find_usp_for_ascii_prefix(p, iid)
+   local asp = self.pa:get_asp(p, iid, self.rid)
+   if asp and asp.usp
+   then
+      return asp.usp
+   end
+
+   -- failure.. look at all usp's instead, and see which one this
+   -- prefix belongs to (this is brute-force, but oh well)
+   local o
+   p = ipv6s.new_prefix_from_ascii(p)
+   self.pa.usp:foreach(function (rid, usp)
+                          self:a(usp.prefix, 'no prefix?', usp)
+                          if usp.prefix:contains(p)
+                          then
+                             o = usp
+                          end
+                       end)
+   return o
+end
+
 function elsa_pa:run_handle_skv_publish()
    -- store the rid to SKV too
    self.skv:set(OSPF_RID_KEY, self.rid)
@@ -535,7 +616,8 @@ function elsa_pa:run_handle_skv_publish()
    local dumped_if_ipv4 = {}
    for i, lap in ipairs(self.pa.lap:values())
    do
-      local ifo = self.pa.ifs[lap.iid]
+      local iid = lap.iid
+      local ifo = self.pa.ifs[iid]
       if not ifo
       then
          self:d('zombie interface', lap)
@@ -548,13 +630,24 @@ function elsa_pa:run_handle_skv_publish()
                 self.pa.usp, self.pa.asp, self.pa.lap)
          dumped_if_ipv4[lap.ifname] = true
       end
-      t:insert({ifname=lap.ifname, 
-                prefix=lap.ascii_prefix,
-                depracate=lap.depracated and 1 or nil,
-                owner=lap.owner,
-                address=lap.address and lap.address:get_ascii() or nil,
-                external=ifo.external,
-               })
+      local p = lap.ascii_prefix
+      local o = {ifname=lap.ifname, 
+                 prefix=p,
+                 depracate=lap.depracated and 1 or nil,
+                 owner=lap.owner,
+                 address=lap.address and lap.address:get_ascii() or nil,
+                 external=ifo.external,
+      } 
+      local usp = self:find_usp_for_ascii_prefix(p, iid)
+      if usp
+      then
+         local p2 = usp.ascii_prefix
+         self:a(p2, 'no ascii_prefix in usp')
+         self:copy_prefix_info_to_o(p2, o)
+      else
+         self:d('no usp?', lap)
+      end
+      t:insert(o)
    end
    self.skv:set(OSPF_LAP_KEY, t)
 
@@ -590,10 +683,10 @@ function elsa_pa:run_handle_skv_publish()
       then
          self:d(' usp', p)
          dumped:insert(p)
-         -- no route info for ula/ipv4 prefixes
+         local o = {prefix=p, rid=rid}
          if usp.prefix:is_ula() or usp.prefix:is_ipv4()
          then
-            t:insert({prefix=p, rid=rid})
+            -- no route info for ula/ipv4 prefixes
          else
             -- look up the local SKV prefix if available
             -- (pa code doesn't pass-through whole objects, intentionally)
@@ -602,8 +695,11 @@ function elsa_pa:run_handle_skv_publish()
             then
                n = self:route_to_rid(rid) or {}
             end
-            t:insert({prefix=p, rid=rid, nh=n.nh, ifname=n.ifname})
+            o.nh = non_empty(n.nh)
+            o.ifname = n.ifname
          end
+         self:copy_prefix_info_to_o(p, o)
+         t:insert(o)
       end
    end
    self.skv:set(OSPF_USP_KEY, t)
@@ -759,16 +855,13 @@ function elsa_pa:update_skvp()
    self.skvp_repr = mst.repr(self.skvp)
 end
 
-function elsa_pa:iterate_skv_pd_prefix_real(f)
-end
-
 function elsa_pa:iterate_all_skv_prefixes(f)
    function create_metric_callback(metric)
       function g(o, ifname)
          -- enter to the fallback lottery - the interface set we check
          -- should NOT decrease in size
          self.all_seen_if_names:insert(ifname)
-   
+         
          -- old prefixes don't exist
          if o.valid and o.valid < self.time()
          then
@@ -780,7 +873,13 @@ function elsa_pa:iterate_all_skv_prefixes(f)
          then
             return
          end
-         f{prefix=p, ifname=ifname, nh=o[NH_KEY], metric=metric}
+         local o2 = {prefix=p, ifname=ifname, nh=o[NH_KEY], metric=metric}
+         -- copy over all other fields too, if applicable
+         for _, k in ipairs(PREFIX_INFO_SKV_KEYS)
+         do
+            o2[k] = non_empty(o[k])
+         end
+         f(o2)
       end
       return g
    end
@@ -850,7 +949,8 @@ function elsa_pa:get_local_field_array(prefix, field)
    local t
    self:iterate_skvprefix_o(prefix,
                             function (o, ifname)
-                               local v = o[field]
+                               local v = non_empty(o[field])
+                               -- don't forward empty strings - they can be created by 'stuff'
                                if not v
                                then
                                   return
@@ -905,7 +1005,8 @@ function elsa_pa:generate_ac_lsa()
 
    -- generate local USP-based TLVs
 
-   local uspl = self:ph_list_sorted(self.pa.usp[self.rid])
+   --local uspl = self:ph_list_sorted(self.pa.usp[self.rid])
+   local uspl = self.pa.usp[self.rid] or {}
    for i, usp in ipairs(uspl)
    do
       self:d(' usp', self.rid, usp.prefix)
@@ -913,7 +1014,8 @@ function elsa_pa:generate_ac_lsa()
    end
 
    -- generate (local) ASP-based TLVs
-   local aspl = self:ph_list_sorted(self.pa:get_local_asp_values())
+   --local aspl = self:ph_list_sorted(self.pa:get_local_asp_values())
+   local aspl = self.pa:get_local_asp_values()
    for i, asp in ipairs(aspl)
    do
       self:d(' asp', self.rid, asp.iid, asp.prefix)
@@ -936,6 +1038,37 @@ function elsa_pa:generate_ac_lsa()
    if o and #o > 0
    then
       t[JSON_MDNS_KEY] = o
+   end
+
+   -- bonus USP prefix option list 
+   local h
+   self:iterate_skv_prefix(function (p)
+                              -- may be non-prefixy thing in the
+                              -- source, skip if so
+                              if not p.prefix
+                              then
+                                 return
+                              end
+
+                              -- ok, it really is prefix, let's see if
+                              -- it has any extra usp info we might
+                              -- want to propagate
+                              local o = {}
+                              for i, key in ipairs(PREFIX_INFO_SKV_KEYS)
+                              do
+                                 o[key] = non_empty(p[key])
+                              end
+                              if mst.table_count(o) > 0
+                              then
+                                 h = h or {}
+                                 h[p.prefix] = o
+                              end
+
+                           end)
+   if h
+   then
+      self:d('exporting usp info', h)
+      t[JSON_USP_INFO_KEY] = h
    end
 
    if t:count() > 0

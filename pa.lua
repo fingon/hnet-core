@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Feb  5 20:51:10 2013 mstenber
--- Edit time:     832 min
+-- Last modified: Tue Feb 26 15:03:33 2013 mstenber
+-- Edit time:     841 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -853,17 +853,17 @@ function pa:assign_other(iid, asp)
    asp:assign_lap(iid)
 end
 
-function pa:matching_prefix_exists(filter)
+function pa:find_usp_matching(filter)
    for i, usp in ipairs(self.usp:values())
    do
-      if filter(usp) then return true end
+      if filter(usp) then return usp end
    end
 end
 
 function pa:generate_ulaish(filter, filter_own, generate_prefix, desc)
    -- i) first off, if we _do_ have usable prefixes from someone else,
    -- use them
-   if self:matching_prefix_exists(filter)
+   if self:find_usp_matching(filter)
    then
       self:d('something exists, generate_ulaish skipped', desc)
       return

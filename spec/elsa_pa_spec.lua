@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Mon Feb 25 12:06:47 2013 mstenber
--- Edit time:     347 min
+-- Last modified: Tue Feb 26 16:59:53 2013 mstenber
+-- Edit time:     356 min
 --
 
 require 'mst'
@@ -412,6 +412,10 @@ describe("elsa_pa 2-node", function ()
                   -- store DNS information
                   skv1:set(elsa_pa.PD_SKVPREFIX .. 'eth1',
                            {
+                              --prefix
+                              {[elsa_pa.PREFIX_KEY] = 'dead::/16',
+                               [elsa_pa.PREFIX_CLASS_KEY] = 42},
+                              -- and some random other info
                               {[elsa_pa.DNS_KEY] = FAKE_DNS_ADDRESS},
                               {[elsa_pa.DNS_SEARCH_KEY] = FAKE_DNS_SEARCH},
                            }
@@ -426,9 +430,7 @@ describe("elsa_pa 2-node", function ()
 
                   -- run once, and make sure we get to pa.add_or_update_usp
 
-                  mst.a(sm:run_nodes(3), 'did not halt in time')
-
-                  mst.a(sm:run_nodes(3), 'did not halt in time')
+                  mst.a(sm:run_nodes(123), 'did not halt in time')
 
                   -- 3 asps -> each should have 3 asps + 2 lap
                   -- (2 ifs per box)
@@ -441,7 +443,29 @@ describe("elsa_pa 2-node", function ()
                      end
                      mst.a(ep.pa.asp:count() == 3, 'invalid ep.pa.asp',  
                            ep.pa.asp)
+                     for i, lap in ipairs(ep.pa.lap:values())
+                     do
+                        --mst.a(lap[elsa_pa.PREFIX_CLASS_KEY] == 42, 
+                        --'no pclass set')
+                     end
                      mst.a(ep.pa.lap:count() == 2)
+                  end
+
+                  for i, s in ipairs{skv1, skv2}
+                  do
+                     local uspl = s:get(elsa_pa.OSPF_USP_KEY)
+                     for i, usp in ipairs(uspl)
+                     do
+                        mst.a(usp.pclass, 'no pclass in ospf-usp', i, usp)
+                     end
+                  end
+                  for i, s in ipairs{skv1, skv2}
+                  do
+                     local lapl = s:get(elsa_pa.OSPF_LAP_KEY)
+                     for i, lap in ipairs(lapl)
+                     do
+                        mst.a(lap.pclass, 'no pclass in ospf-lap', i, lap)
+                     end
                   end
 
                   local v = skv2:get(elsa_pa.OSPF_DNS_KEY)
