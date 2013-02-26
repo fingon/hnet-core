@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Thu Jan 31 12:39:49 2013 mstenber
+-- Last modified: Tue Feb 26 18:02:58 2013 mstenber
 -- Edit time:     29 min
 --
 
@@ -40,7 +40,10 @@ function create_cli()
    local cli = require "cliargs"
 
    cli:set_name('pm.lua')
-   cli:add_flag("-m, --dnsmasq", "use dnsmasq instead of ISC dhcpd + radvd")
+   cli:add_flag("-f, --fakedhcpv6d", 
+      "use fakedhcpv6d to respond to DHCPv6 queries")
+   cli:add_flag("-m, --dnsmasq", 
+      "use dnsmasq instead of ISC dhcpd + radvd")
    cli:add_flag('--disable_ula', 'disable ULA generation altogether')
    cli:add_flag('--disable_always_ula', 'disable ULAs if global addresses present')
    cli:add_flag('--disable_ipv4', 'disable generation of NATted IPv4 sub-prefixes')

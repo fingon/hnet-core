@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Thu Nov 22 17:10:15 2012 mstenber
--- Edit time:     553 min
+-- Last modified: Tue Feb 26 19:25:52 2013 mstenber
+-- Edit time:     556 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -109,11 +109,19 @@ function pm:init()
       'radvd',
       -- this doesn't matter, it just has tick
       'memory',
+      
    }
    if self.use_dnsmasq
    then
       self:replace_handlers{radvd='dnsmasq',
                             dhcpd='dnsmasq'}
+   end
+
+   if self.use_fakedhcpv6d
+   then
+      -- dhcpd will take care of v4 only, and v6 IA_NA replies will be
+      -- provided by fakedhcpv6d
+      self.handlers:insert('fakedhcpv6d')
    end
 
 
@@ -185,6 +193,7 @@ function pm:kv_changed(k, v)
 
       -- may need to change if we listen to RAs or not
       self:queue('v6_listen_ra')
+
    elseif k == elsa_pa.OSPF_IFLIST_KEY
    then
       self.ospf_iflist = v
@@ -209,6 +218,11 @@ function pm:kv_changed(k, v)
       self:queue('radvd')
       self:queue('dhcpd')
       self:queue('bird4')
+
+      if self.use_fakedhcpv6d
+      then
+         self:queue('fakedhcpv6d')
+      end
    elseif k == elsa_pa.OSPF_IPV4_DNS_KEY
    then
       self.ospf_v4_dns = v or {}
@@ -222,11 +236,15 @@ function pm:kv_changed(k, v)
       self.ospf_dns = v or {}
       self:queue('dhcpd')
       self:queue('radvd')
+      -- in theory fakedhcpv6d cares too, but in practise
+      -- it has no state => next one will just have updated naming parameters
    elseif k == elsa_pa.OSPF_DNS_SEARCH_KEY
    then
       self.ospf_dns_search = v or {}
       self:queue('dhcpd')
       self:queue('radvd')
+      -- in theory fakedhcpv6d cares too, but in practise
+      -- it has no state => next one will just have updated naming parameters
    else
       -- if it looks like pd change, we may be also interested
       --if string.find(k, '^' .. elsa_pa.PD_KEY) then self:check_rules() end

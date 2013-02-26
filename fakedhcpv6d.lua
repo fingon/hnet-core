@@ -1,14 +1,14 @@
 #!/usr/bin/env lua
 -- -*-lua-*-
 --
--- $Id: fakedhcpv6.lua $
+-- $Id: fakedhcpv6d.lua $
 --
 -- Author: Markus Stenberg <markus stenberg@iki.fi>
 --
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Feb 21 11:47:15 2013 mstenber
--- Last modified: Thu Feb 21 14:47:17 2013 mstenber
+-- Last modified: Tue Feb 26 18:30:48 2013 mstenber
 -- Edit time:     37 min
 --
 
@@ -29,7 +29,7 @@ _TEST = false -- required by cliargs + strict
 function create_cli()
    local cli = require "cliargs"
 
-   cli:set_name('fakedhcpv6.lua')
+   cli:set_name('fakedhcpv6d.lua')
    cli:add_opt("--dns=DNSADDRESS", "address of (IPv6) DNS server")
    cli:add_opt("--search=SEARCHPATH", "search path for IPv6 DNS")
    cli:add_opt("-j, --join=IFLIST","join multicast group on given (comma-separated) interfaces", nil)

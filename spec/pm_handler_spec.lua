@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Tue Feb 26 17:58:43 2013 mstenber
--- Edit time:     42 min
+-- Last modified: Tue Feb 26 19:31:15 2013 mstenber
+-- Edit time:     53 min
 --
 
 -- individual handler tests
@@ -22,8 +22,74 @@ require 'pm_v6_dhclient'
 require 'pm_dnsmasq'
 require 'pm_memory'
 require 'pm_radvd'
+require 'pm_fakedhcpv6d'
+require 'dhcpv6codec'
 
 module("pm_handler_spec", package.seeall)
+
+describe("pm_fakedhcpv6d", function ()
+            local pm
+            local o
+            local mcastlog
+            local sentlog 
+            before_each(function ()
+                           mcastlog = {}
+                           sentlog = {}
+                           pm = dpm.dpm:new{}
+                           o = pm_fakedhcpv6d.pm_fakedhcpv6d:new{pm=pm, 
+                                                                 port=12348}
+                           -- always-succeeding ops, that we just log
+                           function o.mcj:try_multicast_op(ifname, is_join)
+                              table.insert(mcastlog, {ifname, is_join})
+                              return true
+                           end
+                           function o:sendto(data, dst, dstport)
+                              table.insert(sentlog, {data, dst, dstport})
+                           end
+                        end)
+            it("works #dhcpv6d", function ()
+                  -- nothing should happen.. w/o ospf_lap
+                  o:queue()
+                  o:maybe_run()
+                  mst.a(#mcastlog == 0)
+
+                  -- after adding the lap, we should join the owner
+                  -- interface, but not non-owner one
+                  pm.ospf_lap = {
+                     {ifname='eth0',
+                      prefix='dead::/64',
+                      owner=true,
+                     },
+                     {ifname='eth0',
+                      prefix='beef::/64',
+                      owner=true,
+                      pclass=1,
+                     },
+                     {ifname='eth1',
+                      prefix='cafe::/64',
+                     },
+                  }
+                  pm.ospf_dns = {'dead::1'}
+                  pm.ospf_dns_search = {'example.com'}
+                  o:maybe_run()
+                  local exp = {{'eth0', true}}
+                  mst.a(mst.repr_equal(mcastlog, exp), 'non-expected mcast log', mcastlog)
+
+                  -- let's synthesize a completely fake DHCPv6 message
+                  -- and send it in - see what comes out. first info
+                  -- request..
+                  local m = {[1]={data="00030001827f5ea42778", 
+                                  option=dhcpv6_const.O_CLIENTID}, 
+                             type=dhcpv6_const.INFORMATION_REQUEST, xid=42}
+                  local mb = dhcpv6codec.dhcpv6_message:encode(m)
+                  local client1 = 'fe80::2%eth1'
+                  local client2 = 'fe80::1%eth0'
+                  o:recvmsg(mb, client1, dhcpv6_const.CLIENT_PORT)
+                  mst.a(#sentlog == 0, 'should receive no reply on invalid if')
+                  o:recvmsg(mb, client2, dhcpv6_const.CLIENT_PORT)
+                  mst.a(#sentlog == 1, 'no reply?', sentlog)
+                   end)
+             end)
 
 describe("pm_radvd", function ()
             it("works", function ()

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:54:56 2012 mstenber
--- Last modified: Wed Nov 21 17:27:23 2012 mstenber
--- Edit time:     7 min
+-- Last modified: Tue Feb 26 18:35:35 2013 mstenber
+-- Edit time:     10 min
 --
 
 require 'pm_handler'
@@ -30,6 +30,13 @@ function pm_dhcpd:run()
    local p = pm_core.PID_DIR .. '/' .. DHCPD_PID
    local s = string.format('%s 4 %s %s %s', DHCPD_SCRIPT, tostring(owned4), p, fpath)
    self.shell(s)
+
+
+   -- if we're doing v4 only, don't do anything about v6
+   if self.pm.use_fakedhcpv6d
+   then
+      return
+   end
 
    local fpath = self.pm.dhcpd6_conf_filename
    local owned6 = self:write_dhcpd6_conf(fpath)
@@ -121,6 +128,8 @@ function pm_dhcpd:write_dhcpd6_conf(fpath)
    handled = mst.set:new{}
    for i, lap in ipairs(self.pm.ospf_lap)
    do
+      self:a(not lap[elsa_pa.PREFIX_CLASS_KEY], 
+            'prefix classes not supported in ISC DHCPv6d yet')
       local dep = lap.depracate      
       local own = lap.owner and not lap.external
       -- this is used to prevent more than one subnet per interface
