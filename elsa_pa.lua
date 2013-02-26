@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Feb 26 17:16:56 2013 mstenber
--- Edit time:     690 min
+-- Last modified: Tue Feb 26 17:24:49 2013 mstenber
+-- Edit time:     693 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -62,7 +62,7 @@ SIXRD_DEV='6rd'
 -- these keys are used within the objects to describe found information
 PREFIX_KEY='prefix'
 DNS_KEY='dns'
-DNS_SEARCH_KEY='dns-search'
+DNS_SEARCH_KEY='dns_search'
 NH_KEY='nh'
 PREFIX_CLASS_KEY='pclass'
 
