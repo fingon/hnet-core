@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Thu Nov 22 17:10:43 2012 mstenber
--- Edit time:     36 min
+-- Last modified: Tue Feb 26 17:58:43 2013 mstenber
+-- Edit time:     42 min
 --
 
 -- individual handler tests
@@ -21,8 +21,49 @@ require 'pm_v6_route'
 require 'pm_v6_dhclient'
 require 'pm_dnsmasq'
 require 'pm_memory'
+require 'pm_radvd'
 
 module("pm_handler_spec", package.seeall)
+
+describe("pm_radvd", function ()
+            it("works", function ()
+                  local dummy_conf = '/tmp/dummy-radvd.conf'
+                  local dummy_prefix1 = 'dead::/64'
+                  local dummy_prefix2 = 'beef::/64'
+                  local pm = dpm.dpm:new{radvd_conf_filename=dummy_conf}
+                  local o = pm_radvd.pm_radvd:new{pm=pm}
+
+                  -- make sure nothing happens if it isn't ready yet
+                  pm.ds:set_array{}
+                  o:queue()
+                  o:maybe_run()
+                  pm.ds:check_used()
+
+                  -- then, do something for real; provide config
+                  -- for one interface (eth0) with two prefixes - one
+                  -- with pclass, one without; as a result, we should create
+                  -- a config file which has just the non-pclass prefix
+                  -- (we shouldn't advertise pclass prefixes)
+                  pm.ospf_lap = {
+                     {ifname='eth0', prefix=dummy_prefix1},
+                     {ifname='eth0', pclass=1, prefix=dummy_prefix2},
+                     }
+                  pm.ds:set_array{
+                     {'killall -9 radvd'},
+                     {'rm -f /var/run/radvd.pid'},
+                     {'radvd -C ' .. dummy_conf},
+                                 }
+                  o:queue()
+                  o:maybe_run()
+                  pm.ds:check_used()
+
+                  local s = mst.read_filename_to_string(dummy_conf)
+                  mst.a(string.find(s, dummy_prefix1), 'first prefix missing')
+                  mst.a(not string.find(s, dummy_prefix2), 
+                        'second prefix present (but should not be, pclass)')
+
+                        end)
+             end)
 
 describe("pm_v6_nh", function ()
             it("works", function ()

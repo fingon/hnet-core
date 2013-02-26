@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:51:43 2012 mstenber
--- Last modified: Wed Nov 21 18:37:40 2012 mstenber
--- Edit time:     9 min
+-- Last modified: Tue Feb 26 17:59:41 2013 mstenber
+-- Edit time:     12 min
 --
 
 require 'pm_handler'
@@ -36,6 +36,10 @@ function pm_radvd:run()
       self.shell(radvd .. ' -C ' .. fpath)
    end
    return 1
+end
+
+function pm_radvd:ready()
+   return self.pm.ospf_lap
 end
 
 function pm_radvd:write_radvd_conf(fpath)
@@ -78,12 +82,12 @@ function pm_radvd:write_radvd_conf(fpath)
       end
       for i, lap in ipairs(self.pm.ospf_lap)
       do
-         if lap.ifname == ifname
+         if lap.ifname == ifname and not lap[elsa_pa.PREFIX_CLASS_KEY]
          then
-            c = c + 1
             local p = ipv6s.ipv6_prefix:new{ascii=lap.prefix}
-            if not p:is_ipv4()
+            if not p:is_ipv4() 
             then
+               c = c + 1
                t:insert('  prefix ' .. lap.prefix .. ' {')
                t:insert('    AdvOnLink on;')
                t:insert('    AdvAutonomous on;')
