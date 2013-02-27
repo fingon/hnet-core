@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Feb 20 18:24:16 2013 mstenber
--- Last modified: Thu Feb 21 13:33:32 2013 mstenber
--- Edit time:     33 min
+-- Last modified: Wed Feb 27 11:23:00 2013 mstenber
+-- Edit time:     37 min
 --
 
 require "busted"
@@ -32,6 +32,14 @@ local known_messages = {
     }
    },
 
+   -- solicit (IA_NA)
+   {'01ab1a5b0001000e0001000118c086efeeba7b99bca50008000200000003000c7b99bca500000e1000001518',
+    {[1]={data="0001000118c086efeeba7b99bca5", option=1}, 
+     [2]={option=8, value=0}, 
+     [3]={iaid=2073672869, option=3, t1=3600, t2=5400}, 
+     type=1, xid=11213403}
+   },
+
    -- advertise
    {"024f6ef30019004575234e2800000e1000001518001a001900000e1000001c20382000deadbee05c000000000000000000000d0018000041737369676e6564203120707265666978286573292e0002000e0001000118b4e92e4e65b47f205e0001000e0001000118b77eb3ee6e75234e280007000100001700102000000000000000000000000000000200180014027636036c6162076578616d706c6503636f6d00", 
     {
@@ -50,6 +58,19 @@ local known_messages = {
        [5]={[1]="2000::2", option=dhcpv6_const.O_DNS_RNS}, 
        [6]={[1]={"v6", "lab", "example", "com"}, option=dhcpv6_const.O_DOMAIN_SEARCH}, 
     },
+   },
+
+   -- advertise (IA_NA)
+   {'02ab1a5b0001000e0001000118c086efeeba7b99bca50002000e0001000118c086da1a2e8c1654c9000300417b99bca50000070800000c4e000500182000deadbee0005300000000000000a600000e1000000e10000d001500004f68206861692066726f6d20646e736d6173710007000100001700102000deadbee00053182e8cfffe1654c9', 
+    {[1]={data="0001000118c086efeeba7b99bca5", option=1}, 
+     [2]={data="0001000118c086da1a2e8c1654c9", option=2}, 
+     [3]={[1]={addr="2000:dead:bee0:53::a6", 
+               option=5, preferred=3600, valid=3600}, 
+          [2]={code=0, message="Oh hai from dnsmasq", option=13}, 
+          iaid=2073672869, option=3, t1=1800, t2=3150}, 
+     [4]={option=7, value=0}, 
+     [5]={[1]="2000:dead:bee0:53:182e:8cff:fe16:54c9", option=23}, 
+     type=2, xid=11213403}
    },
    
    -- request

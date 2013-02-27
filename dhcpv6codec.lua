@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Feb 20 18:30:04 2013 mstenber
--- Last modified: Thu Feb 21 12:21:52 2013 mstenber
--- Edit time:     75 min
+-- Last modified: Wed Feb 27 11:19:43 2013 mstenber
+-- Edit time:     83 min
 --
 
 require 'codec'
@@ -183,7 +183,9 @@ function optlist:do_encode(o)
 end
 
 -- class _instances_ for handling options with ugly content
-data_ia_pd = optlist:new{class='data_ia_pd',
+
+-- both ia_na, and ia_pd seem to look like this
+data_ia = optlist:new{class='data_ia',
                          format='iaid:u4 t1:u4 t2:u4',
                          header_default={iaid=0, t1=0, t2=0}}
 
@@ -210,6 +212,29 @@ function data_iaprefix:do_encode(o)
    local p = ipv6s.new_prefix_from_ascii(o.prefix)
    o.rawprefix = p:get_binary()
    o.plength = p:get_binary_bits()
+   return optlist.do_encode(self, o)
+end
+
+data_iaaddr = optlist:new{class='data_iaaddr',
+                          format='rawaddr:s16 preferred:u4 valid:u4',
+                          header_default={preferred=0, valid=0,
+                                          rawaddr=''},
+                          copy_on_encode=true,
+                           }
+
+function data_iaaddr:try_decode(cur)
+   local o, err = optlist.try_decode(self, cur)
+   if not o then return nil, err end
+   self:d('try_decode', o)
+   -- replace rawprefix + plength with human-readable prefix
+   self:a(o.rawaddr)
+   o.addr = ipv6s.binary_address_to_address(o.rawaddr)
+   o.rawaddr = nil
+   return o
+end
+
+function data_iaaddr:do_encode(o)
+   o.rawaddr = ipv6s.address_to_binary_address(o.addr)
    return optlist.do_encode(self, o)
 end
 
@@ -269,13 +294,18 @@ function dhcpv6_message:do_encode(o)
 end
 
 -- copy contents of option_to_clasS_map to option_map
-option_to_class_map = {[dhcpv6_const.O_IA_PD]=data_ia_pd,
-                       [dhcpv6_const.O_PREFERENCE]=data_uint8,
-                       [dhcpv6_const.O_ELAPSED_TIME]=data_uint16,
-                       [dhcpv6_const.O_PREFIX_CLASS]=data_uint16,
-                       [dhcpv6_const.O_IAPREFIX]=data_iaprefix,
-                       [dhcpv6_const.O_STATUS_CODE]=data_status_code,
-                       
+option_to_class_map = {
+   -- RFC3633
+   [dhcpv6_const.O_IA_PD]=data_ia,
+   [dhcpv6_const.O_IAPREFIX]=data_iaprefix,
+
+   -- RFC3315
+   [dhcpv6_const.O_IA_NA]=data_ia,
+   [dhcpv6_const.O_IAADDR]=data_iaaddr,
+   [dhcpv6_const.O_PREFERENCE]=data_uint8,
+   [dhcpv6_const.O_ELAPSED_TIME]=data_uint16,
+   [dhcpv6_const.O_PREFIX_CLASS]=data_uint16,
+   [dhcpv6_const.O_STATUS_CODE]=data_status_code,
 }
 
 for k, v in pairs(option_to_class_map)
