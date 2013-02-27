@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov 21 17:13:32 2012 mstenber
--- Last modified: Wed Feb 27 10:48:16 2013 mstenber
--- Edit time:     50 min
+-- Last modified: Wed Feb 27 11:53:06 2013 mstenber
+-- Edit time:     51 min
 --
 
 require 'pm_handler'
@@ -117,9 +117,9 @@ bind-interfaces
 
    for i, lap in ipairs(self.pm.ospf_lap or {})
    do
-      --self:a(not lap[elsa_pa.PREFIX_CLASS_KEY], 
-      --'dnsmasq does not support prefix classes yet - ' ..
-      --'please use the ISC DHCPv4 + fakedhcp6d + radvd instead')
+      self:a(not lap[elsa_pa.PREFIX_CLASS_KEY], 
+             'dnsmasq does not support prefix classes yet - ' ..
+             'please use the ISC DHCPv4 + fakedhcp6d + radvd instead')
 
       local ifname = lap.ifname
       -- we never serve anything outside home -> if in ext set, skip

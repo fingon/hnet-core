@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Feb 26 18:35:40 2013 mstenber
--- Last modified: Wed Feb 27 11:47:30 2013 mstenber
--- Edit time:     31 min
+-- Last modified: Wed Feb 27 12:44:57 2013 mstenber
+-- Edit time:     41 min
 --
 
 -- This is minimalist-ish DHCPv6 IA_NA handling daemon (and obviously,
@@ -32,6 +32,7 @@ require 'mcastjoiner'
 require 'dhcpv6_const'
 require 'scb'
 require 'dnsdb'
+require 'dhcpv6codec'
 
 module(..., package.seeall)
 
@@ -131,6 +132,9 @@ function pm_fakedhcpv6d:recvfrom(data, src, srcport)
                       data="0001000118b4e92e4e65b47f205e"},
    }
 
+   local na
+   local supports_pclass
+
    for i, v in ipairs(o)
    do
       if v.option == dhcpv6_const.O_CLIENTID
@@ -146,13 +150,35 @@ function pm_fakedhcpv6d:recvfrom(data, src, srcport)
 
       if v.option == dhcpv6_const.O_IA_NA
       then
-         local v2 = {option=v.option,
-                     iaid=v.iaid,
-                     t1=v.t1,
-                     t2=v.t2}
-         -- produce IA_NA with IAADDR's
-         table.insert(o2, v2)
-         
+         na = v
+      end
+
+      if v.option == dhcpv6_const.O_ORO
+      then
+         for i, v2 in ipairs(v)
+         do
+            if v2 == dhcpv6_const.O_PREFIX_CLASS
+            then
+               supports_pclass = true
+            end
+         end
+      end
+   end
+
+   if na
+   then
+      local v2 = {option=na.option,
+                  iaid=na.iaid,
+                  t1=na.t1,
+                  t2=na.t2}
+      -- produce IA_NA with IAADDR's
+      table.insert(o2, v2)
+
+      local found
+
+      if supports_pclass
+      then
+
          -- basically, look at whatever we have on the interface; if
          -- it has prefix class, we provide it
          for i, lap in ipairs(self.pm.ospf_lap)
@@ -168,14 +194,22 @@ function pm_fakedhcpv6d:recvfrom(data, src, srcport)
                local a = ipv6s.binary_address_to_address(b)
 
                local v3 = {option=dhcpv6_const.O_IAADDR,
-                           preferred=v.t1,
-                           valid=v.t2,
+                           preferred=na.t1,
+                           valid=na.t2,
                            addr=a}
                local pclass = tonumber(lap.pclass)
                table.insert(v3, {option=dhcpv6_const.O_PREFIX_CLASS, value=pclass})
                table.insert(v2, v3)
+               found = true
             end
          end
+      end
+
+      if not found
+      then
+         table.insert(v2, {option=dhcpv6_const.O_STATUS_CODE,
+                           code=dhcpv6_const.S_NOADDRS_AVAIL,
+                           message='No addresses available, sorry'})
       end
    end
    

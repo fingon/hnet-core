@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Tue Feb 26 18:02:58 2013 mstenber
+-- Last modified: Wed Feb 27 11:54:26 2013 mstenber
 -- Edit time:     29 min
 --
 
@@ -79,6 +79,7 @@ mst.d('initializing pm')
 local pm = pm_core.pm:new{shell=mst.execute_to_string, skv=s,
                           radvd='radvd -m logfile',
                           use_dnsmasq=args.m,
+                          use_fakedhcpv6d=args.f,
                          }
 
 function pm:schedule_run()

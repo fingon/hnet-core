@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Mon Feb 18 14:22:55 2013 mstenber
--- Edit time:     199 min
+-- Last modified: Wed Feb 27 12:04:50 2013 mstenber
+-- Edit time:     200 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -42,6 +42,14 @@ function name2ll(name)
    local t = mst.string_split(name, '.')
    -- we don't include the last empty label in the label lists we use
    --table.insert(t, '')
+
+   -- eliminate the last empty one, if any (dns name can validly end
+   -- with '.', it just means it's globally scoped (but we ignore that
+   -- distinction for most part))
+   if #t>0 and #t[#t] == 0
+   then
+      t[#t] = nil
+   end
    return t
 end
 

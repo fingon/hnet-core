@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Wed Feb 27 11:48:14 2013 mstenber
--- Edit time:     56 min
+-- Last modified: Wed Feb 27 12:45:18 2013 mstenber
+-- Edit time:     62 min
 --
 
 -- individual handler tests
@@ -77,7 +77,7 @@ describe("pm_fakedhcpv6d", function ()
                      },
                   }
                   pm.ospf_dns = {'dead::1'}
-                  pm.ospf_dns_search = {'example.com'}
+                  pm.ospf_dns_search = {'example.com', 'sometimes.ends.with.dot.'}
                   o:maybe_run()
                   local exp = {{'eth0', true}}
                   mst.a(mst.repr_equal(mcastlog, exp), 'non-expected mcast log', mcastlog)
@@ -102,6 +102,8 @@ describe("pm_fakedhcpv6d", function ()
 
 
 
+                  -- first off, solicit w/o ORO =>
+                  -- should get just status code
                   sentlog = {}
                   local m = {[1]={data="00030001827f5ea42778", 
                                   option=dhcpv6_const.O_CLIENTID}, 
@@ -110,7 +112,52 @@ describe("pm_fakedhcpv6d", function ()
                   local mb = dhcpv6codec.dhcpv6_message:encode(m)
                   o:recvfrom(mb, client2, dhcpv6_const.CLIENT_PORT)
                   mst.a(#sentlog == 1, 'no reply?', sentlog)
-
+                  local r = dhcpv6codec.dhcpv6_message:decode(sentlog[1][1])
+                  mst.a(r)
+                  mst.a(r.type == dhcpv6_const.MT_ADVERTISE)
+                  function find_option(o, l)
+                     for i, v in ipairs(l)
+                     do
+                        if v.option == o
+                        then
+                           return v
+                        end
+                     end
+                  end
+                  local na = find_option(dhcpv6_const.O_IA_NA, r)
+                  mst.a(na, 'no ia_na in response')
+                  local ia = find_option(dhcpv6_const.O_IAADDR, na)
+                  mst.a(not ia, 'got addr without ORO?')
+                  local sc = find_option(dhcpv6_const.O_STATUS_CODE, na)
+                  mst.a(sc, 'no status code')
+                  
+                  -- then, solicit w/ ORO => should get proposed address
+                  sentlog = {}
+                  local m = {[1]={data="00030001827f5ea42778", 
+                                  option=dhcpv6_const.O_CLIENTID}, 
+                             [2]={iaid=123, option=3, t1=3600, t2=5400}, 
+                             [3]={[1]=dhcpv6_const.O_PREFIX_CLASS,
+                                  option=dhcpv6_const.O_ORO},
+                             type=dhcpv6_const.MT_SOLICIT, xid=43}
+                  local mb = dhcpv6codec.dhcpv6_message:encode(m)
+                  o:recvfrom(mb, client2, dhcpv6_const.CLIENT_PORT)
+                  mst.a(#sentlog == 1, 'no reply?', sentlog)
+                  local r = dhcpv6codec.dhcpv6_message:decode(sentlog[1][1])
+                  mst.a(r)
+                  mst.a(r.type == dhcpv6_const.MT_ADVERTISE)
+                  function find_option(o, l)
+                     for i, v in ipairs(l)
+                     do
+                        if v.option == o
+                        then
+                           return v
+                        end
+                     end
+                  end
+                  local na = find_option(dhcpv6_const.O_IA_NA, r)
+                  mst.a(na, 'no ia_na in response')
+                  local ia = find_option(dhcpv6_const.O_IAADDR, na)
+                  mst.a(ia, 'no addr with ORO?')
                    end)
              end)
 
