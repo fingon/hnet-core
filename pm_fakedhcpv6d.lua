@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Feb 26 18:35:40 2013 mstenber
--- Last modified: Tue Feb 26 19:30:09 2013 mstenber
--- Edit time:     16 min
+-- Last modified: Wed Feb 27 11:47:30 2013 mstenber
+-- Edit time:     31 min
 --
 
 -- This is minimalist-ish DHCPv6 IA_NA handling daemon (and obviously,
@@ -31,6 +31,7 @@ require 'pm_handler'
 require 'mcastjoiner'
 require 'dhcpv6_const'
 require 'scb'
+require 'dnsdb'
 
 module(..., package.seeall)
 
@@ -45,6 +46,10 @@ function pm_fakedhcpv6d:init()
 
    -- and initialize our listening socket
    self:init_socket()
+end
+
+function pm_fakedhcpv6d:uninit()
+   self.o:done()
 end
 
 function pm_fakedhcpv6d:init_socket()
@@ -83,6 +88,118 @@ function pm_fakedhcpv6d:run()
    self:update_master_set()
 end
 
-function pm_fakedhcpv6d:recvmsg(data, src, srcport)
+function pm_fakedhcpv6d:recvfrom(data, src, srcport)
+   local l = mst.string_split(src, '%')
 
+   if #l ~= 2
+   then
+      self:d('weird source address - global?', src)
+      return
+   end
+
+   if tonumber(srcport) ~= dhcpv6_const.CLIENT_PORT
+   then
+      self:d('not from client port - ignoring', src, srcport)
+      return
+   end
+
+   local addr, ifname = unpack(l)
+   if not self.master_if_set[ifname]
+   then
+      self:d('received packet on non-master interface, ignoring it',
+             src, srcport)
+      return
+   end
+
+   local o, err = dhcpv6codec.dhcpv6_message:decode(data)
+   if not o
+   then
+      self:d('decode error', err)
+      return
+   end
+
+   -- produce reply
+   local o2 = {--type
+               type=(o.type == dhcpv6_const.MT_SOLICIT 
+                     and dhcpv6_const.MT_ADVERTISE -- only to solicits
+                     or dhcpv6_const.MT_REPLY -- otherwise
+               ),
+               -- transaction id
+               xid=o.xid,
+               -- server id
+               [1] = {option=dhcpv6_const.O_SERVERID, 
+                      data="0001000118b4e92e4e65b47f205e"},
+   }
+
+   for i, v in ipairs(o)
+   do
+      if v.option == dhcpv6_const.O_CLIENTID
+      then
+         -- - copy O_CLIENTID
+         table.insert(o2, v)
+      end
+      if v.option == dhcpv6_const.O_IA_PD
+      then
+         self:d('IA_PD noticed, ignoring the client', src, srcport)
+         return
+      end
+
+      if v.option == dhcpv6_const.O_IA_NA
+      then
+         local v2 = {option=v.option,
+                     iaid=v.iaid,
+                     t1=v.t1,
+                     t2=v.t2}
+         -- produce IA_NA with IAADDR's
+         table.insert(o2, v2)
+         
+         -- basically, look at whatever we have on the interface; if
+         -- it has prefix class, we provide it
+         for i, lap in ipairs(self.pm.ospf_lap)
+         do
+            if lap.ifname == ifname and lap.pclass
+            then
+               local p = ipv6s.new_prefix_from_ascii(lap.prefix)
+               -- take /64 from the prefix
+               local b1 = string.sub(p:get_binary(), 1, 8)
+               -- take linklocal address part! should be unique ;)
+               local b2 = string.sub(ipv6s.address_to_binary_address(addr), 9, 16)
+               local b = b1 .. b2
+               local a = ipv6s.binary_address_to_address(b)
+
+               local v3 = {option=dhcpv6_const.O_IAADDR,
+                           preferred=v.t1,
+                           valid=v.t2,
+                           addr=a}
+               local pclass = tonumber(lap.pclass)
+               table.insert(v3, {option=dhcpv6_const.O_PREFIX_CLASS, value=pclass})
+               table.insert(v2, v3)
+            end
+         end
+      end
+   end
+   
+   -- add DNS parameters if any
+   local dns = self.pm.ospf_dns 
+   if dns and #dns > 0
+   then
+      local o3 = {option=dhcpv6_const.O_DNS_RNS}
+      mst.array_extend(o3, dns)
+      table.insert(o2, o3)
+   end
+   local search = self.pm.ospf_dns_search
+   if search and #search > 0
+   then
+      local o3 = {option=dhcpv6_const.O_DOMAIN_SEARCH}
+      mst.array_extend(o3, mst.array_map(search, dnsdb.name2ll))
+      table.insert(o2, o3)
+   end
+   
+   mst.d('sending reply', o2)
+   local b = dhcpv6codec.dhcpv6_message:encode(o2)
+   self:sendto(b, src, srcport)
+end
+
+function pm_fakedhcpv6d:sendto(data, dst, dstport)
+   self.o.s:sendto(data, dst, dstport)
 end

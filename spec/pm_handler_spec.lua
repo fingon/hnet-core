@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Tue Feb 26 19:31:15 2013 mstenber
--- Edit time:     53 min
+-- Last modified: Wed Feb 27 11:48:14 2013 mstenber
+-- Edit time:     56 min
 --
 
 -- individual handler tests
@@ -26,6 +26,8 @@ require 'pm_fakedhcpv6d'
 require 'dhcpv6codec'
 
 module("pm_handler_spec", package.seeall)
+
+local loop = ssloop.loop()
 
 describe("pm_fakedhcpv6d", function ()
             local pm
@@ -47,6 +49,11 @@ describe("pm_fakedhcpv6d", function ()
                               table.insert(sentlog, {data, dst, dstport})
                            end
                         end)
+            after_each(function ()
+                          o:done()
+                          local r = loop:clear()
+                          mst.a(not r, 'left after', r)
+                       end)
             it("works #dhcpv6d", function ()
                   -- nothing should happen.. w/o ospf_lap
                   o:queue()
@@ -80,14 +87,30 @@ describe("pm_fakedhcpv6d", function ()
                   -- request..
                   local m = {[1]={data="00030001827f5ea42778", 
                                   option=dhcpv6_const.O_CLIENTID}, 
-                             type=dhcpv6_const.INFORMATION_REQUEST, xid=42}
+                             type=dhcpv6_const.MT_INFORMATION_REQUEST, xid=42}
                   local mb = dhcpv6codec.dhcpv6_message:encode(m)
                   local client1 = 'fe80::2%eth1'
                   local client2 = 'fe80::1%eth0'
-                  o:recvmsg(mb, client1, dhcpv6_const.CLIENT_PORT)
+                  o:recvfrom(mb, client1, dhcpv6_const.CLIENT_PORT)
                   mst.a(#sentlog == 0, 'should receive no reply on invalid if')
-                  o:recvmsg(mb, client2, dhcpv6_const.CLIENT_PORT)
+                  o:recvfrom(mb, client2, dhcpv6_const.CLIENT_PORT)
                   mst.a(#sentlog == 1, 'no reply?', sentlog)
+                  
+                  local r = dhcpv6codec.dhcpv6_message:decode(sentlog[1][1])
+                  mst.a(r)
+                  mst.a(r.type == dhcpv6_const.MT_REPLY)
+
+
+
+                  sentlog = {}
+                  local m = {[1]={data="00030001827f5ea42778", 
+                                  option=dhcpv6_const.O_CLIENTID}, 
+                             [2]={iaid=123, option=3, t1=3600, t2=5400}, 
+                             type=dhcpv6_const.MT_SOLICIT, xid=43}
+                  local mb = dhcpv6codec.dhcpv6_message:encode(m)
+                  o:recvfrom(mb, client2, dhcpv6_const.CLIENT_PORT)
+                  mst.a(#sentlog == 1, 'no reply?', sentlog)
+
                    end)
              end)
 
