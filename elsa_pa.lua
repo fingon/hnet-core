@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Feb 28 14:11:58 2013 mstenber
--- Edit time:     702 min
+-- Last modified: Thu Feb 28 20:42:35 2013 mstenber
+-- Edit time:     725 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -30,6 +30,7 @@
 -- <= ???
 
 require 'mst'
+require 'mst_skiplist'
 require 'ospfcodec'
 require 'ssloop'
 
@@ -154,38 +155,30 @@ local json_sources={[JSON_DNS_KEY]={prefix=PD_SKVPREFIX,
 
 
 function elsa_lap:start_depracate_timeout()
-   local loop = ssloop.loop()
    self:d('start_depracate_timeout')
-   self.timeout = loop:new_timeout_delta(LAP_DEPRACATE_TIMEOUT,
-                                         function ()
-                                            self.sm:Timeout()
-                                         end)
-   self.timeout:start()
+   self:a(not self.timeout)
+   self.timeout = self.pa.time() + LAP_DEPRACATE_TIMEOUT
+   self.pa.timeouts:insert(self)
 end
 
 function elsa_lap:stop_depracate_timeout()
    self:d('stop_depracate_timeout')
-
-   mst.a(self.timeout, 'stop_depracate_timeout without timeout?!?')
-   self.timeout:done()
+   self:a(self.timeout)
+   self.pa.timeouts:remove_if_present(self)
    self.timeout = nil
 end
 
 function elsa_lap:start_expire_timeout()
-   local loop = ssloop.loop()
-
    self:d('start_expire_timeout')
-   self.timeout = loop:new_timeout_delta(LAP_EXPIRE_TIMEOUT,
-                                         function ()
-                                            self.sm:Timeout()
-                                         end)
-   self.timeout:start()
+   self:a(not self.timeout)
+   self.timeout = self.pa.time() + LAP_EXPIRE_TIMEOUT
+   self.pa.timeouts:insert(self)
 end
 
 function elsa_lap:stop_expire_timeout()
    self:d('stop_expire_timeout')
-   mst.a(self.timeout, 'stop_depracate_timeout without timeout?!?')
-   self.timeout:done()
+   self:a(self.timeout)
+   self.pa.timeouts:remove_if_present(self)
    self.timeout = nil
 end
 
@@ -268,6 +261,11 @@ function elsa_pa:init_pa(o)
    -- (create shallow copy of args, so that we don't wind up re-using
    -- the object)
    self.pa = pa.pa:new(mst.table_copy(args))
+   function timeout_is_less(o1, o2)
+      return o1.timeout < o2.timeout
+   end
+   self.pa.timeouts = mst_skiplist.ipi_skiplist:new{p=2,
+                                                    lt=timeout_is_less}
 end
 
 function elsa_pa:uninit()
@@ -400,6 +398,8 @@ end
 -- elsa stuff, we typically call it in tick() functions or so so this
 -- is mostly useful for unit testing)
 function elsa_pa:should_run()
+   local lap = self.pa.timeouts:get_first()
+   if lap and lap.timeout <= self.time() then return true end
    if self.ac_changes > 0 or self.pa:should_run()
    then
       return true
@@ -409,6 +409,17 @@ function elsa_pa:should_run()
                               ac_changes=self.ac_changes, 
                               lsa_changes=self.lsa_changes}
 end
+
+function elsa_pa:next_time()
+   if self:should_run()
+   then
+      return 0
+   end
+   local lap = self.pa.timeouts:get_first()
+   if lap then return lap.timeout end
+end
+
+
 
 function elsa_pa:should_publish(d)
    local r
@@ -479,6 +490,15 @@ end
 
 function elsa_pa:run()
    self:d('run starting')
+
+   local now = self.time()
+   while true
+   do
+      local lap = self.pa.timeouts:get_first()
+      if not lap or lap.timeout > now then break end
+      -- run the timeout (should remove itself, hopefully?)
+      lap.sm:Timeout()
+   end
 
    -- let's check first that there is no conflict; that is,
    -- nobody else with different hw fingerprint, but same rid
