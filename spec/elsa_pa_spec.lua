@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Feb 26 16:59:53 2013 mstenber
--- Edit time:     356 min
+-- Last modified: Thu Feb 28 14:16:08 2013 mstenber
+-- Edit time:     360 min
 --
 
 require 'mst'
@@ -103,6 +103,7 @@ describe("elsa_pa [one node]", function ()
                            s:set(elsa_pa.DISABLE_SKVPREFIX .. 'eth0', 1)
                            s:set(elsa_pa.DISABLE_V4_SKVPREFIX .. 'eth0', 2)
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='mypid',
+                                                    originate_min_interval=0,
                                                     new_prefix_assignment=0}
                            e:add_node(ep)
 
@@ -181,6 +182,8 @@ describe("elsa_pa [one node]", function ()
                   -- run it few more times, for luck 
                   ep:run()
                   ep:run()
+                  mst.a(not ep:should_publish{})
+
 
                   -- test that if we remove interfaces, it should not
                   -- remove lap's from skv (otherwise there is a
@@ -213,6 +216,7 @@ describe("elsa_pa [one node]", function ()
                   -- and usps should have been gone even before that
                   mst.a(ep.pa.usp:count() == 0)
 
+                  mst.a(not ep:should_publish{})
 
                                         end)
 

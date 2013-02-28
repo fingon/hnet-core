@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Feb 26 17:24:49 2013 mstenber
--- Edit time:     693 min
+-- Last modified: Thu Feb 28 14:11:58 2013 mstenber
+-- Edit time:     702 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -411,19 +411,62 @@ function elsa_pa:should_run()
 end
 
 function elsa_pa:should_publish(d)
+   local r
    -- if pa.run() said there's changes, yep, we should
-   if d.r then return true end
+   if d.r 
+   then 
+      self:d('should publish due to d.r')
+      r = true 
+   end
 
    -- if the publish state representation has changed, we should
-   if d.s and d.s ~= self.s then return true end
+   if d.s and d.s ~= self.s 
+   then 
+      self:d('should publish state due to state repr change')
+      r = true
+   end
    
    -- if ac or lsa changed, we should
-   if d.ac_changes > 0 then return true end
-   if d.lsa_changes > 0 then return true end
+   if d.ac_changes and d.ac_changes > 0 
+   then 
+      self:d('should publish state due to ac_changes > 0')
+      r = true
+   end
+   if d.lsa_changes and d.lsa_changes > 0 
+   then 
+      self:d('should publish state due to lsa_changes > 0')
+      r = true
+   end
    
    -- finally, if the FORCE_SKV_AC_CHECK_INTERVAL was passed, we do
    -- this (but this is paranoia, shouldn't be necessary)
-   if  (self.time() - self.last_publish) > FORCE_SKV_AC_CHECK_INTERVAL then return true end
+   if  (self.time() - self.last_publish) > FORCE_SKV_AC_CHECK_INTERVAL 
+   then 
+      self:d(' should publish state due to FORCE_SKV_AC_CHECK_INTERVAL exceeded', self.time(), self.last_publish)
+
+      r = true
+   end
+
+   if r
+   then
+      local now = self.time()
+      local delta = now - self.last_originate
+      -- don't spam, but ensure we publish as soon as interval is done
+      -- by setting the last_publish to 0
+      if delta < self.originate_min_interval
+      then
+         if self.last_publish and self.last_publish > 0
+         then
+            self:d(' .. but avoidin publish due to spam limitations')
+            self.last_publish = 0
+         end
+         r = false
+      end
+   end
+
+
+
+   return r
 end
 
 function elsa_pa:get_mutable_state()
@@ -504,20 +547,12 @@ function elsa_pa:run_handle_new_lsa()
    local body = self:generate_ac_lsa()
    mst.a(body and #body, 'empty generated LSA?!?')
    local now = self.time()
-   local delta = now - self.last_originate
-
-   -- don't spam, but ensure we publish as soon as interval is done
-   -- by setting the last_publish to 0
-   if delta < self.originate_min_interval
-   then
-      self.last_publish = 0
-      return
-   end
 
    -- send duplicate if and only if we haven't sent anything in a long
    -- while
    if body == self.last_body
    then
+      local delta = now - self.last_originate
       if delta < ORIGINATE_MAX_INTERVAL
       then
          return
