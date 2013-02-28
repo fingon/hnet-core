@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Feb 21 11:47:15 2013 mstenber
--- Last modified: Tue Feb 26 18:30:48 2013 mstenber
--- Edit time:     37 min
+-- Last modified: Thu Feb 28 10:50:22 2013 mstenber
+-- Edit time:     46 min
 --
 
 -- This is very, very minimal fake DHCPv6 PD server; what it does, is
@@ -79,6 +79,17 @@ end
 
 function o.callback(data, src, srcport)
    mst.d('got callback', #data, src, srcport, mst.string_to_hex(data))
+
+   -- handle address
+   local l = mst.string_split(src, '%')
+   if #l ~= 2
+   then
+      mst.d('weird source address - global?', src)
+      return
+   end
+   local addr, ifname = unpack(l)
+
+   -- handle payload
    local o, err = dhcpv6_message:decode(data)
 
    mst.a(o, 'decode error', err)
@@ -128,6 +139,8 @@ function o.callback(data, src, srcport)
             then
                table.insert(v3, {option=dhcpv6_const.O_PREFIX_CLASS, value=class})
             end
+            mst.execute_to_string('ip -6 route delete ' .. prefix .. ' 2>/dev/null')
+            mst.execute_to_string(string.format('ip -6 route add %s dev %s via %s', prefix, ifname, addr))
          end
       end
    end
