@@ -6,12 +6,12 @@
 
 LUA_SMS=skv_sm.lua pa_lap_sm.lua
 TESTS=$(wildcard spec/*.lua)
-SMC=../software/smc/bin/smc.jar
+SMC=~/x/software/smc/bin/smc.jar
 
 all: test
 
 clean:
-	rm -f luacov.stats.out luacov.report.out
+	rm -f luacov.stats.out luacov.report.out $(LUA_SMS)
 
 cov: clean test
 	busted -l "./run_lua_with_luacov.sh" spec
