@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Thu Feb 28 20:19:52 2013 mstenber
--- Edit time:     852 min
+-- Last modified: Thu Feb 28 21:23:13 2013 mstenber
+-- Edit time:     863 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -191,24 +191,6 @@ end
 
 function lap:assign()
    self:d('assign', self.assigned)
-
-   if not self.assigned
-   then
-      -- depracate immediately any other prefix that is on this iid,
-      -- with same USP as us 
-      local usp = self:find_usp()
-      local is_ipv4 = self.prefix:is_ipv4()
-
-      -- (nondeterministic) test case for this in elsa_pa_stress.lua
-      for i, lap2 in ipairs(self.pa.lap[self.iid])
-      do
-         if lap2.assigned and usp.prefix:contains(lap2.prefix)
-         then
-            lap2:depracate()
-         end
-      end
-      
-   end
    self.sm:Assign()
 end
 
@@ -437,12 +419,26 @@ function sps:create_prefix_freelist(assigned)
    -- never reached
 end
 
-function sps:find_new_from(iid,  assigned)
+function sps:find_new_from(iid, assigned)
    local b = self.binary_prefix
    local p
 
    self:a(assigned, 'assigned missing')
    self:a(b)
+
+   -- simplest case - re-use lap's, if any
+   for i, lap in ipairs(self.pa.lap[iid] or {})
+   do
+      if not lap.assigned and self.prefix:contains(lap.prefix)
+      then
+         local bp = lap.prefix:get_binary()
+         if not assigned[bp]
+         then
+            self:d('reusing', lap)
+            return bp
+         end
+      end
+   end
 
    -- if we're in freelist mode, just use it. otherwise, try to
    -- pick randomly first
@@ -700,6 +696,10 @@ function pa:run_if_usp(iid, neigh, usp)
    if highest
    then
       highest.usp = usp
+
+      -- zap anything else we might have
+      self:eliminate_other_lap(iid, usp, highest)
+
       self:assign_other(iid, highest)
       return
    end
@@ -786,6 +786,7 @@ function pa:assign_own(iid, usp)
    -- 4. assign /64 if possible
    if not p
    then
+      self:eliminate_other_lap(iid, usp)
       p = usp:find_new_from(iid, assigned)
    end
    
@@ -802,6 +803,21 @@ function pa:assign_own(iid, usp)
                      iid=iid,
                      rid=self.rid}
    o:assign_lap(iid)
+end
+
+function pa:eliminate_other_lap(iid, usp, asp)
+   -- depracate immediately any other prefix that is on this iid,
+   -- with same USP as us 
+   local is_ipv4 = usp.prefix:is_ipv4()
+   
+   -- (nondeterministic) test case for this in elsa_pa_stress.lua
+   for i, lap in ipairs(self.lap[self.iid] or {})
+   do
+      if (not asp or asp.lap ~= lap) and usp.prefix:contains(lap.prefix)
+      then
+         lap:depracate()
+      end
+   end
 end
 
 function pa:time_since_start()
