@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Feb 26 15:03:33 2013 mstenber
--- Edit time:     841 min
+-- Last modified: Thu Feb 28 20:19:52 2013 mstenber
+-- Edit time:     852 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -190,6 +190,8 @@ end
 -- external API (which is just forwarded to the state machine)
 
 function lap:assign()
+   self:d('assign', self.assigned)
+
    if not self.assigned
    then
       -- depracate immediately any other prefix that is on this iid,
@@ -200,7 +202,7 @@ function lap:assign()
       -- (nondeterministic) test case for this in elsa_pa_stress.lua
       for i, lap2 in ipairs(self.pa.lap[self.iid])
       do
-         if lap ~= lap2 and usp.prefix:contains(lap2.prefix)
+         if lap2.assigned and usp.prefix:contains(lap2.prefix)
          then
             lap2:depracate()
          end
@@ -211,10 +213,12 @@ function lap:assign()
 end
 
 function lap:unassign()
+   self:d('unassign')
    self.sm:Unassign()
 end
 
 function lap:depracate()
+   self:d('depracate')
    self.sm:Depracate()
 end
 
@@ -523,7 +527,10 @@ end
 -- main prefix assignment class
 
 
-pa = mst.create_class{class='pa', lap_class=lap, mandatory={'rid'},
+pa = mst.create_class{class='pa', 
+                      lap_class=lap, 
+                      mandatory={'rid'},
+                      -- tunable parameters
                       new_prefix_assignment=0,
                       new_ula_prefix=0,
                       random_prefix_tries=5,
