@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Feb 28 20:42:35 2013 mstenber
--- Edit time:     725 min
+-- Last modified: Thu Feb 28 21:07:37 2013 mstenber
+-- Edit time:     729 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -415,8 +415,22 @@ function elsa_pa:next_time()
    then
       return 0
    end
+   -- there are two cases:
+   -- - either delayed publish (self.last_publish == 0)
+   -- or
+   -- - timeout
    local lap = self.pa.timeouts:get_first()
-   if lap then return lap.timeout end
+   local nt
+   if lap then nt = lap.timeout end
+   if self.last_publish == 0
+   then
+      local next = self.last_originate + self.originate_min_interval
+      if not nt or nt > next
+      then
+         nt = next
+      end
+   end
+   return nt
 end
 
 

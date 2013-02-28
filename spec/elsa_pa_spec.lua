@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Thu Feb 28 14:16:08 2013 mstenber
--- Edit time:     360 min
+-- Last modified: Thu Feb 28 20:59:24 2013 mstenber
+-- Edit time:     381 min
 --
 
 require 'mst'
@@ -112,7 +112,8 @@ describe("elsa_pa [one node]", function ()
             after_each(function ()
                           -- make sure that the ospf-usp looks sane
                           local uspl = s:get(elsa_pa.OSPF_USP_KEY) or {}
-                          mst.a(not usp_added or #uspl>0, 'invalid uspl - nothing?', uspl)
+                          mst.a(not usp_added or #uspl>0, 
+                                'invalid uspl - nothing?', uspl)
                           for i, usp in ipairs(uspl)
                           do
                              mst.a(type(usp) == 'table')
@@ -203,13 +204,13 @@ describe("elsa_pa [one node]", function ()
                   mst.a(ep.pa.lap:count() > 0)
                   e.lsas = {}
                   ep:ospf_changed()
-                  ssloop.loop():loop_until(function ()
-                                              asp_added = false
-                                              usp_added = false
-                                              ep:run()
-                                              local done = ep.pa.lap:count() == 0
-                                              return done
-                                           end)
+                  while ep.pa.lap:count() ~= 0
+                  do
+                     ep:run()
+                  end
+
+                  usp_added = false
+                  asp_added = false
                   
                   -- now locally assigned prefixes should be gone too
                   mst.a(ep.pa.lap:count() == 0)
@@ -401,16 +402,60 @@ describe("elsa_pa 2-node", function ()
                            sm = dsm:new{e=e, port_offset=31338,
                                         create_callback=create_elsa_callback}
                            ep1 = sm:create_node{rid='ep1'}
-                           ep1.originate_min_interval=0
                            skv1 = sm.skvs[1]
                            ep2 = sm:create_node{rid='ep2'}
-                           ep2.originate_min_interval=0
                            skv2 = sm.skvs[2]
                         end)
             after_each(function ()
                           sm:done()
                        end)
+            it("2 syncs state over long time too #long", function ()
+                  -- store DNS information
+                  skv1:set(elsa_pa.PD_SKVPREFIX .. 'eth1',
+                           {
+                              --prefix
+                              {[elsa_pa.PREFIX_KEY] = 'dead::/16',
+                               [elsa_pa.PREFIX_CLASS_KEY] = 42},
+                              -- and some random other info
+                              {[elsa_pa.DNS_KEY] = FAKE_DNS_ADDRESS},
+                              {[elsa_pa.DNS_SEARCH_KEY] = FAKE_DNS_SEARCH},
+                           }
+                          )
+                  -- 1234 seconds onward, max of 123 iterations
+                  -- (this should cover any funny business)
+                  sm:run_nodes_until_delta(123, 1234)
+                  ensure_sane()
+                  e:clear_connections()
+                  sm:run_nodes_until_delta(123, 30)
+                  e:connect_neigh('ep1', 123, 'ep2', 124)
+                  sm:run_nodes_until_delta(123, 1234)
+                  ensure_sane()
+                   end)
+
+            function ensure_sane()
+                  -- 3 asps -> each should have 3 asps + 2 lap
+                  -- (2 ifs per box)
+                  for i, ep in ipairs({ep1, ep2})
+                  do
+                     for i, asp in ipairs(ep.pa.asp:values())
+                     do
+                        mst.a(string.sub(asp.ascii_prefix, -#valid_end) == valid_end, 'invalid prefix', asp)
+
+                     end
+                     mst.a(ep.pa.asp:count() == 3, 
+                           'invalid ep.pa.asp', i,
+                           ep.pa.asp)
+                     for i, lap in ipairs(ep.pa.lap:values())
+                     do
+                        --mst.a(lap[elsa_pa.PREFIX_CLASS_KEY] == 42, 
+                        --'no pclass set')
+                     end
+                     mst.a(ep.pa.lap:count() == 2)
+                  end
+            end
             it("2 sync state ok #mn", function ()
+                  ep1.originate_min_interval=0
+                  ep2.originate_min_interval=0
                   --mst.d_xpcall(function ()
 
                   -- store DNS information
@@ -436,24 +481,7 @@ describe("elsa_pa 2-node", function ()
 
                   mst.a(sm:run_nodes(123), 'did not halt in time')
 
-                  -- 3 asps -> each should have 3 asps + 2 lap
-                  -- (2 ifs per box)
-                  for i, ep in ipairs({ep1, ep2})
-                  do
-                     for i, asp in ipairs(ep.pa.asp:values())
-                     do
-                        mst.a(string.sub(asp.ascii_prefix, -#valid_end) == valid_end, 'invalid prefix', asp)
-
-                     end
-                     mst.a(ep.pa.asp:count() == 3, 'invalid ep.pa.asp',  
-                           ep.pa.asp)
-                     for i, lap in ipairs(ep.pa.lap:values())
-                     do
-                        --mst.a(lap[elsa_pa.PREFIX_CLASS_KEY] == 42, 
-                        --'no pclass set')
-                     end
-                     mst.a(ep.pa.lap:count() == 2)
-                  end
+                  ensure_sane()
 
                   for i, s in ipairs{skv1, skv2}
                   do
