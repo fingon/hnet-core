@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Thu Feb 28 21:23:13 2013 mstenber
--- Edit time:     863 min
+-- Last modified: Mon Mar  4 12:34:11 2013 mstenber
+-- Edit time:     871 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -141,6 +141,7 @@ end
 function lap:repr_data()
    return mst.repr{prefix=self.ascii_prefix, 
                    iid=self.iid, 
+                   address=self.address,
                    za=self.assigned,
                    zd=self.depracated,
                   }
@@ -435,7 +436,7 @@ function sps:find_new_from(iid, assigned)
          if not assigned[bp]
          then
             self:d('reusing', lap)
-            return bp
+            return lap.prefix
          end
       end
    end
