@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Mon Mar  4 14:24:20 2013 mstenber
--- Edit time:     929 min
+-- Last modified: Mon Mar  4 15:00:49 2013 mstenber
+-- Edit time:     932 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -747,11 +747,11 @@ function pa:assign_own(iid, usp)
    local p
    for i, v in ipairs(self.lap[iid] or {})
    do
-      if not v.assigned and usp.prefix:contains(v.prefix)
+      if usp.prefix:contains(v.prefix)
       then
-         if not assigned[v.binary_prefix]
+         if v.assigned or not assigned[v.binary_prefix]
          then
-            self:d('found old, not assigned lap', v)
+            self:d('found old lap', v)
             p = v.prefix
             lap = v
          end
