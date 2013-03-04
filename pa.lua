@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Mon Mar  4 12:34:11 2013 mstenber
--- Edit time:     871 min
+-- Last modified: Mon Mar  4 12:45:10 2013 mstenber
+-- Edit time:     877 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -85,7 +85,7 @@ function _valid_iid(s)
 end
 
 function _valid_local_iid(pa, s)
-   mst.a(pa and s)
+   mst.a(pa and s, 'pa/s not specified', pa, s)
    return pa.ifs[s]
 end
 
@@ -277,7 +277,6 @@ function asp:find_lap(iid)
       --self:d(' considering', v)
       if v.ascii_prefix == self.ascii_prefix
       then
-         -- update the asp object, just in case..
          return v
       end
    end
@@ -807,14 +806,17 @@ function pa:assign_own(iid, usp)
 end
 
 function pa:eliminate_other_lap(iid, usp, asp)
+   self:a(iid and usp, 'iid or usp missing', iid, usp)
+
    -- depracate immediately any other prefix that is on this iid,
    -- with same USP as us 
    local is_ipv4 = usp.prefix:is_ipv4()
+   local lap2 = asp and asp:find_lap(iid)
    
    -- (nondeterministic) test case for this in elsa_pa_stress.lua
-   for i, lap in ipairs(self.lap[self.iid] or {})
+   for i, lap in ipairs(self.lap[iid] or {})
    do
-      if (not asp or asp.lap ~= lap) and usp.prefix:contains(lap.prefix)
+      if usp.prefix:contains(lap.prefix) and lap2 ~= lap
       then
          lap:depracate()
       end
