@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Mon Mar  4 12:45:10 2013 mstenber
--- Edit time:     877 min
+-- Last modified: Mon Mar  4 13:29:14 2013 mstenber
+-- Edit time:     902 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -426,20 +426,6 @@ function sps:find_new_from(iid, assigned)
    self:a(assigned, 'assigned missing')
    self:a(b)
 
-   -- simplest case - re-use lap's, if any
-   for i, lap in ipairs(self.pa.lap[iid] or {})
-   do
-      if not lap.assigned and self.prefix:contains(lap.prefix)
-      then
-         local bp = lap.prefix:get_binary()
-         if not assigned[bp]
-         then
-            self:d('reusing', lap)
-            return lap.prefix
-         end
-      end
-   end
-
    -- if we're in freelist mode, just use it. otherwise, try to
    -- pick randomly first
    local t = self.freelist
@@ -722,6 +708,7 @@ end
 
 -- 6.3.1
 function pa:assign_own(iid, usp)
+   local lap
    self:d('6.3.1 assign_own', iid, usp)
    self:a(_valid_local_iid(self, iid))
 
@@ -731,13 +718,15 @@ function pa:assign_own(iid, usp)
 
    -- 2. try to find 'old one'
    local p
-   for i, v in ipairs(self.lap:values())
+   for i, v in ipairs(self.lap[iid] or {})
    do
-      if v.iid == iid and v.depracated and usp.prefix:contains(v.prefix)
+      if not v.assigned and usp.prefix:contains(v.prefix)
       then
          if not assigned[v.binary_prefix]
          then
+            self:d('found old, not assigned lap', v)
             p = v.prefix
+            lap = v
          end
       end
    end
@@ -786,7 +775,6 @@ function pa:assign_own(iid, usp)
    -- 4. assign /64 if possible
    if not p
    then
-      self:eliminate_other_lap(iid, usp)
       p = usp:find_new_from(iid, assigned)
    end
    
@@ -797,6 +785,10 @@ function pa:assign_own(iid, usp)
       return
    end
 
+   -- get rid of potentially duplicate lap's, if any
+   self:eliminate_other_lap(iid, usp, nil, lap)
+
+
    -- 6. if assigned, mark as valid + send AC LSA
    local o = asp:new{prefix=p,
                      pa=self,
@@ -805,20 +797,26 @@ function pa:assign_own(iid, usp)
    o:assign_lap(iid)
 end
 
-function pa:eliminate_other_lap(iid, usp, asp)
-   self:a(iid and usp, 'iid or usp missing', iid, usp)
+function pa:eliminate_other_lap(iid, usp, asp, lap)
+   self:a(iid, 'iid missing', iid, usp, asp)
 
    -- depracate immediately any other prefix that is on this iid,
    -- with same USP as us 
-   local is_ipv4 = usp.prefix:is_ipv4()
-   local lap2 = asp and asp:find_lap(iid)
+   local is_ipv4 = not usp or usp.prefix:is_ipv4()
+   local lap = lap or (asp and asp:find_lap(iid))
    
    -- (nondeterministic) test case for this in elsa_pa_stress.lua
-   for i, lap in ipairs(self.lap[iid] or {})
+   for i, lap2 in ipairs(self.lap[iid] or {})
    do
-      if usp.prefix:contains(lap.prefix) and lap2 ~= lap
+      self:d('eliminate_other_lap considering', lap2)
+      -- Only one IPv4 prefix can be active per-interface =>
+      -- when adding something new, old one disappears off the map immediately
+      -- anyway regardless of USP match
+      if ((is_ipv4 and lap2.address) 
+          or (usp and usp.prefix:contains(lap2.prefix))) and lap2 ~= lap
       then
-         lap:depracate()
+         self:d(' matched -> depracate')
+         lap2:depracate()
       end
    end
 end
@@ -1200,12 +1198,20 @@ function pa:run(d)
 
    if not self.disable_ipv4
    then
+      -- sanity check - make sure we don't have multiple IPv4
+      -- prefixes on interface active at any point in time
+      local done = {}
       -- handle local IPv4 address assignment algorithm
       for i, lap in ipairs(self.lap:values())
       do
          if lap.assigned and lap.prefix:is_ipv4()
          then
+            local prev = done[lap.ifname]
+            self:a(not prev,
+                   'two IPv4 LAP on same interface', 
+                   prev, lap)
             self:handle_ipv4_lap_address(lap)
+            done[lap.ifname] = lap
          end
       end
    end
@@ -1255,6 +1261,8 @@ function pa:handle_ipv4_lap_address(lap)
 
    -- ok, we either don't have assignment, or someone with higher rid
    -- wants _our_ address. let's not fight. try to generate a new one.
+   self:eliminate_other_lap(lap.iid, nil, nil, lap) 
+
    local s = sps:new{prefix=p, desired_bits=128, pa=self}
 
    -- we do this loop to make sure result is reasonable; typically

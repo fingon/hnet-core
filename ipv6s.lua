@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Tue Jan  8 15:15:00 2013 mstenber
+-- Last modified: Mon Mar  4 13:58:11 2013 mstenber
 -- Edit time:     183 min
 --
 
@@ -233,14 +233,14 @@ function binary_prefix_contains(b1, bits1, b2, bits2)
    mst.a(#b1 == math.floor((bits1+7)/8))
    mst.a(#b2 == math.floor((bits2+7)/8))
 
-   mst.d('binary_prefix_contains', #b1, bits1, #b2, bits2)
+   --mst.d('binary_prefix_contains', #b1, bits1, #b2, bits2)
 
    function contains_rec(ofs)
       -- already processed bit count = bo
       local bo = (ofs - 1) * 8
       if bo >= bits1
       then
-         mst.d('yep, all bits done')
+         --mst.d('yep, all bits done')
          return true
       end
       if bits1 >= (bo + 8)
@@ -260,7 +260,7 @@ function binary_prefix_contains(b1, bits1, b2, bits2)
       v1 = math.floor(v1 / 2^(8-bits))
       v2 = math.floor(v2 / 2^(8-bits))
       --mst.d('final', v1, v2)
-      mst.d(' considering', ofs, v1, v2)
+      --mst.d(' considering', ofs, v1, v2)
       return v1 == v2
    end
    return contains_rec(1)

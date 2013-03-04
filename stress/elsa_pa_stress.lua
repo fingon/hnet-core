@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:04:01 2012 mstenber
--- Last modified: Tue Feb  5 13:23:58 2013 mstenber
--- Edit time:     17 min
+-- Last modified: Mon Mar  4 13:23:45 2013 mstenber
+-- Edit time:     19 min
 --
 
 require 'busted'
@@ -70,8 +70,9 @@ describe("elsa_pa N-node mutating topology", function ()
                         else
                            h = found_v6
                         end
-                        mst.a(not h[lap.ifname])
-                        h[lap.ifname] = true
+                        local prev = h[lap.ifname]
+                        mst.a(not prev, 'duplicate assigned lap found', prev, lap)
+                        h[lap.ifname] = lap
                      else
                         -- there should never be address on non-assigned one!
                         mst.a(not lap.address)
