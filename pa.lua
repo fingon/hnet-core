@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Mon Mar  4 13:29:14 2013 mstenber
--- Edit time:     902 min
+-- Last modified: Mon Mar  4 14:24:20 2013 mstenber
+-- Edit time:     929 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -173,18 +173,18 @@ function lap:find_usp()
    -- find the shortest (bit-mask-wise) usp which contains our prefix =>
    -- that one is the one we belong to
    local found, found_bits, bits
-   for i, usp in ipairs(self.pa.usp:values())
-   do
-      if usp.prefix:contains(self.prefix)
-      then
-         bits = usp.prefix:get_binary_bits()
-         if not found or found_bits > bits
-         then
-            found = usp
-            found_bits = bits
-         end
-      end
-   end
+   self.pa.usp:foreach(function (x, usp)
+                          if usp.prefix:contains(self.prefix)
+                          then
+                             bits = usp.prefix:get_binary_bits()
+                             if not found or found_bits > bits
+                             then
+                                found = usp
+                                found_bits = bits
+                             end
+                          end
+
+                       end)
    return found
 end
 
@@ -266,7 +266,12 @@ function asp:repr_data()
    return mst.repr{prefix=self.ascii_prefix, iid=self.iid, rid=self.rid}
 end
 
-function asp:find_lap(iid)
+function asp:get_liid()
+   return self.liid or self.iid
+end
+
+function asp:find_lap()
+   local iid = self:get_liid()
    self:d('find_lap')
    self:a(_valid_local_iid(self.pa, iid))
    self:a(self.class)
@@ -282,7 +287,8 @@ function asp:find_lap(iid)
    end
 end
 
-function asp:find_or_create_lap(iid)
+function asp:find_or_create_lap()
+   local iid = self:get_liid()
    self:d('find_or_create_lap')
    self:a(_valid_local_iid(self.pa, iid))
    local o = self:find_lap(iid)
@@ -298,25 +304,27 @@ function asp:find_or_create_lap(iid)
                                 pa=self.pa}
 end
 
-function asp:assign_lap(iid)
+function asp:assign_lap()
+   local iid = self:get_liid()
    self:a(_valid_local_iid(self.pa, iid))
    self:a(self.class == 'asp')
-   local lap = self:find_or_create_lap(iid)
+   local lap = self:find_or_create_lap()
    lap:assign()
    lap.owner = self.rid == self.pa.rid and true or nil
 end
 
-function asp:depracate_lap(iid)
+function asp:depracate_lap()
    -- look up locally assigned prefixes (if any)
-   local lap = self:find_lap(iid)
+   local lap = self:find_lap()
    if not lap then return end
    lap:depracate()
 end
 
-function asp:unassign_lap(iid)
+function asp:unassign_lap()
+   local iid = self:get_liid()
    -- look up locally assigned prefixes (if any)
    -- brute-force through the lap - if prefix is same, we're good
-   for _, lap in ipairs(self.pa.lap:values())
+   for _, lap in ipairs(self.pa.lap[iid] or {})
    do
       if lap.ascii_prefix == self.ascii_prefix
       then
@@ -557,10 +565,18 @@ end
 
 function pa:filtered_values_done(h, f)
    self:a(h.class == 'multimap')
-   for i, o in ipairs(h:values())
-   do
-      if not f or f(o) 
-      then 
+   local todo
+   h:foreach(function (k, o)
+                if not f or f(o) 
+                then 
+                   todo = todo or {}
+                   table.insert(todo, o)
+                end
+             end)
+   if todo
+   then
+      for i, o in ipairs(todo)
+      do
          self:d('done with', o)
          o:done() 
       end
@@ -636,15 +652,21 @@ function pa:run_if_usp(iid, neigh, usp)
    -- Alg from 6.3.. steps noted 
    
    -- 1. if some shorter prefix contains this usp, skip
-   for i, v in ipairs(self.usp:values())
-   do
-      -- TODO-DRAFT - complain that this seems broken
-      -- (BCP38 stuff might make it not-so-working?)
-      if v.ascii_prefix ~= usp.ascii_prefix and v.prefix:contains(usp.prefix)
-      then
-         self:d('skipped, containing prefix found')
-         return
-      end
+   local containing_prefix_found
+   self.usp:foreach(function (k, v)
+                       -- TODO-DRAFT - complain that this seems broken
+                       -- (BCP38 stuff might make it not-so-working?)
+                       if v.ascii_prefix ~= usp.ascii_prefix 
+                          and v.prefix:contains(usp.prefix)
+                       then
+                          containing_prefix_found = true
+                       end
+
+                    end)
+   if containing_prefix_found
+   then
+      self:d('skipped, containing prefix found')
+      return
    end
 
    -- (skip 2. - we don't really care about neighbors)
@@ -653,22 +675,23 @@ function pa:run_if_usp(iid, neigh, usp)
    local own
    local highest
    
-   for i, asp in ipairs(self.asp:values())
-   do
-      --self:d(' considering', asp)
-      if ((asp.rid == rid and iid == asp.iid) or neigh[asp.rid] == asp.iid) and usp.prefix:contains(asp.prefix)
-      then
-         self:d(' fitting', asp)
-         if not highest or highest.rid < asp.rid
-         then
-            highest = asp
-         end
-         if asp.rid == rid
-         then
-            own = asp
-         end
-      end
-   end
+   self.asp:foreach(function (k, asp)
+                       --self:d(' considering', asp)
+                       if ((asp.rid == rid and iid == asp.iid) 
+                           or neigh[asp.rid] == asp.iid) 
+                           and usp.prefix:contains(asp.prefix)
+                       then
+                          self:d(' fitting', asp)
+                          if not highest or highest.rid < asp.rid
+                          then
+                             highest = asp
+                          end
+                          if asp.rid == rid
+                          then
+                             own = asp
+                          end
+                       end
+                    end)
 
    -- 4.
    -- (i) - router made assignment, highest router id
@@ -682,6 +705,10 @@ function pa:run_if_usp(iid, neigh, usp)
    if highest
    then
       highest.usp = usp
+
+      -- note the local interface identifier so it can be used
+      -- appropriately by the asp class's methods
+      highest.liid = iid
 
       -- zap anything else we might have
       self:eliminate_other_lap(iid, usp, highest)
@@ -794,7 +821,7 @@ function pa:assign_own(iid, usp)
                      pa=self,
                      iid=iid,
                      rid=self.rid}
-   o:assign_lap(iid)
+   o:assign_lap()
 end
 
 function pa:eliminate_other_lap(iid, usp, asp, lap)
@@ -803,7 +830,7 @@ function pa:eliminate_other_lap(iid, usp, asp, lap)
    -- depracate immediately any other prefix that is on this iid,
    -- with same USP as us 
    local is_ipv4 = not usp or usp.prefix:is_ipv4()
-   local lap = lap or (asp and asp:find_lap(iid))
+   local lap = lap or (asp and asp:find_lap())
    
    -- (nondeterministic) test case for this in elsa_pa_stress.lua
    for i, lap2 in ipairs(self.lap[iid] or {})
@@ -833,30 +860,39 @@ end
 
 function pa:find_assigned(usp)
    local t = mst.set:new()
-   for i, asp in ipairs(self.asp:values())
-   do
-      local ab = asp.binary_prefix
-      self:a(ab, 'no asp.binary_prefix')
-      if usp.prefix:contains(asp.prefix)
-      then
-         t:insert(ab)
-      end
-   end
+   self.asp:foreach(function (k, asp)
+                       local ab = asp.binary_prefix
+                       self:a(ab, 'no asp.binary_prefix')
+                       if usp.prefix:contains(asp.prefix)
+                       then
+                          t:insert(ab)
+                       end
+
+                    end)
    return t
 end
 
 -- 6.3.2
 function pa:check_asp_conflicts(iid, asp)
    self:d('6.3.2 check_asp_conflicts', asp)
-   for i, asp2 in ipairs(self.asp:values())
-   do
-      -- if conflict, with overriding rid is found, depracate prefix
-      if asp2.ascii_prefix == asp.ascii_prefix and asp2.rid > asp.rid
-      then
-         -- as described in 6.3.3
-         asp:depracate_lap(iid)
-         return
-      end
+   
+   local t 
+   local found_conflict
+   self.asp:foreach(function (k, asp2)
+                       -- if conflict, with overriding rid is found, 
+                       -- depracate prefix
+                       if asp2.ascii_prefix == asp.ascii_prefix and asp2.rid > asp.rid
+                       then
+                          found_conflict = true
+                       end
+                    end)
+   
+   if found_conflict
+   then
+      -- as described in 6.3.3
+      self:a(asp:get_liid() == iid)
+      asp:depracate_lap()
+      return
    end
 
    -- otherise mark it as valid
@@ -874,14 +910,17 @@ function pa:assign_other(iid, asp)
 
    -- Note: the verbiage about locally converted interfaces etc seems
    -- excessively strict in the draft.
-   asp:assign_lap(iid)
+   local liid = asp:get_liid()
+   self:a(liid == iid, 'asp iid mismatch', liid, iid)
+   asp:assign_lap()
 end
 
 function pa:find_usp_matching(filter)
-   for i, usp in ipairs(self.usp:values())
-   do
-      if filter(usp) then return usp end
-   end
+   local found
+   self.usp:foreach(function (k, usp)
+                       if filter(usp) then found = usp end
+                    end)
+   return found
 end
 
 function pa:generate_ulaish(filter, filter_own, generate_prefix, desc)
@@ -1178,13 +1217,12 @@ function pa:run(d)
    -- run the prefix assignment
    for iid, _ in pairs(self.ifs)
    do
-      for i, usp in ipairs(self.usp:values())
-      do
-         self:a(usp.class == 'usp', usp, usp.class)
-         local n = self.neigh[iid]
-         self:a(n)
-         self:run_if_usp(iid, n, usp)
-      end
+      self.usp:foreach(function (k, usp)
+                          self:a(usp.class == 'usp', usp, usp.class)
+                          local n = self.neigh[iid]
+                          self:a(n)
+                          self:run_if_usp(iid, n, usp)
+                       end)
    end
 
    -- handle the expired local assignments
