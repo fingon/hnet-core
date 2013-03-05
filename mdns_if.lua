@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Tue Mar  5 12:53:49 2013 mstenber
--- Edit time:     759 min
+-- Last modified: Tue Mar  5 13:13:35 2013 mstenber
+-- Edit time:     761 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -1539,7 +1539,7 @@ function mdns_if:send_probes()
       if not found and self:get_own_rr_current_ttl(rr) > 0
       then
          table.insert(qd, q_for_rr(rr, {qtype=dns_const.TYPE_ANY,
-                                                 qu=true}))
+                                        qu=true}))
          tns:insert_rr(rr)
       end
       self:set_next_state(rr)
@@ -1770,7 +1770,7 @@ function mdns_if:interested_in_cached(rr)
       if q and match_q_rr(q, rr)
       then
          self:d('found interested query in us', q, rr)
-         return q_for_rr(rr)
+         return q_for_rr(rr, {qtype=dns_const.TYPE_ANY})
       end
    end
    self:d('no queries matching', rr)

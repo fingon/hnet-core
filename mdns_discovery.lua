@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Mar  5 11:57:53 2013 mstenber
--- Last modified: Tue Mar  5 12:46:34 2013 mstenber
--- Edit time:     28 min
+-- Last modified: Tue Mar  5 13:12:44 2013 mstenber
+-- Edit time:     29 min
 --
 
 -- This is mdns discovery module.
@@ -148,7 +148,8 @@ function mdns_discovery:run()
       -- send query
       self.query{name=o.name,
                  qclass=o.rclass,
-                 qtype=o.rtype}
+                 qtype=o.rtype,
+                }
 
       -- update the next-to-run time
       self.sl:remove(o)
