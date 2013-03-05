@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Mon Feb 18 12:11:16 2013 mstenber
--- Edit time:     751 min
+-- Last modified: Tue Mar  5 12:53:49 2013 mstenber
+-- Edit time:     759 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -36,6 +36,7 @@ require 'dnscodec'
 require 'dnsdb'
 require 'mdns_const'
 require 'mst_skiplist'
+require 'mdns_discovery'
 
 module(..., package.seeall)
 
@@ -236,6 +237,15 @@ function mdns_if:init()
                                                  prefix='probe_sl',
                                                  lt=next_is_less,
                                                 }
+
+   self.md = mdns_discovery.mdns_discovery:new{
+      time=function ()
+         return self:time()
+      end,
+      query=function (q)
+         return self:query(q)
+      end,
+                                              }
 end
 
 function mdns_if:cache_changed_rr(rr, mode)
@@ -245,6 +255,8 @@ function mdns_if:cache_changed_rr(rr, mode)
    -- anything else than the fact taht rr state for this entry may be
    -- suspicious
    self.parent:queue_check_propagate_if_rr(self.ifname, rr)
+
+   self.md:cache_changed_rr(rr, mode)
 end
 
 function mdns_if:kas_matches_rr(is_own, kas, rr)
@@ -471,6 +483,12 @@ end
 function mdns_if:run()
    -- get current timestamp
    local now = self:time()
+
+   -- call discovery run
+   if not self.parent.disable_discovery
+   then
+      self.md:run()
+   end
 
    -- get rid of old probes if any
    self:prune_probes()
@@ -1414,6 +1432,10 @@ function mdns_if:next_time()
    do
       local b = self:schedule_for_e_in_q(e, q)
       maybe(b, 'multicast', e)
+   end
+   if not self.parent.disable_discovery
+   then
+      maybe(self.md:next_time(), 'discovery', self.md)
    end
    if best
    then

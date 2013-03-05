@@ -45,6 +45,7 @@ mdns_test:
 	@python util/test_cover.py doc/mdns_test.txt
 	busted spec/dnscodec_spec.lua
 	busted spec/dnsdb_spec.lua
+	busted spec/mdns_discovery_spec.lua
 	busted spec/mdns_core_spec.lua
 
 mdns_todo:

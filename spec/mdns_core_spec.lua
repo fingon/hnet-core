@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Mon Feb 18 15:21:38 2013 mstenber
--- Edit time:     820 min
+-- Last modified: Tue Mar  5 12:59:03 2013 mstenber
+-- Edit time:     825 min
 --
 
 -- TO DO: 
@@ -434,11 +434,13 @@ function create_node_callback(o)
       return d
    end
    local cl = o.class or _mdns_ospf
+   local dd = not o.enable_discovery
    local n = cl:new{sendto=true,
                     shell=true, -- blows up if it hits, but shouldn't
                     rid=o.rid,
                     skv=o.skv,
                     time=o.time,
+                    disable_discovery=dd,
                    }
    function n.sendto(data, to, toport)
       mst.d('n.sendto', o.rid, data, to, toport)
@@ -1677,7 +1679,7 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                            dsm = mydsm:new{e=n, port_offset=43576,
                                            create_callback=create_node_callback}
                            mdns1 = dsm:create_node{rid='n1'}
-                           mdns2 = dsm:create_node{rid='n2'}
+                           mdns2 = dsm:create_node{rid='n2', enable_discovery=true}
                            mdns3 = dsm:create_node{rid='n3'}
 
                            d = dospf:new{dsm=dsm, rid='dospf'}
@@ -1691,7 +1693,7 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                            -- (one with highest name)
 
                            leaf1 = dsm:create_node{rid='leaf1', class=_mdns}
-                           leaf2 = dsm:create_node{rid='leaf2', class=_mdns}
+                           leaf2 = dsm:create_node{rid='leaf2', class=_mdns, enable_discovery=true}
                            leaf3 = dsm:create_node{rid='leaf3', class=_mdns}
                            dummy1 = dsm:create_node{rid='dummy1', dsm=dsm, dummy=true}
                            leaf1.skv:set(elsa_pa.OSPF_LAP_KEY, {
@@ -1751,6 +1753,14 @@ describe("realistic multi-mdns setup (mdns_ospf)", function ()
                                            leaf3.rid, 'leafif')
                         end)
             after_each(function ()
+                          -- turn off the discovery here
+                          -- (otherwise it won't terminate)
+                          for i, mdns in ipairs{leaf1, leaf2, leaf3, 
+                                                mdns1, mdns2, mdns3}
+                          do
+                             mdns.disable_discovery = true
+                          end
+
                           -- wait awhile
                           -- make sure state empties eventually clearly
                           local r = dsm:run_nodes_and_advance_time()

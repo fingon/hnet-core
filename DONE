@@ -1,5 +1,19 @@
 -*- outline -*-
 
+* Done (4.3.2013+)
+
+** Add some sort of 'initial state fetcher' (/ semi-random state refresher)
+
+.. when becoming owner of an interface, should proactively query (with qu
+set on?) for services, and then instances of those services..
+
+i.e. q {'_services', '_dns-sd', '_udp', 'local'}
+.. and then q for everything within!
+
+(we _may_ also keep a list of services we've ever heard about, and include
+those explicitly in initial query; that's also perfectly valid option, but
+should be just used as backup solution)
+
 * Done (25.2.2013+)
 
 ** Add support for multiple prefixes per interface

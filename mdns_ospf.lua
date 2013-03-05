@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Thu Feb 21 11:55:52 2013 mstenber
--- Edit time:     266 min
+-- Last modified: Tue Mar  5 13:03:12 2013 mstenber
+-- Edit time:     272 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -422,17 +422,28 @@ function mdns:set_if_master_set(masterset)
                       local o = self:get_if(k)
                       state_changed = true
                       o.is_master = true
+
+                      -- initialize service discovery
+                      -- XXX - is this good idea or not?
+                      -- we should also clear if-specific caches
+                      -- etc..
+                      --o.md:init()
+                      
                    end,
-                   -- non-master if isn't _really_ the same,
-                   -- but we convert it to master one and just
-                   -- put it on fresh list to do new propagation
-                   -- there (this is bit of a kludge, but oh well)
                    function (k, v1, v2)
                       if not v1.is_master 
                       then
                          self:d(' enabling ', k)
                          v1.is_master = true
                          state_changed = true
+                         -- reset the discovery 
+
+                         -- initialize service discovery
+                         -- XXX - is this good idea or not?
+                         -- we should also clear if-specific caches
+                         -- etc..
+                         --local o = self:get_if(k)
+                         --o.md:init()
                       end
                       return true
                    end
