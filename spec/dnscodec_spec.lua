@@ -8,14 +8,15 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 12:06:56 2012 mstenber
--- Last modified: Mon Feb 18 14:47:45 2013 mstenber
--- Edit time:     80 min
+-- Last modified: Wed Mar  6 14:20:59 2013 mstenber
+-- Edit time:     88 min
 --
 
 require "busted"
 require "dnscodec"
 require 'dns_const'
 require 'dns_rdata'
+local json = require "dkjson"
 
 module("dnscodec_spec", package.seeall)
 
@@ -24,6 +25,9 @@ local dns_query = dnscodec.dns_query
 local dns_message = dnscodec.dns_message
 local rdata_srv = dns_rdata.rdata_srv
 local rdata_nsec = dns_rdata.rdata_nsec
+
+local json_tests = {'[{"rclass":1440,"rtype":41,"name":[],"rdata":"\u0000\u0004\u0000\u000e\u0000\u0000??&\u0004\u0004?@l?B??"},{"rclass":1440,"rtype":41,"name":[],"rdata":"\u0000\u0004\u0000\b\u0000\u001b???\u0016??"},{"name":["mini","_afpovertcp","_tcp","local"],"rdata":"\u0000","rclass":1,"rtype":16,"cache_flush":true},{"rclass":1,"rtype":16,"name":["_kerberos","suiren","local"],"rdata":"2LKDC:SHA1.85C8F3B0244B89CE3953343AF04EC1635BC97E8C"},{"rclass":1,"rtype":16,"name":["suiren","_device-info","_tcp","local"],"rdata":"\u0013model=MacBookAir5,2"},{"name":["Samsung SCX-4500 Series @ mini","_ipps","_tcp","local"],"rdata":"\ttxtvers=1\bqtotal=1#rp=printers/Samsung_SCX_4500_Series\u001aty=Samsung SCX-4500 SeriesAadminurl=https://mini.local.:631/printers/Samsung_SCX_4500_Series\u0018note=Markus’s Mac mini\npriority=0!product=(Samsung SCX-4500 Series)ipdl=application/octet-stream,application/pdf,application/postscript,image/jpeg,image/png,image/pwg-raster)UUID=bdfcae18-8a98-3c74-6d97-0b8ecc77b013\u0007TLS=1.2\u0006Scan=T\u000fprinter-state=3\u0016printer-type=0x4009006","rclass":1,"rtype":16,"cache_flush":true},{"name":["65","94","239","10","in-addr","arpa"],"rdata_ptr":["suiren","local"],"rclass":1,"rtype":12,"cache_flush":true},{"name":["9","D","E","A","2","4","E","F","F","F","F","8","C","6","2","4","0","0","0","0","0","0","0","0","0","0","0","0","0","8","E","F","ip6","arpa"],"rdata_ptr":["suiren","local"],"rclass":1,"rtype":12,"cache_flush":true},{"name":["9","D","E","A","2","4","E","F","F","F","F","8","C","6","2","4","B","7","3","9","E","5","D","D","0","7","4","0","1","0","0","2","ip6","arpa"],"rdata_ptr":["suiren","local"],"rclass":1,"rtype":12,"cache_flush":true},{"name":["suiren","local"],"rdata_aaaa":"2001:470:dd5e:937b:426c:8fff:fe42:aed9","rclass":1,"rtype":28,"cache_flush":true},{"name":["suiren","local"],"rdata_a":"10.239.94.65","rclass":1,"rtype":1,"cache_flush":true},{"name":["suiren","_sftp-ssh","_tcp","local"],"rdata":"\u0000","rclass":1,"rtype":16,"cache_flush":true},{"rclass":1,"rtype":12,"name":["_sftp-ssh","_tcp","local"],"rdata_ptr":["suiren","_sftp-ssh","_tcp","local"]},{"rdata_srv":{"target":["suiren","local"],"priority":0,"port":22,"weight":0},"name":["suiren","_sftp-ssh","_tcp","local"],"rclass":1,"rtype":33,"cache_flush":true},{"name":["Samsung SCX-4500 Series @ mini","_ipp","_tcp","local"],"rdata":"\ttxtvers=1\bqtotal=1#rp=printers/Samsung_SCX_4500_Series\u001aty=Samsung SCX-4500 SeriesAadminurl=https://mini.local.:631/printers/Samsung_SCX_4500_Series\u0018note=Markus’s Mac mini\npriority=0!product=(Samsung SCX-4500 Series)ipdl=application/octet-stream,application/pdf,application/postscript,image/jpeg,image/png,image/pwg-raster)UUID=bdfcae18-8a98-3c74-6d97-0b8ecc77b013\u0007TLS=1.2\u0006Scan=T\u000fprinter-state=3\u0016printer-type=0x4009006","rclass":1,"rtype":16,"cache_flush":true},{"rclass":1,"rtype":12,"name":["_services","_dns-sd","_udp","local"],"rdata_ptr":["_sftp-ssh","_tcp","local"]},{"name":["suiren","_rfb","_tcp","local"],"rdata":"\u0000","rclass":1,"rtype":16,"cache_flush":true},{"rclass":1,"rtype":12,"name":["_services","_dns-sd","_udp","local"],"rdata_ptr":["_rfb","_tcp","local"]},{"rclass":1,"rtype":12,"name":["_rfb","_tcp","local"],"rdata_ptr":["suiren","_rfb","_tcp","local"]},{"rdata_srv":{"target":["suiren","local"],"priority":0,"port":5900,"weight":0},"name":["suiren","_rfb","_tcp","local"],"rclass":1,"rtype":33,"cache_flush":true},{"name":["suiren","_ssh","_tcp","local"],"rdata":"\u0000","rclass":1,"rtype":16,"cache_flush":true},{"rclass":1,"rtype":12,"name":["_services","_dns-sd","_udp","local"],"rdata_ptr":["_ssh","_tcp","local"]},{"rclass":1,"rtype":12,"name":["_ssh","_tcp","local"],"rdata_ptr":["suiren","_ssh","_tcp","local"]},{"rdata_srv":{"target":["suiren","local"],"priority":0,"port":22,"weight":0},"name":["suiren","_ssh","_tcp","local"],"rclass":1,"rtype":33,"cache_flush":true}]'}
+
 
 local tests = {
    -- minimal
@@ -226,6 +230,18 @@ describe("test dnscodec", function ()
                      mst.a(o2, 'decode error', err)
                      local s3 = dns_message:encode(o2)
                      
+                  end
+                   end)
+            it("can also deal with cruft from json captures", function ()
+                  for i, s in ipairs(json_tests)
+                  do
+                     local a = json.decode(s)
+                     mst.a(a)
+                     local b = dns_message:encode{an=a}
+                     mst.a(b)
+                     mst.d('original json string', #s)
+                     mst.d('encoded in dns_message', #b)
+
                   end
                    end)
 end)
