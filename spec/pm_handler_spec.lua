@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Wed Feb 27 12:45:18 2013 mstenber
--- Edit time:     62 min
+-- Last modified: Fri Mar  8 11:16:27 2013 mstenber
+-- Edit time:     66 min
 --
 
 -- individual handler tests
@@ -181,7 +181,14 @@ describe("pm_radvd", function ()
                   -- a config file which has just the non-pclass prefix
                   -- (we shouldn't advertise pclass prefixes)
                   pm.ospf_lap = {
-                     {ifname='eth0', prefix=dummy_prefix1},
+                     -- one case with explicit lifetimes
+                     {ifname='eth0', prefix=dummy_prefix1, 
+                      pref=pm.t+1234,
+                      valid=pm.t+2345,
+                     },
+                     -- one with defaults
+                     {ifname='eth1', prefix=dummy_prefix1, 
+                     },
                      {ifname='eth0', pclass=1, prefix=dummy_prefix2},
                      }
                   pm.ds:set_array{
@@ -195,6 +202,8 @@ describe("pm_radvd", function ()
 
                   local s = mst.read_filename_to_string(dummy_conf)
                   mst.a(string.find(s, dummy_prefix1), 'first prefix missing')
+                  mst.a(string.find(s, "1234"), 'preferred missing')
+                  mst.a(string.find(s, "2345"), 'valid missing')
                   mst.a(not string.find(s, dummy_prefix2), 
                         'second prefix present (but should not be, pclass)')
 

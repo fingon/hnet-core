@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:51:43 2012 mstenber
--- Last modified: Tue Feb 26 17:59:41 2013 mstenber
--- Edit time:     12 min
+-- Last modified: Fri Mar  8 11:30:53 2013 mstenber
+-- Edit time:     19 min
 --
 
 require 'pm_handler'
@@ -40,6 +40,15 @@ end
 
 function pm_radvd:ready()
    return self.pm.ospf_lap
+end
+
+function abs_to_delta(now, t, def)
+   if not t then return def end
+   if t <= now
+   then
+      return 0
+   end
+   return math.floor(t-now)
 end
 
 function pm_radvd:write_radvd_conf(fpath)
@@ -91,20 +100,23 @@ function pm_radvd:write_radvd_conf(fpath)
                t:insert('  prefix ' .. lap.prefix .. ' {')
                t:insert('    AdvOnLink on;')
                t:insert('    AdvAutonomous on;')
+               t:insert('    DecrementLifetimes on;')
                local dep = lap.depracate
                -- has to be nil or 1
                mst.a(not dep or dep == 1)
+               local now = self.pm.time()
+               local pref = abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY], 1800)
+               local valid = abs_to_delta(now, lap[elsa_pa.VALID_KEY], 3600)
                if dep 
                then
-                  t:insert('    AdvValidLifetime 60;')
-                  t:insert('    AdvPreferredLifetime 0;')
+                  pref = 0
                   self:d(' adding (depracated)', lap.prefix)
                else
                   -- wonder what would be good values here..
-                  t:insert('    AdvValidLifetime 3600;')
-                  t:insert('    AdvPreferredLifetime 1800;')
                   self:d(' adding (alive?)', lap.prefix)
                end
+               t:insert(string.format('    AdvValidLifetime %d;', valid))
+               t:insert(string.format('    AdvPreferredLifetime %d;', pref))
                t:insert('  };')
             end
          end

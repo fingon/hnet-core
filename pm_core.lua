@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Wed Feb 27 12:45:29 2013 mstenber
--- Edit time:     558 min
+-- Last modified: Fri Mar  8 11:10:15 2013 mstenber
+-- Edit time:     559 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -43,7 +43,9 @@ DEFAULT_FILENAMES={radvd_conf_filename='radvd.conf',
                    dnsmasq_conf_filename='dnsmasq.conf',
 }
 
-pm = mst.create_class{class='pm', mandatory={'skv', 'shell'}}
+pm = mst.create_class{class='pm',
+                      mandatory={'skv', 'shell'},
+                      time=os.time}
 
 function pm:service_name_to_service(name)
    name = self.rewrite_service[name] or name

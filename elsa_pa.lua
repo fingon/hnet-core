@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Feb 28 21:07:37 2013 mstenber
--- Edit time:     729 min
+-- Last modified: Fri Mar  8 11:36:56 2013 mstenber
+-- Edit time:     732 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -65,11 +65,15 @@ PREFIX_KEY='prefix'
 DNS_KEY='dns'
 DNS_SEARCH_KEY='dns_search'
 NH_KEY='nh'
+
+-- extra info fields not used directly, but used in e.g. pm handlers
 PREFIX_CLASS_KEY='pclass'
+PREFERRED_KEY='pref' -- both of these are absolute timestamps
+VALID_KEY='valid'
 
 -- list of keys which are passed verbatim from 
 -- IF-specific prefix SKV [=> JSON_USP_INFO_KEY] => LAP/USP SKV lists
-PREFIX_INFO_SKV_KEYS={PREFIX_CLASS_KEY}
+PREFIX_INFO_SKV_KEYS={PREFIX_CLASS_KEY, PREFERRED_KEY, VALID_KEY}
 
 -- used to indicate that interface shouldn't be assigned to
 DISABLE_SKVPREFIX='disable-pa.'
@@ -932,10 +936,11 @@ function elsa_pa:iterate_all_skv_prefixes(f)
          self.all_seen_if_names:insert(ifname)
          
          -- old prefixes don't exist
-         if o.valid and o.valid < self.time()
-         then
-            return
-         end
+         --if o.valid and o.valid < self.time()
+         --then
+         --   return
+         --end
+
          -- may be non-prefix information too
          local p = o[PREFIX_KEY]
          if not p
