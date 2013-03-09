@@ -79,6 +79,12 @@ nothing good happens if time moves much forwards, _either_. *sigh*
 
 * PA - Bugs to fix
 
+** Enable spaces in domain search strings
+
+Right now, the shell scripts that deal with skvtool don't escape them
+appropriately => things probably blow up horribly. Is this a real problem,
+though?
+
 ** BIRD - dridd p#2
 
 Duplicate rid detected correctly even if router connected to ~self. But

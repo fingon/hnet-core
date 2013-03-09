@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Feb 26 18:35:40 2013 mstenber
--- Last modified: Wed Feb 27 12:44:57 2013 mstenber
--- Edit time:     41 min
+-- Last modified: Fri Mar  8 11:22:59 2013 mstenber
+-- Edit time:     43 min
 --
 
 -- This is minimalist-ish DHCPv6 IA_NA handling daemon (and obviously,
@@ -33,6 +33,7 @@ require 'dhcpv6_const'
 require 'scb'
 require 'dnsdb'
 require 'dhcpv6codec'
+require 'pm_radvd'
 
 module(..., package.seeall)
 
@@ -193,9 +194,12 @@ function pm_fakedhcpv6d:recvfrom(data, src, srcport)
                local b = b1 .. b2
                local a = ipv6s.binary_address_to_address(b)
 
+               local now = self.pm.time()
+               local pref = pm_radvd.abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY], na.t1)
+               local valid = pm_radvd.abs_to_delta(now, lap[elsa_pa.VALID_KEY], na.t2)
                local v3 = {option=dhcpv6_const.O_IAADDR,
-                           preferred=na.t1,
-                           valid=na.t2,
+                           preferred=pref,
+                           valid=valid,
                            addr=a}
                local pclass = tonumber(lap.pclass)
                table.insert(v3, {option=dhcpv6_const.O_PREFIX_CLASS, value=pclass})
