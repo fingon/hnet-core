@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Fri Mar  8 11:16:27 2013 mstenber
--- Edit time:     66 min
+-- Last modified: Sun Mar 10 17:03:59 2013 mstenber
+-- Edit time:     89 min
 --
 
 -- individual handler tests
@@ -19,15 +19,80 @@ require 'pm_v6_nh'
 require 'pm_v6_listen_ra'
 require 'pm_v6_route'
 require 'pm_v6_dhclient'
+require 'pm_v6_rule'
 require 'pm_dnsmasq'
 require 'pm_memory'
 require 'pm_radvd'
 require 'pm_fakedhcpv6d'
 require 'dhcpv6codec'
+require 'dshell'
 
 module("pm_handler_spec", package.seeall)
 
 local loop = ssloop.loop()
+
+describe("pm_v6_rule", function ()
+            local pm
+            local o
+            before_each(function ()
+                           pm = dpm.dpm:new{}
+                           o = pm_v6_rule.pm_v6_rule:new{pm=pm, 
+                                                         port=12548}
+                        end)
+            it("works #rule", function ()
+                  -- pretend something changed
+                  o:queue()
+
+                  -- make sure nothing happens without it being 'ready'
+                  o:maybe_run()
+
+                  pm.ds:set_array{
+                     {'ip -6 rule', ''},
+                     {'ip -6 rule add from dead::/56 table 1000 pref 1072', ''},
+                     {'ip -6 route flush table 1000', ''},
+                     {'ip -6 route add default via dead::1 dev eth0 table 1000', ''},
+                     {'ip -6 route add default via dead::1 dev eth0 metric 123456'},
+                     {'ip -6 rule add from all to dead::/56 table main pref 1000', ''},
+
+                                 }
+
+                  -- not used really, but just to pretend to be ready
+                  pm.ospf_usp = true
+
+                  -- really returned by get_ipv6_usp
+                  pm.ipv6_usps = mst.array:new{
+                     {nh='dead::1', ifname='eth0', prefix='dead::/56'},
+                  }
+
+                  mst.a(o:ready())
+                  o:maybe_run()
+                  
+                  pm.ds:check_used()
+
+                  -- ok, let's see what happens if we change only next hop
+                  o:queue()
+                  pm.ipv6_usps = mst.array:new{
+                     {nh='dead::2', ifname='eth0', prefix='dead::/56'},
+                  }
+                  pm.ds:set_array{
+                     {'ip -6 rule', [[
+1000:	from all to dead::/56 lookup main 
+1072:	from dead::/16 lookup 1000 
+                                     ]]},
+                     {'ip -6 rule add from dead::/56 table 1001 pref 1072',''},
+                     {'ip -6 route flush table 1001', ''},
+                     {'ip -6 route add default via dead::2 dev eth0 table 1001', ''},
+                     {'ip -6 route add default via dead::2 dev eth0 metric 123456', ''},
+                     {'ip -6 rule del from dead::/16 table 1000 pref 1072', ''},
+                     {'ip -6 route del default via dead::1 dev eth0 metric 123456', ''},
+
+                                 }
+                  o:maybe_run()
+                  pm.ds:check_used()
+
+
+                   end)
+             end)
 
 describe("pm_fakedhcpv6d", function ()
             local pm

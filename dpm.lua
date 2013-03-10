@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 09:23:58 2012 mstenber
--- Last modified: Fri Mar  8 11:11:29 2013 mstenber
--- Edit time:     6 min
+-- Last modified: Sun Mar 10 16:57:16 2013 mstenber
+-- Edit time:     7 min
 --
 
 -- dummy version of pm_core's pm class
@@ -22,6 +22,7 @@ module(..., package.seeall)
 dpm = mst.create_class{class='dpm'}
 
 function dpm:init()
+   self.nh = self.nh or {}
    self.ds = self.ds or dshell.dshell:new{}
    self.shell = self.shell or self.ds:get_shell()
    self.if_table = linux_if.if_table:new{shell=self.shell} 

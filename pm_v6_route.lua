@@ -8,12 +8,14 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:48:34 2012 mstenber
--- Last modified: Wed Nov 21 18:39:30 2012 mstenber
--- Edit time:     13 min
+-- Last modified: Sun Mar 10 16:28:54 2013 mstenber
+-- Edit time:     16 min
 --
 
--- pm_v6_route is responsible for syncing the real state to ospf_lap/usp 
--- by manipulating the routes
+-- pm_v6_route is responsible for syncing the real state to
+-- ospf_lap/usp by manipulating the configured interfaces' addresses
+-- (and implicitly, routes). we could also directly interact with the
+-- RIB if we chose to.
 
 require 'pm_handler'
 require 'ipv6s'

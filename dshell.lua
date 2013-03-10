@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct 29 16:06:24 2012 mstenber
--- Last modified: Wed Nov 21 19:00:21 2012 mstenber
+-- Last modified: Sun Mar 10 16:50:01 2013 mstenber
 -- Edit time:     3 min
 --
 
@@ -22,7 +22,7 @@ module(..., package.seeall)
 dshell = mst.create_class{class='dshell'}
 
 function dshell:init()
-   self:set_array({})
+   self:set_array{}
 end
 
 function dshell:set_array(a)
@@ -34,7 +34,7 @@ function dshell:get_shell()
    function fakeshell(s)
       mst.d('fakeshell#', s)
       self.arri = self.arri + 1
-      mst.a(self.arri <= #self.arr, 'tried to consume with array empty', s)
+      self:a(self.arri <= #self.arr, 'tried to consume with array empty', s)
       local t, v = unpack(self.arr[self.arri])
       mst.a(t == s, 'mismatch line ', self.arri, 'expected', t, 'got', s)
       return v
