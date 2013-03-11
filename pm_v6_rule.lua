@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:12:11 2012 mstenber
--- Last modified: Thu Nov 22 12:51:41 2012 mstenber
--- Edit time:     39 min
+-- Last modified: Sun Mar 10 22:41:43 2013 mstenber
+-- Edit time:     48 min
 --
 
 require 'pm_handler'
@@ -95,7 +95,6 @@ function pm_v6_rule:run()
    local usps = self.pm:get_ipv6_usp()
    usps = usps:filter(function (usp) return usp.ifname end)
    usps = usps:filter(function (usp) return #self:get_usp_nhl(usp)>0 end)
-   
    for _, usp in ipairs(usps)
    do
       local sel = 'from ' .. usp.prefix
@@ -118,9 +117,7 @@ function pm_v6_rule:run()
             -- (but keep the table)
             update_table = o.table
          end
-      end
-      if not o
-      then
+      else
          -- store that it has been added
          local uspk = self:get_usp_key(usp)
          self.applied_usp[usp.prefix] = uspk
