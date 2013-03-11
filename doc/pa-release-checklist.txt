@@ -1,0 +1,16 @@
+These could be written to some sort of automated testcases at some point..
+
+- does not blow up with e.g. elsa14 topology
+ - disrupt* bird9 => primary route goes down
+ - disrupt* bird3 => secondary route goes down
+ - restart eth0 on bird9 => primary route should go back up
+ - restore* bird9 => primary route goes down, but more brutally
+
+disrupt*
+- kill downstream interfaces (ifconfig down)
+- kill upstream interfaces (ifconfig down)
+- kill -9 bird6
+
+restore
+- restore {up,down}stream interfaces (ifconfig up)
+- restart bird6
