@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Sun Mar 10 17:03:59 2013 mstenber
--- Edit time:     89 min
+-- Last modified: Mon Mar 11 09:43:23 2013 mstenber
+-- Edit time:     95 min
 --
 
 -- individual handler tests
@@ -276,27 +276,38 @@ describe("pm_radvd", function ()
              end)
 
 describe("pm_v6_nh", function ()
-            it("works", function ()
+            it("works #nh", function ()
                   local pm = dpm.dpm:new{}
                   local o = pm_v6_nh.pm_v6_nh:new{pm=pm}
+                  -- make sure that it does NOTHING without external
+                  -- LAP present
+                  o:maybe_tick()
+                  pm.ds:check_used()
+
+                  pm.ospf_lap = {{ifname='eth0', external=true}}
+                  
                   pm.ds:set_array{
                      {'ip -6 route',[[
 1.2.3.4 via 2.3.4.5 dev eth0
 default via 1.2.3.4 dev eth0
 default via 1.2.3.4 dev eth0
+default via 1.2.3.4 dev eth1
 default via 1.2.3.5 dev eth0 metric 123456
                                      ]]},                      
                      {'ip -6 route',[[
 1.2.3.4 via 2.3.4.5 dev eth0
 default via 1.2.3.4 dev eth0
 default via 1.2.3.4 dev eth0
+default via 1.2.3.4 dev eth1
 default via 1.2.3.5 dev eth0 metric 123456
                                      ]]},                      
                               }
-                  o:tick()
-                  o:tick()
-                  mst.a(pm.nh:count() == 2, pm.nh)
+                  o:maybe_tick()
+                  o:maybe_tick()
                   pm.ds:check_used()
+                  mst.a(pm.nh, 'no pm.nh')
+                  mst.a(pm.nh.count, 'no count?!?', pm.nh)
+                  mst.a(pm.nh:count() == 2, pm.nh)
                    end)
 end)
 

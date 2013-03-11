@@ -1,5 +1,18 @@
 -*- outline -*-
 
+* Done (11.3.2013+)
+
+** Sometimes next-hop stuff _stays_ out of sync with reality
+
+Correct solution is to check even contents of the route tables when
+checking rules, it's not like it will break our CPU budget.
+
+Yet better design-wise would be to use recursive routing; however, that's
+bit awkward to do in practise.
+
+.. It turns out that the 'tick' mechanism that checked next hops (on edge)
+every 10 seconds was horribly broken. 
+
 * Done (4.3.2013+)
 
 ** Add some sort of 'initial state fetcher' (/ semi-random state refresher)

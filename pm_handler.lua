@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov  7 19:33:20 2012 mstenber
--- Last modified: Wed Nov 21 18:47:32 2012 mstenber
--- Edit time:     12 min
+-- Last modified: Mon Mar 11 09:23:35 2013 mstenber
+-- Edit time:     13 min
 --
 
 -- single pm handler prototype
@@ -41,7 +41,16 @@ function pm_handler:ready()
    return true
 end
 
-function pm_handler:tick()
+function pm_handler:maybe_tick()
+   if not self.tick
+   then
+      return
+   end
+   if not self:ready()
+   then
+      return
+   end
+   self:tick()
 end
 
 function pm_handler:maybe_run()

@@ -8,6 +8,12 @@
 
 * Not-exactly-our software - Bugs to fix
 
+** ISC dhclient
+
+duid not consistent (sigh) => interesting issues when rebooting routers..
+
+(encountered at IETF86)
+
 ** BIRD - doesn't handle too big LSAs gracefully
 
 .. blows up due to rx-buf used for sending being smaller than what is being

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Fri Mar  8 11:10:15 2013 mstenber
--- Edit time:     559 min
+-- Last modified: Mon Mar 11 09:23:57 2013 mstenber
+-- Edit time:     564 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -282,7 +282,7 @@ function pm:tick()
    for i, v in ipairs(self.handlers)
    do
       local o = self.h[v]
-      local v = o:tick()
+      local v = o:maybe_tick()
       -- if it did return value based change mgmt, allow that too
       if v and v > 0 then o:changed() end
    end
