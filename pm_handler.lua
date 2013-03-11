@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov  7 19:33:20 2012 mstenber
--- Last modified: Mon Mar 11 09:23:35 2013 mstenber
+-- Last modified: Mon Mar 11 10:39:52 2013 mstenber
 -- Edit time:     13 min
 --
 
@@ -50,7 +50,7 @@ function pm_handler:maybe_tick()
    then
       return
    end
-   self:tick()
+   return self:tick()
 end
 
 function pm_handler:maybe_run()
