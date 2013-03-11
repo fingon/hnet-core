@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:51:43 2012 mstenber
--- Last modified: Fri Mar  8 11:30:53 2013 mstenber
--- Edit time:     19 min
+-- Last modified: Mon Mar 11 18:40:54 2013 mstenber
+-- Edit time:     21 min
 --
 
 require 'pm_handler'
@@ -48,7 +48,7 @@ function abs_to_delta(now, t, def)
    then
       return 0
    end
-   return math.floor(t-now)
+   return math.floor(t-now), true
 end
 
 function pm_radvd:write_radvd_conf(fpath)
@@ -100,13 +100,16 @@ function pm_radvd:write_radvd_conf(fpath)
                t:insert('  prefix ' .. lap.prefix .. ' {')
                t:insert('    AdvOnLink on;')
                t:insert('    AdvAutonomous on;')
-               t:insert('    DecrementLifetimes on;')
                local dep = lap.depracate
                -- has to be nil or 1
                mst.a(not dep or dep == 1)
                local now = self.pm.time()
-               local pref = abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY], 1800)
-               local valid = abs_to_delta(now, lap[elsa_pa.VALID_KEY], 3600)
+               local pref, vpref = abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY], 1800)
+               local valid, vvalid = abs_to_delta(now, lap[elsa_pa.VALID_KEY], 3600)
+               if vpref and vvalid
+               then
+                  t:insert('    DecrementLifetimes on;')
+               end
                if dep 
                then
                   pref = 0

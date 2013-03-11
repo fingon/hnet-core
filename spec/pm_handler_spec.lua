@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Mon Mar 11 09:43:23 2013 mstenber
--- Edit time:     95 min
+-- Last modified: Mon Mar 11 18:47:08 2013 mstenber
+-- Edit time:     100 min
 --
 
 -- individual handler tests
@@ -245,22 +245,33 @@ describe("pm_radvd", function ()
                   -- with pclass, one without; as a result, we should create
                   -- a config file which has just the non-pclass prefix
                   -- (we shouldn't advertise pclass prefixes)
-                  pm.ospf_lap = {
+
+                  local explicit_ok_lap = {
                      -- one case with explicit lifetimes
                      {ifname='eth0', prefix=dummy_prefix1, 
                       pref=pm.t+1234,
                       valid=pm.t+2345,
                      },
-                     -- one with defaults
-                     {ifname='eth1', prefix=dummy_prefix1, 
-                     },
+                     -- one with defaults (but with pclass)
                      {ifname='eth0', pclass=1, prefix=dummy_prefix2},
-                     }
-                  pm.ds:set_array{
+                  }
+
+                  local invalid1_lap = {
+                     {ifname='eth1', prefix=dummy_prefix1},
+                  }
+
+                  local invalid2_lap = {
+                     {ifname='eth1', prefix=dummy_prefix1, 
+                      valid=123456, pref=-123},
+                  }
+
+                  pm.ospf_lap = explicit_ok_lap
+                  local restart_array = {
                      {'killall -9 radvd'},
                      {'rm -f /var/run/radvd.pid'},
                      {'radvd -C ' .. dummy_conf},
-                                 }
+                  }
+                  pm.ds:set_array(restart_array)
                   o:queue()
                   o:maybe_run()
                   pm.ds:check_used()
@@ -269,10 +280,29 @@ describe("pm_radvd", function ()
                   mst.a(string.find(s, dummy_prefix1), 'first prefix missing')
                   mst.a(string.find(s, "1234"), 'preferred missing')
                   mst.a(string.find(s, "2345"), 'valid missing')
+                  mst.a(string.find(s, "Decrement"), 'decrement missing')
                   mst.a(not string.find(s, dummy_prefix2), 
                         'second prefix present (but should not be, pclass)')
+                  
+                  -- try #2
+                  pm.ospf_lap = invalid1_lap
+                  pm.ds:set_array(restart_array)
+                  o:run()
+                  local s = mst.read_filename_to_string(dummy_conf)
+                  mst.a(string.find(s, dummy_prefix1), 'first prefix missing')
+                  mst.a(not string.find(s, "Decrement"), 'decrement found')
+                  
+                  -- try #3
+                  pm.ospf_lap = invalid2_lap
+                  pm.ds:set_array(restart_array)
+                  o:run()
+                  local s = mst.read_filename_to_string(dummy_conf)
+                  mst.a(string.find(s, dummy_prefix1), 'first prefix missing')
+                  mst.a(not string.find(s, "Decrement"), 'decrement found')
+                  
 
                         end)
+
              end)
 
 describe("pm_v6_nh", function ()
