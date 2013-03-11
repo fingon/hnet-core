@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Mon Feb 25 12:18:01 2013 mstenber
--- Edit time:     239 min
+-- Last modified: Mon Mar 11 17:05:09 2013 mstenber
+-- Edit time:     240 min
 --
 
 -- testsuite for the pm_core
@@ -426,30 +426,13 @@ describe("pm", function ()
                   mst.a(not pm:run())
 
                   -- make sure tick is harmless too
-                  -- (it should result in next hop being checked)
+
+                  -- (it should not result in next hop being checked,
+                  -- as it's inner router)
                   mst.a(not pm.nh['eth0'])
                   pm:tick()
                   pm:tick()
-                  mst.a(pm.nh['eth0'])
-
-                  local d = mst.read_filename_to_string(TEMP_RADVD_CONF)
-                  local ipv4_match = '10[.]%d+[.]%d+[.]%d+'
-
-                  mst.a(not string.find(d, ipv4_match), 'IPv4 address?!?')
-
-
-                  local d = mst.read_filename_to_string(TEMP_DHCPD_CONF)
-                  mst.a(string.find(d, ipv4_match), 'no IPv4 address?!?')
-
-
-                  -- make sure that explicitly clearing the SKV
-                  -- results in correct results - that is, commands to
-                  -- clear all IF state
-                  s:clear()
-                  mst.a(pm:run())
-                  mst.a(not pm:run())
-
-                  ds:check_used()
+                  mst.a(not pm.nh['eth0'])
                   
                    end)
 

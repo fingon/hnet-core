@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:12:11 2012 mstenber
--- Last modified: Sun Mar 10 22:41:43 2013 mstenber
--- Edit time:     48 min
+-- Last modified: Mon Mar 11 16:55:38 2013 mstenber
+-- Edit time:     54 min
 --
 
 require 'pm_handler'
@@ -111,13 +111,26 @@ function pm_v6_rule:run()
       then
          local uspk = self:get_usp_key(usp)
          self.vsrt:set_valid(o)
-         if self.applied_usp[usp.prefix] ~= uspk
+         local old_uspk = self.applied_usp[usp.prefix]
+         if old_uspk ~= uspk
          then
             -- in rule table, changed => refresh the table's contents
             -- (but keep the table)
             update_table = o.table
+            self:d('contents changed', old_uspk, uspk, 
+                   'updating table', update_table)
+            if not update_table
+            then
+               -- treat as new, if we don't know/remember the table
+               -- number any more
+               o = nil
+            end
+         else
+            self:d('contents did not change', uspk)
          end
-      else
+      end
+      if not o
+      then
          -- store that it has been added
          local uspk = self:get_usp_key(usp)
          self.applied_usp[usp.prefix] = uspk
