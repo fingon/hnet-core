@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Tue Mar 12 17:50:37 2013 mstenber
--- Edit time:     112 min
+-- Last modified: Tue Mar 12 18:59:07 2013 mstenber
+-- Edit time:     123 min
 --
 
 -- individual handler tests
@@ -51,7 +51,7 @@ describe("pm_v6_rule", function ()
                      {'ip -6 rule add from dead::/56 table 1000 pref 1072', ''},
                      {'ip -6 route flush table 1000', ''},
                      {'ip -6 route add default via dead::1 dev eth0 table 1000', ''},
-                     {'ip -6 route add default via dead::1 dev eth0 metric 123456'},
+                     --{'ip -6 route add default via dead::1 dev eth0 metric 123456'}, (applicable only if usp.rid ~= self.rid
                      {'ip -6 rule add from all to dead::/56 table main pref 1000', ''},
 
                                  }
@@ -70,6 +70,29 @@ describe("pm_v6_rule", function ()
                   pm.ds:check_used()
 
                   -- ok, let's see what happens if we change only next hop
+                  mst.d('- changing next hop')
+
+                  o:queue()
+                  pm.ipv6_usps = mst.array:new{
+                     {nh='dead::2', ifname='eth0', prefix='dead::/56'},
+                  }
+                  pm.ds:set_array{
+                     {'ip -6 rule', [[
+1000:	from all to dead::/56 lookup main
+1072:	from dead::/56 lookup 1000
+                                     ]]},
+                     -- {'ip -6 route del default via dead::1 dev eth0 metric 123456', ''}, (applicably only if usp.rid ~= self.rid)
+                     {'ip -6 route flush table 1000', ''},
+                     {'ip -6 route add default via dead::2 dev eth0 table 1000', ''},
+                     -- {'ip -6 route add default via dead::2 dev eth0 metric 123456', ''}, (applicably only if usp.rid ~= self.rid)
+                                 }
+                  o:maybe_run()
+                  pm.ds:check_used()
+
+                  -- and then flap ifname x3 (just to make sure changes continue happening)
+
+                  -- 1)
+                  mst.d('- flapping ifname (1)')
                   o:queue()
                   pm.ipv6_usps = mst.array:new{
                      {nh='dead::2', ifname='eth1', prefix='dead::/56'},
@@ -79,15 +102,63 @@ describe("pm_v6_rule", function ()
 1000:	from all to dead::/56 lookup main
 1072:	from dead::/56 lookup 1000
                                      ]]},
-                     {'ip -6 route del default via dead::1 dev eth0 metric 123456', ''},
+                     --{'ip -6 route del default via dead::2 dev eth0 metric 123456', ''}, (applicably only if usp.rid ~= self.rid)
                      {'ip -6 route flush table 1000', ''},
                      {'ip -6 route add default via dead::2 dev eth1 table 1000', ''},
-                     {'ip -6 route add default via dead::2 dev eth1 metric 123456', ''},
+                     --{'ip -6 route add default via dead::2 dev eth1 metric 123456', ''}, (applicably only if usp.rid ~= self.rid)
                                  }
                   o:maybe_run()
                   pm.ds:check_used()
 
+                  -- 2)
+                  mst.d('- flapping ifname (2)')
+                  o:queue()
+                  pm.ipv6_usps = mst.array:new{
+                     {nh='dead::2', ifname='eth0', prefix='dead::/56'},
+                  }
+                  pm.ds:set_array{
+                     {'ip -6 rule', [[
+1000:	from all to dead::/56 lookup main
+1072:	from dead::/56 lookup 1000
+                                     ]]},
+                     --{'ip -6 route del default via dead::2 dev eth0 metric 123456', ''}, (applicably only if usp.rid ~= self.rid)
+                     {'ip -6 route flush table 1000', ''},
+                     {'ip -6 route add default via dead::2 dev eth0 table 1000', ''},
+                     --{'ip -6 route add default via dead::2 dev eth1 metric 123456', ''}, (applicably only if usp.rid ~= self.rid)
+                                 }
+                  o:maybe_run()
+                  pm.ds:check_used()
 
+                  -- 3)
+                  mst.d('- flapping ifname (3)')
+                  o:queue()
+                  pm.ipv6_usps = mst.array:new{
+                     {nh='dead::2', ifname='eth1', prefix='dead::/56'},
+                  }
+                  pm.ds:set_array{
+                     {'ip -6 rule', [[
+1000:	from all to dead::/56 lookup main
+1072:	from dead::/56 lookup 1000
+                                     ]]},
+                     --{'ip -6 route del default via dead::2 dev eth0 metric 123456', ''}, (applicably only if usp.rid ~= self.rid)
+                     {'ip -6 route flush table 1000', ''},
+                     {'ip -6 route add default via dead::2 dev eth1 table 1000', ''},
+                     --{'ip -6 route add default via dead::2 dev eth1 metric 123456', ''}, (applicably only if usp.rid ~= self.rid)
+                                 }
+                  o:maybe_run()
+                  pm.ds:check_used()
+
+                  -- 4) make sure nop = nop
+                  mst.d('- nop')
+                  o:queue()
+                  pm.ds:set_array{
+                     {'ip -6 rule', [[
+1000:	from all to dead::/56 lookup main
+1072:	from dead::/56 lookup 1000
+                                     ]]},
+                                 }
+                  o:maybe_run()
+                  pm.ds:check_used()
                    end)
              end)
 

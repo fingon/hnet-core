@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:12:11 2012 mstenber
--- Last modified: Tue Mar 12 17:43:48 2013 mstenber
--- Edit time:     68 min
+-- Last modified: Tue Mar 12 18:59:54 2013 mstenber
+-- Edit time:     79 min
 --
 
 require 'pm_handler'
@@ -138,10 +138,6 @@ function pm_v6_rule:run()
       then
          self:d(' template not found')
 
-         -- store that it has been added
-         local uspk = self:get_usp_key(usp)
-         self.applied_usp[usp.prefix] = uspk
-
          -- figure table number
          local table = self.rule_table:get_free_table()
          template.table = table
@@ -159,6 +155,11 @@ function pm_v6_rule:run()
          local nhl = self:get_usp_nhl(usp)
          local dev = usp.ifname
 
+         -- store that it has been added/updated
+         local uspk = self:get_usp_key(usp)
+         self.applied_usp[usp.prefix] = uspk
+
+
          self:d('updating table', usp.prefix, table, dev, nhl)
 
          -- get rid of defaults, if any
@@ -167,13 +168,16 @@ function pm_v6_rule:run()
          -- and flush the table
          self.shell('ip -6 route flush table ' .. table)
          
-         -- and add the default route         
-
+         -- and add the default route to the table
          for i, nh in ipairs(nhl)
          do
             self.shell(string.format('ip -6 route add default via %s dev %s table %s',
                                      nh, dev, table))
-            self:added_default(table, nh, dev)
+            -- it should be there already if it's our own
+            if usp.rid ~= self.pm.rid
+            then
+               self:added_default(table, nh, dev)
+            end
          end
       end
    end

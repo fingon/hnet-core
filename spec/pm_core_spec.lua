@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Mon Mar 11 17:05:09 2013 mstenber
--- Edit time:     240 min
+-- Last modified: Tue Mar 12 18:49:35 2013 mstenber
+-- Edit time:     243 min
 --
 
 -- testsuite for the pm_core
@@ -178,7 +178,8 @@ local v6_rule_start = {
    {'ip -6 route flush table 1000', ''},
    {'ip -6 route add default via fe80:1234:2345:3456:4567:5678:6789:789a dev eth0 table 1000', ''},
    -- main table default
-   {'ip -6 route add default via fe80:1234:2345:3456:4567:5678:6789:789a dev eth0 metric 123456', ''},
+   --{'ip -6 route add default via fe80:1234:2345:3456:4567:5678:6789:789a dev eth0 metric 123456', ''},
+   -- (not needed, own?)
    -- add the local routing rule
    {'ip -6 rule add from all to dead::/16 table main pref 1000', ''},
 }
