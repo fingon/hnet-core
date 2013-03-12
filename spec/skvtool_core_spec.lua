@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb 25 12:31:27 2013 mstenber
--- Last modified: Mon Feb 25 15:00:40 2013 mstenber
--- Edit time:     26 min
+-- Last modified: Tue Mar 12 14:15:13 2013 mstenber
+-- Edit time:     39 min
 --
 
 
@@ -41,12 +41,20 @@ describe("skvtool_core", function ()
             local stc
             local t
             local waited
+            local updates
             before_each(function ()
+                           updates = 0
                            s = skv.skv:new{long_lived=true, port=41245}
+                           function s:set(k, v)
+                              mst.d('dummy skv:set', k, v)
+                              skv.skv.set(self, k, v)
+                              updates = updates + 1
+                           end
                            stc = skvtool_core.stc:new{skv=s}
                            t = {}
                            waited = false
                            function stc:wait_in_sync()
+                              self:empty_wcache()
                               waited = true
                            end
                            function stc:output(s)
@@ -56,6 +64,27 @@ describe("skvtool_core", function ()
             after_each(function ()
                           s:done()
                        end)
+            it("combines updates #combo", function ()
+                  stc:process_keys{'foo=bar', 'foo=baz'}
+                  -- has to be condensed
+                  mst.a(updates == 1, 'should have only 1 update', updates)
+                  mst.a(waited)
+
+                  waited = false
+                  updates = 0
+                  -- make sure that doing say, add + add + remove + add results to only one real operation
+                  stc:process_keys{'l+={"k":"v1"}',
+                                   'l += {"k": "v2"}',
+                                   'l -= {"k": "v2"}',
+                                   'l += {"k": "v3"}',
+                                  }
+                  mst.a(updates == 1, 'should have only 1 update', updates)
+                  mst.a(waited)
+                  mst.a(#stc:get('l') == 2)
+
+
+                                   
+                   end)
             it("works", function ()
                   -- ok, let's test the basic functionality. 
                   
@@ -104,23 +133,26 @@ describe("skvtool_core", function ()
                   for i, v in ipairs(lua2output)
                   do
                      local luao, exps = unpack(v)
-                     stc:process_key('test=' .. exps)
-                     mst.a(mst.repr_equal(s:get('test'), luao))
+                     stc:process_keys{'test=' .. exps}
+                     local v1 = s:get('test')
+                     mst.a(mst.repr_equal(v1, luao), 'mismatch in lua2output', v1, luao)
                   end
                    end)
             it("fake prefix manipulation operations", function ()
                   stc:process_key('test += {"k":"x", "v":1}')
                   mst.a(not waited)
                   stc:process_key('test += {"k":"y", "v":2}')
-                  mst.a(waited)
-                  waited = false
+                  mst.a(not waited)
+                  -- now semantics do write only if requested, or at end of proces_keys
+                  --mst.a(waited)
+                  --waited = false
                   stc:process_key('test += {"k":"z", "v":3}')
-                  local l = s:get('test')
+                  local l = stc:get('test')
                   mst.a(l, 'no key at all')
                   mst.a(#l == 3)
                   mst.a(l[1].k == 'x')
                   stc:process_key('test -= {"k":"y"}')
-                  local l = s:get('test')
+                  local l = stc:get('test')
                   mst.a(#l == 2)
                   mst.a(l[1].k == 'x')
                   mst.a(l[2].k == 'z')

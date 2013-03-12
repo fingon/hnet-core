@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb 25 12:21:09 2013 mstenber
--- Last modified: Mon Feb 25 14:58:19 2013 mstenber
--- Edit time:     33 min
+-- Last modified: Tue Mar 12 14:12:34 2013 mstenber
+-- Edit time:     59 min
 --
 
 -- this is the 'utility' functionality of skvtool, which is used by
@@ -27,7 +27,14 @@ module(..., package.seeall)
 stc = mst.create_class{class='stc'}
 
 function stc:init()
-   self.did_set = false
+   -- nops, but for documentation purposes..
+   self.read_dirty = false
+
+   self.wcache = nil
+end
+
+function stc:repr_data()
+   return mst.repr{wcc=(self.wcache and mst.table_count(self.wcache) or 0)}
 end
 
 -- public API start
@@ -40,7 +47,6 @@ function stc:process_key(str)
       v = mst.string_strip(v)
       self:handle_set(k, v)
    else
-      self:wait_in_sync_if_needed()
       k = str
       v = self:get(str)
       self:output(string.format("%s=%s", k, self:encode_value_to_string(v)))
@@ -52,8 +58,8 @@ function stc:process_keys(l)
    do
       self:process_key(str)
    end
-
-   self:wait_in_sync_if_needed()
+   self:d('process_keys done')
+   self:wait_in_sync()
 end
 
 function stc:list_all(encode)
@@ -63,8 +69,7 @@ function stc:list_all(encode)
          return self:encode_value_to_string(s)
       end
    end
-   self:wait_in_sync_if_needed()
-   local st = self.skv:get_combined_state()
+   local st = self:get_state_map()
    self:d('dumping entries', mst.table_count(st))
    local kl = mst.table_keys(st)
    table.sort(kl)
@@ -99,7 +104,6 @@ function stc:handle_set(k, v)
 end
 
 function stc:handle_list_add(k, v)
-   self:wait_in_sync_if_needed()
    k = mst.string_strip(k)
    local l = self:get(k)
    if not l
@@ -108,13 +112,14 @@ function stc:handle_list_add(k, v)
       return
    end
    -- otherwise, have to make copy of list, add one item, and set it.. ugh
+   self:d('adding to', l)
+
    l = mst.table_copy(l)
    table.insert(l, v)
    self:set(k, l)
 end
 
 function stc:handle_list_delete(k, v)
-   self:wait_in_sync_if_needed()
    k = mst.string_strip(k)
    local l = self:get(k)
    if not l
@@ -143,27 +148,67 @@ function stc:encode_value_to_string(v)
    return json.encode(v)
 end
 
-function stc:wait_in_sync_if_needed()
-   if not self.did_set then return end
-   self:d('.. waiting for sync')
-   self:wait_in_sync()
-   self:d('.. done')
-   self.did_set = false
-end
-
 -- get, set, wait_in_sync - responsibility of the caller, but
 -- by default we pass them to local 'skv' object'
-function stc:set(k, v)
-   self.skv:set(k, v)
-   self.did_set = true
+
+function stc:get_state_map()
+   local h2 = self.skv:get_combined_state()
+   if not self.wcache then return h2 end
+
+   -- highly inefficient, oh well
+   local h = {}
+   
+   for k, v in pairs(h2)
+   do
+      h[k] = v
+   end
+
+   for k, v in pairs(self.wcache)
+   do
+      h[k] = v
+   end
+   return h
 end
 
-function stc:get(k)
-   return self.skv:get(k)
+function stc:empty_wcache()
+   -- nothing in write cache -> we're good
+   if not self.wcache then return end
+   for k, v in pairs(self.wcache)
+   do
+      self:d('calling set', k, v)
+      self.skv:set(k, v)
+   end
+   self.wcache = nil
+   return true
 end
 
 function stc:wait_in_sync()
+   if not self:empty_wcache() then return  end
+   self:d('.. waiting for (write) sync')
    self.skv:wait_in_sync()
+   return true
+end
+
+function stc:set(k, v)
+   self:d('stc:set', k, v)
+   if not v
+   then
+      -- can't store in write cache, have to flush immediately. oh well.
+      self:wait_in_sync()
+      self:d('calling set', k, v)
+      self.skv:set(k, v)
+      return
+   end
+   self.wcache = self.wcache or {}
+   self.wcache[k] = v
+   self:d('stc:set done')
+end
+
+function stc:get(k)
+   -- first off, try to get from pending write cache (it's more recent)
+   local v = self.wcache and self.wcache[k]
+   -- failing that, just get it from skv
+   return v or self.skv:get(k)
 end
 
 -- this is stubbed mostly for testability - in test case,

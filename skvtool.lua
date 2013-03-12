@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 13:18:34 2012 mstenber
--- Last modified: Mon Feb 25 15:04:33 2013 mstenber
--- Edit time:     70 min
+-- Last modified: Tue Mar 12 13:45:32 2013 mstenber
+-- Edit time:     71 min
 --
 
 -- minimalist tool for playing with SKV
@@ -118,6 +118,7 @@ then
    do
       stc:process_key(s, line)
    end
+   stc:wait_in_sync()
 end
 
 stc:process_keys(keys)
