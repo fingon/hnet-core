@@ -67,6 +67,7 @@ query. Impossible say what is the mix in a typical home network..
 ** ISC dhclient
 
 - duid not consistent (sigh) => interesting issues when rebooting routers..
+ -D LL seems to address it?
 
 (encountered at IETF86)
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:12:11 2012 mstenber
--- Last modified: Mon Mar 11 16:55:38 2013 mstenber
--- Edit time:     54 min
+-- Last modified: Tue Mar 12 17:43:48 2013 mstenber
+-- Edit time:     68 min
 --
 
 require 'pm_handler'
@@ -93,8 +93,10 @@ function pm_v6_rule:run()
 
    -- we ignore all USPs without ifname + nh
    local usps = self.pm:get_ipv6_usp()
-   usps = usps:filter(function (usp) return usp.ifname end)
-   usps = usps:filter(function (usp) return #self:get_usp_nhl(usp)>0 end)
+   usps = usps:filter(function (usp) 
+                         return usp.ifname 
+                            and #self:get_usp_nhl(usp)>0 
+                      end)
    for _, usp in ipairs(usps)
    do
       local sel = 'from ' .. usp.prefix
@@ -103,6 +105,7 @@ function pm_v6_rule:run()
       local bits = tonumber(s)
       local pref = RULE_PREF_MIN + 128 - bits
       local template = {sel=sel, pref=pref}
+      self:d('looking for template', template)
       local o = self.rule_table:find(template)
 
       -- in this iteration, we don't care about USP that lack ifname
@@ -124,6 +127,8 @@ function pm_v6_rule:run()
                -- treat as new, if we don't know/remember the table
                -- number any more
                o = nil
+               self:d('no table specified?')
+
             end
          else
             self:d('contents did not change', uspk)
@@ -131,6 +136,8 @@ function pm_v6_rule:run()
       end
       if not o
       then
+         self:d(' template not found')
+
          -- store that it has been added
          local uspk = self:get_usp_key(usp)
          self.applied_usp[usp.prefix] = uspk
@@ -150,6 +157,9 @@ function pm_v6_rule:run()
       then
          local table = update_table
          local nhl = self:get_usp_nhl(usp)
+         local dev = usp.ifname
+
+         self:d('updating table', usp.prefix, table, dev, nhl)
 
          -- get rid of defaults, if any
          self:removed_default(table)
@@ -158,7 +168,6 @@ function pm_v6_rule:run()
          self.shell('ip -6 route flush table ' .. table)
          
          -- and add the default route         
-         dev = usp.ifname
 
          for i, nh in ipairs(nhl)
          do
@@ -180,6 +189,7 @@ function pm_v6_rule:run()
       then
          self.vsrt:set_valid(o)
       else
+         self:d('unable to find local dst table reference', template)
          local r = self.rule_table:add_rule(template)
          r:add(self.shell)
       end

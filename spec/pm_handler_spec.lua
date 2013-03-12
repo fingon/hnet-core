@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Mon Mar 11 18:47:08 2013 mstenber
--- Edit time:     100 min
+-- Last modified: Tue Mar 12 17:50:37 2013 mstenber
+-- Edit time:     112 min
 --
 
 -- individual handler tests
@@ -72,20 +72,17 @@ describe("pm_v6_rule", function ()
                   -- ok, let's see what happens if we change only next hop
                   o:queue()
                   pm.ipv6_usps = mst.array:new{
-                     {nh='dead::2', ifname='eth0', prefix='dead::/56'},
+                     {nh='dead::2', ifname='eth1', prefix='dead::/56'},
                   }
                   pm.ds:set_array{
                      {'ip -6 rule', [[
-1000:	from all to dead::/56 lookup main 
-1072:	from dead::/16 lookup 1000 
+1000:	from all to dead::/56 lookup main
+1072:	from dead::/56 lookup 1000
                                      ]]},
-                     {'ip -6 rule add from dead::/56 table 1001 pref 1072',''},
-                     {'ip -6 route flush table 1001', ''},
-                     {'ip -6 route add default via dead::2 dev eth0 table 1001', ''},
-                     {'ip -6 route add default via dead::2 dev eth0 metric 123456', ''},
-                     {'ip -6 rule del from dead::/16 table 1000 pref 1072', ''},
                      {'ip -6 route del default via dead::1 dev eth0 metric 123456', ''},
-
+                     {'ip -6 route flush table 1000', ''},
+                     {'ip -6 route add default via dead::2 dev eth1 table 1000', ''},
+                     {'ip -6 route add default via dead::2 dev eth1 metric 123456', ''},
                                  }
                   o:maybe_run()
                   pm.ds:check_used()

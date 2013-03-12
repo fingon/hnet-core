@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  8 13:11:02 2012 mstenber
--- Last modified: Tue Nov 13 14:12:11 2012 mstenber
--- Edit time:     118 min
+-- Last modified: Tue Mar 12 17:42:28 2013 mstenber
+-- Edit time:     120 min
 --
 
 
@@ -250,8 +250,10 @@ end
 function rule_table:find(criteria)
    for _, o in ipairs(self)
    do
+      --self:d('  considering', o)
       if mst.table_contains(o, criteria) then return o end
    end
+   self:d('not found in', #self)
 end
 
 function rule_table:parse()
