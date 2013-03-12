@@ -8,22 +8,22 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Fri Nov 16 13:10:54 2012 mstenber
-# Last modified: Wed Feb 27 13:53:27 2013 mstenber
-# Edit time:     3 min
+# Last modified: Tue Mar 12 02:00:29 2013 mstenber
+# Edit time:     13 min
 #
 
 CMD=$1
 IF=$2
 PIDFILE=$3
 CONFFILE=/etc/dhcp/dhclient6-hnet.conf
+LEASEFILE=/tmp/dhclient6-lease.$IF
 
 case $CMD in
     start)
-        dhclient -6 -nw -P -cf $CONFFILE -pf $PIDFILE $IF
+        dhclient -6 -D LL -nw -P -cf $CONFFILE -pf $PIDFILE -lf $LEASEFILE $IF
         ;;
     stop)
-        kill `cat $PIDFILE`
-        rm -f $PIDFILE
+        dhclient -6 -x -pf $PIDFILE
         ;;
     *)
         echo "Unknown command - only start/stop supported"
