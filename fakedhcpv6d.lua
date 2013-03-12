@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Feb 21 11:47:15 2013 mstenber
--- Last modified: Thu Feb 28 10:50:22 2013 mstenber
--- Edit time:     46 min
+-- Last modified: Tue Mar 12 07:51:52 2013 mstenber
+-- Edit time:     49 min
 --
 
 -- This is very, very minimal fake DHCPv6 PD server; what it does, is
@@ -34,6 +34,8 @@ function create_cli()
    cli:add_opt("--search=SEARCHPATH", "search path for IPv6 DNS")
    cli:add_opt("-j, --join=IFLIST","join multicast group on given (comma-separated) interfaces", nil)
    cli:add_opt('--port=PORT', 'use non-standard server port', tostring(dhcpv6_const.SERVER_PORT))
+   cli:add_opt('--pref=PREFERRED', 'set explicitly preferred lifetime')
+   cli:add_opt('--valid=VALIDT', 'set explicitly valid lifetime')
    cli:optarg("prefix","IPv6 prefix to provide to PD requests (static) with = used as separator for class (if any)", '', 10)
    return cli
 end
@@ -121,17 +123,19 @@ function o.callback(data, src, srcport)
       end
       if v.option == dhcpv6_const.O_IA_PD
       then
+         local pref = args.pref or v.t1
+         local valid = args.valid or v.t2
          local v2 = {option=v.option,
                      iaid=v.iaid,
-                     t1=v.t1,
-                     t2=v.t2}
+                     t1=pref / 2,
+                     t2=pref}
          -- produce IA_PD with IAPREFIXes
          table.insert(o2, v2)
          for prefix, class in pairs(prefix2class)
          do
             local v3 = {option=dhcpv6_const.O_IAPREFIX,
-                        preferred=v.t1,
-                        valid=v.t2,
+                        preferred=pref,
+                        valid=valid,
                         prefix=prefix}
             table.insert(v2, v3)
             -- add class option to IAPREFIX also if necessary
