@@ -92,8 +92,6 @@ nothing good happens if time moves much forwards, _either_. *sigh*
 
 * PA - Bugs to fix
 
-** Propagated DHCP lifetimes not reflected correctly
-
 ** Enable spaces in domain search strings
 
 Right now, the shell scripts that deal with skvtool don't escape them

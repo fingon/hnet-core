@@ -2,6 +2,11 @@
 
 * Done (11.3.2013+)
 
+** Propagated DHCP lifetimes not reflected correctly
+
+.. seems to work now (unless pm.lua gets stuck, which might be related to
+some other issues we had also in the past)
+
 ** Sometimes next-hop stuff _stays_ out of sync with reality
 
 Correct solution is to check even contents of the route tables when
