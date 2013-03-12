@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Fri Mar  8 11:36:56 2013 mstenber
--- Edit time:     732 min
+-- Last modified: Tue Mar 12 11:50:47 2013 mstenber
+-- Edit time:     735 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -1121,6 +1121,7 @@ function elsa_pa:generate_ac_lsa()
                               -- source, skip if so
                               if not p.prefix
                               then
+                                 self:d(' .. ignoring, no prefix', p)
                                  return
                               end
 
@@ -1136,6 +1137,9 @@ function elsa_pa:generate_ac_lsa()
                               then
                                  h = h or {}
                                  h[p.prefix] = o
+                                 self:d(' .. gleaned', p.prefix, o)
+                              else
+                                 self:d(' .. nothing useful in', p)
                               end
 
                            end)

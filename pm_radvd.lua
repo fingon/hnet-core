@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:51:43 2012 mstenber
--- Last modified: Mon Mar 11 18:40:54 2013 mstenber
--- Edit time:     21 min
+-- Last modified: Tue Mar 12 11:04:31 2013 mstenber
+-- Edit time:     35 min
 --
 
 require 'pm_handler'
@@ -43,12 +43,20 @@ function pm_radvd:ready()
 end
 
 function abs_to_delta(now, t, def)
-   if not t then return def end
-   if t <= now
-   then
-      return 0
+   if not t 
+   then 
+      mst.d('using default, no lifetime provided', def)
+      return def
    end
-   return math.floor(t-now), true
+   local d = math.floor(t-now)
+   if t <= 0
+   then
+      mst.d('using default - t < now', d, now, t, def)
+      return 0
+   else
+      mst.d('using delta', d)
+   end
+   return d, true
 end
 
 function pm_radvd:write_radvd_conf(fpath)
@@ -89,6 +97,7 @@ function pm_radvd:write_radvd_conf(fpath)
             t:insert('  DNSSL ' .. suffix .. ' {};')
          end
       end
+      local now = self.pm.time()
       for i, lap in ipairs(self.pm.ospf_lap)
       do
          if lap.ifname == ifname and not lap[elsa_pa.PREFIX_CLASS_KEY]
@@ -103,7 +112,6 @@ function pm_radvd:write_radvd_conf(fpath)
                local dep = lap.depracate
                -- has to be nil or 1
                mst.a(not dep or dep == 1)
-               local now = self.pm.time()
                local pref, vpref = abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY], 1800)
                local valid, vvalid = abs_to_delta(now, lap[elsa_pa.VALID_KEY], 3600)
                if vpref and vvalid
