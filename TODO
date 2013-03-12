@@ -66,9 +66,11 @@ query. Impossible say what is the mix in a typical home network..
 
 ** ISC dhclient
 
-duid not consistent (sigh) => interesting issues when rebooting routers..
+- duid not consistent (sigh) => interesting issues when rebooting routers..
 
 (encountered at IETF86)
+
+- low t1/t2 values => problems
 
 ** BIRD - doesn't handle too big LSAs gracefully
 
@@ -84,6 +86,8 @@ lsalib.c: 86 => what happens of time moves backwards?
 nothing good happens if time moves much forwards, _either_. *sigh*
 
 * PA - Bugs to fix
+
+** Propagated DHCP lifetimes not reflected correctly
 
 ** Enable spaces in domain search strings
 
