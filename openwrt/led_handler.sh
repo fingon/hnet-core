@@ -8,8 +8,8 @@
 # Copyright (c) 2013 cisco Systems, Inc.
 #
 # Created:       Wed Mar 13 09:51:10 2013 mstenber
-# Last modified: Wed Mar 13 10:09:01 2013 mstenber
-# Edit time:     3 min
+# Last modified: Wed Mar 13 11:07:58 2013 mstenber
+# Edit time:     5 min
 #
 
 # This script handles led change events. Mainly, it maps the
@@ -19,6 +19,11 @@ LEDNAME=$1
 VALUE=$2
 LEDPATH=
 LEDBASE=/sys/class/leds
+
+if [ ! -d $LEDBASE ]
+then
+    exit 0
+fi
 
 if [ $LEDNAME = "pd" ]
 then
@@ -33,6 +38,12 @@ fi
 if [ "x$LEDPATH" = "x" ]
 then
     echo "Unknown led?!?"
+    exit 1
+fi
+
+if [ ! -d $LEDBASE/$LEDPATH ]
+then
+    echo "Missing led $LEDPATH!"
     exit 1
 fi
 

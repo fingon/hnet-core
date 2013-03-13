@@ -8,22 +8,35 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Fri Nov 16 13:10:54 2012 mstenber
-# Last modified: Tue Mar 12 02:00:29 2013 mstenber
-# Edit time:     13 min
+# Last modified: Wed Mar 13 11:11:08 2013 mstenber
+# Edit time:     21 min
 #
 
 CMD=$1
 IF=$2
 PIDFILE=$3
 CONFFILE=/etc/dhcp/dhclient6-hnet.conf
-LEASEFILE=/tmp/dhclient6-lease.$IF
+LEASEFILE=/tmp/dhclient6-$IF.lease
+LOGFILE=/tmp/dhclient6-$IF.log
 
 case $CMD in
     start)
-        dhclient -6 -D LL -nw -P -cf $CONFFILE -pf $PIDFILE -lf $LEASEFILE $IF
+        if [ -f $PIDFILE ]
+        then
+            dhclient -6 -x -pf $PIDFILE
+            sleep 1
+        fi
+        echo "Starting at "`date` >> $LOGFILE
+
+        # Use this to produce debug log (probably good idea)
+        # (s/-d/-nw/, remove tee + &, for no-debug version)
+        dhclient -d -v -6 -D LL -P -cf $CONFFILE -pf $PIDFILE -lf $LEASEFILE $IF 2>&1 | tee -a $LOGFILE &
+
         ;;
     stop)
+        echo "Killed at "`date` >> $LOGFILE
         dhclient -6 -x -pf $PIDFILE
+        rm -f $PIDFILE
         ;;
     *)
         echo "Unknown command - only start/stop supported"
