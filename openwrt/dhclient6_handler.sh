@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Fri Nov 16 13:10:54 2012 mstenber
-# Last modified: Wed Mar 13 11:11:08 2013 mstenber
-# Edit time:     21 min
+# Last modified: Wed Mar 13 14:14:22 2013 mstenber
+# Edit time:     55 min
 #
 
 CMD=$1
@@ -26,6 +26,12 @@ case $CMD in
             dhclient -6 -x -pf $PIDFILE
             sleep 1
         fi
+        if [ ! "x$IF" = "xeth1" ]
+        then
+            echo "Ignoring request to start on $IF" >> $LOGFILE
+            exit 1
+        fi
+
         echo "Starting at "`date` >> $LOGFILE
 
         # Use this to produce debug log (probably good idea)
