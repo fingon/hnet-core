@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Tue Oct 30 14:40:44 2012 mstenber
-# Last modified: Wed Mar 13 09:14:27 2013 mstenber
-# Edit time:     9 min
+# Last modified: Wed Mar 13 13:13:29 2013 mstenber
+# Edit time:     12 min
 #
 
 AF=$1
@@ -29,7 +29,7 @@ stop() {
 
 start() {
     echo "Started at " `date` >> $LOGFILE
-    dhcpd -$AF -d -cf $CONFFILE -pf $PIDFILE 2>&1 | tee -a $LOGFILE &
+    dhcpd -$AF -d -cf $CONFFILE -pf $PIDFILE 2>&1 >> $LOGFILE &
 }
 
 if [ "$COUNT" = "0" ]
