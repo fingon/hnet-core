@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:54:56 2012 mstenber
--- Last modified: Tue Feb 26 18:35:35 2013 mstenber
--- Edit time:     10 min
+-- Last modified: Wed Mar 13 09:10:32 2013 mstenber
+-- Edit time:     12 min
 --
 
 require 'pm_handler'
@@ -19,16 +19,13 @@ module(..., package.seeall)
 local _null=string.char(0)
 
 DHCPD_SCRIPT='/usr/share/hnet/dhcpd_handler.sh'
-DHCPD_PID='pm-pid-dhcpd'
-DHCPD6_PID='pm-pid-dhcpd6'
 
 pm_dhcpd = pm_handler.pm_handler:new_subclass{class='pm_dhcpd'}
 
 function pm_dhcpd:run()
    local fpath = self.pm.dhcpd_conf_filename
    local owned4 = self:write_dhcpd_conf(fpath)
-   local p = pm_core.PID_DIR .. '/' .. DHCPD_PID
-   local s = string.format('%s 4 %s %s %s', DHCPD_SCRIPT, tostring(owned4), p, fpath)
+   local s = string.format('%s 4 %s %s', DHCPD_SCRIPT, tostring(owned4), fpath)
    self.shell(s)
 
 
@@ -41,8 +38,7 @@ function pm_dhcpd:run()
    local fpath = self.pm.dhcpd6_conf_filename
    local owned6 = self:write_dhcpd6_conf(fpath)
 
-   local p = pm_core.PID_DIR .. '/' .. DHCPD6_PID
-   local s = string.format('%s 6 %s %s %s', DHCPD_SCRIPT, tostring(owned6), p, fpath)
+   local s = string.format('%s 6 %s %s', DHCPD_SCRIPT, tostring(owned6), fpath)
    self.shell(s)
 end
 

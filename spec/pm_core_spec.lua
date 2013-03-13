@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Tue Mar 12 18:49:35 2013 mstenber
+-- Last modified: Wed Mar 13 09:11:05 2013 mstenber
 -- Edit time:     243 min
 --
 
@@ -52,20 +52,20 @@ local bird_stop = {
 }
 
 local dhcp4_start = {
-   {'/usr/share/hnet/dhcpd_handler.sh 4 1 /var/run/pm-pid-dhcpd /tmp/t-dhcpd.conf', ''},
+   {'/usr/share/hnet/dhcpd_handler.sh 4 1 /tmp/t-dhcpd.conf', ''},
 }
 
 local dhcp4_stop = {
-   {'/usr/share/hnet/dhcpd_handler.sh 4 0 /var/run/pm-pid-dhcpd /tmp/t-dhcpd.conf', ''},
+   {'/usr/share/hnet/dhcpd_handler.sh 4 0 /tmp/t-dhcpd.conf', ''},
 
 }
 
 local dhcp6_start = {
-   {'/usr/share/hnet/dhcpd_handler.sh 6 1 /var/run/pm-pid-dhcpd6 /tmp/t-dhcpd6.conf', ''},
+   {'/usr/share/hnet/dhcpd_handler.sh 6 1 /tmp/t-dhcpd6.conf', ''},
 }
 
 local dhcp6_stop = {
-   {'/usr/share/hnet/dhcpd_handler.sh 6 0 /var/run/pm-pid-dhcpd6 /tmp/t-dhcpd6.conf', ''},
+   {'/usr/share/hnet/dhcpd_handler.sh 6 0 /tmp/t-dhcpd6.conf', ''},
 }
 
 local dnsmasq_start = {
