@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Mar 13 11:40:58 2013 mstenber
--- Edit time:     738 min
+-- Last modified: Wed Mar 13 12:11:15 2013 mstenber
+-- Edit time:     740 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -729,7 +729,11 @@ function elsa_pa:run_handle_skv_publish()
    local t = mst.array:new{}
    for iid, ifo in pairs(self.pa.ifs)
    do
-      t:insert(ifo.name)
+      -- if it's disabled interface, don't let pm know about it either
+      if not ifo.disable
+      then
+         t:insert(ifo.name)
+      end
    end
    self.skv:set(OSPF_IFLIST_KEY, t)
 
