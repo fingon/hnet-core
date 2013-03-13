@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Wed Mar 13 09:11:05 2013 mstenber
--- Edit time:     243 min
+-- Last modified: Wed Mar 13 10:04:06 2013 mstenber
+-- Edit time:     244 min
 --
 
 -- testsuite for the pm_core
@@ -266,6 +266,7 @@ describe("pm", function ()
                                                radvd_conf_filename=TEMP_RADVD_CONF,
                                                dhcpd_conf_filename=TEMP_DHCPD_CONF,
                                                dhcpd6_conf_filename=TEMP_DHCPD6_CONF,
+                                               disable_led=true,
                                               }
                         end)
             after_each(function ()
@@ -315,6 +316,7 @@ describe("pm", function ()
                   pm = pm_core.pm:new{skv=s, shell=ds:get_shell(),
                                       dnsmasq_conf_filename=TEMP_DNSMASQ_CONF,
                                       use_dnsmasq=true,
+                                      disable_led=true,
                                      }
 
                   d:extend(unpack{

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Tue Mar 12 18:59:07 2013 mstenber
--- Edit time:     123 min
+-- Last modified: Wed Mar 13 10:29:57 2013 mstenber
+-- Edit time:     128 min
 --
 
 -- individual handler tests
@@ -23,6 +23,7 @@ require 'pm_v6_rule'
 require 'pm_dnsmasq'
 require 'pm_memory'
 require 'pm_radvd'
+require 'pm_led'
 require 'pm_fakedhcpv6d'
 require 'dhcpv6codec'
 require 'dshell'
@@ -31,13 +32,63 @@ module("pm_handler_spec", package.seeall)
 
 local loop = ssloop.loop()
 
+describe("pm_led #led", function ()
+            local pm
+            local o
+            local st
+            before_each(function ()
+                           st = {}
+                           pm = dpm.dpm:new{skv={
+                                               get_combined_state=function ()
+                                                  return st
+                                               end
+                                                }}
+                           o = pm_led.pm_led:new{pm=pm}
+                        end)
+            it("works", function ()
+                  pm.ds:set_array{
+                     {'/usr/share/hnet/led_handler.sh pd 0', ''},
+                     {'/usr/share/hnet/led_handler.sh global 0', ''},
+                                 }
+                  o:run()
+                  pm.ds:check_used()
+                  
+                  -- second run should do nothing
+                  o:run()
+
+                  -- had-pd indicator should work
+                  st={
+                     [elsa_pa.PD_SKVPREFIX .. "asdf"] = 
+                        {
+                        {prefix='dead::1'},
+                        }
+                  }
+                  pm.ds:set_array{
+                     {'/usr/share/hnet/led_handler.sh pd 1', ''},
+                                 }
+                  o:run()
+                  pm.ds:check_used()
+
+                  -- and global indicator
+                  pm.ipv6_usps = mst.array:new{
+                     {nh='dead::1', ifname='eth0', prefix='dead::/56'},
+                  }
+                  pm.ds:set_array{
+                     {'/usr/share/hnet/led_handler.sh global 1', ''},
+                                 }
+                  o:run()
+                  pm.ds:check_used()
+
+                  
+                   end)
+             end)
+
 describe("pm_v6_rule", function ()
             local pm
             local o
             before_each(function ()
                            pm = dpm.dpm:new{}
-                           o = pm_v6_rule.pm_v6_rule:new{pm=pm, 
-                                                         port=12548}
+                           o = pm_v6_rule.pm_v6_rule:new{pm=pm}
                         end)
             it("works #rule", function ()
                   -- pretend something changed

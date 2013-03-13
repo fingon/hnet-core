@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Mon Mar 11 09:23:57 2013 mstenber
--- Edit time:     564 min
+-- Last modified: Wed Mar 13 10:04:40 2013 mstenber
+-- Edit time:     571 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -111,7 +111,9 @@ function pm:init()
       'radvd',
       -- this doesn't matter, it just has tick
       'memory',
-      
+
+      -- this controls the leds
+      'led',
    }
    if self.use_dnsmasq
    then
@@ -125,7 +127,6 @@ function pm:init()
       -- provided by fakedhcpv6d
       self.handlers:insert('fakedhcpv6d')
    end
-
 
    -- shared datastructures
    self.if_table = linux_if.if_table:new{shell=self.shell} 
@@ -143,6 +144,18 @@ function pm:init()
                    self.changes = self.changes + 1
                            end)
    end
+
+   -- post-init activities
+
+   if self.disable_led
+   then
+      -- disable led updates (but run rest of logic so we hit bugs, if any)
+      local o = self:service_name_to_service('led')
+      self:a(o, 'no led service?')
+      self:a(o.enabled)
+      o.enabled = false
+   end
+
    self:connect_changed('v6_route', 'radvd')
    self:connect_changed('v6_nh', 'v6_rule')
 
@@ -225,6 +238,7 @@ function pm:kv_changed(k, v)
       then
          self:queue('fakedhcpv6d')
       end
+      self:queue('led')
    elseif k == elsa_pa.OSPF_IPV4_DNS_KEY
    then
       self.ospf_v4_dns = v or {}
@@ -249,7 +263,17 @@ function pm:kv_changed(k, v)
       -- it has no state => next one will just have updated naming parameters
    else
       -- if it looks like pd change, we may be also interested
-      --if string.find(k, '^' .. elsa_pa.PD_KEY) then self:check_rules() end
+      if string.find(k, '^' .. elsa_pa.PD_SKVPREFIX) 
+      then 
+         for i, v in ipairs(v)
+         do
+            if v.prefix
+            then
+               self.had_pd = true
+               self:queue('led')
+            end
+         end
+      end
    end
    self:schedule_run()
 end
