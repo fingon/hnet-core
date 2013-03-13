@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb 25 12:21:09 2013 mstenber
--- Last modified: Tue Mar 12 14:12:34 2013 mstenber
--- Edit time:     59 min
+-- Last modified: Wed Mar 13 11:50:00 2013 mstenber
+-- Edit time:     60 min
 --
 
 -- this is the 'utility' functionality of skvtool, which is used by
@@ -24,7 +24,8 @@ local json = require "dkjson"
 
 module(..., package.seeall)
 
-stc = mst.create_class{class='stc'}
+stc = mst.create_class{class='stc',
+                       mandatory={'skv'}}
 
 function stc:init()
    -- nops, but for documentation purposes..
@@ -185,7 +186,10 @@ end
 function stc:wait_in_sync()
    if not self:empty_wcache() then return  end
    self:d('.. waiting for (write) sync')
-   self.skv:wait_in_sync()
+   if not self.disable_wait
+   then
+      self.skv:wait_in_sync()
+   end
    return true
 end
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Wed Feb 27 11:54:26 2013 mstenber
--- Edit time:     29 min
+-- Last modified: Wed Mar 13 11:50:09 2013 mstenber
+-- Edit time:     32 min
 --
 
 -- 'prefix manager' (name still temporary)
@@ -26,6 +26,7 @@ require 'mst'
 require 'pm_core'
 require 'skv'
 require 'ssloop'
+require 'skvtool_core'
 
 -- how often we run stuff that is bound to run every 'tick'?  (these
 -- may involve e.g. shell commands to check system state, so it should
@@ -47,6 +48,7 @@ function create_cli()
    cli:add_flag('--disable_ula', 'disable ULA generation altogether')
    cli:add_flag('--disable_always_ula', 'disable ULAs if global addresses present')
    cli:add_flag('--disable_ipv4', 'disable generation of NATted IPv4 sub-prefixes')
+   cli:optarg('skv', 'SKV values to set (key=value style)', '', 10)
    return cli
 end
 
@@ -60,6 +62,11 @@ end
 
 mst.d('initializing skv')
 local s = skv.skv:new{long_lived=true}
+if args.skv and #args.skv
+then
+   -- handle setting of key=values as appropriate
+   skvtool_core.stc:new{skv=s, disable_wait=true}:process_keys(args.skv)
+end
 
 -- set up the pa configuration
 local config = {}

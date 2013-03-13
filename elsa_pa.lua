@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Mar 12 11:50:47 2013 mstenber
--- Edit time:     735 min
+-- Last modified: Wed Mar 13 11:40:58 2013 mstenber
+-- Edit time:     738 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -75,8 +75,9 @@ VALID_KEY='valid'
 -- IF-specific prefix SKV [=> JSON_USP_INFO_KEY] => LAP/USP SKV lists
 PREFIX_INFO_SKV_KEYS={PREFIX_CLASS_KEY, PREFERRED_KEY, VALID_KEY}
 
--- used to indicate that interface shouldn't be assigned to
-DISABLE_SKVPREFIX='disable-pa.'
+-- used to indicate that interface shouldn't be assigned to (nor used
+-- in general - this includes starting any daemon on it)
+DISABLE_SKVPREFIX='disable.'
 
 -- used to indicate that no IPv4 prefix assignment on the interface
 DISABLE_V4_SKVPREFIX='disable-pa-v4.'
