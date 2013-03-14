@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Wed Mar 13 10:29:57 2013 mstenber
--- Edit time:     128 min
+-- Last modified: Wed Mar 13 23:31:18 2013 mstenber
+-- Edit time:     139 min
 --
 
 -- individual handler tests
@@ -522,8 +522,13 @@ end)
 
 describe("pm_v6_dhclient", function ()
             it("works", function ()
-                  local pm = dpm.dpm:new{ospf_iflist={"eth0"}}
+                  local pm = dpm.dpm:new{ospf_iflist={"eth0"},
+                                         skv={get=function ()
+                                                 return 
+                                                  end}
+                                        }
                   local o = pm_v6_dhclient.pm_v6_dhclient:new{pm=pm}
+                  
                   pm.ds:set_array{
                                  {'ls -1 /var/run', ''},
 {'/usr/share/hnet/dhclient6_handler.sh start eth0 /var/run/pm-pid-dhclient6-eth0', ''},

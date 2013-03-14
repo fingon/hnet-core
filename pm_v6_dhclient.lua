@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 16 12:56:30 2012 mstenber
--- Last modified: Wed Nov 21 18:38:24 2012 mstenber
--- Edit time:     5 min
+-- Last modified: Wed Mar 13 23:32:09 2013 mstenber
+-- Edit time:     23 min
 --
 
 require 'pm_handler'
@@ -39,7 +39,12 @@ function pm_v6_dhclient:run()
 
 
    -- get a list of intefaces that BIRD knows about
-   local ifs = mst.array_to_table(self.pm.ospf_iflist or {})
+   local hardcoded_wan = self.pm.skv:get('hardcoded-wan')
+   local hardcoded_wan_list = hardcoded_wan and {hardcoded_wan}
+   local l = hardcoded_wan_list or self.pm.ospf_iflist or {}
+   table.sort(l)
+   -- just take last item by default - who cares about other interfaces
+   local ifs = mst.array_to_table({l[#l]})
 
    local c = mst.sync_tables(running_ifnames, ifs, 
                              -- remove
