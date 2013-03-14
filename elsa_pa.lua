@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Mar 13 12:11:15 2013 mstenber
--- Edit time:     740 min
+-- Last modified: Thu Mar 14 14:19:18 2013 mstenber
+-- Edit time:     763 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -73,7 +73,10 @@ VALID_KEY='valid'
 
 -- list of keys which are passed verbatim from 
 -- IF-specific prefix SKV [=> JSON_USP_INFO_KEY] => LAP/USP SKV lists
-PREFIX_INFO_SKV_KEYS={PREFIX_CLASS_KEY, PREFERRED_KEY, VALID_KEY}
+PREFIX_INFO_SKV_KEYS={PREFIX_CLASS_KEY}
+
+-- locally as-is passed fields
+PREFIX_INFO_LOCAL_SKV_KEYS={PREFERRED_KEY, VALID_KEY}
 
 -- used to indicate that interface shouldn't be assigned to (nor used
 -- in general - this includes starting any daemon on it)
@@ -616,6 +619,18 @@ local function non_empty(x)
    return x
 end
 
+function relative_to_absolute(v, o_lsa)
+   if not v then return end
+   v = v + os.time() - (o_lsa and o_lsa.age or 0)
+   return math.floor(v)
+end
+
+function absolute_to_relative(v)
+   if not v then return end
+   v = v - os.time()
+   return math.floor(v)
+end
+
 function elsa_pa:copy_prefix_info_to_o(prefix, dst)
    self:a(type(prefix) == 'string', 'non-string prefix', prefix)
    self:d('copy_prefix_info_to_o', prefix)
@@ -627,6 +642,7 @@ function elsa_pa:copy_prefix_info_to_o(prefix, dst)
    -- - local skv prefix
    -- - 'some' jsonblob AC TLV with the information we want
    local o
+   local o_lsa
    self:iterate_skv_prefix(function (p)
                               if p.prefix == prefix
                               then
@@ -649,6 +665,7 @@ function elsa_pa:copy_prefix_info_to_o(prefix, dst)
                                  if v
                                  then
                                     o = v
+                                    o_lsa = o
                                     self:d('found from remote', o)
                                  end
                               end, {type=ospfcodec.AC_TLV_JSONBLOB})
@@ -657,6 +674,21 @@ function elsa_pa:copy_prefix_info_to_o(prefix, dst)
    for _, key in ipairs(PREFIX_INFO_SKV_KEYS)
    do
       dst[key] = o[key]
+   end
+   if not o_lsa
+   then
+      -- this is local information, copy it verbatim
+      for _, key in ipairs(PREFIX_INFO_LOCAL_SKV_KEYS)
+      do
+         dst[key] = o[key]
+      end
+   else
+      -- we have an LSA => it's remote one.  for the time being, we
+      -- mainly deal with timestamps, which should be _relative_ in
+      -- OSPF, but _locally_ they're absolute. convert them at this
+      -- point in time.
+      dst[PREFERRED_KEY] = relative_to_absolute(o[PREFERRED_KEY], o_lsa)
+      dst[VALID_KEY] = relative_to_absolute(o[VALID_KEY], o_lsa)
    end
 end
 
@@ -958,6 +990,10 @@ function elsa_pa:iterate_all_skv_prefixes(f)
          do
             o2[k] = non_empty(o[k])
          end
+         for _, k in ipairs(PREFIX_INFO_LOCAL_SKV_KEYS)
+         do
+            o2[k] = non_empty(o[k])
+         end
          f(o2)
       end
       return g
@@ -1138,6 +1174,10 @@ function elsa_pa:generate_ac_lsa()
                               do
                                  o[key] = non_empty(p[key])
                               end
+                              -- in OSPF, we store relative timestamps;
+                              -- so convert absolute timestamps to relative
+                              o[VALID_KEY] = absolute_to_relative(p[VALID_KEY])
+                              o[PREFERRED_KEY] = absolute_to_relative(p[PREFERRED_KEY])
                               if mst.table_count(o) > 0
                               then
                                  h = h or {}
