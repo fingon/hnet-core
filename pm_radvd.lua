@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:51:43 2012 mstenber
--- Last modified: Tue Mar 12 11:04:31 2013 mstenber
--- Edit time:     35 min
+-- Last modified: Wed Mar 13 14:59:29 2013 mstenber
+-- Edit time:     38 min
 --
 
 require 'pm_handler'
@@ -49,7 +49,7 @@ function abs_to_delta(now, t, def)
       return def
    end
    local d = math.floor(t-now)
-   if t <= 0
+   if d <= 0
    then
       mst.d('using default - t < now', d, now, t, def)
       return 0
