@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Thu Feb 28 20:59:24 2013 mstenber
--- Edit time:     381 min
+-- Last modified: Fri Mar 15 10:50:59 2013 mstenber
+-- Edit time:     385 min
 --
 
 require 'mst'
@@ -459,11 +459,19 @@ describe("elsa_pa 2-node", function ()
                   --mst.d_xpcall(function ()
 
                   -- store DNS information
+                  local rel_pref = 123
+                  local rel_valid = 234
+                  local abs_pref = rel_pref + sm.t
+                  local abs_valid = rel_valid + sm.t
+
                   skv1:set(elsa_pa.PD_SKVPREFIX .. 'eth1',
                            {
                               --prefix
                               {[elsa_pa.PREFIX_KEY] = 'dead::/16',
-                               [elsa_pa.PREFIX_CLASS_KEY] = 42},
+                               [elsa_pa.PREFIX_CLASS_KEY] = 42,
+                               [elsa_pa.PREFERRED_KEY] = abs_pref,
+                               [elsa_pa.VALID_KEY] = abs_valid,
+                              },
                               -- and some random other info
                               {[elsa_pa.DNS_KEY] = FAKE_DNS_ADDRESS},
                               {[elsa_pa.DNS_SEARCH_KEY] = FAKE_DNS_SEARCH},
@@ -489,6 +497,8 @@ describe("elsa_pa 2-node", function ()
                      for i, usp in ipairs(uspl)
                      do
                         mst.a(usp.pclass, 'no pclass in ospf-usp', i, usp)
+                        mst.a(usp[elsa_pa.PREFERRED_KEY] == abs_pref)
+                        mst.a(usp[elsa_pa.VALID_KEY] == abs_valid)
                      end
                   end
                   for i, s in ipairs{skv1, skv2}
@@ -497,6 +507,8 @@ describe("elsa_pa 2-node", function ()
                      for i, lap in ipairs(lapl)
                      do
                         mst.a(lap.pclass, 'no pclass in ospf-lap', i, lap)
+                        mst.a(lap[elsa_pa.PREFERRED_KEY] == abs_pref)
+                        mst.a(lap[elsa_pa.VALID_KEY] == abs_valid)
                      end
                   end
 

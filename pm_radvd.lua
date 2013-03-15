@@ -8,13 +8,16 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:51:43 2012 mstenber
--- Last modified: Wed Mar 13 14:59:29 2013 mstenber
--- Edit time:     38 min
+-- Last modified: Fri Mar 15 10:58:48 2013 mstenber
+-- Edit time:     43 min
 --
 
 require 'pm_handler'
 
 module(..., package.seeall)
+
+DEFAULT_PREFERRED_LIFETIME=1800
+DEFAULT_VALID_LIFETIME=3600
 
 pm_radvd = pm_handler.pm_handler:new_subclass{class='pm_radvd'}
 
@@ -48,11 +51,11 @@ function abs_to_delta(now, t, def)
       mst.d('using default, no lifetime provided', def)
       return def
    end
-   local d = math.floor(t-now)
+   local d = math.floor(t - now)
    if d <= 0
    then
-      mst.d('using default - t < now', d, now, t, def)
-      return 0
+      mst.d('using default - t <= now', d, now, t, def)
+      return def
    else
       mst.d('using delta', d)
    end
@@ -112,8 +115,8 @@ function pm_radvd:write_radvd_conf(fpath)
                local dep = lap.depracate
                -- has to be nil or 1
                mst.a(not dep or dep == 1)
-               local pref, vpref = abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY], 1800)
-               local valid, vvalid = abs_to_delta(now, lap[elsa_pa.VALID_KEY], 3600)
+               local pref, vpref = abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY], DEFAULT_PREFERRED_LIFETIME)
+               local valid, vvalid = abs_to_delta(now, lap[elsa_pa.VALID_KEY], DEFAULT_VALID_LIFETIME)
                if vpref and vvalid
                then
                   t:insert('    DecrementLifetimes on;')
@@ -126,8 +129,8 @@ function pm_radvd:write_radvd_conf(fpath)
                   -- wonder what would be good values here..
                   self:d(' adding (alive?)', lap.prefix)
                end
-               t:insert(string.format('    AdvValidLifetime %d;', valid))
                t:insert(string.format('    AdvPreferredLifetime %d;', pref))
+               t:insert(string.format('    AdvValidLifetime %d;', valid))
                t:insert('  };')
             end
          end

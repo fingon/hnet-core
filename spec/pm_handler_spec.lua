@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Wed Mar 13 23:31:18 2013 mstenber
--- Edit time:     139 min
+-- Last modified: Fri Mar 15 10:56:10 2013 mstenber
+-- Edit time:     140 min
 --
 
 -- individual handler tests
@@ -410,6 +410,10 @@ describe("pm_radvd", function ()
                   local s = mst.read_filename_to_string(dummy_conf)
                   mst.a(string.find(s, dummy_prefix1), 'first prefix missing')
                   mst.a(not string.find(s, "Decrement"), 'decrement found')
+                  mst.a(string.find(s, pm_radvd.DEFAULT_PREFERRED_LIFETIME),
+                        'no default preferred lifetime found')
+                  mst.a(string.find(s, pm_radvd.DEFAULT_VALID_LIFETIME),
+                        'no default valid lifetime found')
                   
                   -- try #3
                   pm.ospf_lap = invalid2_lap
@@ -418,7 +422,11 @@ describe("pm_radvd", function ()
                   local s = mst.read_filename_to_string(dummy_conf)
                   mst.a(string.find(s, dummy_prefix1), 'first prefix missing')
                   mst.a(not string.find(s, "Decrement"), 'decrement found')
-                  
+                  mst.a(string.find(s, pm_radvd.DEFAULT_PREFERRED_LIFETIME),
+                        'no default preferred lifetime found')
+                  mst.a(not string.find(s, pm_radvd.DEFAULT_VALID_LIFETIME),
+                        'default valid lifetime found')
+
 
                         end)
 

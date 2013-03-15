@@ -96,10 +96,6 @@ nothing good happens if time moves much forwards, _either_. *sigh*
 
 * PA - Bugs to fix
 
-** Get rid of global timestamps - somehow
-
-- pref/valid timestamps as absolute ones bit iffy
-
 ** Get stuff going down/up times muuch shorter
 
 - OSPF's 4x hello = dead = 40 secs isn't convincing(?)
