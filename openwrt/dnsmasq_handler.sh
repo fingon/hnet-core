@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Wed Nov 21 19:17:00 2012 mstenber
-# Last modified: Wed Mar 20 14:49:15 2013 mstenber
-# Edit time:     15 min
+# Last modified: Wed Mar 20 16:16:56 2013 mstenber
+# Edit time:     19 min
 #
 
 # start CONFIG
@@ -26,12 +26,14 @@ AA_DNSMASQ=/usr/sbin/hnet-dnsmasq
 
 start() {
     CONF=$1
-    if [ -x $UML_DNSMASQ ]
+    if [ -x $AA_DNSMASQ ]
+    then
+        # Create directory for leases, if it's missing
+        mkdir -p /var/lib/misc
+        $AA_DNSMASQ -C $CONF
+    elif [ -x $UML_DNSMASQ ]
     then
         $UML_DNSMASQ -C $CONF
-    elif [ -x $AA_DNSMASQ ]
-    then
-        $AA_DNSMASQ -C $CONF
     else
         dnsmasq -C $CONF
     fi
