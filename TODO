@@ -30,7 +30,8 @@ just filtering the e.g. linklocals is probably sensible.
 
 *** DNS-SD => mdns (Cheshire hybrid)
 
- - scary question, though - when query is 'done'?
+ - scary question, though - when query is 'done'? (long-lived query draft
+   is the answer)
 
  - typically requires manual configuration(?) or co-operation between
    routers(??) to get browse paths right

@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Wed Nov 21 19:17:00 2012 mstenber
-# Last modified: Thu Nov 22 10:46:06 2012 mstenber
-# Edit time:     11 min
+# Last modified: Wed Mar 20 14:49:15 2013 mstenber
+# Edit time:     15 min
 #
 
 # start CONFIG
@@ -17,15 +17,21 @@
 # or
 # stop
 
+# Hardcoded dnsmasq path for UML/NetKit
 UML_DNSMASQ=/hosthome/uml/dnsmasq/dnsmasq
+
+# Hardcoded dnsmasq part for OWRT AA (which has 'default' dnsmasq at
+# /usr/sbin, which is rather old)
+AA_DNSMASQ=/usr/sbin/hnet-dnsmasq
 
 start() {
     CONF=$1
-    # Use dnsmasq binary on non-OpenWRT,
-    # with /hosthome available
-    if [ -f $UML_DNSMASQ -a ! -d /etc/config ]
+    if [ -x $UML_DNSMASQ ]
     then
         $UML_DNSMASQ -C $CONF
+    elif [ -x $AA_DNSMASQ ]
+    then
+        $AA_DNSMASQ -C $CONF
     else
         dnsmasq -C $CONF
     fi
@@ -33,7 +39,7 @@ start() {
 
 stop() {
     # -q would be nice, but not in busybox.. oh well.
-    killall -9 dnsmasq || true
+    killall -9 dnsmasq hnet-dnsmasq || true
 }
 
 reload() {

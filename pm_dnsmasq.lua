@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov 21 17:13:32 2012 mstenber
--- Last modified: Wed Feb 27 11:53:06 2013 mstenber
--- Edit time:     51 min
+-- Last modified: Wed Mar 20 14:25:23 2013 mstenber
+-- Edit time:     68 min
 --
 
 require 'pm_handler'
@@ -79,7 +79,9 @@ no-resolv
 domain=lan
 
 # Enable RA
-enable-ra
+# (Not needed according to SK; specific ra-stateless ones override
+# this - 20130320)
+#enable-ra
 
 # Disable dynamic interfaces - because we know what to listen to
 
@@ -114,13 +116,10 @@ bind-interfaces
 
    -- then the ranges for DHCPv4 / SLAAC
    local ifset = mst.set:new{}
+   local dumped_pclass = {}
 
    for i, lap in ipairs(self.pm.ospf_lap or {})
    do
-      self:a(not lap[elsa_pa.PREFIX_CLASS_KEY], 
-             'dnsmasq does not support prefix classes yet - ' ..
-             'please use the ISC DHCPv4 + fakedhcp6d + radvd instead')
-
       local ifname = lap.ifname
       -- we never serve anything outside home -> if in ext set, skip
       -- similarly, we have to 'own' the link, and we also
@@ -135,12 +134,28 @@ bind-interfaces
          then
             local lease = dep and 'deprecated' or DEFAULT_V6_LEASE
             local flags = ',ra-stateless,ra-names'
-
-
+            local pclass = lap[elsa_pa.PREFIX_CLASS_KEY]
             local prefix_without_slash = mst.string_split(prefix, '/')[1]
+            local tags = 'tag:' .. ifname
+            if pclass
+            then
+               local n = dumped_pclass[pclass]
+               if not n
+               then
+                  n = string.format('pc%d', pclass)
+                  dumped_pclass[pclass] = n
+                  t:insert(string.format('dhcp-prefix-class=set:%s,%s', n, pclass))
+               end
+               -- convert it from just prefix (used by RA) to address range
+               -- append 100, and then prefix+200 again
+               flags = string.format('100,%s200', prefix_without_slash)
+               -- add the tag for prefix pool
+               tags = string.format('%s,tag:%s', tags, n)
+            end
+
             ifset:insert(ifname)
-            t:insert(string.format('dhcp-range=tag:%s,%s%s,%s',
-                                   ifname, 
+            t:insert(string.format('dhcp-range=%s,%s%s,%s',
+                                   tags, 
                                    prefix_without_slash,
                                    flags,
                                    lease))
@@ -174,7 +189,9 @@ bind-interfaces
    -- (loopback is automatic)
    if ifset:count() > 0
    then
-      t:insert('interface=' .. table.concat(ifset:keys(), ','))
+      local ifs = ifset:keys()
+      table.sort(ifs)
+      t:insert('interface=' .. table.concat(ifs, ','))
    end
 
    -- special case - no change to file => do nothing
