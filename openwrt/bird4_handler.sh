@@ -8,7 +8,7 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Mon Nov  5 07:27:04 2012 mstenber
+# Last modified: Thu Mar 21 17:29:29 2013 mstenber
 # Edit time:     17 min
 #
 
@@ -77,6 +77,7 @@ CMD=$1
 
 case $CMD in
     start)
+        stop
         start $2
         ;;
     stop)
