@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 16 12:56:30 2012 mstenber
--- Last modified: Wed Mar 13 23:32:09 2013 mstenber
--- Edit time:     23 min
+-- Last modified: Tue Mar 26 14:25:56 2013 mstenber
+-- Edit time:     24 min
 --
 
 require 'pm_handler'
@@ -43,8 +43,12 @@ function pm_v6_dhclient:run()
    local hardcoded_wan_list = hardcoded_wan and {hardcoded_wan}
    local l = hardcoded_wan_list or self.pm.ospf_iflist or {}
    table.sort(l)
+
    -- just take last item by default - who cares about other interfaces
-   local ifs = mst.array_to_table({l[#l]})
+   --local ifs = mst.array_to_table({l[#l]})
+
+   -- or take them all? (assume we have sane dhclient handler)
+   local ifs = mst.array_to_table(l)
 
    local c = mst.sync_tables(running_ifnames, ifs, 
                              -- remove

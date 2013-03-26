@@ -1,69 +1,8 @@
 -*- outline -*-
 
-* MDNS - Things to do
-
-** Synthesize reverse PTRs on demand? Or just filter them?
-
-Probably synthesizing is bad idea, as it is possible that same IP address
-maps to multiple names, and host can choose which name to use. Due to that,
-just filtering the e.g. linklocals is probably sensible.
-
-** Do math on scalability/feasibility of different approaches
-
-*** site-local multicast
-
- Traits
- - add expensive (spams whole network)
- - maintenance NONE
- - queries expensive (spams whole network)
-
-*** active probing (ours)
-
- Traits
- - add new => announced globally (OSPF, link churn)
- - maintenance => just local resources probed every now and then
- - queries ~free
-
-*** relay-ish (Shwetha?)
-
- ? (I don't understand it well enough)
-
-*** DNS-SD => mdns (Cheshire hybrid)
-
- - scary question, though - when query is 'done'? (long-lived query draft
-   is the answer)
-
- - typically requires manual configuration(?) or co-operation between
-   routers(??) to get browse paths right
-
-  - in homenet context, we could synthesize 'ask all links' case easily
-    enough from the OSPF ASPs
-
- Traits
- - add cheap (local op)
- - maintenance NONE
- - queries expensive
-
-*** DNS-SD + DNS-SD update
-
- - problem: liveliness of data
-
- Traits
- - add cheap (local op)
- - maintenance NONE
- - queries moderately expensive (given shitload of zones; however, can have
-   less zones than in DNS-SD => mdns case => probably
-
-*** Conclusions
-
-What it boils down to is the ratio of different ops - add / maintenance /
-query. Impossible say what is the mix in a typical home network..
-
-* MDNS - Nice to have
+* Not-exactly-our software - Bugs to fix
 
 ** Write patch set for luasocket changes for Diego
-
-* Not-exactly-our software - Bugs to fix
 
 ** ISC dhclient
 
@@ -97,6 +36,11 @@ nothing good happens if time moves much forwards, _either_. *sigh*
 
 * PA - Bugs to fix
 
+** Fix route_to_rid checking laziness
+
+- should know when routes have changed => after that, force re-check of
+  state?
+
 ** Get stuff going down/up times muuch shorter
 
 - OSPF's 4x hello = dead = 40 secs isn't convincing(?)
@@ -123,6 +67,13 @@ same link confuse the other party.
   addresses present (right now we seed it with IPv6)
 
 * PA - Things to do
+
+** Add convenience mgmt layer to VM topology
+
+- dedicate e.g. eth4 just for management traffic, over which we can use ssh
+  to play with any host in the topology, ignoring the real topology, it's
+  flapping, routing, whatever. obviously, routing protocols (and homenet
+  stuff) HAVE to ignore this interface.
 
 ** Try to identify memory leaks, if any
 

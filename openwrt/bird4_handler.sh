@@ -8,7 +8,7 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Thu Mar 21 17:29:29 2013 mstenber
+# Last modified: Tue Mar 26 16:11:59 2013 mstenber
 # Edit time:     17 min
 #
 
@@ -70,7 +70,8 @@ EOF
 }
 
 stop() {
-    killall -9 bird4
+    # -q would be nice, but not in busybox.. oh well.
+    killall -9 bird4 2>&1 > /dev/null
 }
 
 CMD=$1

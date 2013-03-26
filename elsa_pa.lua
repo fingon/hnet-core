@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Mar 14 14:19:18 2013 mstenber
--- Edit time:     763 min
+-- Last modified: Tue Mar 26 16:04:51 2013 mstenber
+-- Edit time:     764 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -45,7 +45,6 @@ module(..., package.seeall)
 -- 0xAC0F Jari
 AC_TYPE=0xAC0F
 
---FORCE_PA_RUN_INTERVAL=120
 FORCE_SKV_AC_CHECK_INTERVAL=60
 
 -- New scheme for encoding the received PD/6RD/DHCPv4 in the SKV is as

@@ -1,5 +1,60 @@
 -*- outline -*-
 
+* Done (IETF?)
+
+** MDNS - Do math on scalability/feasibility of different approaches
+
+*** site-local multicast
+
+ Traits
+ - add expensive (spams whole network)
+ - maintenance NONE
+ - queries expensive (spams whole network)
+
+*** active probing (ours)
+
+ Traits
+ - add new => announced globally (OSPF, link churn)
+ - maintenance => just local resources probed every now and then
+ - queries ~free
+
+*** relay-ish (Shwetha?)
+
+ ? (I don't understand it well enough)
+
+*** DNS-SD => mdns (Cheshire hybrid)
+
+ - scary question, though - when query is 'done'? (long-lived query draft
+   is the answer)
+
+ - typically requires manual configuration(?) or co-operation between
+   routers(??) to get browse paths right
+
+  - in homenet context, we could synthesize 'ask all links' case easily
+    enough from the OSPF ASPs
+
+ Traits
+ - add cheap (local op)
+ - maintenance NONE
+ - queries expensive
+
+*** DNS-SD + DNS-SD update
+
+ - problem: liveliness of data
+
+ Traits
+ - add cheap (local op)
+ - maintenance NONE
+ - queries moderately expensive (given shitload of zones; however, can have
+   less zones than in DNS-SD => mdns case => probably
+
+*** Conclusions
+
+What it boils down to is the ratio of different ops - add / maintenance /
+query. Impossible say what is the mix in a typical home network..
+
+
+
 * Done (11.3.2013+)
 
 ** Propagated DHCP lifetimes not reflected correctly

@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Wed Nov 21 19:17:00 2012 mstenber
-# Last modified: Wed Mar 20 16:16:56 2013 mstenber
-# Edit time:     19 min
+# Last modified: Tue Mar 26 16:11:56 2013 mstenber
+# Edit time:     20 min
 #
 
 # start CONFIG
@@ -18,7 +18,7 @@
 # stop
 
 # Hardcoded dnsmasq path for UML/NetKit
-UML_DNSMASQ=/hosthome/uml/dnsmasq/dnsmasq
+UML_DNSMASQ=/hosthome/uml/debian-bin/dnsmasq
 
 # Hardcoded dnsmasq part for OWRT AA (which has 'default' dnsmasq at
 # /usr/sbin, which is rather old)
@@ -41,7 +41,7 @@ start() {
 
 stop() {
     # -q would be nice, but not in busybox.. oh well.
-    killall -9 dnsmasq hnet-dnsmasq || true
+    killall -9 dnsmasq hnet-dnsmasq 2>&1 > /dev/null
 }
 
 reload() {
