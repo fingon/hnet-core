@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Mar 26 16:04:51 2013 mstenber
--- Edit time:     764 min
+-- Last modified: Wed Mar 27 14:51:27 2013 mstenber
+-- Edit time:     766 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -304,8 +304,10 @@ function elsa_pa:lsa_changed(lsa)
    end
    if lsatype == AC_TYPE
    then
+      self:d('ac lsa changed at', lsa.rid)
       self.ac_changes = self.ac_changes + 1
    else
+      self:d('other lsa changed at', lsa.rid, lsatype)
       self.lsa_changes = self.lsa_changes + 1
    end
 end
