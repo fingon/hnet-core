@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Mar 27 14:51:27 2013 mstenber
--- Edit time:     766 min
+-- Last modified: Wed Mar 27 17:00:14 2013 mstenber
+-- Edit time:     769 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -601,6 +601,8 @@ function elsa_pa:run_handle_new_lsa()
          return
       end
    end
+
+   self:d('originating ac lsa for real')
 
    self.last_originate = now
    self.last_body = body
