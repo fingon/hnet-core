@@ -4,23 +4,6 @@
 
 ** Write patch set for luasocket changes for Diego
 
-** ISC dhclient
-
-- duid not consistent (sigh) => interesting issues when rebooting routers..
- -D LL seems to address it?
-
-(encountered at IETF86)
-
-(- low t1/t2 values => problems )
-
-- near boot time, both ISC dhclient and dhcpd work strangely - can be
-  related to kernel version, the sockets won't get ADVERTISEs that someone
-  sends to us, but the situation persists until we restart daemon at some
-  later point
-
- - aha, seems like just one at a time works => require multi-interface
-   support, or just rewrite the POS.. ;)
-
 ** BIRD - doesn't handle too big LSAs gracefully
 
 .. blows up due to rx-buf used for sending being smaller than what is being
@@ -35,11 +18,6 @@ lsalib.c: 86 => what happens of time moves backwards?
 nothing good happens if time moves much forwards, _either_. *sigh*
 
 * PA - Bugs to fix
-
-** Fix route_to_rid checking laziness
-
-- should know when routes have changed => after that, force re-check of
-  state?
 
 ** Get stuff going down/up times muuch shorter
 

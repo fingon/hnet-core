@@ -1,5 +1,35 @@
 -*- outline -*-
 
+* 26.3.2013+
+
+** Fix route_to_rid checking laziness
+
+- should know when routes have changed => after that, force re-check of
+  state?
+
+.. now we call elsa_dispatch only as last, instead of in ~middle of ospf
+dispatch => routes are up to date when it's called, yay.
+
+** ISC dhclient
+
+- duid not consistent (sigh) => interesting issues when rebooting routers..
+ -D LL seems to address it?
+
+(encountered at IETF86)
+
+(- low t1/t2 values => problems )
+
+- near boot time, both ISC dhclient and dhcpd work strangely - can be
+  related to kernel version, the sockets won't get ADVERTISEs that someone
+  sends to us, but the situation persists until we restart daemon at some
+  later point
+
+ - aha, seems like just one at a time works => require multi-interface
+   support, or just rewrite the POS.. ;)
+
+.. solution was just to get rid of ISC dhclient (for IPv6) altogether;
+odhcp6c seems to work well enough, and with much smaller footprint.
+
 * Done (IETF?)
 
 ** MDNS - Do math on scalability/feasibility of different approaches

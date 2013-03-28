@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Mar 27 17:00:14 2013 mstenber
--- Edit time:     769 min
+-- Last modified: Thu Mar 28 14:23:28 2013 mstenber
+-- Edit time:     779 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -248,7 +248,7 @@ function elsa_pa:init_own()
 end
 
 function elsa_pa:init_pa(o)
-   local args = self.pa_args
+   local args = mst.table_copy(self.pa_args)
    
    -- copy over rid
    args.rid=self.rid
@@ -587,7 +587,7 @@ end
 
 function elsa_pa:run_handle_new_lsa()
    -- originate LSA (or try to, there's duplicate prevention, or should be)
-   local body = self:generate_ac_lsa()
+   local body = self:generate_ac_lsa(false)
    mst.a(body and #body, 'empty generated LSA?!?')
    local now = self.time()
 
@@ -601,11 +601,16 @@ function elsa_pa:run_handle_new_lsa()
          return
       end
    end
+   -- store the old 'reference' body for further use
+   -- (the new body is generated with relative timestamps, and is _always_
+   -- different, so not worth storing..)
+   self.last_body = body
+   
+   local body = self:generate_ac_lsa(true)
 
    self:d('originating ac lsa for real')
 
    self.last_originate = now
-   self.last_body = body
 
    self.elsa:originate_lsa{type=AC_TYPE, 
                            rid=self.rid,
@@ -622,15 +627,17 @@ local function non_empty(x)
    return x
 end
 
-function relative_to_absolute(v, o_lsa)
+function relative_to_absolute(v, o_lsa, now)
+   mst.a(now, 'no now')
    if not v then return end
-   v = v + os.time() - (o_lsa and o_lsa.age or 0)
+   v = v + now - (o_lsa and o_lsa.age or 0)
    return math.floor(v)
 end
 
-function absolute_to_relative(v)
+function absolute_to_relative(v, now)
+   mst.a(now, 'no now')
    if not v then return end
-   v = v - os.time()
+   v = v - now
    return math.floor(v)
 end
 
@@ -690,8 +697,9 @@ function elsa_pa:copy_prefix_info_to_o(prefix, dst)
       -- mainly deal with timestamps, which should be _relative_ in
       -- OSPF, but _locally_ they're absolute. convert them at this
       -- point in time.
-      dst[PREFERRED_KEY] = relative_to_absolute(o[PREFERRED_KEY], o_lsa)
-      dst[VALID_KEY] = relative_to_absolute(o[VALID_KEY], o_lsa)
+      local now = self.time()
+      dst[PREFERRED_KEY] = relative_to_absolute(o[PREFERRED_KEY], o_lsa, now)
+      dst[VALID_KEY] = relative_to_absolute(o[VALID_KEY], o_lsa, now)
    end
 end
 
@@ -1106,7 +1114,23 @@ function elsa_pa:ph_list_sorted(l)
    return t
 end
 
-function elsa_pa:generate_ac_lsa()
+function elsa_pa:generate_ac_lsa(use_relative_timestamps)
+
+   local _convert
+
+   if use_relative_timestamps
+   then
+      -- convert to relative timestamps 
+      local now = self.time()
+      _convert = function (v)
+         return absolute_to_relative(v, now)
+      end
+   else
+      -- just use values as is (=absolute timestamps)
+      _convert = function (v)
+         return v
+      end
+   end
 
    -- adding these in deterministic order is mandatory; however, by
    -- default, the list ISN'T sorted in any sensible way.. so we have
@@ -1179,8 +1203,8 @@ function elsa_pa:generate_ac_lsa()
                               end
                               -- in OSPF, we store relative timestamps;
                               -- so convert absolute timestamps to relative
-                              o[VALID_KEY] = absolute_to_relative(p[VALID_KEY])
-                              o[PREFERRED_KEY] = absolute_to_relative(p[PREFERRED_KEY])
+                              o[VALID_KEY] = _convert(p[VALID_KEY])
+                              o[PREFERRED_KEY] = _convert(p[PREFERRED_KEY])
                               if mst.table_count(o) > 0
                               then
                                  h = h or {}

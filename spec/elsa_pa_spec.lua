@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Fri Mar 15 10:50:59 2013 mstenber
--- Edit time:     385 min
+-- Last modified: Thu Mar 28 14:17:37 2013 mstenber
+-- Edit time:     417 min
 --
 
 require 'mst'
@@ -27,6 +27,7 @@ local _delsa = require 'delsa'
 local delsa = _delsa.delsa
 
 local usp_dead_tlv = ospfcodec.usp_ac_tlv:encode{prefix='dead::/16'}
+local json_dead_lifetime_tlv = ospfcodec.json_ac_tlv:encode{table={[elsa_pa.JSON_USP_INFO_KEY]={{prefix='dead::/16', [elsa_pa.PREFERRED_KEY]=300, [elsa_pa.VALID_KEY]=600}}}}
 local jari_tlv_type = ospfcodec.ac_tlv:new_subclass{tlv_type=123}
 local broken_jari_tlv = jari_tlv_type:new{}:encode{body=''}
 
@@ -78,6 +79,7 @@ end
 
 describe("elsa_pa [one node]", function ()
             local e, s, ep, usp_added, asp_added
+            local t
             function inject_snitches()
                usp_added = false
                asp_added = false
@@ -89,11 +91,11 @@ describe("elsa_pa [one node]", function ()
                                                                 end)
             end
             before_each(function ()
-                           e = delsa:new{iid={mypid={{index=42, 
+                           e = delsa:new{iid={myrid={{index=42, 
                                                       name='eth0'},
                                                      {index=123,
                                                       name='eth1'}}}, 
-                                         hwf={mypid='foo'},
+                                         hwf={myrid='foo'},
                                          lsas={},
                                          routes={r1={nh='foo', ifname='fooif'}},
                                          assume_connected=true,
@@ -102,11 +104,16 @@ describe("elsa_pa [one node]", function ()
                            s = skv.skv:new{long_lived=true, port=31337}
                            s:set(elsa_pa.DISABLE_SKVPREFIX .. 'eth0', 1)
                            s:set(elsa_pa.DISABLE_V4_SKVPREFIX .. 'eth0', 2)
-                           ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='mypid',
+                           t = 1234
+                           ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='myrid',
                                                     originate_min_interval=0,
-                                                    new_prefix_assignment=0}
+                                                    new_prefix_assignment=0,
+                                                    time=function ()
+                                                       return t
+                                                    end}
                            e:add_node(ep)
-
+                           mst.a(ep.time() == t)
+                           mst.a(ep.pa.time() == t)
                            inject_snitches()
                         end)
             after_each(function ()
@@ -207,6 +214,7 @@ describe("elsa_pa [one node]", function ()
                   while ep.pa.lap:count() ~= 0
                   do
                      ep:run()
+                     t = t + 1
                   end
 
                   usp_added = false
@@ -227,7 +235,8 @@ describe("elsa_pa [one node]", function ()
                   -- available _AFTER_ the usp. let's see if this is still true
                   local old_routes = e.routes
                   e.routes = {}
-                  e.lsas = {r1=usp_dead_tlv}
+                  e.lsas = {r1=usp_dead_tlv .. json_dead_lifetime_tlv}
+
                   ep:ospf_changed()
 
                   -- add
@@ -249,6 +258,18 @@ describe("elsa_pa [one node]", function ()
 
                   local v = s:get(elsa_pa.OSPF_DNS_SEARCH_KEY)
                   mst.a(not v or #v == 0, 'DNS search set?!?', v)
+
+                  -- ensure that if we advance time, we shouldn't re-publish lsa
+                  local old_lsa = e.lsas.myrid
+                  mst.a(old_lsa)
+
+                  mst.d('advancing time')
+                  t = t + 17
+                  ep:ospf_changed()
+                  ep:run()
+                  local new_lsa = e.lsas.myrid
+                  mst.a(new_lsa and old_lsa == new_lsa)
+
                                                                      end)
 
             it("also works via skv configuration - but no ifs! #noi", function ()
@@ -264,6 +285,8 @@ describe("elsa_pa [one node]", function ()
                         {
                            {
                               [elsa_pa.PREFIX_KEY]='dead::/16',
+                              [elsa_pa.PREFERRED_KEY]=t + 300,
+                              [elsa_pa.VALID_KEY]=t + 600,
                               [elsa_pa.DNS_KEY]=FAKE_DNS_ADDRESS,
                               [elsa_pa.DNS_SEARCH_KEY]=FAKE_DNS_SEARCH,
                            },
@@ -288,6 +311,7 @@ describe("elsa_pa [one node]", function ()
                   local v = s:get(elsa_pa.OSPF_DNS_SEARCH_KEY)
                   mst.a(mst.repr_equal(v, {FAKE_DNS_SEARCH}))
 
+
                                                                       end)
 
             it("also works via skv configuration #skv", function ()
@@ -296,12 +320,20 @@ describe("elsa_pa [one node]", function ()
                   mst.a(not usp_added)
                   mst.a(not asp_added)
 
+                  local rel_pref = 300
+                  local rel_valid = 600
+                  local abs_pref = t + rel_pref
+                  local abs_valid = t + rel_valid
+
                   -- now we fake it that we got prefix from pd
                   -- (skv changes - both interface list, and pd info)
                   s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth2'})
                   s:set(elsa_pa.PD_SKVPREFIX .. 'eth0', 
                         {
-                           {[elsa_pa.PREFIX_KEY]='dead::/16'},
+                           {[elsa_pa.PREFIX_KEY]='dead::/16',
+                            [elsa_pa.PREFERRED_KEY]=abs_pref,
+                            [elsa_pa.VALID_KEY]=abs_valid,
+                           },
                         }
                        )
 
@@ -324,6 +356,8 @@ describe("elsa_pa [one node]", function ()
                   s:set(elsa_pa.PD_SKVPREFIX .. 'eth0', 
                         {
                            {[elsa_pa.PREFIX_KEY]='dead::/16',
+                            [elsa_pa.PREFERRED_KEY]=abs_pref,
+                            [elsa_pa.VALID_KEY]=abs_valid,
                             [elsa_pa.NH_KEY]='fe80:1234:2345:3456:4567:5678:6789:789a'},
                         }
                        )
@@ -331,10 +365,19 @@ describe("elsa_pa [one node]", function ()
                   ep:run(ep)
                   ensure_skv_usp_has_nh(s, true, true)
 
+                  -- ensure that if we advance time, we shouldn't re-publish lsa
+                  local old_lsa = e.lsas.myrid
+                  mst.a(old_lsa)
 
+                  mst.d('advancing time')
+                  t = t + 17
+                  ep:ospf_changed()
+                  ep:run()
+                  local new_lsa = e.lsas.myrid
+                  mst.a(new_lsa and old_lsa == new_lsa, 'lsa mismatch due to moving time, eep')
                                                         end)
 
-            it("6rd also works via skv configuration #skv2", function ()
+            it("6rd also works via skv configuration #6skv", function ()
                   -- in the beginning, should only get nothing
                   ep:run()
                   mst.a(not usp_added)
@@ -355,7 +398,7 @@ describe("elsa_pa [one node]", function ()
                                                              end)
 
             it("duplicate detection works - dupe smaller", function ()
-                  e.lsas={mypid=rhf_low_tlv,
+                  e.lsas={myrid=rhf_low_tlv,
                           r1=usp_dead_tlv}
                   ep:ospf_changed()
                   ep:run()
@@ -366,7 +409,7 @@ describe("elsa_pa [one node]", function ()
                                                            end)
 
             it("duplicate detection works - dupe greater #dupe", function ()
-                  e.lsas={mypid=rhf_high_tlv,
+                  e.lsas={myrid=rhf_high_tlv,
                           r1=usp_dead_tlv}
                   ep:ospf_changed()
                   ep:run()
@@ -376,7 +419,7 @@ describe("elsa_pa [one node]", function ()
                                                                  end)
 
             it("duplicate detection works - greater, oob lsa", function ()
-                  local dupe = {rid='mypid',
+                  local dupe = {rid='myrid',
                                 body=rhf_high_tlv}
                   ep:check_conflict(dupe)
                   mst.a(e.rid_changed)
@@ -497,8 +540,12 @@ describe("elsa_pa 2-node", function ()
                      for i, usp in ipairs(uspl)
                      do
                         mst.a(usp.pclass, 'no pclass in ospf-usp', i, usp)
-                        mst.a(usp[elsa_pa.PREFERRED_KEY] == abs_pref)
-                        mst.a(usp[elsa_pa.VALID_KEY] == abs_valid)
+                        local pref = usp[elsa_pa.PREFERRED_KEY]
+                        local exp = abs_pref
+                        mst.a(pref == exp, 'pref mismatch', pref, exp)
+                        local val = usp[elsa_pa.VALID_KEY]
+                        local exp = abs_valid
+                        mst.a(val == exp, 'valid mismatch', val, exp)
                      end
                   end
                   for i, s in ipairs{skv1, skv2}
@@ -507,8 +554,12 @@ describe("elsa_pa 2-node", function ()
                      for i, lap in ipairs(lapl)
                      do
                         mst.a(lap.pclass, 'no pclass in ospf-lap', i, lap)
-                        mst.a(lap[elsa_pa.PREFERRED_KEY] == abs_pref)
-                        mst.a(lap[elsa_pa.VALID_KEY] == abs_valid)
+                        local pref = lap[elsa_pa.PREFERRED_KEY]
+                        local exp = abs_pref
+                        mst.a(pref == exp, 'preference mismatch', pref, exp)
+                        local val = lap[elsa_pa.VALID_KEY]
+                        local exp = abs_valid
+                        mst.a(val == exp, 'valid mismatch', val, exp)
                      end
                   end
 
