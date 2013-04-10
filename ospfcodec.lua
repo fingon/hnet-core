@@ -8,11 +8,12 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:07:43 2012 mstenber
--- Last modified: Fri Nov 30 12:58:23 2012 mstenber
+-- Last modified: Wed Apr 10 17:00:18 2013 mstenber
 -- Edit time:     7 min
 --
 
 require 'codec'
+local vstruct = require 'vstruct'
 local json = require "dkjson"
 
 module(..., package.seeall)

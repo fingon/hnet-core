@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Feb 20 18:30:04 2013 mstenber
--- Last modified: Wed Feb 27 11:19:43 2013 mstenber
+-- Last modified: Wed Apr 10 17:00:04 2013 mstenber
 -- Edit time:     83 min
 --
 
@@ -16,6 +16,7 @@ require 'codec'
 require 'ipv6s'
 require 'dhcpv6_const'
 require 'dns_name'
+local vstruct = require 'vstruct'
 
 module(..., package.seeall)
 
