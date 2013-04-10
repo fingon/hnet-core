@@ -7,6 +7,8 @@
 LUA_SMS=skv_sm.lua pa_lap_sm.lua
 TESTS=$(wildcard spec/*.lua)
 SMC=~/x/software/smc/bin/smc.jar
+CODE=$(wildcard *.lua)
+REQUIRE_CODE=$(CODE:%=%.require)
 
 all: test
 
@@ -62,7 +64,24 @@ debug:
 .stressed: $(LUA_SMS) $(TESTS) $(wildcard *.lua)
 	busted -p '_stress.lua$$' stress
 
-.tested: $(LUA_SMS) $(TESTS) $(wildcard *.lua)
+.tested: $(LUA_SMS) requires $(TESTS) $(wildcard *.lua)
 	busted spec
 #	ENABLE_MST_DEBUG=1 busted spec 2>&1 | grep successes
 #	touch $@
+
+requires: $(REQUIRE_CODE)
+
+%.lua.require:
+	lua -e 'require "$*"'
+
+# These .luas are executables and requiring them should not work anyway
+fakedhcpv6d.lua.require:
+	true
+mdns.lua.require:
+	true
+pm.lua.require:
+	true
+skvtool.lua.require:
+	true
+odhcp6c_handler.lua.require:
+	true

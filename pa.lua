@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Mon Mar  4 15:00:49 2013 mstenber
--- Edit time:     932 min
+-- Last modified: Wed Apr 10 15:01:44 2013 mstenber
+-- Edit time:     934 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -47,6 +47,7 @@
 
 require 'mst'
 require 'ipv6s'
+local ssloop = require 'ssloop'
 
 -- SMC-generated state machine
 -- fix braindeath of using pcall in a state machine in general..
