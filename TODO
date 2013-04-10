@@ -53,6 +53,13 @@ Dream: 'one-command' setup+testing / automated setup+testing+teardown
 
 * Not-exactly-our software - Bugs to fix
 
+** vstruct - enable strict support somehow
+
+(so we can at least run tests under -lstrict again)
+
+Apparently the endianness check's jit check is broken (io/endianness.lua
+checks for 'jit')
+
 ** Write patch set for luasocket changes for Diego
 
 ** BIRD - doesn't handle too big LSAs gracefully

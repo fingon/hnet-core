@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Wed Nov 21 19:17:00 2012 mstenber
-# Last modified: Tue Mar 26 16:11:56 2013 mstenber
-# Edit time:     20 min
+# Last modified: Wed Apr 10 15:41:13 2013 mstenber
+# Edit time:     23 min
 #
 
 # start CONFIG
@@ -17,23 +17,25 @@
 # or
 # stop
 
-# Hardcoded dnsmasq path for UML/NetKit
-UML_DNSMASQ=/hosthome/uml/debian-bin/dnsmasq
-
-# Hardcoded dnsmasq part for OWRT AA (which has 'default' dnsmasq at
-# /usr/sbin, which is rather old)
-AA_DNSMASQ=/usr/sbin/hnet-dnsmasq
+# Take UML config if applicable
+if [ -f /usr/bin/hnetenv.sh ]
+then
+    # Hardcoded dnsmasq path for UML/NetKit
+    . /usr/bin/hnetenv.sh
+    DNSMASQ=$HNET/build/bin/dnsmasq
+else
+    # Hardcoded dnsmasq part for OWRT AA (which has 'default' dnsmasq at
+    # /usr/sbin, which is rather old)
+    DNSMASQ=/usr/sbin/hnet-dnsmasq
+fi
 
 start() {
     CONF=$1
-    if [ -x $AA_DNSMASQ ]
+    if [ -x $DNSMASQ ]
     then
         # Create directory for leases, if it's missing
         mkdir -p /var/lib/misc
-        $AA_DNSMASQ -C $CONF
-    elif [ -x $UML_DNSMASQ ]
-    then
-        $UML_DNSMASQ -C $CONF
+        $DNSMASQ -C $CONF
     else
         dnsmasq -C $CONF
     fi
@@ -41,7 +43,7 @@ start() {
 
 stop() {
     # -q would be nice, but not in busybox.. oh well.
-    killall -9 dnsmasq hnet-dnsmasq 2>&1 > /dev/null
+    killall -9 `basename $DNSMASQ` 2>&1 > /dev/null
 }
 
 reload() {

@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Fri Nov 16 13:10:54 2012 mstenber
-# Last modified: Tue Mar 26 16:49:08 2013 mstenber
-# Edit time:     78 min
+# Last modified: Wed Apr 10 16:30:17 2013 mstenber
+# Edit time:     86 min
 #
 
 CMD=$1
@@ -24,19 +24,18 @@ BIN=odhcp6c
 UMLPATH=/hosthome/uml/debian-bin
 
 # Do this only on UML, not real OWRT
-if [ -f $UMLPATH/$BIN -a ! -d /etc/config ]
+if [ -f /usr/bin/hnetenv.sh -a ! -d /etc/config ]
 then
-    BIN=$UMLPATH/$BIN
+    # get odhcp6c to path from hnet/build
+    . /usr/bin/hnetenv.sh
 fi
 
 SCRIPT_BASE=odhcp6c_handler.lua
-UMLLUAPATH=/hosthome/uml/bird/lua
-OWRTLUAPATH=/usr/share/hnet
 
-SCRIPT=$OWRTLUAPATH/$SCRIPT_BASE
+SCRIPT=/usr/share/lua/$SCRIPT_BASE
 if [ ! -f $SCRIPT ]
 then
-    SCRIPT=$UMLLUAPATH/$SCRIPT_BASE
+    SCRIPT=$HNET/component/core/$SCRIPT_BASE
     if [ ! -f $SCRIPT ]
     then
         echo "Unable to find script $SCRIPT"
