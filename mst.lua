@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Apr 25 12:52:03 2013 mstenber
--- Edit time:     635 min
+-- Last modified: Thu Apr 25 13:08:53 2013 mstenber
+-- Edit time:     639 min
 --
 
 -- data structure abstractions provided:
@@ -455,15 +455,17 @@ function array_map(a, fun)
                        end)
 end
 
+local function _value_truish(v)
+   return v
+end
+
 -- array filtering
 function array_filter(a, fun)
    local t = array:new()
+   fun = fun or _value_truish
    for i, v in ipairs(a)
    do
-      if fun and fun(v)
-      then
-         t:insert(v)
-      elseif not fun and v
+      if fun(v)
       then
          t:insert(v)
       end

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Fri Feb  8 11:12:17 2013 mstenber
--- Edit time:     168 min
+-- Last modified: Thu Apr 25 13:05:54 2013 mstenber
+-- Edit time:     170 min
 --
 
 require "busted"
@@ -357,6 +357,11 @@ describe("array", function ()
                   a:clear()
                   mst.a(#a == 0)
                                  end)
+            it("can be filtered for truish values", function ()
+                  local a = mst.array:new{1,2,false,4}
+                  mst.a(#a == 4)
+                  mst.a(#a:filter() == 3)
+                   end)
                   end)
 
 describe("map", function ()
