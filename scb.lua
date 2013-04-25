@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Mon Jan 28 15:51:00 2013 mstenber
--- Edit time:     194 min
+-- Last modified: Thu Apr 25 15:43:44 2013 mstenber
+-- Edit time:     199 min
 --
 
 -- convenience stuff on top of LuaSocket (most of the action happens
@@ -155,11 +155,9 @@ function parameters_or_host_ipv6ish(d)
    return true
 end
 
--- set up new udp socket, with given host, port, and calling the given
--- callback whenever applicable
-function new_udp_socket(d)
-   mst.check_parameters("scb:new_udp_socket", d, 
-                        {"host", "port", "callback"}, 3)
+function create_udp_socket(d)
+   mst.check_parameters("scb:create_udp_socket", d, 
+                        {"host", "port"}, 3)
    local s
    -- should we?
    if parameters_or_host_ipv6ish(d)
@@ -182,6 +180,15 @@ function new_udp_socket(d)
    then
       return r, 'error in setsockname' .. err
    end
+   return s
+end
+
+-- set up new udp socket, with given host, port, and calling the given
+-- callback whenever applicable
+function new_udp_socket(d)
+   mst.check_parameters("scb:new_udp_socket", d, 
+                        {"host", "port", "callback"}, 3)
+   local s = create_udp_socket(d)
    local o = wrap_udp_socket{s=s, callback=d.callback}
    return o
 end

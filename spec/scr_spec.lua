@@ -8,14 +8,15 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:54:26 2013 mstenber
--- Last modified: Thu Apr 25 11:38:34 2013 mstenber
--- Edit time:     22 min
+-- Last modified: Thu Apr 25 15:53:35 2013 mstenber
+-- Edit time:     35 min
 --
 
 -- Simple testsuite for complex stuff - simple coroutine reactor tests
 
 require "busted"
 require "scr"
+require "scb"
 
 module("scr_spec", package.seeall)
 
@@ -127,3 +128,48 @@ describe("scr", function ()
                   mst.a(nc[1] == 2)
                                               end)
 end)
+
+describe("scrsocket", function ()
+            it("works with 2 basic udp sockets", function ()
+                  local thost = scb.LOCALHOST
+                  local p1 = 13542
+                  local p2 = p1 + 1
+
+                  local rs1 = scb.create_udp_socket{host=thost, port=p1}
+                  local rs2 = scb.create_udp_socket{host=thost, port=p2}
+                  local s1 = scr.wrap_socket(rs1)
+                  local s2 = scr.wrap_socket(rs2)
+                  
+                  local echoserver = scr.run(function ()
+                                                while true
+                                                do
+                                                   local r, ip, port = 
+                                                      s2:receivefrom()
+                                                   s2:sendto(r, ip, port)
+                                                end
+                                             end)
+                  local i = 1
+                  local echoclient = scr.run(function ()
+                                                while true
+                                                do
+                                                   s = tostring(i)
+                                                   s1:sendto(s, thost, p2)
+                                                   local r = s1:receivefrom()
+                                                   mst.a(s == r)
+                                                   i = i + 1
+                                                end
+                                             end)
+                  local r = ssloop.loop():loop_until(function ()
+                                                        return i == 100
+                                                     end, 10)
+                  mst.a(r, 'timed out - unable to handle 10 msg/s?')
+
+                  s1:done()
+                  s2:done()
+
+                  scr.clear_scr()
+                                                 end)
+
+            -- XXX - test receive()+send() with TCP
+                      end)
+
