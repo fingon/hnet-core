@@ -1,5 +1,35 @@
 -*- outline -*-
 
+* 8.4.2013+
+
+** Make the whole thing easier to build from scratch
+
+*** NetKit+UML env
+
+- add our variant to github
+
+- try to make whole thing build from source (the fs/packages/ is ugly hack)
+
+ - add git submodules for stuff we want (ISC dhcp, BIRD, odhcp6c,
+   whatever), and associated makefiles to build them
+
+- build x86_64 - i386 is historic and should be treated so
+
+==> Goal:
+
+- github repos for netkit-core + fs + kernel
+
+ make kernel under kernel => kernel
+ make filesystem under fs => filesystem
+
+=> working env
+
+(no binaries, no closed-source)
+
+- one 'root' repo with submodules for netkit-core+fs+kernel
+
+- one centralized Makefile 
+
 * 26.3.2013+
 
 ** Fix route_to_rid checking laziness
