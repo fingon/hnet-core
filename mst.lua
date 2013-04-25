@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Apr 10 15:23:04 2013 mstenber
--- Edit time:     630 min
+-- Last modified: Thu Apr 25 11:18:37 2013 mstenber
+-- Edit time:     631 min
 --
 
 -- data structure abstractions provided:
@@ -461,6 +461,9 @@ function array_filter(a, fun)
    for i, v in ipairs(a)
    do
       if fun(v)
+      then
+         t:insert(v)
+      elseif v
       then
          t:insert(v)
       end
@@ -1083,7 +1086,7 @@ function repr_equal(o1, o2)
    return s1 == s2
 end
 
-local _asis_repr = array_to_table{'number', 'function', 'boolean', 'userdata'}
+local _asis_repr = array_to_table{'number', 'function', 'boolean', 'userdata', 'thread'}
 
 -- python-style repr (works on any object, calls repr() if available,
 -- if not, tough
