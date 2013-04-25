@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Apr 25 11:18:37 2013 mstenber
--- Edit time:     631 min
+-- Last modified: Thu Apr 25 12:52:03 2013 mstenber
+-- Edit time:     635 min
 --
 
 -- data structure abstractions provided:
@@ -460,10 +460,10 @@ function array_filter(a, fun)
    local t = array:new()
    for i, v in ipairs(a)
    do
-      if fun(v)
+      if fun and fun(v)
       then
          t:insert(v)
-      elseif v
+      elseif not fun and v
       then
          t:insert(v)
       end
