@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Tue Mar  5 12:59:03 2013 mstenber
--- Edit time:     825 min
+-- Last modified: Mon Apr 29 11:13:21 2013 mstenber
+-- Edit time:     826 min
 --
 
 -- TO DO: 
@@ -23,7 +23,7 @@ require "mdns_core"
 require "mdns_ospf"
 require "skv"
 require "elsa_pa"
-require "dnscodec"
+require "dns_codec"
 require "dneigh"
 require "dshell"
 
@@ -199,7 +199,7 @@ function prettyprint_received_list(l)
    for i, v in ipairs(l)
    do
       -- decoded message (human readable)
-      local m = dnscodec.dns_message:decode(v[2])
+      local m = dns_codec.dns_message:decode(v[2])
 
       -- timestamp + that
       table.insert(t, {v[1], m})
@@ -233,7 +233,7 @@ function dummynode:recvfrom(...)
    local l = {...}
    -- decode the payload
    local b = l[1]
-   local o, err = dnscodec.dns_message:decode(b)
+   local o, err = dns_codec.dns_message:decode(b)
    self:a(o, 'unable decode', mst.string_to_hex(b), err)
    l[1] = o
    table.insert(self.received, {self.time(), unpack(l)})
@@ -529,7 +529,7 @@ local rr_foo_a_cf = {name={'foo', 'local'},
 }
 
 
-local msg1 = dnscodec.dns_message:encode{
+local msg1 = dns_codec.dns_message:encode{
    h={
       -- MUST s18.4 - ignore id in responses
       id=123,
@@ -537,28 +537,28 @@ local msg1 = dnscodec.dns_message:encode{
       qr=true,
    }, 
    an={rr1}}
---mst.a(dnscodec.dns_message:decode(msg1).h.id > 0)
+--mst.a(dns_codec.dns_message:decode(msg1).h.id > 0)
 
-local msg1_ttl0 = dnscodec.dns_message:encode{h={qr=true},
+local msg1_ttl0 = dns_codec.dns_message:encode{h={qr=true},
                                               an={rr1_ttl0}}
 
-local msg1_cf = dnscodec.dns_message:encode{h={qr=true},
+local msg1_cf = dns_codec.dns_message:encode{h={qr=true},
                                             an={rr1_cf}}
 
-local msg1_2_cf = dnscodec.dns_message:encode{h={qr=true},
+local msg1_2_cf = dns_codec.dns_message:encode{h={qr=true},
                                               an={rr1_2_cf}}
 
-local msg_dummy_aaaa_cf = dnscodec.dns_message:encode{
+local msg_dummy_aaaa_cf = dns_codec.dns_message:encode{
    h={qr=true},
    an={rr_dummy_aaaa_cf},
                                                      }
 
-local msg_dummy_a_a2_cf = dnscodec.dns_message:encode{
+local msg_dummy_a_a2_cf = dns_codec.dns_message:encode{
    h={qr=true},
    an={rr_dummy_a_cf, rr_dummy_a2_cf},
                                                      }
 
-local query1 = dnscodec.dns_message:encode{
+local query1 = dns_codec.dns_message:encode{
    h={
       -- to check s18.5
       id=DUMMY_ID1,
@@ -571,37 +571,37 @@ local query1 = dnscodec.dns_message:encode{
    qd={{name={'Foo'}, qtype=DUMMY_TYPE}},
                                           }
 
-local query1_rcode = dnscodec.dns_message:encode{
+local query1_rcode = dns_codec.dns_message:encode{
    -- MUST IGNORE s18.25/26   
    h={rcode=1},
    qd={{name={'Foo'}, qtype=DUMMY_TYPE},
    }
                                                 }
-local query1_qu = dnscodec.dns_message:encode{
+local query1_qu = dns_codec.dns_message:encode{
    -- to check s18.5
    h={id=DUMMY_ID2}, 
    qd={{name={'Foo'}, qtype=DUMMY_TYPE, qu=true}},
                                              }
 
-local query1_type_any_qu = dnscodec.dns_message:encode{
+local query1_type_any_qu = dns_codec.dns_message:encode{
    qd={{name={'Foo'}, qtype=dns_const.TYPE_ANY, qu=true}},
                                                       }
 
-local query1_class_any_qu = dnscodec.dns_message:encode{
+local query1_class_any_qu = dns_codec.dns_message:encode{
    qd={{name={'Foo'}, qtype=DUMMY_TYPE, qclass=dns_const.CLASS_ANY, qu=true}},
                                                        }
 
-local query1_type_nomatch_qu = dnscodec.dns_message:encode{
+local query1_type_nomatch_qu = dns_codec.dns_message:encode{
    -- to check s18.5
    h={id=DUMMY_ID3}, 
    qd={{name={'Foo'}, qtype=(DUMMY_TYPE+1), qu=true}},
                                                           }
 
-local query1_class_nomatch_qu = dnscodec.dns_message:encode{
+local query1_class_nomatch_qu = dns_codec.dns_message:encode{
    qd={{name={'Foo'}, qtype=DUMMY_TYPE, qclass=(dns_const.CLASS_IN+1), qu=true}},
                                                            }
 
-local query1_kas = dnscodec.dns_message:encode{
+local query1_kas = dns_codec.dns_message:encode{
    qd={{name={'Foo'}, qtype=DUMMY_TYPE, qu=true}},
    an={rr1},
                                               }
@@ -609,62 +609,62 @@ local query1_kas = dnscodec.dns_message:encode{
 rr1_low_ttl = mst.table_copy(rr1)
 rr1_low_ttl.ttl = math.floor(rr1.ttl / 4)
 
-local query1_kas_low_ttl = dnscodec.dns_message:encode{
+local query1_kas_low_ttl = dns_codec.dns_message:encode{
    qd={{name={'Foo'}, qtype=DUMMY_TYPE, qu=true}},
    an={rr1_low_ttl},
                                                       }
 
-local query_dummy_a = dnscodec.dns_message:encode{
+local query_dummy_a = dns_codec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A}},
                                                  }
 
 
-local query_dummy_qu = dnscodec.dns_message:encode{
+local query_dummy_qu = dns_codec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_ANY, qu=true}},
                                                   }
 
 local q_dummy_a = {name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}
 
-local query_dummy_a_qu = dnscodec.dns_message:encode{
+local query_dummy_a_qu = dns_codec.dns_message:encode{
    qd={q_dummy_a},
                                                     }
 
-local query_dummy_a_kas_a = dnscodec.dns_message:encode{
+local query_dummy_a_kas_a = dns_codec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A}},
    an={rr_dummy_a_cf},
                                                        }
 
-local query_dummy_a_kas_a_qu = dnscodec.dns_message:encode{
+local query_dummy_a_kas_a_qu = dns_codec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}},
    an={rr_dummy_a_cf},
                                                           }
 
-local query_dummy_a_kas_aaaa_qu = dnscodec.dns_message:encode{
+local query_dummy_a_kas_aaaa_qu = dns_codec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_A, qu=true}},
    an={rr_dummy_aaaa_cf},
                                                              }
 
-local query_dummy_any_tc = dnscodec.dns_message:encode{
+local query_dummy_any_tc = dns_codec.dns_message:encode{
    h={tc=true},
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_ANY}},
                                                       }
 
 
-local query_kas_dummy_a_cf = dnscodec.dns_message:encode{
+local query_kas_dummy_a_cf = dns_codec.dns_message:encode{
    an={rr_dummy_a_cf},
                                                         }
 
-local query_dummy_aaaa_qu = dnscodec.dns_message:encode{
+local query_dummy_aaaa_qu = dns_codec.dns_message:encode{
    qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_AAAA, qu=true}},
                                                        }
 
 local q_foo_a = {name=rr_foo_a_cf.name, qtype=dns_const.TYPE_A, qu=true}
 
-local query_dummy_foo_qu = dnscodec.dns_message:encode{
+local query_dummy_foo_qu = dns_codec.dns_message:encode{
    qd={q_dummy_a, q_foo_a},
                                                       }
 
-local query_foo_local_a = dnscodec.dns_message:encode{
+local query_foo_local_a = dns_codec.dns_message:encode{
    qd={{name=rr_foo_a_cf.name, qtype=dns_const.TYPE_A}},
 
                                                      }
@@ -1209,7 +1209,7 @@ describe("mdns", function ()
                   local function ensure_reply_sane()
                      -- everything must have ttl > 0, despite
                      -- tl not being set within our data structures
-                     -- (dnscodec defaults to 0, so this is sanity)
+                     -- (dns_codec defaults to 0, so this is sanity)
                      local msg = dummy:get_last_msg()
                      mst.array_foreach(msg.an or {},
                                        function (rr)

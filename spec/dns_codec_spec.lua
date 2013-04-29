@@ -1,28 +1,28 @@
 #!/usr/bin/env lua
 -- -*-lua-*-
 --
--- $Id: dnscodec_spec.lua $
+-- $Id: dns_codec_spec.lua $
 --
 -- Author: Markus Stenberg <markus stenberg@iki.fi>
 --
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 12:06:56 2012 mstenber
--- Last modified: Wed Mar  6 14:20:59 2013 mstenber
+-- Last modified: Mon Apr 29 11:11:55 2013 mstenber
 -- Edit time:     88 min
 --
 
 require "busted"
-require "dnscodec"
+require "dns_codec"
 require 'dns_const'
 require 'dns_rdata'
 local json = require "dkjson"
 
-module("dnscodec_spec", package.seeall)
+module("dns_codec_spec", package.seeall)
 
-local dns_rr = dnscodec.dns_rr
-local dns_query = dnscodec.dns_query
-local dns_message = dnscodec.dns_message
+local dns_rr = dns_codec.dns_rr
+local dns_query = dns_codec.dns_query
+local dns_message = dns_codec.dns_message
 local rdata_srv = dns_rdata.rdata_srv
 local rdata_nsec = dns_rdata.rdata_nsec
 
@@ -95,7 +95,7 @@ local known_messages = {
 
 local message_lists = {'qd', 'an', 'ns', 'ar'}
 
-describe("test dnscodec", function ()
+describe("test dns_codec", function ()
             it("encode + decode =~ same", function ()
                   for i, v in ipairs(tests)
                   do
@@ -179,7 +179,7 @@ describe("test dnscodec", function ()
                                                end)
 
             it("sanity checks", function ()
-                  mst.a(dnscodec.dns_header.header_length == 12,
+                  mst.a(dns_codec.dns_header.header_length == 12,
                        'wrong header length')
                    end)
 

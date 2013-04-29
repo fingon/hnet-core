@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Feb 26 18:35:40 2013 mstenber
--- Last modified: Fri Mar  8 11:22:59 2013 mstenber
+-- Last modified: Mon Apr 29 11:09:21 2013 mstenber
 -- Edit time:     43 min
 --
 
@@ -31,8 +31,8 @@ require 'pm_handler'
 require 'mcastjoiner'
 require 'dhcpv6_const'
 require 'scb'
-require 'dnsdb'
-require 'dhcpv6codec'
+require 'dns_db'
+require 'dhcpv6_codec'
 require 'pm_radvd'
 
 module(..., package.seeall)
@@ -113,7 +113,7 @@ function pm_fakedhcpv6d:recvfrom(data, src, srcport)
       return
    end
 
-   local o, err = dhcpv6codec.dhcpv6_message:decode(data)
+   local o, err = dhcpv6_codec.dhcpv6_message:decode(data)
    if not o
    then
       self:d('decode error', err)
@@ -229,12 +229,12 @@ function pm_fakedhcpv6d:recvfrom(data, src, srcport)
    if search and #search > 0
    then
       local o3 = {option=dhcpv6_const.O_DOMAIN_SEARCH}
-      mst.array_extend(o3, mst.array_map(search, dnsdb.name2ll))
+      mst.array_extend(o3, mst.array_map(search, dns_db.name2ll))
       table.insert(o2, o3)
    end
    
    mst.d('sending reply', o2)
-   local b = dhcpv6codec.dhcpv6_message:encode(o2)
+   local b = dhcpv6_codec.dhcpv6_message:encode(o2)
    self:sendto(b, src, srcport)
 end
 

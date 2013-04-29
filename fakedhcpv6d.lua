@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Feb 21 11:47:15 2013 mstenber
--- Last modified: Tue Mar 12 07:51:52 2013 mstenber
+-- Last modified: Mon Apr 29 11:08:02 2013 mstenber
 -- Edit time:     49 min
 --
 
@@ -16,12 +16,12 @@
 -- provide a canned reply to stateful DHCPv6 request flows, and
 -- ignores anything else (information requests, relayed messages)
 require 'mcastjoiner'
-require 'dhcpv6codec'
+require 'dhcpv6_codec'
 require 'scb'
 require 'ssloop'
-require 'dnsdb'
+require 'dns_db'
 
-local dhcpv6_message = dhcpv6codec.dhcpv6_message
+local dhcpv6_message = dhcpv6_codec.dhcpv6_message
 local loop = ssloop.loop()
 
 _TEST = false -- required by cliargs + strict
@@ -156,7 +156,7 @@ function o.callback(data, src, srcport)
    if args.search
    then
       local search = args.search
-      search = dnsdb.name2ll(search)
+      search = dns_db.name2ll(search)
       table.insert(o2, {option=dhcpv6_const.O_DOMAIN_SEARCH, [1]=search})
    end
    

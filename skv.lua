@@ -8,14 +8,14 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Mon Jan 28 13:53:48 2013 mstenber
+-- Last modified: Mon Apr 29 11:09:46 2013 mstenber
 -- Edit time:     383 min
 --
 
 require 'mst'
 require 'ssloop'
 require 'scbtcp'
-require 'jsoncodec'
+require 'json_codec'
 
 module(..., package.seeall)
 
@@ -413,14 +413,14 @@ function skv:wrap_socket_json()
    self:d('wrap_socket_json', self.s)
    self:a(not self.json, 'already have json')
    self:a(self.s, 'no socket to wrap')
-   self.json = jsoncodec.wrap_socket{s=self.s, 
-                                     debug=self.debug,
-                                     callback=function (o)
-                                        self:handle_received_json(o)
-                                     end,
-                                     close_callback=function ()
-                                        self.fsm:ConnectionClosed()
-                                     end}
+   self.json = json_codec.wrap_socket{s=self.s, 
+                                      debug=self.debug,
+                                      callback=function (o)
+                                         self:handle_received_json(o)
+                                      end,
+                                      close_callback=function ()
+                                         self.fsm:ConnectionClosed()
+                                      end}
    
    self.s = nil
 end
@@ -531,15 +531,15 @@ function skvconnection:init()
    assert(self)
    self.parent.connections[self] = true
    self:a(not self.json)
-   self.json = jsoncodec.wrap_socket{s=self.s,
-                                     debug=self.debug,
-                                     callback=function (o)
-                                        self:handle_received_json(o)
-                                     end,
-                                     close_callback=function ()
-                                        self:handle_close()
-                                     end
-                                    }
+   self.json = json_codec.wrap_socket{s=self.s,
+                                      debug=self.debug,
+                                      callback=function (o)
+                                         self:handle_received_json(o)
+                                      end,
+                                      close_callback=function ()
+                                         self:handle_close()
+                                      end
+                                     }
    self.sent_update_id = 0
    self.s = nil
 

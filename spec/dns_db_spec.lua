@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 -- -*-lua-*-
 --
--- $Id: dnsdb_spec.lua $
+-- $Id: dns_db_spec.lua $
 --
 -- Author: Markus Stenberg <markus stenberg@iki.fi>
 --
@@ -13,9 +13,9 @@
 --
 
 require "busted"
-require "dnsdb"
+require "dns_db"
 
-module("dnsdb_spec", package.seeall)
+module("dns_db_spec", package.seeall)
 
 -- first off, three records that are distinct (but shared, in mdns
 -- terminology, due to lack of cache_flush)
@@ -105,7 +105,7 @@ describe("ll<>name functions", function ()
                                     }
                   do
                      local l, n = unpack(v)
-                     local r = dnsdb.ll2nameish(l)
+                     local r = dns_db.ll2nameish(l)
                      mst.a(mst.repr_equal(n, r), 'll2nameish fail', r, n)
                   end
                    end)
@@ -114,7 +114,7 @@ describe("ll<>name functions", function ()
 
 describe("ns", function ()
             it("works", function ()
-                  local ns = dnsdb.ns:new{enable_copy=true}
+                  local ns = dns_db.ns:new{enable_copy=true}
                   -- add two items (one twice, just to make sure it
                   -- doesn't get added again)
                   mst.a(ns:count() == 0)
@@ -149,7 +149,7 @@ describe("ns", function ()
                   -- second iteration; add fake1+fake12+, and then override
                   -- them with fakeu => as a result, should have only 1
                   -- entry
-                  local ns = dnsdb.ns:new{enable_copy=true}
+                  local ns = dns_db.ns:new{enable_copy=true}
                   ns:insert_rr(fake1)
                   ns:insert_rr(fake12)
                   mst.a(ns:count() == 2, 
@@ -172,7 +172,7 @@ describe("ns", function ()
                    end)
 
             it("has robust deduplication", function ()
-                  local ns = dnsdb.ns:new{enable_copy=true}
+                  local ns = dns_db.ns:new{enable_copy=true}
                   for _, rr in ipairs(all_rrs)
                   do
                      ns:insert_rr(mst.table_deep_copy(rr))
@@ -186,7 +186,7 @@ describe("ns", function ()
                   mst.a(ns:count() == 0)
                    end)
             it("handles removal of bunch of entries correctly", function ()
-                  local ns = dnsdb.ns:new{enable_copy=true}
+                  local ns = dns_db.ns:new{enable_copy=true}
                   local n = 100
                   for i=1,n
                   do

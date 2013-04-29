@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Mar 28 14:23:28 2013 mstenber
+-- Last modified: Mon Apr 29 11:07:50 2013 mstenber
 -- Edit time:     779 min
 --
 
@@ -31,7 +31,7 @@
 
 require 'mst'
 require 'mst_skiplist'
-require 'ospfcodec'
+require 'ospf_codec'
 require 'ssloop'
 
 local pa = require 'pa'
@@ -338,7 +338,7 @@ end
 function elsa_pa:get_padded_hwf(rid)
    local hwf = self:get_hwf(rid)
    mst.a(hwf, 'unable to get hwf')
-   local d = ospfcodec.MINIMUM_AC_TLV_RHF_LENGTH
+   local d = ospf_codec.MINIMUM_AC_TLV_RHF_LENGTH
    if #hwf < d
    then
       hwf = hwf .. string.rep('1', d - #hwf)
@@ -356,10 +356,10 @@ function elsa_pa:check_conflict(bonus_lsa)
       lsas = lsas + 1
       if lsa.rid ~= self.rid then return end
       local found = nil
-      for i, tlv in ipairs(ospfcodec.decode_ac_tlvs(lsa.body))
+      for i, tlv in ipairs(ospf_codec.decode_ac_tlvs(lsa.body))
       do
          tlvs = tlvs + 1
-         if tlv.type == ospfcodec.AC_TLV_RHF
+         if tlv.type == ospf_codec.AC_TLV_RHF
          then
             found = tlv.body
          end
@@ -678,7 +678,7 @@ function elsa_pa:copy_prefix_info_to_o(prefix, dst)
                                     o_lsa = o
                                     self:d('found from remote', o)
                                  end
-                              end, {type=ospfcodec.AC_TLV_JSONBLOB})
+                              end, {type=ospf_codec.AC_TLV_JSONBLOB})
    end
    if not o then return end
    for _, key in ipairs(PREFIX_INFO_SKV_KEYS)
@@ -847,7 +847,7 @@ function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
          return
       end
       xpcall(function ()
-                for i, tlv in ipairs(ospfcodec.decode_ac_tlvs(lsa.body))
+                for i, tlv in ipairs(ospf_codec.decode_ac_tlvs(lsa.body))
                 do
                    if not criteria or mst.table_contains(tlv, criteria)
                    then
@@ -890,7 +890,7 @@ function elsa_pa:iterate_asp(rid, f)
                               self:a(lsa and asp)
                               self:a(rid ~= lsa.rid, 'own asp in iterate?')
                               f{prefix=asp.prefix, iid=asp.iid, rid=lsa.rid}
-                           end, {type=ospfcodec.AC_TLV_ASP})
+                           end, {type=ospf_codec.AC_TLV_ASP})
 end
 
 --  iterate_asa(rid, f) => callback with {prefix=, rid=}
@@ -917,7 +917,7 @@ function elsa_pa:iterate_usp(rid, f)
                               self:a(lsa and usp)
                               self:a(rid ~= lsa.rid, 'own asp in iterate?')
                               f{prefix=usp.prefix, rid=lsa.rid}
-                           end, {type=ospfcodec.AC_TLV_USP})
+                           end, {type=ospf_codec.AC_TLV_USP})
 end
 
 --  iterate_if(rid, f) => callback with ifo
@@ -1035,7 +1035,7 @@ function elsa_pa:get_field_array(locala, jsonfield, cl, get_keys)
                               do
                                  s:insert(v)
                               end
-                           end, {type=ospfcodec.AC_TLV_JSONBLOB})
+                           end, {type=ospf_codec.AC_TLV_JSONBLOB})
 
 
    if get_keys
@@ -1143,7 +1143,7 @@ function elsa_pa:generate_ac_lsa(use_relative_timestamps)
    local hwf = self:get_padded_hwf(self.rid)
    self:d(' hwf', hwf)
 
-   a:insert(ospfcodec.rhf_ac_tlv:encode{body=hwf})
+   a:insert(ospf_codec.rhf_ac_tlv:encode{body=hwf})
 
    -- generate local USP-based TLVs
 
@@ -1152,7 +1152,7 @@ function elsa_pa:generate_ac_lsa(use_relative_timestamps)
    for i, usp in ipairs(uspl)
    do
       self:d(' usp', self.rid, usp.prefix)
-      a:insert(ospfcodec.usp_ac_tlv:encode{prefix=usp.prefix})
+      a:insert(ospf_codec.usp_ac_tlv:encode{prefix=usp.prefix})
    end
 
    -- generate (local) ASP-based TLVs
@@ -1161,7 +1161,7 @@ function elsa_pa:generate_ac_lsa(use_relative_timestamps)
    for i, asp in ipairs(aspl)
    do
       self:d(' asp', self.rid, asp.iid, asp.prefix)
-      a:insert(ospfcodec.asp_ac_tlv:encode{prefix=asp.prefix, iid=asp.iid})
+      a:insert(ospf_codec.asp_ac_tlv:encode{prefix=asp.prefix, iid=asp.iid})
    end
 
    -- generate 'FYI' blob out of local SKV state; right now, just the
@@ -1224,7 +1224,7 @@ function elsa_pa:generate_ac_lsa(use_relative_timestamps)
    if t:count() > 0
    then
       self:d(' json', t)
-      a:insert(ospfcodec.json_ac_tlv:encode{table=t})
+      a:insert(ospf_codec.json_ac_tlv:encode{table=t})
    end
 
    if #a

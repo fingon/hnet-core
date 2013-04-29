@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Fri Mar 15 10:56:10 2013 mstenber
+-- Last modified: Mon Apr 29 11:05:55 2013 mstenber
 -- Edit time:     140 min
 --
 
@@ -25,7 +25,7 @@ require 'pm_memory'
 require 'pm_radvd'
 require 'pm_led'
 require 'pm_fakedhcpv6d'
-require 'dhcpv6codec'
+require 'dhcpv6_codec'
 require 'dshell'
 
 module("pm_handler_spec", package.seeall)
@@ -272,7 +272,7 @@ describe("pm_fakedhcpv6d", function ()
                   local m = {[1]={data="00030001827f5ea42778", 
                                   option=dhcpv6_const.O_CLIENTID}, 
                              type=dhcpv6_const.MT_INFORMATION_REQUEST, xid=42}
-                  local mb = dhcpv6codec.dhcpv6_message:encode(m)
+                  local mb = dhcpv6_codec.dhcpv6_message:encode(m)
                   local client1 = 'fe80::2%eth1'
                   local client2 = 'fe80::1%eth0'
                   o:recvfrom(mb, client1, dhcpv6_const.CLIENT_PORT)
@@ -280,7 +280,7 @@ describe("pm_fakedhcpv6d", function ()
                   o:recvfrom(mb, client2, dhcpv6_const.CLIENT_PORT)
                   mst.a(#sentlog == 1, 'no reply?', sentlog)
                   
-                  local r = dhcpv6codec.dhcpv6_message:decode(sentlog[1][1])
+                  local r = dhcpv6_codec.dhcpv6_message:decode(sentlog[1][1])
                   mst.a(r)
                   mst.a(r.type == dhcpv6_const.MT_REPLY)
 
@@ -293,10 +293,10 @@ describe("pm_fakedhcpv6d", function ()
                                   option=dhcpv6_const.O_CLIENTID}, 
                              [2]={iaid=123, option=3, t1=3600, t2=5400}, 
                              type=dhcpv6_const.MT_SOLICIT, xid=43}
-                  local mb = dhcpv6codec.dhcpv6_message:encode(m)
+                  local mb = dhcpv6_codec.dhcpv6_message:encode(m)
                   o:recvfrom(mb, client2, dhcpv6_const.CLIENT_PORT)
                   mst.a(#sentlog == 1, 'no reply?', sentlog)
-                  local r = dhcpv6codec.dhcpv6_message:decode(sentlog[1][1])
+                  local r = dhcpv6_codec.dhcpv6_message:decode(sentlog[1][1])
                   mst.a(r)
                   mst.a(r.type == dhcpv6_const.MT_ADVERTISE)
                   function find_option(o, l)
@@ -323,10 +323,10 @@ describe("pm_fakedhcpv6d", function ()
                              [3]={[1]=dhcpv6_const.O_PREFIX_CLASS,
                                   option=dhcpv6_const.O_ORO},
                              type=dhcpv6_const.MT_SOLICIT, xid=43}
-                  local mb = dhcpv6codec.dhcpv6_message:encode(m)
+                  local mb = dhcpv6_codec.dhcpv6_message:encode(m)
                   o:recvfrom(mb, client2, dhcpv6_const.CLIENT_PORT)
                   mst.a(#sentlog == 1, 'no reply?', sentlog)
-                  local r = dhcpv6codec.dhcpv6_message:decode(sentlog[1][1])
+                  local r = dhcpv6_codec.dhcpv6_message:decode(sentlog[1][1])
                   mst.a(r)
                   mst.a(r.type == dhcpv6_const.MT_ADVERTISE)
                   function find_option(o, l)

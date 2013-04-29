@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Thu Feb 21 11:57:24 2013 mstenber
+-- Last modified: Mon Apr 29 11:08:44 2013 mstenber
 -- Edit time:     964 min
 --
 
@@ -50,8 +50,7 @@
 -- - ton more, see SHOULD/MUST list in mdns_test.txt
 
 require 'mst'
-require 'dnscodec'
-require 'dnsdb'
+require 'dns_db'
 require 'mdns_if'
 require 'mdns_const'
 require 'linux_if'
@@ -319,7 +318,7 @@ function mdns:queue_check_propagate_if_rr(ifname, rr)
 
    if not p
    then
-      p = dnsdb.ns:new{}
+      p = dns_db.ns:new{}
       self.pending_propagate_check = p
    end
    local o = p:insert_rr{name=rr.name,
@@ -467,7 +466,7 @@ function mdns:find_all_cache_rr_matching_o(o)
 
    -- first, gather each entry from caches, taking the one with longest
    -- ttl if same entry encountered multiple times
-   local rns = dnsdb.ns:new{}
+   local rns = dns_db.ns:new{}
 
    self:iterate_all_cache_rr_matching_o(o, function (rr)
                                            if rr.rtype ~= o.rtype

@@ -24,7 +24,7 @@
 -- REDUNDANT_FREQUENCY is the time over which we verify that the list
 -- of services and the individual service instances are valid
 
--- We maintain skiplist of what to check, and when, and also dnsdb, so
+-- We maintain skiplist of what to check, and when, and also dns_db, so
 -- that a) lookups are linear time, and so are the to do handling
 -- updates etc.
 
@@ -43,7 +43,7 @@
 -- - query (to send a query)
 
 require 'mst'
-require 'dnsdb'
+require 'dns_db'
 
 module(..., package.seeall)
 
@@ -63,7 +63,7 @@ end
 
 
 function mdns_discovery:init()
-   self.ns = dnsdb.ns:new{}
+   self.ns = dns_db.ns:new{}
    self.sl = mst_skiplist.ipi_skiplist:new{p=2, lt=next_is_less}
    self:insert_rr{name=SD_ROOT}
 end
@@ -105,7 +105,7 @@ function mdns_discovery:cache_changed_rr(rr, add)
    -- we _only_ care about direct descendants of SD_ROOT (=services).
    -- the instances are handled within mdns_if, as results of queries
    -- we generate willy nilly here..
-   if not dnsdb.ll_equal(SD_ROOT, rr.name)
+   if not dns_db.ll_equal(SD_ROOT, rr.name)
    then
       return
    end

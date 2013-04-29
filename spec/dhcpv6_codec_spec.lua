@@ -8,14 +8,14 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Feb 20 18:24:16 2013 mstenber
--- Last modified: Wed Feb 27 11:48:53 2013 mstenber
+-- Last modified: Mon Apr 29 11:11:04 2013 mstenber
 -- Edit time:     38 min
 --
 
 require "busted"
-require "dhcpv6codec"
+require "dhcpv6_codec"
 
-local dhcpv6_message = dhcpv6codec.dhcpv6_message
+local dhcpv6_message = dhcpv6_codec.dhcpv6_message
 
 local known_messages = {
    -- solicit

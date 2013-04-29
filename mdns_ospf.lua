@@ -105,7 +105,7 @@ function mdns:init()
    _mdns.init(self)
    self.f = function (k, v) self:kv_changed(k, v) end
    self.skv:add_change_observer(self.f)
-   self.ospf_cache_ns = dnsdb.ns:new{}
+   self.ospf_cache_ns = dns_db.ns:new{}
 end
 
 function mdns:kv_changed(k, v)
@@ -157,7 +157,7 @@ function mdns:handle_ospf_cache()
    -- b)
    --  rr was removed
    --
-   -- To make this check relatively efficient, we keep dnsdb.ns of
+   -- To make this check relatively efficient, we keep dns_db.ns of
    -- our own just for storing the ospf cache state
    -- (self.ospf_cache_ns), and sync ospf_skv with that
 
@@ -176,7 +176,7 @@ function mdns:handle_ospf_cache()
    for i, rr in ipairs(l)
    do
       -- convert the (potentially string name) to list of domains
-      rr.name = dnsdb.name2ll(rr.name)
+      rr.name = dns_db.name2ll(rr.name)
 
       local orr = ns:find_rr(rr)
       if orr
@@ -280,7 +280,7 @@ function mdns:reduce_ns_to_nondangling_array(ns)
    end
 
    local function depend(rr, n)
-      local kv = dnsdb.ll2key(n)
+      local kv = dns_db.ll2key(n)
       if not ok[kv]
       then
          -- add to pending
@@ -289,7 +289,7 @@ function mdns:reduce_ns_to_nondangling_array(ns)
       end
       -- yay, it is already covered target -> we can note that this
       -- name is ok too
-      local k = dnsdb.ll2key(rr.name)
+      local k = dns_db.ll2key(rr.name)
       add_to_ok(k)
       return true
    end
@@ -298,7 +298,7 @@ function mdns:reduce_ns_to_nondangling_array(ns)
       self:a(type(rr) == 'table', 'weird rr', rr)
       if rr.rtype == dns_const.TYPE_AAAA
       then
-         local k = dnsdb.ll2key(rr.name)
+         local k = dns_db.ll2key(rr.name)
          add_to_ok(k)
       elseif rr.rtype == dns_const.TYPE_SRV
       then
@@ -317,9 +317,9 @@ function mdns:reduce_ns_to_nondangling_array(ns)
 end
 
 function mdns:publish_cache()
-   -- gather the rr's in dnsdb.ns, to prevent duplicates from hitting
+   -- gather the rr's in dns_db.ns, to prevent duplicates from hitting
    -- the wire
-   local ns = dnsdb.ns:new{}
+   local ns = dns_db.ns:new{}
    
    for ifname, ifo in pairs(self.ifname2if)
    do
@@ -346,7 +346,7 @@ function mdns:publish_cache()
                 local f = (to and to.field) or 'rdata'
                 local v = rr[f]
                 self:a(v, 'no rdata?', to, rr)
-                local n = USE_STRINGS_INSTEAD_OF_NAMES_IN_SKV and dnsdb.ll2nameish(rr.name) or rr.name
+                local n = USE_STRINGS_INSTEAD_OF_NAMES_IN_SKV and dns_db.ll2nameish(rr.name) or rr.name
                 -- if 'false', don't include it at all
                 local cf = rr.cache_flush and rr.cache_flush or nil
                 local d = {name=n,

@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Tue Mar  5 13:13:35 2013 mstenber
+-- Last modified: Mon Apr 29 11:08:58 2013 mstenber
 -- Edit time:     761 min
 --
 
@@ -32,8 +32,8 @@
 -- if it's not really needed. 
 
 require 'mst'
-require 'dnscodec'
-require 'dnsdb'
+require 'dns_codec'
+require 'dns_db'
 require 'mdns_const'
 require 'mst_skiplist'
 require 'mdns_discovery'
@@ -150,13 +150,13 @@ end
 local function match_q_rr(q, rr)
    return (q.qtype == dns_const.TYPE_ANY or q.qtype == rr.rtype) 
       and (q.qclass == dns_const.CLASS_ANY or q.qclass == rr.rclass) 
-      and dnsdb.ll_equal(q.name, rr.name)
+      and dns_db.ll_equal(q.name, rr.name)
 end
 
 local function match_q_q(q, o)
    return q.qtype == o.qtype 
       and q.qclass == o.qclass
-      and dnsdb.ll_equal(q.name, o.name)
+      and dns_db.ll_equal(q.name, o.name)
 end
 
 local function extend_kas_with_anish(kas, l)
@@ -169,9 +169,9 @@ end
 
 local function convert_anish_to_kas(kas)
    if not kas then return end
-   if dnsdb.ns:is_instance(kas) then return kas end
-   -- on-the-fly convert list of answers to dnsdb:ns
-   local tns = dnsdb.ns:new{}
+   if dns_db.ns:is_instance(kas) then return kas end
+   -- on-the-fly convert list of answers to dns_db:ns
+   local tns = dns_db.ns:new{}
    mst.a(type(kas) == 'table', 'weird kas', kas)
    extend_kas_with_anish(tns, kas)
    return tns
@@ -186,9 +186,9 @@ mdns_if = mst.create_class{class='mdns_if',
                            mandatory={'ifname', 'parent'}}
 
 function mdns_if:init()
-   self.cache = dnsdb.ns:new{}
+   self.cache = dns_db.ns:new{}
 
-   self.own = dnsdb.ns:new{}
+   self.own = dns_db.ns:new{}
 
    -- set of queries/responses to be handled 'soon'
    -- (query has .query; response to message has .msg, among other things)
@@ -232,7 +232,7 @@ function mdns_if:init()
       end
    end
 
-   self.probe = dnsdb.ns:new{}
+   self.probe = dns_db.ns:new{}
    self.probe_sl = mst_skiplist.ipi_skiplist:new{p=2,
                                                  prefix='probe_sl',
                                                  lt=next_is_less,
@@ -328,7 +328,7 @@ function mdns_if:mark_nsec_dirty(rr)
    local d = self.dirty_nsec
    if not d
    then
-      d = dnsdb.ns:new{}
+      d = dns_db.ns:new{}
       self.dirty_nsec = d
    end
    d:insert_rr{name=rr.name, rtype=0,rclass=0}
@@ -452,7 +452,7 @@ function mdns_if:run_expire(now)
    then
       self:d('sending expire ttl=0 for #pending', #pending)
       -- send per-interface 'these are gone' fyi messages
-      local s = dnscodec.dns_message:encode{an=pending, 
+      local s = dns_codec.dns_message:encode{an=pending, 
                                             h=mdns_const.DEFAULT_RESPONSE_HEADER}
       local dst = mdns_const.MULTICAST_ADDRESS_IPV6 .. '%' .. self.ifname
       self:sendto(s, dst, mdns_const.PORT)
@@ -685,7 +685,7 @@ end
 
 function mdns_if:determine_ar(an, kas)
    local ar = {}
-   local all = dnsdb.ns:new{}
+   local all = dns_db.ns:new{}
 
    -- initially, seed 'all' with whatever is already in answer; we 
    -- do NOT want to send those
@@ -742,7 +742,7 @@ function mdns_if:send_reply(an, ar, kas, id, dst, dstport, unicast)
    h.qr = true
    h.aa = true
 
-   local s = dnscodec.dns_message:encode(o)
+   local s = dns_codec.dns_message:encode(o)
    self:d('sending reply', o)
    self:sendto(s, dst, dstport)
 
@@ -762,7 +762,7 @@ function mdns_if:send_multicast_query(qd, kas, ns)
       an = self:copy_rrs_with_updated_ttl(oan, true, true)
       self:d('kas ttl update', #oan, #an)
    end
-   local s = dnscodec.dns_message:encode{qd=qd, an=an, ns=ns}
+   local s = dns_codec.dns_message:encode{qd=qd, an=an, ns=ns}
    self:sendto(s, dst, mdns_const.PORT)
 end
 
@@ -841,7 +841,7 @@ function mdns_if:send_delayed_multicast_queries(ql)
    local qd = mst.array:new{}
    local ns = self.own
    local nsc = self.cache
-   local kas = dnsdb.ns:new{}
+   local kas = dns_db.ns:new{}
    local now = self:time()
 
    self:d('send_delayed_multicast_queries', #ql)
@@ -1512,7 +1512,7 @@ function mdns_if:send_announces()
    -- not unicast, not legacy, force sending (no last sent checks)
    an = self:copy_rrs_with_updated_ttl(an, false, false, true)
    local h = mdns_const.DEFAULT_RESPONSE_HEADER
-   local s = dnscodec.dns_message:encode{an=an, h=h}
+   local s = dns_codec.dns_message:encode{an=an, h=h}
    local dst = mdns_const.MULTICAST_ADDRESS_IPV6 .. '%' .. self.ifname
    self:d(now, 'sending announce(s)', #an)
    -- XXX ( handle fragmentation )
@@ -1529,7 +1529,7 @@ function mdns_if:send_probes()
                                      'last_sent_probe', SEND_PROBES_EVERY)
    if not ons then return end
    local qd = {}
-   local tns = dnsdb.ns:new{}
+   local tns = dns_db.ns:new{}
    for i, rr in ipairs(ons)
    do
       local found = false
@@ -1634,7 +1634,7 @@ function mdns_if:stop_propagate_rr(rr)
 end
 
 function mdns_if:handle_recvfrom(data, addr, srcport)
-   local msg, err = dnscodec.dns_message:decode(data)
+   local msg, err = dns_codec.dns_message:decode(data)
 
    -- if message is garbage, we just ignore
    if not msg
@@ -1733,14 +1733,14 @@ function mdns_if:propagate_o_l(o, l)
    local ol = self.own:find_rr_list(o)
    for i, rr in ipairs(ol or {})
    do
-      rdata2own[dnsdb.rr.get_rdata(rr)] = rr
+      rdata2own[dns_db.rr.get_rdata(rr)] = rr
    end
 
    -- O(n log n)
    local rdata2l = {}
    for i, rr in ipairs(l or {})
    do
-      rdata2l[dnsdb.rr.get_rdata(rr)] = rr
+      rdata2l[dns_db.rr.get_rdata(rr)] = rr
    end
    
    -- (?) - hopefully efficient

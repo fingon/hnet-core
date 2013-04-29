@@ -1,14 +1,14 @@
 #!/usr/bin/env lua
 -- -*-lua-*-
 --
--- $Id: jsoncodec.lua $
+-- $Id: json_codec.lua $
 --
 -- Author: Markus Stenberg <fingon@iki.fi>
 --
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 20 18:30:13 2012 mstenber
--- Last modified: Sun Nov  4 01:22:41 2012 mstenber
+-- Last modified: Mon Apr 29 11:08:30 2013 mstenber
 -- Edit time:     72 min
 --
 
@@ -30,9 +30,9 @@ local _hs = #_format.pack({magic=HEADER_MAGIC,size=0})
 
 module(..., package.seeall)
 
-jsoncodec = mst.create_class{class='jsoncodec', mandatory={'s'}}
+json_codec = mst.create_class{class='json_codec', mandatory={'s'}}
 
-function jsoncodec:init()
+function json_codec:init()
    -- read queue
    self.rq = {}
    self.rql = 0
@@ -50,20 +50,20 @@ function jsoncodec:init()
    end
 end
 
-function jsoncodec:uninit()
+function json_codec:uninit()
    -- we're done; just propagate the info
    self:call_callback_once('done_callback')
    self.s:done()
 end
 
-function jsoncodec:repr_data()
+function json_codec:repr_data()
    return string.format('s:%s #rq:%d rql:%d',
                         mst.repr(self.s),
                         self.rq and #self.rq or -1,
                         self.rql and self.rql or -1)
 end
 
-function jsoncodec:write(o)
+function json_codec:write(o)
    self:d('write', o)
 
    -- encode the blob in a string
@@ -76,7 +76,7 @@ function jsoncodec:write(o)
    self:d('wrote', #x, self.written)
 end
 
-function jsoncodec:rq_join()
+function json_codec:rq_join()
    -- we should be called only when #rq > 1
    self:a(#self.rq > 1)
 
@@ -85,12 +85,12 @@ function jsoncodec:rq_join()
    self:a(#self.rq == 1)
 end
 
-function jsoncodec:handle_close()
+function json_codec:handle_close()
    self:call_callback_once('close_callback')
    self:done()
 end
 
-function jsoncodec:handle_data(x)
+function json_codec:handle_data(x)
    self:d('handle_data', #x)
 
    -- by default, just push it off to the rq
@@ -179,6 +179,6 @@ function jsoncodec:handle_data(x)
 end
 
 function wrap_socket(d)
-   local o = jsoncodec:new(d)
+   local o = json_codec:new(d)
    return o
 end

@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 -- -*-lua-*-
 --
--- $Id: dnscodec.lua $
+-- $Id: dns_codec.lua $
 --
 -- Author: Markus Stenberg <markus stenberg@iki.fi>
 --
@@ -40,7 +40,7 @@ require 'ipv6s'
 require 'dns_const'
 require 'dns_name'
 require 'dns_rdata'
-require 'dnsdb'
+require 'dns_db'
 
 module(..., package.seeall)
 
@@ -216,7 +216,7 @@ function dns_message:do_encode(o)
    -- context for storing the encoded offsets of names
    local pos = #r
    local context = {pos=pos}
-   context.ns = dnsdb.ns:new{}
+   context.ns = dns_db.ns:new{}
 
    -- then, handle each sub-list
 

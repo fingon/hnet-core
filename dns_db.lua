@@ -1,14 +1,14 @@
 #!/usr/bin/env lua
 -- -*-lua-*-
 --
--- $Id: dnsdb.lua $
+-- $Id: dns_db.lua $
 --
 -- Author: Markus Stenberg <markus stenberg@iki.fi>
 --
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Wed Feb 27 12:04:50 2013 mstenber
+-- Last modified: Mon Apr 29 11:07:31 2013 mstenber
 -- Edit time:     200 min
 --
 
@@ -22,7 +22,7 @@
 -- What is _unique_?
 -- name + rtype + rclass + rdata (=~ whole rr, -ttl)
 -- (cache_flush is used to clear contents of cache based on name+rtype+rclass,
--- but it should not affect storage in dnsdb itself, just how it's called)
+-- but it should not affect storage in dns_db itself, just how it's called)
 
 require 'mst'
 require 'dns_const'
@@ -94,7 +94,7 @@ function ll2nameish(ll)
    return ll2name(ll)
 end
 
--- extend dnscodec's dns_rr
+-- extend dns_codec's dns_rr
 function ll_equal(ll1, ll2)
    if #ll1 ~= #ll2
    then
@@ -110,7 +110,7 @@ function ll_equal(ll1, ll2)
 end
 
 -- class used for handling single RR record (whether it's from
--- dnscodec, or synthetic created by us)
+-- dns_codec, or synthetic created by us)
 
 rr = mst.create_class{class='rr'}
 
@@ -135,7 +135,7 @@ function rr:repr_data()
 end
 
 function rr:get_rdata()
-   return dnscodec.dns_rr:produce_rdata(self)
+   return dns_codec.dns_rr:produce_rdata(self)
 end
 
 function rr:rdata_equals(o)

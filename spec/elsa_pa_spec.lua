@@ -26,13 +26,13 @@ local dsm = _dsm.dsm
 local _delsa = require 'delsa'
 local delsa = _delsa.delsa
 
-local usp_dead_tlv = ospfcodec.usp_ac_tlv:encode{prefix='dead::/16'}
-local json_dead_lifetime_tlv = ospfcodec.json_ac_tlv:encode{table={[elsa_pa.JSON_USP_INFO_KEY]={{prefix='dead::/16', [elsa_pa.PREFERRED_KEY]=300, [elsa_pa.VALID_KEY]=600}}}}
-local jari_tlv_type = ospfcodec.ac_tlv:new_subclass{tlv_type=123}
+local usp_dead_tlv = ospf_codec.usp_ac_tlv:encode{prefix='dead::/16'}
+local json_dead_lifetime_tlv = ospf_codec.json_ac_tlv:encode{table={[elsa_pa.JSON_USP_INFO_KEY]={{prefix='dead::/16', [elsa_pa.PREFERRED_KEY]=300, [elsa_pa.VALID_KEY]=600}}}}
+local jari_tlv_type = ospf_codec.ac_tlv:new_subclass{tlv_type=123}
 local broken_jari_tlv = jari_tlv_type:new{}:encode{body=''}
 
-local rhf_low_tlv = ospfcodec.rhf_ac_tlv:encode{body=string.rep("a", 32)}
-local rhf_high_tlv = ospfcodec.rhf_ac_tlv:encode{body=string.rep("z", 32)}
+local rhf_low_tlv = ospf_codec.rhf_ac_tlv:encode{body=string.rep("a", 32)}
+local rhf_high_tlv = ospf_codec.rhf_ac_tlv:encode{body=string.rep("z", 32)}
 local valid_end='::/64'
 
 local FAKE_DNS_ADDRESS='dead::1'

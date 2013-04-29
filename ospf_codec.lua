@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 -- -*-lua-*-
 --
--- $Id: ospfcodec.lua $
+-- $Id: ospf_codec.lua $
 --
 -- Author: Markus Stenberg <markus stenberg@iki.fi>
 --

@@ -1,29 +1,29 @@
 #!/usr/bin/env lua
 -- -*-lua-*-
 --
--- $Id: jsoncodec_spec.lua $
+-- $Id: json_codec_spec.lua $
 --
 -- Author: Markus Stenberg <markus stenberg@iki.fi>
 --
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Sun Nov  4 01:05:02 2012 mstenber
--- Last modified: Sun Nov  4 01:24:06 2012 mstenber
--- Edit time:     15 min
+-- Last modified: Mon Apr 29 11:13:03 2013 mstenber
+-- Edit time:     16 min
 --
 
 require 'busted'
-require 'jsoncodec'
+require 'json_codec'
 
 NUMBER_OF_BLOBS=100
 
-describe("jsoncodec", function ()
+describe("json_codec", function ()
             local c
             local s
             before_each(function ()
                            s = mst.array:new()
                            s.write = s.insert
-                           c = jsoncodec.wrap_socket{s=s}
+                           c = json_codec.wrap_socket{s=s}
                            function c:repr_data()
                               return '?'
                            end
