@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Mon Apr 29 11:13:21 2013 mstenber
+-- Last modified: Tue Apr 30 13:11:07 2013 mstenber
 -- Edit time:     826 min
 --
 
@@ -655,7 +655,7 @@ local query_kas_dummy_a_cf = dns_codec.dns_message:encode{
                                                         }
 
 local query_dummy_aaaa_qu = dns_codec.dns_message:encode{
-   qd={{name=rr_dummy_a_cf.name, qtype=dns_const.TYPE_AAAA, qu=true}},
+   qd={{name=rr_dummy_aaaa_cf.name, qtype=dns_const.TYPE_AAAA, qu=true}},
                                                        }
 
 local q_foo_a = {name=rr_foo_a_cf.name, qtype=dns_const.TYPE_A, qu=true}
