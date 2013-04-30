@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Apr 29 18:16:53 2013 mstenber
--- Last modified: Tue Apr 30 13:51:11 2013 mstenber
--- Edit time:     59 min
+-- Last modified: Tue Apr 30 17:49:28 2013 mstenber
+-- Edit time:     75 min
 --
 
 -- This is minimalist DNS proxy implementation.
@@ -25,6 +25,9 @@
 -- - prevent new (just require # in flight number)
 -- XXX - choose
 
+-- XXX - see if {tcp,udp}_handler subclasses are even needed. with the
+-- channel abstraction, they might not be.
+
 -- Architecturally, 'handler' is responsible for single socket (see
 -- diagrams). It provides a way of getting a request, and sending a
 -- reply to it. Requests and replies are handled in a loop, and it is
@@ -39,18 +42,17 @@ require 'scbtcp'
 
 module(..., package.seeall)
 
-handler = mst.create_class{class='handler', mandatory={"s"}}
+handler = mst.create_class{class='handler', mandatory={"c"}}
 
 function handler:init()
    self.stopped = true
-   self.s = scr.wrap_socket(self.s)
    self:start()
 end
 
 function handler:uninit()
    self:stop()
-   -- explicitly close the socket (assume we always have one)
-   self.s:done()
+   -- kill the underlying channel too
+   self.c:done()
 end
 
 function handler:start()
@@ -111,38 +113,25 @@ end
 udp_handler = handler:new_subclass{class='tcp_handler'}
 
 function udp_handler:read_request()
-   local b, ip, port = self.s:receivefrom()
-
-   -- binary => dns-decoded structure, if possible (if not, just
-   -- return nil, and get called again)
-   local msg, err = dns_codec.dns_message:decode(b)
-   if not msg
-   then
-      return nil, err
-   end
-   return msg, {ip, port}
+   return self.c:receive_msg()
 end
 
 function udp_handler:send_response(msg, dst)
-   local addr, port = unpack(dst)
-   local b = dns_codec.dns_message:encode(msg)
-   self.s:sendto(b, addr, port)
+   self:a(dst, 'no destination')
+   self.c:send_msg(msg, dst)
 end
 
-dns_proxy = mst.create_class{class='dns_proxy',
-                             tcp_port=53,
-                             udp_port=53}
+dns_proxy = mst.create_class{class='dns_proxy'}
 
 function dns_proxy:init()
-   local udp_s, err = scb.create_udp_socket{host='*', port=self.udp_port}
-   self:a(udp_s, 'unable to create udp socket', err)
-
-   -- create handler for UDP requests + start it
-
-   self.udp = udp_handler:new{s=udp_s}
+   -- create UDP channel
+   local udp_c = dns_channel.get_udp_channel{port=self.udp_port}
+   -- and then associate handler with it
+   self.udp = udp_handler:new{c=udp_c}
    self.udp:start()
 
-   local tcp_s = scbtcp.create_listener{host='*', port=self.tcp_port}
+   local tcp_port = self.tcp_port or self.port or dns_const.PORT
+   local tcp_s = scbtcp.create_listener{host='*', port=tcp_port}
    self.tcp_s = scr.wrap_socket(tcp_s)
    
    -- fire off coroutine; we get rid of it by killing the tcp_s..

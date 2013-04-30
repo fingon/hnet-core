@@ -8,11 +8,14 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:03:28 2013 mstenber
--- Last modified: Mon Jan 14 13:03:45 2013 mstenber
+-- Last modified: Tue Apr 30 16:39:40 2013 mstenber
 -- Edit time:     0 min
 --
 
 module(...)
+
+-- protocol port #
+PORT=53
 
 CLASS_IN=1
 CLASS_ANY=255

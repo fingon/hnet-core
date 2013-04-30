@@ -8,15 +8,17 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 12:51:51 2013 mstenber
--- Last modified: Tue Apr 30 13:38:14 2013 mstenber
--- Edit time:     13 min
+-- Last modified: Tue Apr 30 17:30:59 2013 mstenber
+-- Edit time:     24 min
 --
 
 require "busted"
 require "dns_proxy"
 require "scb"
+require "scr"
 require 'dns_const'
 require 'dns_codec'
+require 'dns_channel'
 
 module("dns_proxy_spec", package.seeall)
 
@@ -28,24 +30,23 @@ local rr_dummy_aaaa = {name={'dummy', 'local'},
                        ttl=DUMMY_TTL,
 }
 
-local query_dummy_aaaa = dns_codec.dns_message:encode{
-   qd={{name=rr_dummy_aaaa.name, qtype=dns_const.TYPE_AAAA}},
-                                                       }
+local query_dummy_aaaa = {qd={{name=rr_dummy_aaaa.name, qtype=dns_const.TYPE_AAAA}}}
 
-function test_response(binary, host, port)
-   local got 
-   local rs1 = scb.create_udp_socket{host='*', port=0}
-   local s1 = scr.wrap_socket(rs1)
-   local testclient = scr.run(function ()
-                                 s1:sendto(binary, host, port)
-                                 local r, ip, port = s1:receivefrom()
-                                 got = r
-                              end)
+function test_response(msg, host, port)
+   local c, err = dns_channel.get_udp_channel{port=0}
+   mst.a(c, 'unable to create channel', err)
+   local got
+   scr.run(
+      function ()
+         c:send_msg(msg, {host, port})
+         got = c:receive_msg(1)
+      end
+          )
    local r = ssloop.loop():loop_until(function ()
                                          return got
                                       end, 1)
    mst.a(r, 'timed out - no reply')
-   s1:done()
+   c:done()
    return got
 end
 
@@ -54,6 +55,7 @@ describe("dns_proxy", function ()
                   local p = dns_proxy.dns_proxy:new{tcp_port=5354,
                                                     udp_port=5354}
                   p:done()
+                  scr.clear_scr()
                    end)
 
             it("works #w", function ()
@@ -68,7 +70,7 @@ describe("dns_proxy", function ()
                   local r = test_response(query_dummy_aaaa, thost, p0)
                   
                   p:done()
-
+                  scr.clear_scr()
                    end)
             -- XXX - test TCP
 
