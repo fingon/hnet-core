@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Apr 29 18:16:53 2013 mstenber
--- Last modified: Tue Apr 30 13:04:25 2013 mstenber
--- Edit time:     53 min
+-- Last modified: Tue Apr 30 13:51:11 2013 mstenber
+-- Edit time:     59 min
 --
 
 -- This is minimalist DNS proxy implementation.
@@ -42,6 +42,7 @@ module(..., package.seeall)
 handler = mst.create_class{class='handler', mandatory={"s"}}
 
 function handler:init()
+   self.stopped = true
    self.s = scr.wrap_socket(self.s)
    self:start()
 end
@@ -53,18 +54,18 @@ function handler:uninit()
 end
 
 function handler:start()
-   if self.running
+   if not self.stopped
    then
       return
    end
-   self.running = true
+   self.stopped = nil
    scr.run(self.loop, self)
 end
 
 function handler:stop()
    -- loop shouldn't even resume, if things happen correctly, but at
    -- least it should never send a reply any more..
-   self.running = nil
+   self.stopped = true
 end
 
 function handler:loop()
@@ -72,20 +73,24 @@ function handler:loop()
    do
       -- subclass responsibility
       local r, src = self:read_request()
-      if not self.running then return end
+      if self.stopped then return end
       if r
       then
-         scr.run(self.handle_request, self, r, sec)
+         scr.run(self.handle_request, self, r, src)
       end
    end
 end
 
 function handler:handle_request(msg, src)
+   self:d('handle_request', msg, src)
+
    local reply
 
+   -- for test purposes, just return request
+   reply = msg
 
-
-   if not self.running then return end
+   if self.stopped then return end
+   self:d('sending reply', reply)
    if reply
    then
       -- subclass responsibility
