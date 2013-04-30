@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Thu Apr 25 15:43:44 2013 mstenber
--- Edit time:     199 min
+-- Last modified: Tue Apr 30 13:01:37 2013 mstenber
+-- Edit time:     202 min
 --
 
 -- convenience stuff on top of LuaSocket (most of the action happens
@@ -23,6 +23,7 @@ local ssloop = require 'ssloop'
 local socket = require 'socket'
 local ipv4s = require 'ipv4s'
 local type = type
+local string = require 'string'
 
 module(...)
 
@@ -175,10 +176,12 @@ function create_udp_socket(d)
    end
    s:settimeout(0)
    s:setoption('reuseaddr', true)
+   --s:setoption('reuseportr', true)
    local r, err = s:setsockname(d.host, d.port)
    if not r
    then
-      return r, 'error in setsockname' .. err
+      return r, string.format('error in setsockname:%s for %s',
+                              err, mst.repr(d))
    end
    return s
 end

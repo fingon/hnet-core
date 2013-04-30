@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:13:25 2013 mstenber
--- Last modified: Thu Apr 25 15:54:58 2013 mstenber
--- Edit time:     122 min
+-- Last modified: Tue Apr 30 13:04:17 2013 mstenber
+-- Edit time:     129 min
 --
 
 -- coroutine event reactor - coroutine based handling of file
@@ -153,6 +153,7 @@ function scrsocket:init()
 end
 
 function scrsocket:uninit()
+   self.s:close()
    self:clear_ssloop()
 end
 
@@ -178,29 +179,19 @@ function scrsocket:get_loop()
    return self.loop or ssloop.loop()
 end
 
-function scrsocket:get_reader()
-   local readable
-   local o = self:get_loop():new_reader(self.s,
-                                        function ()
-                                           readable = true
-                                        end)
+function scrsocket:get_io(reader)
+   local actionable
+   local loop = self:get_loop()
+   local f = reader and loop.new_reader or loop.new_writer
+   local o = f(loop, self.s,
+               function ()
+                  actionable = true
+               end)
    o:start()
    local function done()
-      return readable
+      return actionable
    end
    return done, o
-end
-
-function scrsocket:get_writer()
-   local writable
-   local o = self:get_loop():new_writer(self.s,
-                                        function ()
-                                           writable = true
-                                        end)
-   o:start()
-   return function ()
-      return writable
-          end, o
 end
 
 
@@ -217,16 +208,8 @@ function scrsocket:get_timeout(timeout)
           end, o
 end
 
-function scrsocket:accept(timeout)
-   local r, ro = self:get_reader()
-   self.ro = ro
-   coroutine.yield(r)
-   self:clear_ssloop()
-   return self.s:accept()
-end
-
-function scrsocket:reader_with_timeout(fun, timeout)
-   local r, ro = self:get_reader()
+function scrsocket:io_with_timeout(fun, readable, timeout)
+   local r, ro = self:get_io(readable)
    self.ro = ro
    local t, to = self:get_timeout(timeout)
    self.to = to
@@ -240,22 +223,30 @@ function scrsocket:reader_with_timeout(fun, timeout)
    return fun()
 end
 
+function scrsocket:accept(timeout)
+   return self:io_with_timeout(function ()
+                                  self:d('accept')
+                                  return self.s:accept()
+                               end, true, timeout)
+end
+
 function scrsocket:receive(pattern, timeout)
-   return self:reader_with_timeout(function ()
-                                      return self.s:receive(pattern)
-                                   end, timeout)
+   return self:io_with_timeout(function ()
+                                  self:d('receive', pattern)
+                                  return self.s:receive(pattern)
+                               end, true, timeout)
 end
 
 function scrsocket:receivefrom(timeout)
-   return self:reader_with_timeout(function ()
-                                      self:d('receivefrom')
-                                      return self.s:receivefrom()
-                                   end, timeout)
+   return self:io_with_timeout(function ()
+                                  self:d('receivefrom')
+                                  return self.s:receivefrom()
+                               end, true, timeout)
 end
 
 function scrsocket:send(d, timeout)
    local sent = 0
-   local w, wo = self:get_writer()
+   local w, wo = self:get_io(false)
    self.wo = wo
    local t, to = self:get_timeout(timeout)
    self.to = to

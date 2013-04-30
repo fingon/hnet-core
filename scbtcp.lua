@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 11:15:32 2013 mstenber
--- Last modified: Mon Feb  4 17:29:19 2013 mstenber
--- Edit time:     17 min
+-- Last modified: Tue Apr 30 12:38:33 2013 mstenber
+-- Edit time:     18 min
 --
 
 -- (Code has been moved here from scb.lua)
@@ -177,8 +177,8 @@ function wrap_socket(d)
    return evio
 end
 
-function new_listener(d)
-   mst.check_parameters("scb:new_listener", d, {"host", "port", "callback"}, 3)
+function create_listener(d)
+   mst.check_parameters("scb:new_listener", d, {"host", "port"}, 3)
    local s
    if scb.parameters_or_host_ipv6ish(d)
    then
@@ -193,6 +193,16 @@ function new_listener(d)
    if r
    then
       s:listen(10)
+      return s
+   end
+   return nil, err
+end
+
+function new_listener(d)
+   mst.check_parameters("scb:new_listener", d, {"host", "port", "callback"}, 3)
+   local s, err = create_listener(d)
+   if s
+   then
       d.s = s
       l = ScbListen:new(d)
       l:start()
