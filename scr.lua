@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:13:25 2013 mstenber
--- Last modified: Tue Apr 30 13:04:17 2013 mstenber
--- Edit time:     129 min
+-- Last modified: Tue Apr 30 19:05:19 2013 mstenber
+-- Edit time:     133 min
 --
 
 -- coroutine event reactor - coroutine based handling of file
@@ -310,7 +310,23 @@ function run(f, ...)
    return get_scr():run(f, ...)
 end
 
+
+function timeouted_run_async_call(timeout, fun, ...)
+   local done
+   local args = {...}
+   run(function ()
+          done = {fun(unpack(args))}
+       end)
+   local r = ssloop.loop():loop_until(function ()
+                                         return done
+                                      end, timeout)
+   if not r then return end
+   return unpack(done)
+end
+
+
 function wrap_socket(s)
    mst.a(s, 'no socket provided')
    return scrsocket:new{s=s}
 end
+
