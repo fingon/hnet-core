@@ -1,7 +1,7 @@
     Author:        Markus Stenberg <markus.stenberg@iki.fi>, cisco Systems, Inc.
     Created:       Tue Nov  6 16:10:45 2012 mstenber
-    Last modified: Wed Nov  7 10:20:17 2012 mstenber
-    Edit time:     40 min
+    Last modified: Thu May  2 13:34:48 2013 mstenber
+    Edit time:     42 min
 
 hnet (core) package
 ===================
@@ -136,6 +136,8 @@ system should work.
 
 * Jari Arkko <jari.arkko@piuha.net> - bugfixing help with the
   implementation.
+
+* edderick@github - bug report on OSPF AC TLV handling.
 
 [D1]: http://tools.ietf.org/html/draft-arkko-homenet-prefix-assignment
 [D2]: http://tools.ietf.org/html/draft-ietf-ospf-ospfv3-autoconfig-00
