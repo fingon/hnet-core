@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:07:43 2012 mstenber
--- Last modified: Wed Apr 10 17:00:18 2013 mstenber
--- Edit time:     7 min
+-- Last modified: Thu May  2 13:16:17 2013 mstenber
+-- Edit time:     31 min
 --
 
 require 'codec'
@@ -35,6 +35,8 @@ AC_TLV_ASP=3
 AC_TLV_JSONBLOB=42
 
 MINIMUM_AC_TLV_RHF_LENGTH=32
+
+AC_TLV_HEADER_LENGTH=4
 
 local _null = string.char(0)
 
@@ -62,7 +64,9 @@ function ac_tlv:try_decode(cur)
    if not o then return o, err end
 
    local header_length = self.header_length
-   local body_length = o.length - header_length
+   -- ASP header contains embedded interface ID, which we want to
+   -- discount
+   local body_length = o.length - header_length + AC_TLV_HEADER_LENGTH
 
    -- then make sure there's also enough space left for the body
    if not cursor_has_left(cur, body_length) 
@@ -75,23 +79,28 @@ function ac_tlv:try_decode(cur)
    then 
       return nil, string.format("wrong type - expected %d, got %d", self.tlv_type, o.type)
    end
-   o.body = cur:read(body_length)
-   self:a(#o.body == body_length)
-   -- process also padding
-   if o.length % 4 ~= 0
+   if body_length > 0
    then
-      local npad = 4 - o.length % 4
-      local padding, err = cur:read(npad)
-      if not padding
+      o.body = cur:read(body_length)
+      self:a(#o.body == body_length)
+      --mst.d('got body of', body_length, mst.string_to_hex(o.body))
+
+      -- process also padding
+      if o.length % 4 ~= 0
       then
-         return nil, string.format('error reading padding: %s', mst.repr(err))
+         local npad = 4 - o.length % 4
+         local padding, err = cur:read(npad)
+         if not padding
+         then
+            return nil, string.format('error reading padding: %s', mst.repr(err))
+         end
+         mst.a(padding, 'unable to read padding', npad)
+         if #padding ~= npad
+         then
+            return nil, string.format('eof while reading padding')
+         end
+         mst.a(#padding == npad)
       end
-      mst.a(padding, 'unable to read padding', npad)
-      if #padding ~= npad
-      then
-         return nil, string.format('eof while reading padding')
-      end
-      mst.a(#padding == npad)
    end
    return o
 end
@@ -99,10 +108,14 @@ end
 function ac_tlv:do_encode(o)
    -- must be a subclass which has tlv_type set!
    self:a(self.tlv_type, 'self.tlv_type not set')
-   o.length = #o.body + self.header_length -- include the ac_tlv length
+   -- ASP header contains embedded interface ID, which we want to
+   -- include in the final length
+   local body = o.body or ''
+   o.length = #body + self.header_length - AC_TLV_HEADER_LENGTH
+   local b = abstract_data.do_encode(self, o)
    local npad = (4 - o.length % 4) % 4
    local padding = string.rep(_null, npad)
-   local t = {abstract_data.do_encode(self, o), o.body, padding}
+   local t = {b, body, padding}
    return table.concat(t)
 end
 
@@ -228,25 +241,28 @@ end
 
 local _tlv_decoders = {rhf_ac_tlv, usp_ac_tlv, asp_ac_tlv, json_ac_tlv}
 
-function decode_ac_tlvs(s)
+function decode_ac_tlvs(s, decoders)
 
    local cur = vstruct.cursor(s)
    --mst.d('decode_ac_tlvs', #s)
 
+   decoders = decoders or _tlv_decoders
+
    --mst.d('decoders', #_tlv_decoders)
-   local hls = mst.array_map(_tlv_decoders,
+   local hls = mst.array_map(decoders,
                              function (t) 
                                 return t.header_length
                              end)
    --mst.d('hls', hls)
    local minimum_size = mst.min(unpack(hls))
    --mst.d('minimum_size', minimum_size)
+   --mst.d('minimum_sizes', hls)
 
    local t = {}
    while codec.cursor_has_left(cur, minimum_size)
    do
       local found = false
-      for i, v in ipairs(_tlv_decoders)
+      for i, v in ipairs(decoders)
       do
          --mst.d('looping decoder', i)
 
