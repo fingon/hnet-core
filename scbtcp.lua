@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 11:15:32 2013 mstenber
--- Last modified: Tue Apr 30 12:38:33 2013 mstenber
--- Edit time:     18 min
+-- Last modified: Thu May  2 14:09:52 2013 mstenber
+-- Edit time:     21 min
 --
 
 -- (Code has been moved here from scb.lua)
@@ -177,8 +177,9 @@ function wrap_socket(d)
    return evio
 end
 
-function create_listener(d)
-   mst.check_parameters("scb:new_listener", d, {"host", "port"}, 3)
+function create_socket(d)
+   -- no mandatory parameters really, can have host if necessary
+   --mst.check_parameters("scb:create_listener", d, {"host"}, 3)
    local s
    if scb.parameters_or_host_ipv6ish(d)
    then
@@ -189,6 +190,12 @@ function create_listener(d)
    s:settimeout(0)
    s:setoption('reuseaddr', true)
    s:setoption('tcp-nodelay', true)
+   return s
+end
+
+function create_listener(d)
+   mst.check_parameters("scb:create_listener", d, {"host", "port"}, 3)
+   local s = create_socket(d)
    local r, err = s:bind(d.host, d.port)
    if r
    then
@@ -214,15 +221,7 @@ end
 function new_connect(d)
    -- host, port, connected_callback, callback
    mst.check_parameters("scb:new_connect", d, {"host", "port", "callback"}, 3)
-   local s 
-   if scb.parameters_or_host_ipv6ish(d)
-   then
-      s = socket.tcp6()
-   else
-      s = socket.tcp()
-   end
-   s:settimeout(0)
-   s:setoption('tcp-nodelay', true)
+   local s  = create_socket(d)
    local r, e = s:connect(d.host, d.port)
    --print('new_connect', r, e)
    d.s = s

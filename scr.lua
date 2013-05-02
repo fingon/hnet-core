@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:13:25 2013 mstenber
--- Last modified: Tue Apr 30 19:05:19 2013 mstenber
--- Edit time:     133 min
+-- Last modified: Thu May  2 14:52:39 2013 mstenber
+-- Edit time:     139 min
 --
 
 -- coroutine event reactor - coroutine based handling of file
@@ -223,24 +223,52 @@ function scrsocket:io_with_timeout(fun, readable, timeout)
    return fun()
 end
 
+-- tcp
+
 function scrsocket:accept(timeout)
    return self:io_with_timeout(function ()
                                   self:d('accept')
-                                  return self.s:accept()
+                                  local s, err = self.s:accept()
+                                  if s
+                                  then
+                                     s:settimeout(0)
+                                     s = wrap_socket(s)
+                                  end
+                                  return s, err
                                end, true, timeout)
 end
 
-function scrsocket:receive(pattern, timeout)
+function scrsocket:connect(host, port, timeout)
+   mst.d('connect', host, port)
+
+   local r, e = self.s:connect(host, port)
+   self:d('got from connect', r, e)
+   if r == 1
+   then
+      return r
+   end
+   -- blocking connect call -> wait for it to finish
+   return self:io_with_timeout(function ()
+                                  self:d('[callback] connect', host, port)
+                                  local r, err = self.s:connect(host, port)
+                                  if err == scbtcp.ERR_CONNECTION_REFUSED
+                                  then
+                                     r = nil
+                                  else
+                                     -- anything else = ok?
+                                     r = true
+                                  end
+                                  return r, err
+                               end, false, timeout)
+end
+
+function scrsocket:receive(timeout)
    return self:io_with_timeout(function ()
                                   self:d('receive', pattern)
-                                  return self.s:receive(pattern)
-                               end, true, timeout)
-end
-
-function scrsocket:receivefrom(timeout)
-   return self:io_with_timeout(function ()
-                                  self:d('receivefrom')
-                                  return self.s:receivefrom()
+                                  local r, err, partial = self.s:receive(2^10)
+                                  local s = r or partial
+                                  s = #s>0 and s
+                                  return s, err
                                end, true, timeout)
 end
 
@@ -267,10 +295,21 @@ function scrsocket:send(d, timeout)
    return true
 end
 
+-- udp
+
+function scrsocket:receivefrom(timeout)
+   return self:io_with_timeout(function ()
+                                  self:d('receivefrom')
+                                  return self.s:receivefrom()
+                               end, true, timeout)
+end
+
 function scrsocket:sendto(...)
    self:d('sendto', ...)
    self.s:sendto(...)
 end
+
+-- shared
 
 function scrsocket:close()
    -- just proxied
