@@ -90,6 +90,15 @@ same link confuse the other party.
 
 * PA - Things to do
 
+** Change every 'system state altering thing' to a shell script
+
+Should really browse through pm_*.lua, but at least this:
+
+- ip address changes 
+
+ => enables easy way of stopping address changes, or using system-specific
+ way to do it
+
 ** Add convenience mgmt layer to VM topology
 
 - dedicate e.g. eth4 just for management traffic, over which we can use ssh
