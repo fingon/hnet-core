@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 18:34:49 2012 mstenber
--- Last modified: Mon Apr 29 11:10:40 2013 mstenber
--- Edit time:     23 min
+-- Last modified: Thu May  2 13:15:58 2013 mstenber
+-- Edit time:     48 min
 --
 
 require "busted"
@@ -87,4 +87,53 @@ describe("make sure stuff is in network order", function ()
                   mst.a(c == _null, 'wierd first character', b)
                   mst.a(string.sub(r, 3, 3) == _null)
                    end)
+end)
+
+describe("manually encoded payloads", function ()
+            it("test that case with _two_ empty AC TLVs works too (according to draft-ietf-ospf-ospfv3-autoconfig-00, it should be encoded as 0's in TLV) #tlv0", function ()
+                  -- type, length (2 bytes ea)
+                  local b = mst.hex_to_string('00010000' ..
+                                              '00020000')
+
+                  local empty_tlv1 = ospf_codec.ac_tlv:new{class='empty_tlv1', tlv_type=1}
+                  local empty_tlv2 = ospf_codec.ac_tlv:new{class='empty_tlv2', tlv_type=2}
+                  mst.a(empty_tlv1.header_length == 4)
+
+                  local o, pos = ospf_codec.decode_ac_tlvs(b, {empty_tlv1, empty_tlv2})
+                  mst.a(o, 'decode error')
+                  mst.a(#o == 2, 'incorrect # of results', o, pos, #b)
+                  mst.a(o[1].type == 1, 'wrong type 1')
+                  mst.a(o[2].type == 2, 'wrong type 2')
+                  -- should be able to encode to same result too
+                  local b2 = 
+                     empty_tlv1:do_encode(o[1]) ..
+                     empty_tlv2:do_encode(o[2]) 
+                  mst.a(b == b2, 'encode mismatch')
+                   end)
+            it("test en-decode with manually encoded IPv6 ASP #asp", function ()
+                  mst.a(ospf_codec.asp_ac_tlv.header_length == 8)
+                  local b = mst.hex_to_string(
+                     '0003' .. -- ASP
+                        '0010' .. -- 16 bytes (4 iid, 1+3 len, 8 prefix)
+
+                        '0000002a' .. -- 4 bytes, iid, 42
+
+                        -- 4 bytes
+                        '40' .. -- prefix length (in bits)
+                        '000000' .. -- reserved'
+                        
+                        'deadbeefcafef00d' -- 8 bytes of prefix'
+                   )
+                  mst.a(#b == 4 + 16) -- base header + what we put in TLV
+                  local o, pos = ospf_codec.decode_ac_tlvs(b)
+                  mst.a(pos == #b)
+                  mst.a(o)
+                  mst.a(#o == 1)
+                  mst.d('got', o)
+                  local b2 = 
+                     ospf_codec.asp_ac_tlv:encode(o[1])
+                  mst.a(b == b2, 'encode mismatch')
+
+                                                                end)
+
 end)
