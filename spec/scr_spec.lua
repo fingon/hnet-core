@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:54:26 2013 mstenber
--- Last modified: Thu May  2 14:54:53 2013 mstenber
--- Edit time:     55 min
+-- Last modified: Fri May  3 12:36:01 2013 mstenber
+-- Edit time:     59 min
 --
 
 -- Simple testsuite for complex stuff - simple coroutine reactor tests
@@ -233,6 +233,8 @@ describe("scrsocket", function ()
                                                       mst.d('client got', #r)
                                                       if not r then return end
                                                    end
+                                                   mst.a(got == #b, 'got too much', got, #b)
+
                                                    -- double size
                                                    -- (to make sure we get fragmented reads at some point)
                                                    if stopping then break end
@@ -242,7 +244,7 @@ describe("scrsocket", function ()
                                                 s1:done()
                                              end)
                   local r = ssloop.loop():loop_until(function ()
-                                                        return frag > 0
+                                                        return frag > 0 and #b > 2^17
                                                      end, 1)
                   mst.a(r, 'timed out 1')
                   stopping = true
