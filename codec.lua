@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Wed Feb 20 19:01:36 2013 mstenber
+-- Last modified: Fri May  3 13:57:06 2013 mstenber
 -- Edit time:     226 min
 --
 
@@ -45,7 +45,7 @@ function abstract_base:decode(cur, context)
    local o, err = self:try_decode(cur, context)
    if o
    then
-      return o
+      return o, cur.pos
    end
    -- decode failed => restore cursor to wherever it was
    cur.pos = old_pos
