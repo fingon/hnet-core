@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Tue Apr 30 19:25:50 2013 mstenber
--- Edit time:     29 min
+-- Last modified: Fri May  3 14:00:10 2013 mstenber
+-- Edit time:     59 min
 --
 
 -- DNS channels is an abstraction between two entities that speak DNS,
@@ -52,6 +52,51 @@ function channel:uninit()
    self.s:done()
 end
 
+tcp_channel = channel:new_subclass{class='tcp_channel'}
+
+function tcp_channel:send_msg(msg)
+   self:a(msg, 'no message')
+   local binary = dns_codec.dns_message:encode(msg)
+   return self.s:send(binary)
+end
+
+function tcp_channel:receive_msg(timeout)
+   -- this is rather tricky. we have to ensure that we get only whole
+   -- message, but we _also_ have to keep some leftovers around.
+   
+   while true
+   do
+      -- first off, see if we've got enough in our incoming queue
+      if self.queue
+      then
+         local msg, pos = dns_codec.dns_message:decode(self.queue)
+         if msg
+         then
+            self.queue = string.sub(self.queue, pos)
+            return msg
+         end
+      end
+
+      -- no (full?) message, have to receive more
+      local b, err = self.s:receive(timeout)
+      if not b
+      then
+         return nil, err
+      end
+      
+      if self.queue
+      then
+         -- add to queue
+         self.queue = self.queue .. b
+      else
+         -- new queue
+         self.queue = b
+      end
+   end
+end
+
+
+
 udp_channel = channel:new_subclass{class='udp_channel'}
 
 function udp_channel:send_msg(msg, dst)
@@ -63,8 +108,7 @@ function udp_channel:send_msg(msg, dst)
    self:a(host and port, 'host or port missing', dst)
 
    local binary = dns_codec.dns_message:encode(msg)
-
-   self.s:sendto(binary, host, port)
+   return self.s:sendto(binary, host, port)
 end
 
 function udp_channel:receive_msg(timeout)
@@ -93,23 +137,54 @@ function get_udp_channel(self)
    return udp_channel:new{s=udp_s}
 end
 
+function get_tcp_channel(self)
+   self = self or {}
+   local tcp_port = self.port or dns_const.PORT
+   mst.d('creating tcp socket', self)
+   mst.a(self.server)
+   local tcp_s, err = scbtcp.create_socket{host='*', port=tcp_port}
+   mst.a(tcp_s, 'unable to create tcp socket', tcp_port, err)
+   local c = tcp_channel:new{s=tcp_s}
+   local server_port = self.server_port or dns_const.PORT
+   local r, err = c.s:connect(self.server, self.server_port)
+   if not r
+   then
+      return nil, err
+   end
+   return c
+end
+
 -- convenience 'resolve' functions
 
 function resolve_msg_udp(server, msg, timeout)
    mst.a(server and msg, 'server+msg not provided')
-   local c = get_udp_channel{host='*', port=0}
+   local c, err = get_udp_channel{host='*', port=0}
+   if not c then return c, err end
    c:send_msg(msg, {server, dns_const.DNS_PORT}, timeout)
+   local got = c:receive_msg(timeout)
+   if not got then return nil, 'timeout' end
+   -- XXX - should we call done on this or not?
+   c:done()
+   return got
+end
+
+function resolve_msg_tcp(server, msg, timeout)
+   mst.a(server and msg, 'server+msg not provided')
+   local c = get_tcp_channel{host='*', port=0, 
+                             server=server}
+   if not c then return c, err end
+   c:done()
    local got = c:receive_msg(timeout)
    if not got then return nil, 'timeout' end
    return got
 end
 
-function resolve_q_udp(server, q, timeout)
+function resolve_q_base(server, q, timeout, resolve_msg)
    -- 16-bit id, 0 = reserved
    local sid = mst.randint(1, 65535)
    mst.a(sid, 'unable to create id')
 
-   local msg, err = resolve_msg_udp(server, {qd={q}, h={rd=true, id=sid}}, timeout)
+   local msg, err = resolve_msg(server, {qd={q}, h={rd=true, id=sid}}, timeout)
    if not msg
    then
       return nil, err
@@ -121,4 +196,10 @@ function resolve_q_udp(server, q, timeout)
    return msg
 end
 
+function resolve_q_udp(server, q, timeout)
+   return resolve_q_base(server, q, timeout, resolve_msg_udp)
+end
 
+function resolve_q_tcp(server, q, timeout)
+   return resolve_q_base(server, q, timeout, resolve_msg_tcp)
+end

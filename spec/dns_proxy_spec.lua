@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 12:51:51 2013 mstenber
--- Last modified: Tue Apr 30 19:00:18 2013 mstenber
--- Edit time:     25 min
+-- Last modified: Fri May  3 13:46:39 2013 mstenber
+-- Edit time:     33 min
 --
 
 require "busted"
@@ -32,7 +32,11 @@ local rr_dummy_aaaa = {name={'dummy', 'local'},
 
 local query_dummy_aaaa = {qd={{name=rr_dummy_aaaa.name, qtype=dns_const.TYPE_AAAA}}}
 
-function test_response(msg, host, port)
+function echo_process_request(req, src)
+   return req
+end
+
+function test_response_udp(msg, host, port)
    local c, err = dns_channel.get_udp_channel{port=0}
    mst.a(c, 'unable to create channel', err)
    local got
@@ -46,10 +50,27 @@ function test_response(msg, host, port)
    return got
 end
 
+function test_response_tcp(msg, host, port)
+   local got
+   local got = scr.timeouted_run_async_call(1, 
+                                            function ()
+                                               local c, err = dns_channel.get_tcp_channel{port=0, server=host, server_port=port}
+                                               mst.a(c, 'unable to create channel', err)
+                                               c:send_msg(msg)
+                                               local r = c:receive_msg(1)
+                                               c:done()
+                                               return r
+                                            end)
+   mst.a(got, 'timed out - no reply')
+   return got
+
+end
+
 describe("dns_proxy", function ()
             it("can be initialized", function ()
                   local p = dns_proxy.dns_proxy:new{tcp_port=5354,
-                                                    udp_port=5354}
+                                                    udp_port=5354,
+                                                    process_callback=echo_process_request}
                   p:done()
                   scr.clear_scr()
                    end)
@@ -57,13 +78,22 @@ describe("dns_proxy", function ()
             it("works #w", function ()
                   local p0 = 5354
                   local p = dns_proxy.dns_proxy:new{tcp_port=p0,
-                                                    udp_port=p0}
+                                                    udp_port=p0,
+                                                   process_callback=echo_process_request}
                   local thost = scb.LOCALHOST
                   
                   -- send the fake message, expect a reply within 
                   -- 1 second, or things don't work correctly
                   -- (reply should be SOMETHING)
-                  local r = test_response(query_dummy_aaaa, thost, p0)
+                  local r = test_response_udp(query_dummy_aaaa, thost, p0)
+                  mst.a(r, 'timed out')
+
+                  
+                  -- send the fake message, expect a reply within 
+                  -- 1 second, or things don't work correctly
+                  -- (reply should be SOMETHING)
+                  local r = test_response_tcp(query_dummy_aaaa, thost, p0)
+                  mst.a(r, 'timed out')
                   
                   p:done()
                   scr.clear_scr()

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Apr 29 18:16:53 2013 mstenber
--- Last modified: Tue Apr 30 17:49:28 2013 mstenber
--- Edit time:     75 min
+-- Last modified: Fri May  3 14:01:08 2013 mstenber
+-- Edit time:     86 min
 --
 
 -- This is minimalist DNS proxy implementation.
@@ -42,7 +42,7 @@ require 'scbtcp'
 
 module(..., package.seeall)
 
-handler = mst.create_class{class='handler', mandatory={"c"}}
+handler = mst.create_class{class='handler', mandatory={"c", "tcp"}}
 
 function handler:init()
    self.stopped = true
@@ -86,48 +86,37 @@ end
 function handler:handle_request(msg, src)
    self:d('handle_request', msg, src)
 
-   local reply
-
-   -- for test purposes, just return request
-   reply = msg
+   -- call the callback
+   local reply, dst = self.process_callback(msg, src)
+   dst = dst or src
 
    if self.stopped then return end
    self:d('sending reply', reply)
    if reply
    then
       -- subclass responsibility
-      self:send_response(reply, src)
+      self:send_response(reply, dst)
    end
 end
 
-tcp_handler = handler:new_subclass{class='tcp_handler'}
-
-function tcp_handler:read_request()
-   error("not implemented yet")
-end
-
-function tcp_handler:send_response(r, dst)
-   error("not implemented yet")
-end
-
-udp_handler = handler:new_subclass{class='tcp_handler'}
-
-function udp_handler:read_request()
+function handler:read_request()
+   self:d('read_request')
    return self.c:receive_msg()
 end
 
-function udp_handler:send_response(msg, dst)
-   self:a(dst, 'no destination')
+function handler:send_response(msg, dst)
+   self:d('send_response', msg, dst)
+   self:a(self.tcp or dst, 'no destination')
    self.c:send_msg(msg, dst)
 end
 
-dns_proxy = mst.create_class{class='dns_proxy'}
+dns_proxy = mst.create_class{class='dns_proxy', mandatory={'process_callback'}}
 
 function dns_proxy:init()
    -- create UDP channel
    local udp_c = dns_channel.get_udp_channel{port=self.udp_port}
    -- and then associate handler with it
-   self.udp = udp_handler:new{c=udp_c}
+   self.udp = handler:new{c=udp_c, process_callback=self.process_callback, tcp=false}
    self.udp:start()
 
    local tcp_port = self.tcp_port or self.port or dns_const.PORT
@@ -138,10 +127,11 @@ function dns_proxy:init()
    scr.run(function ()
               while true
               do
-                 local c = self.tcp_s:accept()
+                 local s = self.tcp_s:accept()
+                 local tcp_c = dns_channel.tcp_channel:new{s=s}
                  -- XXX - do we need to keep track of these handlers?
                  -- or just fire and forget?
-                 local h = tcp_handler:new{s=c}
+                 local h = handler:new{c=tcp_c, process_callback=self.process_callback, tcp=true}
                  h:start()
               end
            end)
