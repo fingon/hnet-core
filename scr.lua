@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:13:25 2013 mstenber
--- Last modified: Fri May  3 12:32:26 2013 mstenber
--- Edit time:     140 min
+-- Last modified: Fri May  3 13:44:58 2013 mstenber
+-- Edit time:     143 min
 --
 
 -- coroutine event reactor - coroutine based handling of file
@@ -366,6 +366,10 @@ end
 
 function wrap_socket(s)
    mst.a(s, 'no socket provided')
+   if scrsocket:is_instance(s)
+   then
+      return s
+   end
    return scrsocket:new{s=s}
 end
 
