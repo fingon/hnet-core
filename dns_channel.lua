@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Fri May  3 14:00:10 2013 mstenber
--- Edit time:     59 min
+-- Last modified: Mon May  6 13:15:06 2013 mstenber
+-- Edit time:     77 min
 --
 
 -- DNS channels is an abstraction between two entities that speak DNS,
@@ -37,6 +37,8 @@ require 'scbtcp'
 require 'dns_const'
 require 'dns_codec'
 
+ERR_TIMEOUT='timeout'
+
 module(..., package.seeall)
 
 channel = mst.create_class{class='channel', mandatory={'s'}}
@@ -54,10 +56,10 @@ end
 
 tcp_channel = channel:new_subclass{class='tcp_channel'}
 
-function tcp_channel:send_msg(msg)
+function tcp_channel:send_msg(msg, timeout)
    self:a(msg, 'no message')
    local binary = dns_codec.dns_message:encode(msg)
-   return self.s:send(binary)
+   return self.s:send(binary, timeout)
 end
 
 function tcp_channel:receive_msg(timeout)
@@ -146,7 +148,7 @@ function get_tcp_channel(self)
    mst.a(tcp_s, 'unable to create tcp socket', tcp_port, err)
    local c = tcp_channel:new{s=tcp_s}
    local server_port = self.server_port or dns_const.PORT
-   local r, err = c.s:connect(self.server, self.server_port)
+   local r, err = c.s:connect(self.server, server_port)
    if not r
    then
       return nil, err
@@ -160,9 +162,11 @@ function resolve_msg_udp(server, msg, timeout)
    mst.a(server and msg, 'server+msg not provided')
    local c, err = get_udp_channel{host='*', port=0}
    if not c then return c, err end
-   c:send_msg(msg, {server, dns_const.DNS_PORT}, timeout)
-   local got = c:receive_msg(timeout)
-   if not got then return nil, 'timeout' end
+   local dst = {server, dns_const.PORT}
+   local r, err = c:send_msg(msg, dst, timeout)
+   if not r then return nil, ERR_TIMEOUT end
+   local got, err = c:receive_msg(timeout)
+   if not got then return nil, ERR_TIMEOUT end
    -- XXX - should we call done on this or not?
    c:done()
    return got
@@ -173,9 +177,11 @@ function resolve_msg_tcp(server, msg, timeout)
    local c = get_tcp_channel{host='*', port=0, 
                              server=server}
    if not c then return c, err end
-   c:done()
+   local r, err = c:send_msg(msg, timeout)
+   if not r then return nil, ERR_TIMEOUT end
    local got = c:receive_msg(timeout)
-   if not got then return nil, 'timeout' end
+   c:done()
+   if not got then return nil, ERR_TIMEOUT end
    return got
 end
 
@@ -202,4 +208,19 @@ end
 
 function resolve_q_tcp(server, q, timeout)
    return resolve_q_base(server, q, timeout, resolve_msg_tcp)
+end
+
+function resolve_q(server, q, timeout)
+   local msg, err = resolve_q_udp(server, q, timeout)
+   if not msg and err == ERR_TIMEOUT
+   then
+      return nil, err
+   end
+
+   if msg and msg.h.tc
+   then
+      local msg2, err2 = resolve_q_tcp(server, q, timeout)
+      return msg2 or msg, err2
+   end
+   return msg, err
 end
