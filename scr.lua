@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:13:25 2013 mstenber
--- Last modified: Fri May  3 13:44:58 2013 mstenber
--- Edit time:     143 min
+-- Last modified: Mon May  6 13:14:49 2013 mstenber
+-- Edit time:     144 min
 --
 
 -- coroutine event reactor - coroutine based handling of file
@@ -240,6 +240,7 @@ end
 
 function scrsocket:connect(host, port, timeout)
    mst.d('connect', host, port)
+   self:a(host and port, 'host or port not specified')
 
    local r, e = self.s:connect(host, port)
    self:d('got from connect', r, e)
@@ -306,7 +307,7 @@ end
 
 function scrsocket:sendto(...)
    self:d('sendto', ...)
-   self.s:sendto(...)
+   return self.s:sendto(...)
 end
 
 -- shared
