@@ -1,0 +1,71 @@
+-*- outline -*-
+
+* Hybrid proxy design notes
+
+** Components of the system
+
+*** Bunch of routers in home
+
+- either automatically named r<rid>, or manually named (from now on, router
+  name is denoted as <router>)
+
+*** OSPF 'cloud' with prefix assignment
+
+=> owning-router, interface information for each assigned prefix
+
+=> IP address(es) of each router
+
+*** port 53-listening DNS forwarder/mdns proxy on each router
+
+- aware of OSPF state
+
+- publishing nothing to OSPF in and of itself
+
+** DNS data in the system
+
+For a single regarding _any_ query, choices are (in order)
+
+- [non-mdns + own] reply immediately
+
+- [own] (potentially) delayed answer (via MDNS)
+
+- [known + not own] forward to other router
+
+- [not in home 'domain'] forward to external
+
+- [not known] error 
+
+*** Fake 'home zone' information (.home)
+
+- <router>.home = contains A/AAAA(s) the router has
+
+**** Per-router sub-zones (.<router>.home)
+
+- contains per-link sub-sub-zones i<iid>.<router>.home
+
+**** DNS-SD information
+
+search path with pointer at _every_ i<iid>.<router>.home (no 'preferred'
+single one)
+
+(mainly b+lb; we don't do updates, and we don't offer 'single recommended
+one)
+
+
+*** Fake reverse zone information
+
+- deduced from OSPF assigned state
+
+**** Per-subprefix information
+
+(dns-sd sub-domain content)
+- pointers to browse domain (in case we don't for some reason check .home
+  for it)
+
+- router's own IP addr(s) handling (PTR to <router>.home)
+
+- forward to MDNS
+
+
+
+
