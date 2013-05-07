@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 12:51:51 2013 mstenber
--- Last modified: Fri May  3 13:46:39 2013 mstenber
--- Edit time:     33 min
+-- Last modified: Mon May  6 13:34:19 2013 mstenber
+-- Edit time:     34 min
 --
 
 require "busted"
@@ -98,6 +98,4 @@ describe("dns_proxy", function ()
                   p:done()
                   scr.clear_scr()
                    end)
-            -- XXX - test TCP
-
              end)
