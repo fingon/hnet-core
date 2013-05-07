@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:03:28 2013 mstenber
--- Last modified: Tue Apr 30 16:39:40 2013 mstenber
--- Edit time:     0 min
+-- Last modified: Tue May  7 16:46:00 2013 mstenber
+-- Edit time:     2 min
 --
 
 module(...)
@@ -42,5 +42,16 @@ TYPE_DNSKEY=48
 
 
 TYPE_ANY=255
+
+
+-- RFC1035
+RCODE_NOERR=0
+RCODE_FORMAT_ERROR=1 -- name server unable to understand query
+RCODE_SERVER_FAILURE=2 -- name server unable to process due to problem with server
+RCODE_NAME_ERROR=3 -- name does not exist (meaningful only from authoritative)
+RCODE_NOT_IMPLEMENTED=4 -- name server does not support requested kind of query
+RCODE_REFUSED=5 -- name server won't honor this query for some reason
+
+
 
 
