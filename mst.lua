@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Apr 25 13:08:53 2013 mstenber
--- Edit time:     639 min
+-- Last modified: Tue May  7 13:18:18 2013 mstenber
+-- Edit time:     640 min
 --
 
 -- data structure abstractions provided:
@@ -239,7 +239,7 @@ function baseclass:connect_method(ev, o, fun)
                     end)
 end
 
-function baseclass:is_instance(o)
+function get_class(o)
    if type(o) ~= 'table'
    then
       return nil, 'wrong type'
@@ -249,7 +249,12 @@ function baseclass:is_instance(o)
    then
       return nil, 'no metatable'
    end
-   return cmt == self
+   return cmt
+end
+
+function baseclass:is_instance(o)
+   local cl = get_class(o)
+   return cl == self
 end
 
 function baseclass:repr_data(shown)
