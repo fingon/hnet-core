@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 12:55:42 2013 mstenber
--- Last modified: Tue May  7 13:45:01 2013 mstenber
--- Edit time:     29 min
+-- Last modified: Tue May  7 15:01:52 2013 mstenber
+-- Edit time:     41 min
 --
 
 -- This module implements (nested) dns zone hierarchy using rather
@@ -23,7 +23,7 @@ require 'mst'
 
 module(..., package.seeall)
 
-node = mst.create_class{name='node', 
+node = mst.create_class{class='node', 
                         mandatory={'label'}}
 
 function node:init()
@@ -63,8 +63,9 @@ function node:match_ll(ll, ...)
    return self:match_rec(ll, #ll, ...)
 end
 
-function node:find_or_create_subtree_rec(ll, i, end_node_class, d, 
-                                         intermediate_node_class)
+function node:find_or_create_subtree_rec(ll, i, 
+                                         end_node_callback, 
+                                         intermediate_node_callback)
    local label = ll[i]
    local n = self:get_child(label)
    if i == 1
@@ -75,40 +76,60 @@ function node:find_or_create_subtree_rec(ll, i, end_node_class, d,
          return n
       end
       -- add child with that label
-      d = d or {}
+      local d = {}
       d.label = label
       d.parent = self
-      self:a(end_node_class)
-      return self:add_child(end_node_class:new(d))
+      return self:add_child(end_node_callback(d))
    end
    -- intermediate node
    if not n
    then
-      self:a(intermediate_node_class)
-      n = intermediate_node_class:new{label=label, parent=self}
+      n = intermediate_node_callback{label=label, parent=self}
       self:add_child(n)
    end
-   return n:find_or_create_subtree_rec(ll, i-1, end_node_class, d, 
-                                       intermediate_node_class)
+   return n:find_or_create_subtree_rec(ll, i-1, 
+                                       end_node_callback,
+                                       intermediate_node_callback)
 end
 
 
-function node:find_or_create_subtree(ll, end_node_class, d, 
-                                     intermediate_node_class)
+function node:find_or_create_subtree(ll, 
+                                     end_node_callback,
+                                     intermediate_node_callback)
    self:a(ll, 'no ll supplied')
-   self:a(end_node_class, 'no end node class supplied')
-   intermediate_node_class = intermediate_node_class or mst.get_class(self)
-   return self:find_or_create_subtree_rec(ll, #ll, end_node_class, d, 
-                                          intermediate_node_class)
+   self:a(end_node_callback, 'no end node callback supplied')
+   self:a(intermediate_node_callback, 'no intermediate node callback')
+
+   return self:find_or_create_subtree_rec(ll, #ll, 
+                                          end_node_callback,
+                                          intermediate_node_callback)
 end
 
-function node:add_value(ll, value)
-   local n = self:find_or_create_subtree(ll, leaf_node, {value=value})
+                  
+function node:add_value(ll, value, end_node_callback, intermediate_node_callback)
+   end_node_callback = end_node_callback or create_leaf_node_callback
+   intermediate_node_callback = intermediate_node_callback or create_node_callback
+   local n = self:find_or_create_subtree(ll, 
+                                         end_node_callback,
+                                         intermediate_node_callback)
    self:a(n,  'find_or_create_subtree failed?!?')
    n.value = value
    return n
 end
 
+
+
+
+function create_node_callback(d)
+   mst.a(type(d) == 'table', 'wrong d', d)
+   return node:new(d)
+end
+
+function create_leaf_node_callback(d)
+   mst.a(type(d) == 'table', 'wrong d', d)
+   d.value = true -- placeholder
+   return leaf_node:new(d)
+end
 
 function node:get_fqdn()
    return table.concat(self:get_ll(), '.')
@@ -133,7 +154,7 @@ function node:get_value()
    return nil, 'value not provided'
 end
 
-leaf_node = node:new_subclass{name='leaf_node',
+leaf_node = node:new_subclass{class='leaf_node',
                               mandatory={'label', 'parent', 'value'}}
 
 function leaf_node:get_default()
