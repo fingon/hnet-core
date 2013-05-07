@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Apr 29 18:16:53 2013 mstenber
--- Last modified: Fri May  3 14:01:08 2013 mstenber
--- Edit time:     86 min
+-- Last modified: Tue May  7 12:00:32 2013 mstenber
+-- Edit time:     96 min
 --
 
 -- This is minimalist DNS proxy implementation.
@@ -87,7 +87,7 @@ function handler:handle_request(msg, src)
    self:d('handle_request', msg, src)
 
    -- call the callback
-   local reply, dst = self.process_callback(msg, src)
+   local reply, dst = self.process_callback(msg, src, self.tcp)
    dst = dst or src
 
    if self.stopped then return end
@@ -97,6 +97,16 @@ function handler:handle_request(msg, src)
       -- subclass responsibility
       self:send_response(reply, dst)
    end
+end
+
+function forward_process_callback(server, msg, src, tcp, timeout)
+   if tcp
+   then
+      local msg2, err = dns_channel.resolve_msg_tcp(server, msg, timeout)
+      return msg2, src
+   end
+   local msg2, err = dns_channel.resolve_msg_udp(server, msg, timeout)
+   return msg2, src
 end
 
 function handler:read_request()
