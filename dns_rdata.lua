@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:08:00 2013 mstenber
--- Last modified: Thu Feb  7 20:17:44 2013 mstenber
--- Edit time:     10 min
+-- Last modified: Tue May  7 13:55:00 2013 mstenber
+-- Edit time:     12 min
 --
 
 require 'dns_const'
@@ -36,21 +36,33 @@ local function repr_equal(self, v1, v2)
    return r
 end
 
+local function encode_ll_field(self, o, context)
+                   local v = o[self.field]
+                   mst.a(v, 'missing', self.field, o)
+                   return table.concat(encode_name_rec(v, context))
+
+end
+
+local function decode_ll_field(self, o, cur, context)
+   local name, err = try_decode_name_rec(cur, context)
+   if not name then return nil, err end
+   o[self.field] = name
+   return true
+end
+
 rtype_map = {[dns_const.TYPE_PTR]={
                 field='rdata_ptr',
-                encode=function (self, o, context)
-                   local v = o[self.field]
-                   mst.a(v)
-                   return table.concat(encode_name_rec(v, context))
-                end,
-                decode=function (self, o, cur, context)
-                   local name, err = try_decode_name_rec(cur, context)
-                   if not name then return nil, err end
-                   o[self.field] = name
-                   return true
-                end,
+                encode=encode_ll_field,
+                decode=decode_ll_field,
                 field_equal=repr_equal,
                         },
+             [dns_const.TYPE_NS]={
+                field='rdata_ns',
+                encode=encode_ll_field,
+                decode=decode_ll_field,
+                field_equal=repr_equal,
+                        },
+             
              [dns_const.TYPE_A]={
                 field='rdata_a',
                 encode=function (self, o, context)

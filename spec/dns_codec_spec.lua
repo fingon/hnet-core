@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 12:06:56 2012 mstenber
--- Last modified: Mon Apr 29 11:11:55 2013 mstenber
--- Edit time:     88 min
+-- Last modified: Tue May  7 13:55:20 2013 mstenber
+-- Edit time:     91 min
 --
 
 require "busted"
@@ -33,13 +33,14 @@ local tests = {
    -- minimal
    {dns_rr, {name={}, rtype=42, rdata=''}},
    {dns_rr, {name={}, rtype=42, cache_flush=true, rdata=''}},
-   {dns_rr, {name={'foo', 'bar'}, rtype=2, rclass=3, ttl=4, rdata='baz'}},
+   {dns_rr, {name={'foo', 'bar'}, rtype=123, rclass=3, ttl=4, rdata='baz'}},
    {dns_query, {name={'z'}}},
    {dns_query, {name={'z'}, qu=true}},
    {dns_query, {name={'y'}, qtype=255, qclass=42}},
    {rdata_srv, {priority=123, weight=42, port=234, target={'foo', 'bar'}}},
    {dns_rr, {name={}, rtype=dns_const.TYPE_A, rdata_a='1.2.3.4'}},
    {dns_rr, {name={}, rtype=dns_const.TYPE_PTR, rdata_ptr={'foo', 'bar'}}},
+   {dns_rr, {name={}, rtype=dns_const.TYPE_NS, rdata_ns={'foo', 'bar'}}},
    {dns_rr, {name={}, rtype=dns_const.TYPE_AAAA, rdata_aaaa='f80:dead:beef::'}},
 }
 
