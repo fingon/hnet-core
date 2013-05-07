@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Mon Apr 29 11:08:58 2013 mstenber
--- Edit time:     761 min
+-- Last modified: Tue May  7 12:05:42 2013 mstenber
+-- Edit time:     762 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -147,13 +147,13 @@ function q_for_rr(rr, q)
    return q
 end
 
-local function match_q_rr(q, rr)
+function match_q_rr(q, rr)
    return (q.qtype == dns_const.TYPE_ANY or q.qtype == rr.rtype) 
       and (q.qclass == dns_const.CLASS_ANY or q.qclass == rr.rclass) 
       and dns_db.ll_equal(q.name, rr.name)
 end
 
-local function match_q_q(q, o)
+function match_q_q(q, o)
    return q.qtype == o.qtype 
       and q.qclass == o.qclass
       and dns_db.ll_equal(q.name, o.name)
