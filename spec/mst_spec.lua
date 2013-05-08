@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed May  8 16:37:29 2013 mstenber
--- Edit time:     185 min
+-- Last modified: Wed May  8 16:56:33 2013 mstenber
+-- Edit time:     190 min
 --
 
 require "busted"
@@ -461,16 +461,18 @@ describe("cache", function ()
             local c
             before_each(function ()
                            t = {0, 0}
-                           c = mst_cache.cache:new{time_callback=function ()
-                                                      return t[1]
-                                                                 end,
-                                                   get_callback=function (k)
+                           c = mst_cache.cache:new{get_callback=function (k)
                                                       t[2] = t[2] + 1
                                                       return k and true or nil
                                                    end}
                         end)
-            it("works (positive+negative ttl)", function ()
+            it("works (positive+negative ttl with real time_callback)", function ()
+                  -- re-initialize to use 'real' time (smirk)
+                  c.time_callback=function ()
+                     return t[1]
+                  end
                   c.default_timeout = 1
+                  c:clear()
 
                   -- test with defaults
                   mst.d('initial')
@@ -486,7 +488,7 @@ describe("cache", function ()
                   t[1] = t[1] + c.default_timeout + 1
                   mst.d('advanced time to', t[1])
                   mst.a(c:get('x') == true)
-                  mst.a(t[2] == 2, 'expired did not clear cache')
+                  mst.a(t[2] == 2, 'expired did not clear cache', t[2])
                   mst.a(c:get('x') == true)
                   mst.a(t[2] == 2, 'second call should be cached')
 
@@ -526,34 +528,10 @@ describe("cache", function ()
                   mst.a(c:get(true) == true)
                   mst.a(t[2] == 6)
                                                 end)
-            it("works w/o timeout/time_callback #cachenotime", function ()
-                  c.time_callback = error
-                  c.max_items = 10
-                  mst.a(c.items == 0)
-                  mst.d('adding first item')
-                  mst.a(c:get('x') == true)
-                  mst.a(c.items == 1)
-                  mst.d('getting first item')
-                  mst.a(c:get('x') == true)
-                  mst.a(c.items == 1)
-                  for i=2,12
-                  do
-                     mst.d('adding item', i)
-                     c:get(i)
-                  end
-                  mst.d('making sure cache looks sane')
-
-                  mst.a(c.items > 0 and c.items <= c.max_items, 'wrong # items', c.items)
-                  mst.a(c.items == mst.table_count(c.map))
-
-
-                   end)
             it("works (limited) #cachesize", function ()
                   c.max_items = 10
-                  c.default_timeout = 50
                   for i=1,100
                   do
-                     t[1] = t[1] + 1
                      c:get(i)
                   end
                   mst.a(t[2] == 100)
