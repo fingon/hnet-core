@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed May  8 09:45:46 2013 mstenber
--- Edit time:     645 min
+-- Last modified: Wed May  8 16:01:09 2013 mstenber
+-- Edit time:     651 min
 --
 
 -- data structure abstractions provided:
@@ -1379,55 +1379,6 @@ end
 
 -- event instances' __call should map directly to event.update
 event.__call = event.update
-
---- cache class (with custom optional lifetime for replies, and
---- external time source)
-
-cache = create_class{class='cache', mandatory={'get_callback'},
-                     time_callback=os.time,
-                     default_timeout=1}
-
-function cache:init()
-   self:clear()
-end
-
-function cache:clear()
-   self.map = map:new{}
-end
-
-function cache:get(k)
-   self:a(k ~= nil, 'no key')
-   local v = self.map[k]
-   if not v
-   then
-      return self:create(k)
-   end
-   -- 'v' is array, with two entries; validity and entry itself
-   local valid = v[1]
-   local value = v[2]
-   local now = self.time_callback()
-
-   self:d('get', now, valid, k, value)
-
-   if now <= valid
-   then
-      return value
-   end
-   return self:create(k)
-end
-
-function cache:create(k)
-   local v, t = self.get_callback(k)
-   self:set(k, v, t)
-   return v
-end
-
-function cache:set(k, v, t)
-   self.map[k] = nil
-   t = t or (v and self.positive_timeout) or self.negative_timeout or self.default_timeout
-   local now = self.time_callback()
-   self.map[k] = {t + now, v}
-end
 
 -- hash_set - like set, but with Lua key != real key;
 

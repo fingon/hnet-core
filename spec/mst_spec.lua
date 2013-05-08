@@ -8,13 +8,14 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed May  8 09:46:07 2013 mstenber
--- Edit time:     171 min
+-- Last modified: Wed May  8 16:37:29 2013 mstenber
+-- Edit time:     185 min
 --
 
 require "busted"
 require "mst"
 require "mst_skiplist"
+require "mst_cache"
 require "dint"
 
 module("mst_spec", package.seeall)
@@ -361,7 +362,7 @@ describe("array", function ()
                   local a = mst.array:new{1,2,false,4}
                   mst.a(#a == 4)
                   mst.a(#a:filter() == 3)
-                   end)
+                                                    end)
             it("can be reversed", function ()
                   -- make sure it works with even and odd # of entries
 
@@ -373,7 +374,7 @@ describe("array", function ()
                   a:reverse()
                   mst.a(mst.repr_equal(a, {4, 2, 1}), 'not same', a)
 
-                   end)
+                                  end)
                   end)
 
 describe("map", function ()
@@ -456,71 +457,117 @@ describe("min/max", function ()
                     end)
 
 describe("cache", function ()
-            it("works #cache", function ()
-                  local pos_fun = function (k) return k end
-                  local neg_fun = function (k) end
-                  
-                  local c1 = mst.cache:new{get_callback=neg_fun}
-                  local t = {0, 0}
-                  local c2 = mst.cache:new{time_callback=function ()
-                                              return t[1]
-                                                         end,
-                                           get_callback=function (k)
-                                              t[2] = t[2] + 1
-                                              return k and true or nil
-                                           end}
+            local t
+            local c
+            before_each(function ()
+                           t = {0, 0}
+                           c = mst_cache.cache:new{time_callback=function ()
+                                                      return t[1]
+                                                                 end,
+                                                   get_callback=function (k)
+                                                      t[2] = t[2] + 1
+                                                      return k and true or nil
+                                                   end}
+                        end)
+            it("works (positive+negative ttl)", function ()
+                  c.default_timeout = 1
+
                   -- test with defaults
                   mst.d('initial')
 
-                  mst.a(c2:get('x') == true)
-                  mst.a(c2:get('x') == true)
+                  mst.a(c.items == 0)
+                  mst.a(c:get('x') == true)
+                  mst.a(c.items == 1)
+                  mst.a(c:get('x') == true)
+                  mst.a(c.items == 1)
                   mst.a(t[2] == 1, 'second call should be cached')
 
                   -- advance time 
-                  t[1] = t[1] + c2.default_timeout + 1
+                  t[1] = t[1] + c.default_timeout + 1
                   mst.d('advanced time to', t[1])
-                  mst.a(c2:get('x') == true)
+                  mst.a(c:get('x') == true)
                   mst.a(t[2] == 2, 'expired did not clear cache')
-                  mst.a(c2:get('x') == true)
+                  mst.a(c:get('x') == true)
                   mst.a(t[2] == 2, 'second call should be cached')
 
                   -- make sure positive/negative timeouts work if they're different
-                  c2.positive_timeout = 8
-                  c2.negative_timeout = 5
-                  mst.a(c2:get(false) == nil)
+                  c.positive_timeout = 8
+                  c.negative_timeout = 5
+                  mst.a(c:get(false) == nil)
+                  mst.a(c.items == 2)
                   mst.a(t[2] == 3)
-                  mst.a(c2:get(false) == nil)
+                  mst.a(c:get(false) == nil)
+                  mst.a(c.items == 2)
                   mst.a(t[2] == 3)
-                  mst.a(c2:get(true) == true)
+                  mst.a(c:get(true) == true)
                   mst.a(t[2] == 4)
-                  mst.a(c2:get(true) == true)
+                  mst.a(c:get(true) == true)
                   mst.a(t[2] == 4)
 
                   -- advance => negatives should be gone
-                  t[1] = t[1] + c2.negative_timeout + 1
+                  t[1] = t[1] + c.negative_timeout + 1
                   mst.d('advanced time to', t[1])
-                  mst.a(c2:get(false) == nil)
+                  mst.a(c:get(false) == nil)
                   mst.a(t[2] == 5)
-                  mst.a(c2:get(false) == nil)
+                  mst.a(c:get(false) == nil)
                   mst.a(t[2] == 5)
-                  mst.a(c2:get(true) == true)
+                  mst.a(c:get(true) == true)
                   mst.a(t[2] == 5)
 
 
                   -- advance => positive should be gone, negatives
                   -- should be refreshed
-                  t[1] = t[1] + c2.positive_timeout - c2.negative_timeout 
+                  t[1] = t[1] + c.positive_timeout - c.negative_timeout 
                   mst.d('advanced time to', t[1])
-                  mst.a(c2:get(false) == nil)
+                  mst.a(c:get(false) == nil)
                   mst.a(t[2] == 5)
-                  mst.a(c2:get(false) == nil)
+                  mst.a(c:get(false) == nil)
                   mst.a(t[2] == 5)
-                  mst.a(c2:get(true) == true)
+                  mst.a(c:get(true) == true)
                   mst.a(t[2] == 6)
-                  
-                  
+                                                end)
+            it("works w/o timeout/time_callback #cachenotime", function ()
+                  c.time_callback = error
+                  c.max_items = 10
+                  mst.a(c.items == 0)
+                  mst.d('adding first item')
+                  mst.a(c:get('x') == true)
+                  mst.a(c.items == 1)
+                  mst.d('getting first item')
+                  mst.a(c:get('x') == true)
+                  mst.a(c.items == 1)
+                  for i=2,12
+                  do
+                     mst.d('adding item', i)
+                     c:get(i)
+                  end
+                  mst.d('making sure cache looks sane')
 
-                               end)
+                  mst.a(c.items > 0 and c.items <= c.max_items, 'wrong # items', c.items)
+                  mst.a(c.items == mst.table_count(c.map))
+
+
+                   end)
+            it("works (limited) #cachesize", function ()
+                  c.max_items = 10
+                  c.default_timeout = 50
+                  for i=1,100
+                  do
+                     t[1] = t[1] + 1
+                     c:get(i)
+                  end
+                  mst.a(t[2] == 100)
+                  -- now, the clever part - last N/2 entries should be around
+                  for i=96,100
+                  do
+                     c:get(i)
+                  end
+                  mst.a(t[2] == 100)
+                  
+                  mst.a(c.items > 0 and c.items <= c.max_items, 'wrong # items', c.items)
+                  mst.a(c.items == mst.table_count(c.map))
+
+                                            end)
                   end)
 
 describe("string_find_one", function ()
