@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue May  7 13:18:18 2013 mstenber
--- Edit time:     640 min
+-- Last modified: Wed May  8 09:45:46 2013 mstenber
+-- Edit time:     645 min
 --
 
 -- data structure abstractions provided:
@@ -390,6 +390,20 @@ function array_remove(t, o)
    end
 end
 
+function array_reverse(t)
+   -- in-place reversing of the array content
+   local nt = #t
+   for i=1,nt/2
+   do
+      local v = t[i]
+      local i2 = nt-i+1
+      local v2 = t[i2]
+      t[i2] = v
+      t[i] = v2
+   end
+   return t
+end
+
 function array_is(t)
    -- whether it's actually table
    if not table_is(t)
@@ -536,6 +550,7 @@ array = create_class{class='array',
                      remove=array_remove,
                      remove_index=table.remove,
                      repr=array_repr,
+                     reverse=array_reverse,
                      slice=array_slice,
                      sort=table.sort,
                      to_table=array_to_table,

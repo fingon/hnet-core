@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Thu Apr 25 13:05:54 2013 mstenber
--- Edit time:     170 min
+-- Last modified: Wed May  8 09:46:07 2013 mstenber
+-- Edit time:     171 min
 --
 
 require "busted"
@@ -361,6 +361,18 @@ describe("array", function ()
                   local a = mst.array:new{1,2,false,4}
                   mst.a(#a == 4)
                   mst.a(#a:filter() == 3)
+                   end)
+            it("can be reversed", function ()
+                  -- make sure it works with even and odd # of entries
+
+                  local a = mst.array:new{1,2,false,4}
+                  a:reverse()
+                  mst.a(mst.repr_equal(a, {4, false, 2, 1}), 'not same', a)
+
+                  local a = mst.array:new{1,2,4}
+                  a:reverse()
+                  mst.a(mst.repr_equal(a, {4, 2, 1}), 'not same', a)
+
                    end)
                   end)
 
