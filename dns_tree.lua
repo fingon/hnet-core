@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 12:55:42 2013 mstenber
--- Last modified: Wed May  8 10:25:03 2013 mstenber
+-- Last modified: Wed May  8 12:50:46 2013 mstenber
 -- Edit time:     46 min
 --
 
@@ -160,7 +160,7 @@ function node:get_value()
 end
 
 leaf_node = node:new_subclass{class='leaf_node',
-                              mandatory={'label', 'parent', 'value'}}
+                              mandatory={'label', 'value'}}
 
 function leaf_node:get_default()
    return nil, 'leaf nodes cannot have children'
