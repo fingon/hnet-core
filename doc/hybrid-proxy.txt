@@ -69,3 +69,19 @@ one)
 
 
 
+
+
+** IDNA handling
+
+- mdns = UTF-8
+- dns = punycode
+
+=> solution: 
+
+- just fire off two processes - idn --idna-to-ascii, idn --idna-to-unicode
+  (using exec()), and BIYU. can do asynchronous conversions given scr
+  support for file descriptors, and pipes to send/receive things to/from
+  idn..
+
+(Given caching of results, and detection of pure ASCII, should not even be
+insanely slow?)
