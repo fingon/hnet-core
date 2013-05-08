@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 12:55:42 2013 mstenber
--- Last modified: Tue May  7 15:01:52 2013 mstenber
--- Edit time:     41 min
+-- Last modified: Wed May  8 10:25:03 2013 mstenber
+-- Edit time:     46 min
 --
 
 -- This module implements (nested) dns zone hierarchy using rather
@@ -36,7 +36,10 @@ function node:repr_data()
 end
 
 function node:add_child(n)
+   self:a(not self:get_child(n.label), 'child already exists - logic error')
+   self:a(n and type(n) == 'table', 'non-existent child?', n)
    self.children[string.lower(n.label)] = n
+   n.parent = self
    return n
 end
 
@@ -78,13 +81,15 @@ function node:find_or_create_subtree_rec(ll, i,
       -- add child with that label
       local d = {}
       d.label = label
-      d.parent = self
-      return self:add_child(end_node_callback(d))
+      local n = end_node_callback(d)
+      self:a(n and type(n) == 'table', 'non-existent end node', n)
+      return self:add_child(n)
    end
    -- intermediate node
    if not n
    then
-      n = intermediate_node_callback{label=label, parent=self}
+      n = intermediate_node_callback{label=label}
+      self:a(n and type(n) == 'table', 'non-existent intermediate node', n)
       self:add_child(n)
    end
    return n:find_or_create_subtree_rec(ll, i-1, 
