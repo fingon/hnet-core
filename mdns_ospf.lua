@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jan  2 11:20:29 2013 mstenber
--- Last modified: Tue Mar  5 13:13:39 2013 mstenber
--- Edit time:     273 min
+-- Last modified: Thu May  9 14:00:49 2013 mstenber
+-- Edit time:     278 min
 --
 
 -- This is mdns proxy implementation which uses OSPF for state
@@ -73,11 +73,6 @@ function ospf_if:interested_in_cached(rr)
    -- if master, yes, we're interested
    self:d('master interface, interested in cached', rr)
    return mdns_if.q_for_rr(rr, {qtype=dns_const.TYPE_ANY})
-end
-
-function ospf_if:cache_changed_rr(rr, mode)
-   self.parent.cache_dirty = true
-   _mdns_if.cache_changed_rr(self, rr, mode)
 end
 
 mdns = _mdns:new_subclass{class='mdns_ospf',
@@ -203,6 +198,11 @@ function mdns:iterate_ifs_ns(is_own, f)
       f(self.ospf_cache_ns)
    end
    _mdns.iterate_ifs_ns(self, is_own, f)
+end
+
+function mdns:queue_check_propagate_if_rr(ifname, rr)
+   self.cache_dirty = true
+   return _mdns.queue_check_propagate_if_rr(self, ifname, rr)
 end
 
 function mdns:handle_ospf_added_rr(rr)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu May  9 13:36:34 2013 mstenber
--- Edit time:     781 min
+-- Last modified: Thu May  9 13:52:47 2013 mstenber
+-- Edit time:     790 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -184,7 +184,8 @@ end
 -- per-if structure, which does most of the logic and has
 -- per-structure data
 mdns_if = _eventful:new_subclass{class='mdns_if',
-                                 mandatory={'ifname', 'parent'}}
+                                 mandatory={'ifname', 'parent'},
+                                 events={'queue_check_propagate_rr'}}
 
 function mdns_if:init()
    _eventful.init(self)
@@ -210,12 +211,14 @@ function mdns_if:init()
                                                 }
    self:connect(self.cache.inserted, 
                 function (rr)
-                   self:cache_changed_rr(rr, true)
+                   self.queue_check_propagate_rr(rr)
+                   self.md:cache_changed_rr(rr, true)
                 end)
    self:connect(self.cache.removed, 
                 function (rr)
                    self.cache_sl:remove_if_present(rr)
-                   self:cache_changed_rr(rr, false)
+                   self.queue_check_propagate_rr(rr)
+                   self.md:cache_changed_rr(rr, false)
                 end)
    self.own_sl = mst_skiplist.ipi_skiplist:new{p=2,
                                                prefix='own_sl',
@@ -249,19 +252,6 @@ function mdns_if:init()
          return self:query(q)
       end,
                                               }
-end
-
-function mdns_if:cache_changed_rr(rr, mode)
-   self:d('cache_changed_rr', rr, mode)
-
-   -- parent doesn't really need to know
-   --self.parent:cache_changed_if_rr(self.ifname, rr, mode)
-
-   -- anything else than the fact taht rr state for this entry may be
-   -- suspicious
-   self.parent:queue_check_propagate_if_rr(self.ifname, rr)
-
-   self.md:cache_changed_rr(rr, mode)
 end
 
 function mdns_if:kas_matches_rr(is_own, kas, rr)
@@ -947,7 +937,7 @@ function mdns_if:probed_rr(rr)
    rr = self.probe:insert_rr(rr)
    self:update_sl_if_changed(self.probe_sl, rr, now)
 
-   self:queue_check_propagate_rr(rr)
+   self.queue_check_propagate_rr(rr)
 end
 
 function mdns_if:prune_probes()
@@ -961,13 +951,9 @@ function mdns_if:prune_probes()
                                   end
                                   self.probe:remove_rr(rr)
                                   self.probe_sl:remove(rr)
-                                  self:queue_check_propagate_rr(rr)
+                                  self.queue_check_propagate_rr(rr)
                                   return true
                                end)
-end
-
-function mdns_if:queue_check_propagate_rr(rr)
-   self.parent:queue_check_propagate_if_rr(self.ifname, rr)
 end
 
 function mdns_if:msg_if_all_answers_known_and_unique(msg)
@@ -1139,7 +1125,7 @@ function mdns_if:upsert_cache_rr(rr)
    self:update_next_cached(o)
 
    -- propagate the information (in some form) onwards
-   self:queue_check_propagate_rr(o)
+   self.queue_check_propagate_rr(o)
 end
 
 function mdns_if:update_sl_if_changed(sl, o, v)

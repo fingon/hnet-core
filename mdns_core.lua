@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Mon Apr 29 11:08:44 2013 mstenber
--- Edit time:     964 min
+-- Last modified: Thu May  9 13:59:44 2013 mstenber
+-- Edit time:     970 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -147,6 +147,10 @@ function mdns:get_if(ifname)
    then
       o = self.ifclass:new{ifname=ifname, parent=self}
       self.ifname2if[ifname] = o
+      self:connect(o.queue_check_propagate_rr,
+                   function (rr)
+                      self:queue_check_propagate_if_rr(ifname, rr)
+                   end)
    end
    return o
 end
