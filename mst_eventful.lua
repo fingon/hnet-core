@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:43:00 2013 mstenber
--- Last modified: Thu May  9 12:51:07 2013 mstenber
--- Edit time:     4 min
+-- Last modified: Thu May  9 13:10:17 2013 mstenber
+-- Edit time:     13 min
 --
 
 -- eventful class which provides concept of 'events' (ripped out of
@@ -46,8 +46,12 @@ function event:init()
 end
 
 function event:uninit()
-   self:a(mst.table_is_empty(self.observers), 
+   self:a(not self:has_observers(), 
           "observers not gone when event is!")
+end
+
+function event:has_observers()
+   return not mst.table_is_empty(self.observers)
 end
 
 function event:add_observer(o)
@@ -84,14 +88,17 @@ end
 function eventful:uninit()
    -- get rid of observers
    -- they're keyed (event={fun, fun..})
-   for k, l in pairs(self._observers or {})
-   do
-      for i, v in ipairs(l)
+   if self._observers
+   then
+      for k, l in pairs(self._observers)
       do
-         k:remove_observer(v)
+         for i, v in ipairs(l)
+         do
+            k:remove_observer(v)
+         end
       end
+      self._observers = nil
    end
-   self._observers = nil
 
    -- get rid of events
    for i, v in ipairs(self.events or {})
@@ -124,9 +131,10 @@ function eventful:connect(ev, fun)
    ev:add_observer(fun)
 end
 
-function eventful:connect_method(ev, o, fun)
-   self:connect(ev, function (...)
-                   fun(o, ...)
-                    end)
+function eventful:connect_method(ev, fun)
+   local f = function (...)
+      fun(self, ...)
+   end
+   self:connect(ev, f)
 end
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Wed Mar 13 10:04:40 2013 mstenber
--- Edit time:     571 min
+-- Last modified: Thu May  9 13:10:02 2013 mstenber
+-- Edit time:     572 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -57,7 +57,7 @@ function pm:connect_changed(srcname, dstname)
    local o2 = self:service_name_to_service(dstname)
    self:a(o, 'missing service (src)', srcname)
    self:a(o2, 'missing service (dst)', dstname)
-   o:connect_method(o.changed, o2, o2.queue)
+   o2:connect_method(o.changed, o2.queue)
 end
 
 function pm:queue(name)

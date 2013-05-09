@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Thu May  9 12:48:29 2013 mstenber
--- Edit time:     192 min
+-- Last modified: Thu May  9 13:11:56 2013 mstenber
+-- Edit time:     199 min
 --
 
 require "busted"
@@ -210,39 +210,6 @@ describe("create_class", function ()
 
                                              end)
 
-            it("can create + connect events #ev",
-               function ()
-                  local c1 = mst_eventful.eventful:new_subclass{events={'foo'}, class='c1'}
-
-                  local c2 = mst_eventful.eventful:new_subclass{class='c1'}
-                  for i=1,2
-                  do
-                     local o1 = c1:new()
-                     mst.a(o1.foo, 'event creation failed')
-                     local o2 = c2:new()
-                     local got = {0}
-                     o2:connect(o1.foo, 
-                                function (v)
-                                   mst.a(v == 'bar', v)
-                                   got[1] = 1
-                                end)
-                     o1.foo('bar')
-                     mst.a(got[1] ~= 0)
-                     -- try different uninit orders
-                     if i == 1
-                     then
-                        mst.enable_assert = false
-                        assert.error(function ()
-                                        o1:done()
-                                     end)
-                        mst.enable_assert = true
-                     else
-                        o2:done()
-                        o1:done()
-                     end
-                  end
-
-               end)
                          end)
 
 describe("table_copy", function ()
@@ -702,3 +669,50 @@ describe("hash_set", function ()
                   mst.array.__eq = nil
                         end)
                      end)
+
+describe("mst_eventful", function ()
+            it("can create + connect events #ev",
+               function ()
+                  local c1 = mst_eventful.eventful:new_subclass{events={'foo'}, class='c1'}
+
+                  local c2 = mst_eventful.eventful:new_subclass{class='c2'}
+                  for i=1,2
+                  do
+                     local o1 = c1:new()
+                     mst.a(o1.foo, 'event creation failed')
+                     mst.a(not o1.foo:has_observers())
+                     local o2 = c2:new()
+                     local c3 = mst_eventful.eventful:new_subclass{class='c3',
+                                                                   baz=function (self, v)
+                                                                      self.got=v
+                                                                   end}
+                     local o3 = c3:new()
+                     local got = {0}
+                     o2:connect(o1.foo, 
+                                function (v)
+                                   mst.a(v == 'bar', v)
+                                   got[1] = 1
+                                end)
+                     o3:connect_method(o1.foo, o3.baz)
+                     mst.a(o1.foo:has_observers())
+                     o1.foo('bar')
+                     mst.a(got[1] == 1)
+                     mst.a(o3.got == 'bar', 'o3.got=', o3.got)
+                     -- try different uninit orders
+                     if i == 1
+                     then
+                        mst.enable_assert = false
+                        assert.error(function ()
+                                        o1:done()
+                                     end)
+                        mst.enable_assert = true
+                     else
+                        o2:done()
+                        o3:done()
+                        -- observer should de-register itself 
+                        mst.a(not o1.foo:has_observers())
+                        o1:done()
+                     end
+                  end
+               end)
+end)
