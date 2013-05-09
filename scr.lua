@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:13:25 2013 mstenber
--- Last modified: Thu May  9 14:34:46 2013 mstenber
--- Edit time:     147 min
+-- Last modified: Thu May  9 15:09:36 2013 mstenber
+-- Edit time:     149 min
 --
 
 -- coroutine event reactor - coroutine based handling of file
@@ -194,8 +194,9 @@ function scrsocket:get_io(reader)
    return done, o
 end
 
-function get_timeout(loop, timeout)
+function get_timeout(timeout, loop)
    if not timeout then return end
+   loop = loop or ssloop.loop()
    local elapsed
    local o = loop:new_timeout_delta(timeout,
                                     function ()
@@ -208,8 +209,16 @@ function get_timeout(loop, timeout)
 end
 
 
+function sleep(timeout, loop)
+   if not timeout then return  end
+   -- just wait for timeout to expire
+   local t, to = get_timeout(timeout, loop)
+   coroutine.yield(t)
+   to:done()
+end
+
 function scrsocket:get_timeout(timeout)
-   return get_timeout(self:get_loop(), timeout)
+   return get_timeout(timeout, self:get_loop())
 end
 
 function scrsocket:io_with_timeout(fun, readable, timeout)
