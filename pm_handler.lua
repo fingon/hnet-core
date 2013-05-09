@@ -8,25 +8,29 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov  7 19:33:20 2012 mstenber
--- Last modified: Mon Mar 11 10:39:52 2013 mstenber
--- Edit time:     13 min
+-- Last modified: Thu May  9 12:53:07 2013 mstenber
+-- Edit time:     15 min
 --
 
 -- single pm handler prototype
 
 require 'mst'
+require 'mst_eventful'
+
+local _eventful = mst_eventful.eventful
 
 module(..., package.seeall)
 
-pm_handler = mst.create_class{class='pm_handler', 
-                              mandatory={'pm'},
-                              events={'changed'}}
+pm_handler = _eventful:new_subclass{class='pm_handler', 
+                                    mandatory={'pm'},
+                                    events={'changed'}}
 
 function pm_handler:repr_data()
    return '?'
 end
 
 function pm_handler:init()
+   _eventful.init(self)
    self.shell = self.pm.shell
    self.file_contents = {}
 end

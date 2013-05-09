@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed May  8 16:01:09 2013 mstenber
--- Edit time:     651 min
+-- Last modified: Thu May  9 12:50:03 2013 mstenber
+-- Edit time:     661 min
 --
 
 -- data structure abstractions provided:
@@ -158,26 +158,6 @@ function baseclass:done()
    end
    self._is_done = true
    self:uninit()
-
-   -- get rid of observers
-   -- they're keyed (event={fun, fun..})
-   for k, l in pairs(self._observers or {})
-   do
-      for i, v in ipairs(l)
-      do
-         k:remove_observer(v)
-      end
-   end
-   self._observers = nil
-
-   -- get rid of events
-   for i, v in ipairs(self.events or {})
-   do
-      local o = self[v]
-      self:a(o, "event missing")
-      o:done()
-      self[v] = nil
-   end
 end
 
 function baseclass:new_subclass(o)
@@ -201,42 +181,8 @@ function baseclass:new(o)
       check_parameters(tostring(o) .. ':new()', o, o.mandatory, 3)
    end
    
-   -- set up event handlers (if any)
-   for i, v in ipairs(o.events or {})
-   do
-      --print('creating event handler', v)
-      o[v] = event:new()
-   end
-
    o:init()
    return o
-end
-
-function baseclass:connect(ev, fun)
-   self:a(ev, 'null event')
-   self:a(fun, 'null fun')
-   self:a(type(ev) == 'table', 'event not table', type(ev), ev, fun)
-
-   -- connect event 'ev' to local observer function 'fun'
-   -- (and keep the connection up as long as we are)
-
-   -- first, update local _observers
-   if not self._observers
-   then
-      self._observers = {}
-   end
-   local t = self._observers[ev] or {}
-   self._observers[ev] = t
-   table.insert(t, fun)
-
-   -- then call the event itself to add the observer
-   ev:add_observer(fun)
-end
-
-function baseclass:connect_method(ev, o, fun)
-   self:connect(ev, function (...)
-                   fun(o, ...)
-                    end)
 end
 
 function get_class(o)
@@ -1336,49 +1282,6 @@ function array_randlist(t)
    end
    return r
 end
-
--- event class (used within the baseclass)
-
--- observer design pattern (Gamma et al).
-
--- the classic description involves subject <> observer classes we
--- call subject event instead - as what we're tracking are function
--- invocations, in practise (the update() call is actually just call
--- of the event object itself)
-
--- what we provide is __call-wrapped metatables for both.
--- convenience factors:
---  - sanity checking
---  - 1:n, n:1 relationships (normal pattern has only 1:n)
-
-event = create_class{class='event'}
-
-function event:init()
-   self.observers = {}
-end
-
-function event:uninit()
-   self:a(table_is_empty(self.observers), "observers not gone when event is!")
-end
-
-function event:add_observer(o)
-   self.observers[o] = true
-end
-
-function event:remove_observer(o)
-   self:a(self.observers[o], 'observer missing', o)
-   self.observers[o] = nil
-end
-
-function event:update(...)
-   for k, _ in pairs(self.observers)
-   do
-      k(...)
-   end
-end
-
--- event instances' __call should map directly to event.update
-event.__call = event.update
 
 -- hash_set - like set, but with Lua key != real key;
 

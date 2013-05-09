@@ -8,14 +8,15 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed May  8 16:56:33 2013 mstenber
--- Edit time:     190 min
+-- Last modified: Thu May  9 12:48:29 2013 mstenber
+-- Edit time:     192 min
 --
 
 require "busted"
 require "mst"
 require "mst_skiplist"
 require "mst_cache"
+require "mst_eventful"
 require "dint"
 
 module("mst_spec", package.seeall)
@@ -211,9 +212,9 @@ describe("create_class", function ()
 
             it("can create + connect events #ev",
                function ()
-                  local c1 = mst.create_class{events={'foo'}, class='c1'}
+                  local c1 = mst_eventful.eventful:new_subclass{events={'foo'}, class='c1'}
 
-                  local c2 = mst.create_class{class='c1'}
+                  local c2 = mst_eventful.eventful:new_subclass{class='c1'}
                   for i=1,2
                   do
                      local o1 = c1:new()
