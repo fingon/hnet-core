@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:13:25 2013 mstenber
--- Last modified: Mon May  6 13:14:49 2013 mstenber
--- Edit time:     144 min
+-- Last modified: Thu May  9 14:34:46 2013 mstenber
+-- Edit time:     147 min
 --
 
 -- coroutine event reactor - coroutine based handling of file
@@ -194,18 +194,22 @@ function scrsocket:get_io(reader)
    return done, o
 end
 
-
-function scrsocket:get_timeout(timeout)
+function get_timeout(loop, timeout)
    if not timeout then return end
    local elapsed
-   local o = self:get_loop():new_timeout_delta(timeout,
-                                               function ()
-                                                  elapsed = true
-                                               end)
+   local o = loop:new_timeout_delta(timeout,
+                                    function ()
+                                       elapsed = true
+                                    end)
    o:start()
    return function ()
       return elapsed
           end, o
+end
+
+
+function scrsocket:get_timeout(timeout)
+   return get_timeout(self:get_loop(), timeout)
 end
 
 function scrsocket:io_with_timeout(fun, readable, timeout)
