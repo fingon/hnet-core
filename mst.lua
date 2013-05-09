@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu May  9 12:50:03 2013 mstenber
+-- Last modified: Thu May  9 15:17:18 2013 mstenber
 -- Edit time:     661 min
 --
 
@@ -791,7 +791,10 @@ function table_values(t)
 end
 
 -- sorted keys of a table
-_not_comparable_type = {userdata=true, table=true, boolean=true}
+_not_comparable_type = {userdata=true, 
+                        table=true, 
+                        boolean=true, 
+                        ['function']=true}
 
 function first_before_cmp(x1, x2)
    local t1 = type(x1)
