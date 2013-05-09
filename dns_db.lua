@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Thu May  9 13:31:50 2013 mstenber
--- Edit time:     203 min
+-- Last modified: Thu May  9 15:03:27 2013 mstenber
+-- Edit time:     204 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -302,7 +302,7 @@ end
 function ns:insert_rr(o, do_copy)
    -- these fields have to be set
    self:a(o.name and o.rtype and o.rclass, 
-          'one of mandatory fields is missing', o)
+          'one of mandatory fields is missing (name/rtype/rclass)', o)
 
    -- let's see if we have _exactly_ same rr already
    local old_rr = self:find_rr(o)
