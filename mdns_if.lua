@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Tue May  7 12:05:42 2013 mstenber
--- Edit time:     762 min
+-- Last modified: Thu May  9 13:36:34 2013 mstenber
+-- Edit time:     781 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -37,6 +37,7 @@ require 'dns_db'
 require 'mdns_const'
 require 'mst_skiplist'
 require 'mdns_discovery'
+local _eventful = require 'mst_eventful'.eventful
 
 module(..., package.seeall)
 
@@ -182,10 +183,12 @@ end
 
 -- per-if structure, which does most of the logic and has
 -- per-structure data
-mdns_if = mst.create_class{class='mdns_if',
-                           mandatory={'ifname', 'parent'}}
+mdns_if = _eventful:new_subclass{class='mdns_if',
+                                 mandatory={'ifname', 'parent'}}
 
 function mdns_if:init()
+   _eventful.init(self)
+
    self.cache = dns_db.ns:new{}
 
    self.own = dns_db.ns:new{}
@@ -205,32 +208,32 @@ function mdns_if:init()
                                                  prefix='cache_sl',
                                                  lt=next_is_less,
                                                 }
-   function self.cache.inserted_callback(x, rr)
-      self:cache_changed_rr(rr, true)
-   end
-   function self.cache.removed_callback(x, rr)
-      self.cache_sl:remove_if_present(rr)
-      self:cache_changed_rr(rr, false)
-   end
-   
+   self:connect(self.cache.inserted, 
+                function (rr)
+                   self:cache_changed_rr(rr, true)
+                end)
+   self:connect(self.cache.removed, 
+                function (rr)
+                   self.cache_sl:remove_if_present(rr)
+                   self:cache_changed_rr(rr, false)
+                end)
    self.own_sl = mst_skiplist.ipi_skiplist:new{p=2,
                                                prefix='own_sl',
                                                lt=next_is_less,
                                               }
 
-   function self.own.inserted_callback(x, rr)
+   
+   local function mark_nsec_dirty_if_cache_flush(rr)
       if rr.cache_flush
       then
          self:mark_nsec_dirty(rr)
       end
    end
-   function self.own.removed_callback(x, rr)
-      self.own_sl:remove_if_present(rr)
-      if rr.cache_flush
-      then
-         self:mark_nsec_dirty(rr)
-      end
-   end
+   self:connect(self.own.inserted, mark_nsec_dirty_if_cache_flush)
+   self:connect(self.own.removed, function (rr)
+                   self.own_sl:remove_if_present(rr)
+                   mark_nsec_dirty_if_cache_flush(rr)
+                end)
 
    self.probe = dns_db.ns:new{}
    self.probe_sl = mst_skiplist.ipi_skiplist:new{p=2,
@@ -249,6 +252,8 @@ function mdns_if:init()
 end
 
 function mdns_if:cache_changed_rr(rr, mode)
+   self:d('cache_changed_rr', rr, mode)
+
    -- parent doesn't really need to know
    --self.parent:cache_changed_if_rr(self.ifname, rr, mode)
 

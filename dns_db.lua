@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Mon Apr 29 11:07:31 2013 mstenber
--- Edit time:     200 min
+-- Last modified: Thu May  9 13:31:50 2013 mstenber
+-- Edit time:     203 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -27,7 +27,7 @@
 require 'mst'
 require 'dns_const'
 require 'dns_rdata'
-
+local _eventful = require 'mst_eventful'.eventful
 module(..., package.seeall)
 
 function name2ll(name)
@@ -169,8 +169,10 @@ function rr:equals(o)
 end
 
 -- namespace of RR records; it has ~fast access to RRs by name
-ns = mst.create_class{class='ns'}
+ns = _eventful:new_subclass{class='ns',
+                            events={'inserted', 'removed'}}
 function ns:init()
+   _eventful.init(self)
    self.nh2rr = mst.multimap:new{}
 end
 
@@ -326,7 +328,8 @@ function ns:insert_raw(o)
    local ll = o.name
    local key = ll2key(ll)
    self.nh2rr:insert(key, o)
-   self:inserted_callback(o)
+   self:d('calling inserted', o)
+   self.inserted(o)
    return o, true
 end
 
@@ -337,16 +340,9 @@ function ns:remove_rr(o)
    local ll = o.name
    local key = ll2key(ll)
    self.nh2rr:remove(key, old_rr)
-   self:removed_callback(old_rr)
+   self:d('calling removed', old_rr)
+   self.removed(old_rr)
    return old_rr
-end
-
-function ns:inserted_callback(rr)
-   -- nop
-end
-
-function ns:removed_callback(rr)
-   -- nop
 end
 
 function ns:count()
