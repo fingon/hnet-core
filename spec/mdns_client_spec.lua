@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 14:45:24 2013 mstenber
--- Last modified: Thu May  9 15:21:23 2013 mstenber
--- Edit time:     22 min
+-- Last modified: Mon May 13 12:35:35 2013 mstenber
+-- Edit time:     23 min
 --
 
 require 'busted'
@@ -55,6 +55,11 @@ describe("mdns_client", function ()
                                                            end}
                            ifo = c:get_if(ifname)
                         end)
+            after_each(function ()
+                          c:done()
+                          -- no assert, as not _always_ doing this
+                          scr.clear_scr()
+                       end)
             it("works with prepopulated CF entry [=>sync] #a", function ()
                   ifo.cache:insert_rr(rr_cf)
                   local r, got_cf = c:resolve_ifname_q(ifname, q, 0.1)

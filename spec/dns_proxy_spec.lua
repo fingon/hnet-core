@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 12:51:51 2013 mstenber
--- Last modified: Mon May  6 13:34:19 2013 mstenber
--- Edit time:     34 min
+-- Last modified: Mon May 13 12:30:51 2013 mstenber
+-- Edit time:     35 min
 --
 
 require "busted"
@@ -67,19 +67,23 @@ function test_response_tcp(msg, host, port)
 end
 
 describe("dns_proxy", function ()
+            local p
+            after_each(function ()
+                          p:done()
+                          p = nil
+                          mst.a(scr.clear_scr())
+                       end)
             it("can be initialized", function ()
-                  local p = dns_proxy.dns_proxy:new{tcp_port=5354,
-                                                    udp_port=5354,
-                                                    process_callback=echo_process_request}
-                  p:done()
-                  scr.clear_scr()
+                  p = dns_proxy.dns_proxy:new{tcp_port=5354,
+                                              udp_port=5354,
+                                              process_callback=echo_process_request}
                    end)
 
             it("works #w", function ()
                   local p0 = 5354
-                  local p = dns_proxy.dns_proxy:new{tcp_port=p0,
-                                                    udp_port=p0,
-                                                   process_callback=echo_process_request}
+                  p = dns_proxy.dns_proxy:new{tcp_port=p0,
+                                              udp_port=p0,
+                                              process_callback=echo_process_request}
                   local thost = scb.LOCALHOST
                   
                   -- send the fake message, expect a reply within 
@@ -94,8 +98,5 @@ describe("dns_proxy", function ()
                   -- (reply should be SOMETHING)
                   local r = test_response_tcp(query_dummy_aaaa, thost, p0)
                   mst.a(r, 'timed out')
-                  
-                  p:done()
-                  scr.clear_scr()
                    end)
              end)

@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 18:35:23 2013 mstenber
--- Last modified: Mon May  6 13:03:13 2013 mstenber
+-- Last modified: Mon May 13 12:32:54 2013 mstenber
 -- Edit time:     12 min
 --
 
@@ -26,6 +26,7 @@ describe("dns_channel", function ()
                      
                   mst.a(msg, 'resolve_q_udp failed', err)
                   mst.d('got', msg)
+                  mst.a(scr.clear_scr())
                    end)
             it("resolve for google works (any) #any", function ()
                   local msg, err = scr.timeouted_run_async_call(1,
@@ -34,6 +35,6 @@ describe("dns_channel", function ()
                                                                 {name={'google', 'com'}, qtype=dns_const.TYPE_ANY}, 1)
                   mst.a(msg, 'resolve_q failed', err)
                   mst.d('got', msg)
-
+                  mst.a(scr.clear_scr())
                    end)
 end)

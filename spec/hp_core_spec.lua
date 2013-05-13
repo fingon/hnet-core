@@ -8,12 +8,13 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Wed May  8 10:35:37 2013 mstenber
--- Edit time:     25 min
+-- Last modified: Mon May 13 12:29:15 2013 mstenber
+-- Edit time:     27 min
 --
 
 require 'busted'
 require 'hp_core'
+require 'scr'
 
 module('hp_core_spec', package.seeall)
 
@@ -127,5 +128,12 @@ describe("hybrid_proxy", function ()
 
                      mst.a(r == exp_r, 'result mismatch', n, exp_r, r, err)
                   end
+                  hp:done()
+
+                  -- shouldn't have scr running anyway, we use only
+                  -- in-system state
+
+                  --mst.a(scr.clear_scr())
+
                    end)
 end)
