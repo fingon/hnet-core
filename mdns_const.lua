@@ -8,11 +8,14 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:59:37 2013 mstenber
--- Last modified: Mon Jan 28 15:19:52 2013 mstenber
+-- Last modified: Mon May 13 13:08:35 2013 mstenber
 -- Edit time:     2 min
 --
 
 module(...)
+
+-- label list used magically by mdns
+LL={'local'}
 
 MULTICAST_ADDRESS_IPV4='224.0.0.251'
 MULTICAST_ADDRESS_IPV6='ff02::fb'
