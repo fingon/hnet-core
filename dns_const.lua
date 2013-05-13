@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:03:28 2013 mstenber
--- Last modified: Tue May  7 16:46:00 2013 mstenber
--- Edit time:     2 min
+-- Last modified: Mon May 13 15:38:58 2013 mstenber
+-- Edit time:     3 min
 --
 
 module(...)
@@ -52,6 +52,8 @@ RCODE_NAME_ERROR=3 -- name does not exist (meaningful only from authoritative)
 RCODE_NOT_IMPLEMENTED=4 -- name server does not support requested kind of query
 RCODE_REFUSED=5 -- name server won't honor this query for some reason
 
+-- reverse LL for IPv4
+REVERSE_LL_IPV4={'in-addr', 'arpa'}
 
-
-
+-- reverse LL for IPv6
+REVERSE_LL_IPV6={'ip6', 'arpa'}
