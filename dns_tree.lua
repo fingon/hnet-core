@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 12:55:42 2013 mstenber
--- Last modified: Wed May  8 12:50:46 2013 mstenber
--- Edit time:     46 min
+-- Last modified: Mon May 13 13:56:15 2013 mstenber
+-- Edit time:     48 min
 --
 
 -- This module implements (nested) dns zone hierarchy using rather
@@ -147,6 +147,7 @@ function node:get_ll()
    do
       table.insert(t, n.label)
       n = n.parent
+      self:a(n, 'null parent encountered w/o nil label? error')
    end
    return t
 end
