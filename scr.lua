@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:13:25 2013 mstenber
--- Last modified: Thu May  9 15:09:36 2013 mstenber
+-- Last modified: Mon May 13 12:28:46 2013 mstenber
 -- Edit time:     149 min
 --
 
@@ -356,6 +356,7 @@ function clear_scr()
    then
       l:remove_timeout(l.scr)
       l.scr = nil
+      return true
    end
 end
 
