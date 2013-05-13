@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:54:26 2013 mstenber
--- Last modified: Fri May  3 12:36:01 2013 mstenber
--- Edit time:     59 min
+-- Last modified: Mon May 13 17:20:59 2013 mstenber
+-- Edit time:     60 min
 --
 
 -- Simple testsuite for complex stuff - simple coroutine reactor tests
@@ -245,13 +245,13 @@ describe("scrsocket", function ()
                                              end)
                   local r = ssloop.loop():loop_until(function ()
                                                         return frag > 0 and #b > 2^17
-                                                     end, 1)
+                                                     end, 10)
                   mst.a(r, 'timed out 1')
                   stopping = true
                   local r = ssloop.loop():loop_until(function ()
                                                         return stopped
-                                                     end, 1)
-                  mst.a(r, 'timed out 1')
+                                                     end, 5)
+                  mst.a(r, 'timed out 2')
 
                   s2:done()
                   scr.clear_scr()
