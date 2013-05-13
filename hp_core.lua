@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Wed May  8 10:26:13 2013 mstenber
--- Edit time:     146 min
+-- Last modified: Mon May 13 17:03:51 2013 mstenber
+-- Edit time:     227 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -44,6 +44,14 @@
 
 -- attempt at using non-existent domain in home zone
 
+
+-- TODO:
+
+-- Implement reply filtering in more comprehensive fashion s.t. we
+-- never, ever return dangling pointers (e.g. PTR => non-existent
+-- AAAA).  Can probably reuse mdns_ospf's
+-- reduce_ns_to_nondangling_array.
+
 require 'mst'
 
 -- some utility stuff here; should probably refactor to non-mdns
@@ -54,6 +62,8 @@ require 'dns_tree'
 
 module(..., package.seeall)
 
+MDNS_TIMEOUT=0.5
+
 DOMAIN='home'
 
 RESULT_FORWARD_EXT='forward_ext' -- forward to the real external resolver
@@ -63,7 +73,9 @@ RESULT_FORWARD_MDNS='forward_mdns' -- forward via mDNS
 RESULT_NXDOMAIN='nxdomain'
 
 hybrid_proxy = mst.create_class{class='hybrid_proxy',
-                                mandatory={'rid', 'domain'}}
+                                mandatory={'rid', 'domain', 
+                                           'mdns_resolve_callback',
+                                }}
 
 function prefix_to_ll(s)
    -- We do this in inverse order, and then reverse just in the end
@@ -171,23 +183,18 @@ function hybrid_proxy:recreate_tree()
 
       local function create_domain_node (o)
          local n = create_default_nxdomain_node_callback(o)
-         local canned
-
-         -- [2r] local prefix => handle 'specially'
-         if rid == self.rid
-         then
-            local ifname = self:get_local_ifname_for_prefix(prefix)
-            self:a(ifname, 'no ifname for prefix', prefix)
-            canned = {RESULT_FORWARD_MDNS, ifname}
-         else
-            -- [3r] remote rid => query it instead
-            canned = {RESULT_FORWARD_INT, ip}
-         end
-         
-         self:a(canned, 'unable to generate canned response')
-
+         local hp = self
          function n:get_default(req)
-            return unpack(canned)
+            -- [2r] local prefix => handle 'specially'
+            if rid == hp.rid
+            then
+               local ifname = hp:get_local_ifname_for_prefix(prefix)
+               self:a(ifname, 'no ifname for prefix', prefix)
+               return RESULT_FORWARD_MDNS, ifname, n:get_ll()
+            else
+               -- [3r] remote rid => query it instead
+               return RESULT_FORWARD_INT, ip
+            end
          end
          return n
       end
@@ -270,8 +277,184 @@ function hybrid_proxy:forward(server, req)
    return dns_proxy.forward_process_callback(server, msg, src, tcp, timeout)
 end
 
-function hybrid_proxy:mdns_forward(ifname, req)
-   return nil, 'mdns forward not implemented yet'
+function ll_tail_matches(ll, tail)
+   local ofs = #ll - #tail
+   if ofs <= 0
+   then
+      --mst.d('too short', ll, tail)
+      return nil
+      -- inefficient, skip
+      --, 'too short name ' .. mst.repr{ll, tail, tail2, ofs}
+   end
+   -- figure the domain part
+   local ll1 = mst.array_slice(ll, ofs+1)
+
+   -- if they're not equal according to dns_db form, we have problem
+   local k = dns_db.ll2key(tail)
+   local k1 = dns_db.ll2key(ll1)
+   if k ~= k1
+   then
+      --mst.a(not mst.repr_equal(tail, ll1), 'same?!?')
+      --mst.d('key mismatch', ll1, tail, mst.repr(k), mst.repr(k1))
+      return nil
+      -- very inefficient - do we really want to do this?
+      --, 'domain mismatch ' .. mst.repr{dns_req, ll}
+   end
+   return true, ofs
+end
+
+
+function replace_dns_ll_tail_with_another(ll, tail1, tail2)
+   mst.a(ll and tail1 and tail2, 'invalid arguments', ll, tail1, tail2)
+
+   -- special case: if it's one of arpa ones, we return ll as-is
+   if ll_tail_matches(ll, dns_const.REVERSE_LL_IPV4) or
+      ll_tail_matches(ll, dns_const.REVERSE_LL_IPV6) 
+   then
+      mst.d('found arpa', ll)
+      return ll
+   end
+   mst.d('no arpa', ll)
+
+   local r, ofs = ll_tail_matches(ll, tail1)
+   -- if not valid tail, we have to bail
+   if not r
+   then
+      return nil, ofs
+   end
+   local n = mst.array_slice(ll, 1, ofs)
+   n:extend(tail2)
+   return n
+end
+
+
+
+-- Rewrite the DNS-originated request to a single mDNS
+-- question. Underlying assumption is that the DNS-originated request
+-- is sane (and we check it), containing only one question. We
+-- transform the 'domain' within req (and the q within it) from 'll'
+-- to mDNS .local while we are at it.
+function hybrid_proxy:rewrite_dns_req_to_mdns_q(dns_req, ll)
+   self:d('rewrite_dns_req_to_mdns_q', dns_req, ll)
+
+   if not dns_req.qd or #dns_req.qd ~= 1
+   then
+      return nil, 'weird # of questions ' .. mst.repr(dns_req)
+   end
+
+   local q = dns_req.qd[1]
+   self:a(q.name, 'no name for query', q)
+   local n, err = replace_dns_ll_tail_with_another(q.name, ll, mdns_const.LL)
+   if not n then return nil, err end
+
+   local nq = mst.table_copy(q)
+   nq.name = n
+   return nq
+end
+
+function hybrid_proxy:rewrite_mdns_rr_to_dns(rr, ll)
+   local n, err = replace_dns_ll_tail_with_another(rr.name, mdns_const.LL, ll)
+   if not n then return nil, err end
+   local nrr = mst.table_copy(rr)
+   -- rewrite name
+   nrr.name = n
+   
+   -- manually rewrite the relevant bits.. sigh SRV, PTR are only
+   -- types we really care about; NS shouldn't happen
+   if rr.rtype == dns_const.TYPE_SRV
+   then
+      local srv = mst.table_copy(rr.rdata_srv)
+      nrr.rdata_srv = srv
+      local n, err = replace_dns_ll_tail_with_another(srv.target, mdns_const.LL, ll)
+      if not n then return nil, err end
+      srv.target = n
+   elseif rr.rtype==dns_const.TYPE_PTR
+   then
+      local n, err = replace_dns_ll_tail_with_another(rr.rdata_ptr, mdns_const.LL, ll)
+      if not n then return nil, err end
+      nrr.rdata_ptr = n
+   end
+   return nrr
+end
+
+function hybrid_proxy:create_dns_reply(req)
+   local an = mst.array:new{}
+   local ar = mst.array:new{}
+   local reply = {h={id=req.h.id, 
+                     rd=req.h.rd,
+                     ra=true,
+                     qr=true},
+                  qd=req.qd, an=an, ar=ar}
+   return reply
+
+end
+
+-- Rewrite the mDNS-oriented RR list to a reply message that can be
+-- sent to DNS client.
+function hybrid_proxy:rewrite_rrs_from_mdns_to_reply_msg(req, mdns_q, 
+                                                         mdns_rrs, ll)
+   local r = self:create_dns_reply(req)
+
+   function include_rr(rr)
+      -- XXX - figure criteria why not to
+      return true
+   end
+
+   local matched
+   
+   for i, rr in ipairs(mdns_rrs)
+   do
+      if include_rr(rr)
+      then
+
+         local nrr, err = self:rewrite_mdns_rr_to_dns(rr, ll)
+         if not nrr then return nil, 'error rewriting rr ' .. err end
+         if mdns_if.match_q_rr(mdns_q, rr)
+         then
+            r.an:insert(nrr)
+            matched = true
+         else
+            -- anything not directly matching query is clearly additional
+            -- record we may want to include just for fun
+            r.ar:insert(nrr)
+         end
+      end
+   end
+   if not matched
+   then
+      r.ar = {}
+      r.h.rcode = dns_const.RCODE_NAME_ERROR
+   end
+   return r
+end
+
+function hybrid_proxy:mdns_forward(ifname, req, ll)
+   local msg, src, tcp = unpack(req)
+   -- On high level, this is really simple process. while underneath
+   -- it may involve asynchronous stuff (in relation to mdns caching
+   -- etc), as we're running within scr coroutine, this can be done
+   -- with simple, synchronous-looking logic.
+   self:d('mdns_forward', ifname, req, ll)
+
+   -- First off, convert it to MDNS
+   local q, err = self:rewrite_dns_req_to_mdns_q(msg, ll)
+   if not q
+   then
+      self:d('rewrite_dns_req_to_mdns_q failed', err)
+      local r = self:create_dns_reply(req)
+      msg.h.rcode = dns_const.RCODE_FORMAT_ERROR
+      return r, src
+   end
+
+   local rrs, err = self.mdns_resolve_callback(ifname, q, MDNS_TIMEOUT)
+
+   if rrs and #rrs>0
+   then
+      local r = self:rewrite_rrs_from_mdns_to_reply_msg(msg, q, rrs, ll)
+      return r, src
+   end
+
+   return nil, err
 end
 
 function hybrid_proxy:match(req)
@@ -291,7 +474,7 @@ end
 
 function hybrid_proxy:process(msg, src, tcp)
    local req = {msg, src, tcp}
-   local r, o = self:match(req)
+   local r, o, o2 = self:match(req)
    if not r
    then
       return nil, 'match error ' .. mst.repr(o)
@@ -309,16 +492,13 @@ function hybrid_proxy:process(msg, src, tcp)
    end
    if r == RESULT_FORWARD_MDNS
    then
-      return self:mdns_forward(o, req)
+      return self:mdns_forward(o, req, o2)
    end
    if r == RESULT_NXDOMAIN
    then
-      return {
-         qd=msg.qd,
-         h={id=msg.h.id,
-            rcode=dns_const.RCODE_NAME_ERROR,
-            qr=true},
-             }, src
+      local r = self:create_dns_reply(msg)
+      msg.h.rcode = dns_const.RCODE_NAME_ERROR
+      return r, src
    end
    -- _something_ else.. hopefully it's rr's that we need to wrap
    return nil, 'weird result ' .. mst.repr{r, o}
