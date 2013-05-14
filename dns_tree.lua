@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 12:55:42 2013 mstenber
--- Last modified: Mon May 13 13:56:15 2013 mstenber
--- Edit time:     48 min
+-- Last modified: Tue May 14 17:56:19 2013 mstenber
+-- Edit time:     52 min
 --
 
 -- This module implements (nested) dns zone hierarchy using rather
@@ -132,7 +132,6 @@ end
 
 function create_leaf_node_callback(d)
    mst.a(type(d) == 'table', 'wrong d', d)
-   d.value = true -- placeholder
    return leaf_node:new(d)
 end
 
@@ -160,8 +159,7 @@ function node:get_value()
    return nil, 'value not provided'
 end
 
-leaf_node = node:new_subclass{class='leaf_node',
-                              mandatory={'label', 'value'}}
+leaf_node = node:new_subclass{class='leaf_node'}
 
 function leaf_node:get_default()
    return nil, 'leaf nodes cannot have children'
