@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue May 14 15:51:31 2013 mstenber
--- Edit time:     677 min
+-- Last modified: Tue May 14 18:42:32 2013 mstenber
+-- Edit time:     681 min
 --
 
 -- data structure abstractions provided:
@@ -66,6 +66,8 @@ enable_assert=true
 array = nil
 map = nil
 set = nil
+
+repr_show_duplicates = false
 
 -- check parameters to e.g. function
 function check_parameters(fname, o, l, depth)
@@ -383,7 +385,7 @@ function array_repr(t, shown)
    shown = shown or {}
 
    table.insert(s, "{")
-   if shown[t]
+   if shown[t] and not repr_show_duplicates
    then
       return '...'
    end
@@ -869,7 +871,7 @@ function table_repr(t, shown)
    shown = shown or {}
 
    table.insert(s, "{")
-   if shown[t]
+   if shown[t] and not repr_show_duplicates
    then
       return '...'
    end
