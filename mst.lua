@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu May  9 15:17:18 2013 mstenber
--- Edit time:     661 min
+-- Last modified: Tue May 14 13:06:37 2013 mstenber
+-- Edit time:     674 min
 --
 
 -- data structure abstractions provided:
@@ -35,6 +35,7 @@ local pairs = pairs
 local pcall = pcall
 local print = print
 local require = require
+local select = select
 local setmetatable = setmetatable
 local tonumber = tonumber
 local tostring = tostring
@@ -78,22 +79,27 @@ function check_parameters(fname, o, l, depth)
    end
 end
 
+local _repr_metatable = {__tostring=function (self) return repr(self) end}
+
 -- debugging (class stuff depends on this -> must be first)
 function debug_print(...)
    -- rewrite all table's to have metatable which has tostring => repr wrapper, if they don't have metatable
-   local tl = {}
-   local al = {...}
-   local sm = {}
+   local sm 
    --print('handling arguments', #al)
-   for i, v in ipairs(al)
+   for i=1,select('#', ...)
    do
-      --print(type(v), getmetatable(v))
-      if type(v) == 'table' and (not getmetatable(v) or not getmetatable(v).__tostring)
+      local v = select(i, ...)
+      --print(type(v))
+      if type(v) == 'table' 
       then
-         --print(' setting metatable', v)
-         sm[v] = getmetatable(v)
-         setmetatable(v, _repr_metatable)
-         table.insert(tl, v)
+         --print('xx', v, getmetatable(v))
+         if (not getmetatable(v) or not getmetatable(v).__tostring)
+         then
+            sm = sm or {}
+            --print(' setting metatable', v)
+            sm[v] = getmetatable(v)
+            setmetatable(v, _repr_metatable)
+         end
       end
    end
    if enable_debug_date
@@ -102,10 +108,12 @@ function debug_print(...)
    else
       print(...)
    end
-   for i, v in ipairs(tl)
-   do
-      setmetatable(v, sm[v])
-      --print(' reverted metatable', v)
+   if sm
+   then
+      for k, v in pairs(sm)
+      do
+         setmetatable(k, v)
+      end
    end
 end
 
@@ -288,8 +296,6 @@ function create_class(o, ...)
                     __tostring=ts})
    return h
 end
-
-_repr_metatable = {__tostring=function (self) return repr(self) end}
 
 function pcall_and_finally(fun1, fun2)
    -- error propagation doesn't really matter as much.. as good tracebacks do
