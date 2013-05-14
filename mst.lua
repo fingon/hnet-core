@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue May 14 13:06:37 2013 mstenber
--- Edit time:     674 min
+-- Last modified: Tue May 14 15:51:31 2013 mstenber
+-- Edit time:     677 min
 --
 
 -- data structure abstractions provided:
@@ -45,10 +45,10 @@ local xpcall = xpcall
 
 
 -- allow prevention of loading strict (e.g. when dealing with luacov)
---if not os.getenv("DISABLE_MST_STRICT")
---then
---   require 'strict'
---end
+if os.getenv("ENABLE_MST_STRICT")
+then
+   require 'strict'
+end
 -- probably bad idea; use lua -lstrict instead if desirable
 -- (e.g. recent vstruct breaks horribly if using this, *sigh*)
 
