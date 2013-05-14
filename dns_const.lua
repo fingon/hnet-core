@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:03:28 2013 mstenber
--- Last modified: Tue May 14 15:28:15 2013 mstenber
--- Edit time:     8 min
+-- Last modified: Tue May 14 17:41:17 2013 mstenber
+-- Edit time:     9 min
 --
 
 module(...)
@@ -69,3 +69,5 @@ REVERSE_LL_IPV4={'in-addr', 'arpa'}
 REVERSE_LL_IPV6={'ip6', 'arpa'}
 
 GOOGLE_IPV4='8.8.8.8'
+
+B_DNS_SD_LL={'b', '_dns-sd', '_udp'}
