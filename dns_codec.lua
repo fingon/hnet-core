@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Mon Feb 18 12:19:06 2013 mstenber
--- Edit time:     274 min
+-- Last modified: Tue May 14 19:32:13 2013 mstenber
+-- Edit time:     275 min
 --
 
 -- Functionality for en-decoding various DNS structures;
@@ -147,6 +147,7 @@ function dns_rr:try_decode(cur, context)
          r.rdata = ''
       end
    end
+   r.rdlength = nil
    return r
 end
 
@@ -168,6 +169,7 @@ end
 
 function dns_rr:do_encode(o, context)
    mst.a(type(o) == 'table')
+   self:a(o.name, 'no name', o)
    local t = encode_name_rec(o.name, context)
    o.rdata = self:produce_rdata(o, context)
    o.rdlength = #o.rdata
