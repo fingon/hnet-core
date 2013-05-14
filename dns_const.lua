@@ -8,11 +8,13 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:03:28 2013 mstenber
--- Last modified: Mon May 13 15:38:58 2013 mstenber
--- Edit time:     3 min
+-- Last modified: Tue May 14 15:28:15 2013 mstenber
+-- Edit time:     8 min
 --
 
 module(...)
+
+-- based on http://www.iana.org/assignments/dns-parameters/dns-parameters.xml
 
 -- protocol port #
 PORT=53
@@ -46,14 +48,24 @@ TYPE_ANY=255
 
 -- RFC1035
 RCODE_NOERR=0
-RCODE_FORMAT_ERROR=1 -- name server unable to understand query
-RCODE_SERVER_FAILURE=2 -- name server unable to process due to problem with server
-RCODE_NAME_ERROR=3 -- name does not exist (meaningful only from authoritative)
-RCODE_NOT_IMPLEMENTED=4 -- name server does not support requested kind of query
+RCODE_FORMERR=1 -- name server unable to understand query
+RCODE_SERVFAIL=2 -- name server unable to process due to problem with server
+RCODE_NXDOMAIN=3 -- name does not exist (meaningful only from authoritative)
+RCODE_NOTIMP=4 -- name server does not support requested kind of query
 RCODE_REFUSED=5 -- name server won't honor this query for some reason
+
+-- RFC1035
+OPCODE_QUERY=0
+OPCODE_IQUERY=1 -- obsolete as of RFC3425
+OPCODE_STATUS=2
+
+OPCODE_NOTIFY=4 -- RFC1996
+OPCODE_UPDATE=4 -- RFC2136
 
 -- reverse LL for IPv4
 REVERSE_LL_IPV4={'in-addr', 'arpa'}
 
 -- reverse LL for IPv6
 REVERSE_LL_IPV6={'ip6', 'arpa'}
+
+GOOGLE_IPV4='8.8.8.8'

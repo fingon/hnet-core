@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Mon May 13 17:03:51 2013 mstenber
--- Edit time:     227 min
+-- Last modified: Tue May 14 15:49:49 2013 mstenber
+-- Edit time:     248 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -129,6 +129,10 @@ function create_default_nxdomain_node_callback(o)
 end
 
 
+function hybrid_proxy:repr_data()
+   return mst.repr{rid=self.rid}
+end
+
 function hybrid_proxy:get_local_ifname_for_prefix(prefix)
    local got
    self:iterate_ap(function (o)
@@ -190,7 +194,9 @@ function hybrid_proxy:recreate_tree()
             then
                local ifname = hp:get_local_ifname_for_prefix(prefix)
                self:a(ifname, 'no ifname for prefix', prefix)
-               return RESULT_FORWARD_MDNS, ifname, n:get_ll()
+               local ll = n:get_ll()
+               self:a(ll)
+               return RESULT_FORWARD_MDNS, ifname, ll
             else
                -- [3r] remote rid => query it instead
                return RESULT_FORWARD_INT, ip
@@ -245,7 +251,9 @@ function hybrid_proxy:recreate_tree()
             self:a(ifname, 'no ifname for prefix', prefix)
             canned = {}
             function n:get_default()
-               return RESULT_FORWARD_MDNS, ifname
+               local ll = n:get_ll()
+               self:a(ll)
+               return RESULT_FORWARD_MDNS, ifname, ll
             end
             function n:get_value()
                -- XXX 
@@ -336,6 +344,7 @@ end
 -- to mDNS .local while we are at it.
 function hybrid_proxy:rewrite_dns_req_to_mdns_q(dns_req, ll)
    self:d('rewrite_dns_req_to_mdns_q', dns_req, ll)
+   self:a(dns_req and ll, 'no dns_req/ll')
 
    if not dns_req.qd or #dns_req.qd ~= 1
    then
@@ -377,16 +386,21 @@ function hybrid_proxy:rewrite_mdns_rr_to_dns(rr, ll)
    return nrr
 end
 
-function hybrid_proxy:create_dns_reply(req)
-   local an = mst.array:new{}
-   local ar = mst.array:new{}
-   local reply = {h={id=req.h.id, 
-                     rd=req.h.rd,
-                     ra=true,
-                     qr=true},
-                  qd=req.qd, an=an, ar=ar}
-   return reply
+function hybrid_proxy:create_dns_reply(req, o)
+   o = o or {}
+   o.an = o.an or mst.array:new{}
+   o.ar = o.ar or mst.array:new{}
+   o.h = o.h or {}
+   -- these are always true
+   o.h.ra = true -- recursion available
+   o.h.qr = true -- reply
 
+   -- these are copied from req, if not specified in o
+   o.h.id = o.h.id or req.h.id
+   o.h.rd = o.h.rd or req.h.rd
+   o.qd = o.qd or req.qd
+
+   return o
 end
 
 -- Rewrite the mDNS-oriented RR list to a reply message that can be
@@ -394,6 +408,7 @@ end
 function hybrid_proxy:rewrite_rrs_from_mdns_to_reply_msg(req, mdns_q, 
                                                          mdns_rrs, ll)
    local r = self:create_dns_reply(req)
+   self:d('rewrite_rrs_from_mdns_to_reply_msg', req, mdns_q, mdns_rrs, ll)
 
    function include_rr(rr)
       -- XXX - figure criteria why not to
@@ -401,6 +416,7 @@ function hybrid_proxy:rewrite_rrs_from_mdns_to_reply_msg(req, mdns_q,
    end
 
    local matched
+
    
    for i, rr in ipairs(mdns_rrs)
    do
@@ -408,22 +424,29 @@ function hybrid_proxy:rewrite_rrs_from_mdns_to_reply_msg(req, mdns_q,
       then
 
          local nrr, err = self:rewrite_mdns_rr_to_dns(rr, ll)
-         if not nrr then return nil, 'error rewriting rr ' .. err end
-         if mdns_if.match_q_rr(mdns_q, rr)
+         if nrr
          then
-            r.an:insert(nrr)
-            matched = true
+
+            if mdns_if.match_q_rr(mdns_q, rr)
+            then
+               self:d('adding to an', nrr)
+               r.an:insert(nrr)
+               matched = true
+            else
+               -- anything not directly matching query is clearly additional
+               -- record we may want to include just for fun
+               self:d('adding to ar', nrr)
+               r.ar:insert(nrr)
+            end
          else
-            -- anything not directly matching query is clearly additional
-            -- record we may want to include just for fun
-            r.ar:insert(nrr)
+            self:d('invalid rr skipped', rr, ll)
          end
       end
    end
    if not matched
    then
       r.ar = {}
-      r.h.rcode = dns_const.RCODE_NAME_ERROR
+      r.h.rcode = dns_const.RCODE_NXDOMAIN
    end
    return r
 end
@@ -435,20 +458,22 @@ function hybrid_proxy:mdns_forward(ifname, req, ll)
    -- etc), as we're running within scr coroutine, this can be done
    -- with simple, synchronous-looking logic.
    self:d('mdns_forward', ifname, req, ll)
+   self:a(ifname and req and ll, 'no ifname/req/ll', ifname, req, ll)
 
    -- First off, convert it to MDNS
    local q, err = self:rewrite_dns_req_to_mdns_q(msg, ll)
    if not q
    then
       self:d('rewrite_dns_req_to_mdns_q failed', err)
-      local r = self:create_dns_reply(req)
-      msg.h.rcode = dns_const.RCODE_FORMAT_ERROR
+      local r = self:create_dns_reply(req,
+                                      {h={rcode=dns_const.RCODE_FORMERR}})
       return r, src
    end
 
    local rrs, err = self.mdns_resolve_callback(ifname, q, MDNS_TIMEOUT)
 
-   if rrs and #rrs>0
+   -- if it's non-error, return it, even if result is empty
+   if rrs 
    then
       local r = self:rewrite_rrs_from_mdns_to_reply_msg(msg, q, rrs, ll)
       return r, src
@@ -473,8 +498,18 @@ function hybrid_proxy:match(req)
 end
 
 function hybrid_proxy:process(msg, src, tcp)
+   -- by default, assume it's query
+   -- (this may occur when testing locally and it is not an error)
+   local opcode = msg.opcode or dns_const.OPCODE_QUERY
+   
+   if opcode ~= dns_const.OPCODE_QUERY
+   then
+      local r = self:create_dns_reply(msg, {h={rcode=dns_const.RCODE_NOTIMP}})
+      return r, src
+   end
    local req = {msg, src, tcp}
    local r, o, o2 = self:match(req)
+   self:d('match result', msg, r, o, o2)
    if not r
    then
       return nil, 'match error ' .. mst.repr(o)
@@ -487,7 +522,7 @@ function hybrid_proxy:process(msg, src, tcp)
    end
    if r == RESULT_FORWARD_EXT
    then
-      local server = self.server or '8.8.8.8'
+      local server = self.server or dns_const.GOOGLE_IPV4
       return self:forward(server, req)
    end
    if r == RESULT_FORWARD_MDNS
@@ -496,8 +531,7 @@ function hybrid_proxy:process(msg, src, tcp)
    end
    if r == RESULT_NXDOMAIN
    then
-      local r = self:create_dns_reply(msg)
-      msg.h.rcode = dns_const.RCODE_NAME_ERROR
+      local r = self:create_dns_reply(msg, {h={rcode=dns_const.RCODE_NXDOMAIN}})
       return r, src
    end
    -- _something_ else.. hopefully it's rr's that we need to wrap

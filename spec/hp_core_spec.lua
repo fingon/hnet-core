@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Mon May 13 17:49:31 2013 mstenber
--- Edit time:     92 min
+-- Last modified: Tue May 14 16:01:23 2013 mstenber
+-- Edit time:     195 min
 --
 
 require 'busted'
@@ -19,6 +19,9 @@ require 'scr'
 module('hp_core_spec', package.seeall)
 
 local DOMAIN_LL={'foo', 'com'}
+local TEST_SRC='4.3.2.1'
+local TEST_ID=123
+local OTHER_IP='3.4.5.6'
 
 local prefix_to_ll_material = {
    {'10.0.0.0/8', {'10', 'in-addr', 'arpa'}},
@@ -71,7 +74,7 @@ local dns_dummy_q = {name={'name', 'foo', 'com'},
 local mdns_rrs_to_dns_reply_material = {
    -- nothing found => name error
    {{},
-    {h={id=123, qr=true, ra=true, rcode=dns_const.RCODE_NAME_ERROR}, 
+    {h={id=123, qr=true, ra=true, rcode=dns_const.RCODE_NXDOMAIN}, 
      qd={dns_dummy_q},
      an={}, ar={}, 
     },
@@ -82,7 +85,7 @@ local mdns_rrs_to_dns_reply_material = {
        -- one fake-RR, but with wrong name
        {name={'blarg', 'local'}},
     },
-    {h={id=123, qr=true, ra=true, rcode=dns_const.RCODE_NAME_ERROR}, 
+    {h={id=123, qr=true, ra=true, rcode=dns_const.RCODE_NXDOMAIN}, 
      qd={dns_dummy_q},
      an={}, ar={}, 
     },
@@ -161,6 +164,7 @@ local q_to_r_material = {
    {'nonexistent.foo.com', hp_core.RESULT_NXDOMAIN},
    {'rid1.foo.com', nil},
    {'iid1.rid1.foo.com', nil},
+   {'x.iid1.rid2.foo.com', hp_core.RESULT_FORWARD_INT},
    {'foo.iid1.rid1.foo.com', hp_core.RESULT_FORWARD_MDNS},
    {'11.in-addr.arpa', hp_core.RESULT_FORWARD_EXT},
    {'10.in-addr.arpa', nil},
@@ -177,23 +181,167 @@ local q_to_r_material = {
    {'1.0.0.0.0.1.e.e.b.d.a.e.d.ip6.arpa', hp_core.RESULT_FORWARD_INT},
 }
 
-function create_fake_callback()
-   local a = {1}
-   function f(...)
-      a[1] = a[1] + 1
-      mst.a(#a >= i, 'out of bytes')
-      local got = {...}
-      local exp, r = unpack(a[a[1]])
-      mst.a(mst.repr_equal(got, exp), 
-            'non-expected input - exp/got', exp, got)
-      return r
-   end
-   return f, a
+local n_nonexistent_foo={'nonexistent', 'foo', 'com'}
+local n_bar_com={"bar", "com"}
+local n_x_mine={'x', 'iid1', 'rid1', 'foo', 'com'}
+local n_y_mine={'y', 'iid1', 'rid1', 'foo', 'com'}
+local n_x_other={'x', 'iid1', 'rid2', 'foo', 'com'}
+
+local q_bar_com = {name=n_bar_com, qclass=1, qtype=255}
+local q_x_mine = {name=n_x_mine, qclass=1, qtype=255}
+local q_x_other = {name=n_x_other, qclass=1, qtype=255}
+local q_nonexistent = {name=n_nonexistent_foo, qclass=1, qtype=255}
+
+local msg_bar_com_nxdomain = {
+   h={id=123, qr=true, ra=true, rcode=dns_const.RCODE_NXDOMAIN},
+   qd={q_bar_com},
+}
+
+local msg_nonexistent_nxdomain = {
+   h={id=123, qr=true, ra=true, rcode=dns_const.RCODE_NXDOMAIN},
+   qd={q_nonexistent},
+   ar={}, an={}-- impl. artifacts
+}
+
+local msg_x_other_content = {
+   h={id=123, qr=true, ra=true},
+   qd={q_x_other},
+   an={
+      {name=n_x_other, rtype=dns_const.TYPE_A, rdata_a="7.6.5.4"},
+   }
+}
+
+local msg_x_mine_nxdomain = {
+   h={id=123, qr=true, ra=true, rcode=dns_const.RCODE_NXDOMAIN},
+   qd={q_x_mine},
+   ar={}, an={}-- impl. artifacts
+}
+
+local rr_x_mine = {name=n_x_mine, rtype=dns_const.TYPE_A, rdata_a="8.7.6.5", rclass=dns_const.CLASS_IN}
+
+local rr_y_mine = {name=n_y_mine, rtype=dns_const.TYPE_A, rdata_a="9.8.7.6", rclass=dns_const.CLASS_IN}
+
+local msg_x_mine_result = {
+   h={id=123, qr=true, ra=true},
+   qd={mst.table_deep_copy(q_x_mine)},
+   an={
+      rr_x_mine,
+   },
+   ar={
+      rr_y_mine,
+   }
+}
+
+local rr_x_local = mst.table_copy(rr_x_mine)
+rr_x_local.name = {'x', 'local'}
+
+local rr_y_local = mst.table_copy(rr_y_mine)
+rr_y_local.name = {'y', 'local'}
+
+local hp_process_dns_results = {
+   -- first case - forward ext, fails
+   {
+      {"8.8.8.8", {{h={id=123}, qd={q_bar_com}}, "4.3.2.1", false}},
+      nil,
+   },
+   -- second case - forward ext, succeeds, but op fails (nxdomain)
+   {
+      {"8.8.8.8", {{h={id=123}, qd={q_bar_com}}, "4.3.2.1", false}},
+      msg_bar_com_nxdomain,
+   },
+   -- forward int
+   {
+      {OTHER_IP, {{h={id=123}, qd={q_x_other}}, "4.3.2.1", false}},
+      msg_x_other_content,
+   },
+}
+
+local hp_process_tests = {
+   -- first case - forward ext, fails
+   {
+      q_bar_com,
+      nil,
+   },
+   -- second case - forward ext, succeeds
+   {
+      q_bar_com,
+      msg_bar_com_nxdomain,
+   },
+   -- third case, forward int
+   {
+      q_x_other,
+      msg_x_other_content,
+   },
+   -- nxdomain
+   {
+      q_nonexistent,
+      msg_nonexistent_nxdomain,
+   },
+   -- mdns forward - error
+   {
+      q_x_mine,
+   },
+   -- mdns forward - timeout
+   {
+      q_x_mine,
+      msg_x_mine_nxdomain,
+   },
+   -- mdns forward - real result
+   {
+      q_x_mine,
+      msg_x_mine_result,
+   },
+}
+
+local hp_process_mdns_results = {
+   -- error => nil
+   {
+      {"eth0", {name={"x", "local"}, qclass=1, qtype=255}, 0.5},
+      nil,
+   },
+   -- timeout => should result in empty list
+   {
+      {"eth0", {name={"x", "local"}, qclass=1, qtype=255}, 0.5},
+      {},
+   },
+   -- ok
+   {
+      {"eth0", {name={"x", "local"}, qclass=1, qtype=255}, 0.5},
+      {
+         -- 3 rr's - one matching x.local, additional record y.local,
+         -- and third bar.com that should not be propagated
+
+         rr_x_local,
+         rr_y_local,
+         {name={'bar', 'com'}, rtype=dns_const.TYPE_A, rdata_a="1.2.3.4", rclass=dns_const.TYPE_IN},
+      }
+   },
+}
+
+
+fake_callback = mst.create_class{class='fake_callback'}
+
+function fake_callback:init()
+   self.array = self.array or mst.array:new{}
+   self.i = self.i or 0
 end
 
-function assert_fake_callback_done(a)
-   mst.a(#a>0, 'invalid a', a)
-   mst.a(a[1] == #a, 'something not consumed?', a)
+function fake_callback:repr_data()
+   return mst.repr{i=self.i,n=#self.array,name=self.name}
+end
+
+function fake_callback:__call(...)
+   self:a(self.i < #self.array, 'not enough left to serve', {...})
+   self.i = self.i + 1
+   local got = {...}
+   local exp, r = unpack(self.array[self.i])
+   self:a(mst.repr_equal(got, exp), 
+          'non-expected input - exp/got', exp, got)
+   return r
+end
+
+function fake_callback:uninit()
+   self:a(self.i == #self.array, 'wrong amount consumed', self.i, #self.array, self.array)
 end
 
 function test_list(a, f)
@@ -206,7 +354,7 @@ function test_list(a, f)
 
       -- and make sure that (repr-wise) result is correct
       mst.a(mst.repr_equal(result, output), 
-            'not same - exp/got', 
+            'not same exp/got', 
             output, result, err,
            'for',
            input)
@@ -216,15 +364,16 @@ end
 describe("hybrid_proxy", function ()
             local hp
             local canned_mdns
-            local l1, l2, l3, l4
+            local l1, l2
+            local mdns, dns
             before_each(function ()
                            local f, g
-                           f, l3 = create_fake_callback()
-                           g, l4 = create_fake_callback()
+                           mdns = fake_callback:new{name='mdns'}
+                           dns = fake_callback:new{name='dns'}
                            
                            hp = hp_core.hybrid_proxy:new{rid='rid1',
                                                          domain=DOMAIN_LL,
-                                                         mdns_resolve_callback=f,
+                                                         mdns_resolve_callback=mdns,
                                                         }
                            l1 = {
                                  {rid='rid1',
@@ -252,7 +401,7 @@ describe("hybrid_proxy", function ()
                                  },
                                  {rid='rid2',
                                   iid='iid1',
-                                  ip='3.4.5.6',
+                                  ip=OTHER_IP,
                                   ifname='eth0',
                                   prefix='10.11.13.0/24',
                                  },
@@ -276,7 +425,8 @@ describe("hybrid_proxy", function ()
                               end
                            end
                            function hp:forward(server, req)
-                              return g(server, req)
+                              local msg, src, tcp = unpack(req)
+                              return dns(server, req), src
                            end
                         end)
             after_each(function ()
@@ -287,8 +437,8 @@ describe("hybrid_proxy", function ()
                           -- in-system state
 
                           --mst.a(scr.clear_scr())
-                          assert_fake_callback_done(l3)
-                          assert_fake_callback_done(l4)
+                          dns:done()
+                          mdns:done()
 
                        end)
             it("match works (correct decisions on various addrs)", function ()
@@ -321,15 +471,53 @@ describe("hybrid_proxy", function ()
                                return hp:rewrite_rrs_from_mdns_to_reply_msg(req, q, rrs, DOMAIN_LL)
                             end)
                    end)
-            it("dns->mdns->reply flow works", function ()
+            it("dns->mdns->reply flow works #flow", function ()
                   -- these are most likely the most complex samples -
                   -- full message interaction 
-                  
-                  -- we use l3/l4 to populate mdns/dns interactions,
-                  -- respectively
 
+                  -- twice to account for udp + tcp
+                  dns.array:extend(hp_process_dns_results)
+                  function rewrite_dns_to_tcp(l)
+                     return mst.array_map(l, function (o)
+                                             mst.a(#o <= 2, 'wrong # in o', #o, o)
+                                             local input, resp = unpack(o)
+                                             mst.a(#input == 2, 'wrong # in input', #input, input)
+                                             -- server + req
+                                             local server, req = unpack(input)
+                                             mst.a(#req == 3,
+                                                  'wrong # in req', #req, req)
+                                             local nreq = {req[1], req[2], 
+                                                           true}
+                                             return {{server, nreq}, resp}
+                                             end)
+                  end
+                  dns.array:extend(rewrite_dns_to_tcp(hp_process_dns_results))
 
-                  
+                  mdns.array:extend(hp_process_mdns_results)
+                  mdns.array:extend(hp_process_mdns_results)
+
+                  local is_tcp = false
+
+                  function test_one(oq)
+                     local q = {name=dns_db.name2ll(oq.name),
+                                qtype=oq.qtype or dns_const.TYPE_ANY,
+                                qclass=oq.qclass or dns_const.CLASS_IN}
+                     local msg = {qd={q}, h={id=TEST_ID}}
+                     local r, src = hp:process(msg, TEST_SRC, is_tcp)
+                     if r
+                     then
+                        mst.a(src, 'no src?!?', r)
+                        mst.a(src == TEST_SRC, 'wrong src', src)
+                        mst.a(r.h.id == msg.h.id)
+                     end
+                     return r
+                  end
+
+                  -- first via UDP
+                  test_list(hp_process_tests, test_one)
+                  -- then via TCP
+                  is_tcp = true
+                  test_list(hp_process_tests, test_one)
 
                    end)
                          end)
