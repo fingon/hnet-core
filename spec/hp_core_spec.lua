@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Tue May 14 16:01:23 2013 mstenber
--- Edit time:     195 min
+-- Last modified: Tue May 14 19:33:27 2013 mstenber
+-- Edit time:     227 min
 --
 
 require 'busted'
@@ -186,11 +186,15 @@ local n_bar_com={"bar", "com"}
 local n_x_mine={'x', 'iid1', 'rid1', 'foo', 'com'}
 local n_y_mine={'y', 'iid1', 'rid1', 'foo', 'com'}
 local n_x_other={'x', 'iid1', 'rid2', 'foo', 'com'}
+local n_b_dnssd={'b', '_dns-sd', '_udp', 'foo', 'com'}
 
 local q_bar_com = {name=n_bar_com, qclass=1, qtype=255}
 local q_x_mine = {name=n_x_mine, qclass=1, qtype=255}
 local q_x_other = {name=n_x_other, qclass=1, qtype=255}
 local q_nonexistent = {name=n_nonexistent_foo, qclass=1, qtype=255}
+local q_b_dnssd = {name=n_b_dnssd, 
+                   qtype=dns_const.TYPE_PTR,
+                   qclass=dns_const.CLASS_IN}
 
 local msg_bar_com_nxdomain = {
    h={id=123, qr=true, ra=true, rcode=dns_const.RCODE_NXDOMAIN},
@@ -200,7 +204,6 @@ local msg_bar_com_nxdomain = {
 local msg_nonexistent_nxdomain = {
    h={id=123, qr=true, ra=true, rcode=dns_const.RCODE_NXDOMAIN},
    qd={q_nonexistent},
-   ar={}, an={}-- impl. artifacts
 }
 
 local msg_x_other_content = {
@@ -214,7 +217,22 @@ local msg_x_other_content = {
 local msg_x_mine_nxdomain = {
    h={id=123, qr=true, ra=true, rcode=dns_const.RCODE_NXDOMAIN},
    qd={q_x_mine},
-   ar={}, an={}-- impl. artifacts
+}
+
+local msg_b_dnssd = {
+   h={id=123, qr=true, ra=true},
+   qd={q_b_dnssd},
+   an={
+      {name=n_b_dnssd, 
+       rtype=dns_const.TYPE_PTR, rclass=dns_const.CLASS_IN, 
+       rdata_ptr={'iid1', 'rid1', 'foo', 'com'}},
+      {name=n_b_dnssd, 
+       rtype=dns_const.TYPE_PTR, rclass=dns_const.CLASS_IN, 
+       rdata_ptr={'iid2', 'rid1', 'foo', 'com'}},
+      {name=n_b_dnssd, 
+       rtype=dns_const.TYPE_PTR, rclass=dns_const.CLASS_IN, 
+       rdata_ptr={'iid1', 'rid2', 'foo', 'com'}},
+   },
 }
 
 local rr_x_mine = {name=n_x_mine, rtype=dns_const.TYPE_A, rdata_a="8.7.6.5", rclass=dns_const.CLASS_IN}
@@ -223,7 +241,7 @@ local rr_y_mine = {name=n_y_mine, rtype=dns_const.TYPE_A, rdata_a="9.8.7.6", rcl
 
 local msg_x_mine_result = {
    h={id=123, qr=true, ra=true},
-   qd={mst.table_deep_copy(q_x_mine)},
+   qd={q_x_mine},
    an={
       rr_x_mine,
    },
@@ -291,6 +309,11 @@ local hp_process_tests = {
       q_x_mine,
       msg_x_mine_result,
    },
+   -- browse path
+   {
+      q_b_dnssd,
+      msg_b_dnssd,
+   }
 }
 
 local hp_process_mdns_results = {
@@ -344,9 +367,10 @@ function fake_callback:uninit()
    self:a(self.i == #self.array, 'wrong amount consumed', self.i, #self.array, self.array)
 end
 
-function test_list(a, f)
+function test_list(a, f, g)
    for i, v in ipairs(a)
    do
+      mst.d('test_list', i)
       local input, output = unpack(v)
 
       -- then call test function
@@ -368,6 +392,7 @@ describe("hybrid_proxy", function ()
             local mdns, dns
             before_each(function ()
                            local f, g
+                           mst.repr_show_duplicates = true
                            mdns = fake_callback:new{name='mdns'}
                            dns = fake_callback:new{name='dns'}
                            
@@ -382,11 +407,6 @@ describe("hybrid_proxy", function ()
                                   ifname='eth0',
                                   prefix='dead:bee0::/48',
                                  },
-                                 {rid='rid2',
-                                  iid='iid1',
-                                  ip='3.4.5.6',
-                                  prefix='dead:bee1::/48',
-                                 },
                                  {rid='rid1',
                                   iid='iid2',
                                   ip='1.2.3.4',
@@ -398,6 +418,11 @@ describe("hybrid_proxy", function ()
                                   ip='2.3.4.5',
                                   ifname='eth0',
                                   prefix='10.11.12.0/24',
+                                 },
+                                 {rid='rid2',
+                                  iid='iid1',
+                                  ip='3.4.5.6',
+                                  prefix='dead:bee1::/48',
                                  },
                                  {rid='rid2',
                                   iid='iid1',
@@ -509,15 +534,35 @@ describe("hybrid_proxy", function ()
                         mst.a(src, 'no src?!?', r)
                         mst.a(src == TEST_SRC, 'wrong src', src)
                         mst.a(r.h.id == msg.h.id)
+                        -- convert result to binary, and then back
+                        -- (=normalize it)
+                        mst.d('normalizing', r)
+                        local b = dns_codec.dns_message:encode(r)
+                        r = dns_codec.dns_message:decode(b)
                      end
                      return r
                   end
 
+                  function canonize_output(o)
+                     mst.a(#o <= 2, 'wrong o', o)
+                     local input, output = unpack(o)
+                     if output
+                     then
+                        mst.d('converting', output)
+                        local b = dns_codec.dns_message:encode(output)
+                        output = dns_codec.dns_message:decode(b)
+                     end
+                     return {input, output}
+                  end
+
+                  local l = mst.array_map(hp_process_tests,
+                                          canonize_output)
+
                   -- first via UDP
-                  test_list(hp_process_tests, test_one)
+                  test_list(l, test_one)
                   -- then via TCP
                   is_tcp = true
-                  test_list(hp_process_tests, test_one)
+                  test_list(l, test_one)
 
                    end)
                          end)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Tue May 14 15:49:49 2013 mstenber
--- Edit time:     248 min
+-- Last modified: Tue May 14 19:26:10 2013 mstenber
+-- Edit time:     276 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -215,12 +215,27 @@ function hybrid_proxy:recreate_tree()
    end
    self:iterate_ap(create_reverse_hierarchy)
 
+   local b_dns_sd_ll = mst.table_copy(dns_const.B_DNS_SD_LL)
+   mst.array_extend(b_dns_sd_ll, domain_ll)
+
    -- Create forward hierarchy
    local function create_forward_hierarchy(o)
       local rid = o.rid
       local iid = o.iid
       local ip = o.ip
       local prefix = o.prefix
+
+      local ap_ll = {iid, rid}
+      mst.array_extend(ap_ll, domain_ll)
+
+      -- add it to browse domain
+      local d = {
+         name=b_dns_sd_ll,
+         rtype=dns_const.TYPE_PTR,
+         rclass=dns_const.CLASS_IN,
+         rdata_ptr=ap_ll
+                 }
+      self:add_rr(d)
 
       if rid ~= self.rid
       then
@@ -269,6 +284,31 @@ function hybrid_proxy:recreate_tree()
    -- XXX - populate [1]
    -- (what static information _do_ we need?)
 
+end
+
+function hybrid_proxy:add_rr(rr)
+   -- intermediate nodes will be nxdomain ones
+   local root = self.root
+   self:d('add_rr', rr)
+   local o = root:find_or_create_subtree(rr.name,
+                                         -- end node
+                                         dns_tree.create_leaf_node_callback,
+                                         -- intermediate nodes
+                                         create_default_nxdomain_node_callback)
+   
+   if not o.value then o.value = {} end
+   local l = o.value 
+   for i, v in ipairs(l)
+   do
+      if v:equals(rr)
+      then
+         self:d('duplicate, skipping')
+         return
+      end
+   end
+   local prr = dns_db.rr:new(mst.table_copy(rr))
+   table.insert(l, prr)
+   return o
 end
 
 function hybrid_proxy:iterate_ap(f)
@@ -532,6 +572,13 @@ function hybrid_proxy:process(msg, src, tcp)
    if r == RESULT_NXDOMAIN
    then
       local r = self:create_dns_reply(msg, {h={rcode=dns_const.RCODE_NXDOMAIN}})
+      return r, src
+   end
+   if r
+   then
+      -- has to be a list of rr's from our own storage
+      self:a(type(r) == 'table')
+      local r = self:create_dns_reply(msg, {an=r})
       return r, src
    end
    -- _something_ else.. hopefully it's rr's that we need to wrap
