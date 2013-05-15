@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Wed May 15 13:56:17 2013 mstenber
--- Edit time:     231 min
+-- Last modified: Wed May 15 14:08:54 2013 mstenber
+-- Edit time:     235 min
 --
 
 require 'busted'
@@ -392,7 +392,7 @@ describe("hybrid_proxy", function ()
             local mdns, dns
             before_each(function ()
                            local f, g
-                           mst.repr_show_duplicates = true
+                           --mst.repr_show_duplicates = true
                            mdns = fake_callback:new{name='mdns'}
                            dns = fake_callback:new{name='dns'}
                            
