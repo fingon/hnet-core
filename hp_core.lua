@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Wed May 15 13:53:08 2013 mstenber
--- Edit time:     301 min
+-- Last modified: Wed May 15 15:51:30 2013 mstenber
+-- Edit time:     307 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -249,14 +249,13 @@ function hybrid_proxy:recreate_tree()
          end
       else
          -- [2] <link>.<router>[.<domain>] for our entries
-         local ifname = self:get_local_ifname_for_prefix(prefix)
+         local ifname = o.ifname
+         -- (another option: self:get_local_ifname_for_prefix(prefix))
          self:a(ifname)
          local n = router:get_child(iid)
          if not n
          then
             n = dns_tree.create_node_callback{label=iid}
-            local ifname = self:get_local_ifname_for_prefix(prefix)
-            self:a(ifname, 'no ifname for prefix', prefix)
             canned = {}
             function n:get_default()
                local ll = n:get_ll()
@@ -285,7 +284,14 @@ function hybrid_proxy:iterate_ap(f)
 end
 
 function hybrid_proxy:iterate_usable_prefixes(f)
-   error("child responsibility - should call f with usable prefixes")
+   -- by default, iterating just through ap's prefixes - bit less
+   -- elegant layout (it may ask outside for non-assigned prefixes)
+   self:iterate_ap(function (ap)
+                      if ap.prefix
+                      then
+                         f(ap.prefix)
+                      end
+                   end)
 end
 
 function hybrid_proxy:forward(server, req)
