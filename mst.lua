@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed May 15 16:26:54 2013 mstenber
+-- Last modified: Wed May 15 16:28:02 2013 mstenber
 -- Edit time:     688 min
 --
 
@@ -99,7 +99,7 @@ function debug_print(f, ...)
          then
             sm = sm or {}
             --print(' setting metatable', v)
-            sm[v] = getmetatable(v)
+            sm[v] = getmetatable(v) or false
             setmetatable(v, _repr_metatable)
          end
       end
@@ -112,9 +112,10 @@ function debug_print(f, ...)
    end
    if sm
    then
-      for k, v in pairs(sm)
+      for v, mt in pairs(sm)
       do
-         setmetatable(k, v)
+         mt = mt or nil
+         setmetatable(v, mt)
       end
    end
 end
@@ -179,7 +180,8 @@ function baseclass:new(o)
 
    -- make sure it isn't already set with this metatable - would
    -- indicate reuse of table for multiple objects, which is a no-no
-   self:a(getmetatable(o) == nil, ':new with table that has non-empty metatable', o)
+   local omt = getmetatable(o)
+   self:a(omt == nil, ':new with table that has non-empty metatable', o, omt)
 
    -- set the child metatable
    setmetatable(o, self)
