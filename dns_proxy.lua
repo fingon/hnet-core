@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Apr 29 18:16:53 2013 mstenber
--- Last modified: Wed May 15 16:08:40 2013 mstenber
--- Edit time:     99 min
+-- Last modified: Wed May 15 17:36:40 2013 mstenber
+-- Edit time:     107 min
 --
 
 -- This is minimalist DNS proxy implementation.
@@ -91,21 +91,27 @@ function handler:handle_request(msg, src)
    dst = dst or src
 
    if self.stopped then return end
-   self:d('sending reply', reply)
    if reply
    then
+      self:d('sending reply', reply, dst)
       -- subclass responsibility
       self:send_response(reply, dst)
+   else
+      self:d('error occurred?', dst)
    end
 end
 
 function forward_process_callback(server, msg, src, tcp, timeout)
+   mst.d('forward_process_callback', server, msg, src, tcp, timeout)
+   local msg2, err
    if tcp
    then
-      local msg2, err = dns_channel.resolve_msg_tcp(server, msg, timeout)
-      return msg2, src
+      msg2, err = dns_channel.resolve_msg_tcp(server, msg, timeout)
+      mst.d('got', msg2, err)
+   else
+      msg2, err = dns_channel.resolve_msg_udp(server, msg, timeout)
    end
-   local msg2, err = dns_channel.resolve_msg_udp(server, msg, timeout)
+   mst.d('got', msg2, err)
    return msg2, src
 end
 
@@ -120,17 +126,19 @@ function handler:send_response(msg, dst)
    self.c:send_msg(msg, dst)
 end
 
-dns_proxy = mst.create_class{class='dns_proxy', mandatory={'process_callback'}}
+dns_proxy = mst.create_class{class='dns_proxy', 
+                             mandatory={'process_callback'},
+                            }
 
 function dns_proxy:init()
    -- create UDP channel
-   local udp_c = dns_channel.get_udp_channel{port=self.udp_port}
+   local udp_c = dns_channel.get_udp_channel{port=self:get_udp_port()}
    -- and then associate handler with it
    self.udp = handler:new{c=udp_c, process_callback=self.process_callback, tcp=false}
    self.udp:start()
 
-   local tcp_port = self.tcp_port or self.port or dns_const.PORT
-   local tcp_s = scbtcp.create_listener{host='*', port=tcp_port}
+   
+   local tcp_s = scbtcp.create_listener{host='*', port=self:get_tcp_port()}
    self.tcp_s = scr.wrap_socket(tcp_s)
    
    -- fire off coroutine; we get rid of it by killing the tcp_s..
@@ -145,6 +153,14 @@ function dns_proxy:init()
                  h:start()
               end
            end)
+end
+
+function dns_proxy:get_udp_port()
+   return self.udp_port or self.port or dns_const.PORT
+end
+
+function dns_proxy:get_tcp_port()
+   return self.tcp_port or self.port or dns_const.PORT
 end
 
 function dns_proxy:uninit()
