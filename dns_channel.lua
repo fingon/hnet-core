@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Mon May  6 13:15:06 2013 mstenber
--- Edit time:     77 min
+-- Last modified: Wed May 15 17:26:19 2013 mstenber
+-- Edit time:     84 min
 --
 
 -- DNS channels is an abstraction between two entities that speak DNS,
@@ -164,9 +164,9 @@ function resolve_msg_udp(server, msg, timeout)
    if not c then return c, err end
    local dst = {server, dns_const.PORT}
    local r, err = c:send_msg(msg, dst, timeout)
-   if not r then return nil, ERR_TIMEOUT end
+   if not r then return nil, err end
    local got, err = c:receive_msg(timeout)
-   if not got then return nil, ERR_TIMEOUT end
+   if not got then return nil, err end
    -- XXX - should we call done on this or not?
    c:done()
    return got
@@ -178,7 +178,7 @@ function resolve_msg_tcp(server, msg, timeout)
                              server=server}
    if not c then return c, err end
    local r, err = c:send_msg(msg, timeout)
-   if not r then return nil, ERR_TIMEOUT end
+   if not r then return nil, err end
    local got = c:receive_msg(timeout)
    c:done()
    if not got then return nil, ERR_TIMEOUT end
@@ -212,11 +212,6 @@ end
 
 function resolve_q(server, q, timeout)
    local msg, err = resolve_q_udp(server, q, timeout)
-   if not msg and err == ERR_TIMEOUT
-   then
-      return nil, err
-   end
-
    if msg and msg.h.tc
    then
       local msg2, err2 = resolve_q_tcp(server, q, timeout)
