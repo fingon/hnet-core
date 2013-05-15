@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Tue May 14 19:33:27 2013 mstenber
--- Edit time:     227 min
+-- Last modified: Wed May 15 13:56:17 2013 mstenber
+-- Edit time:     231 min
 --
 
 require 'busted'
@@ -161,7 +161,7 @@ describe("prefix_to_ll", function ()
 local q_to_r_material = {
    {'bar.com', hp_core.RESULT_FORWARD_EXT},
    {'foo.com', nil},
-   {'nonexistent.foo.com', hp_core.RESULT_NXDOMAIN},
+   {'nonexistent.foo.com', dns_server.RESULT_NXDOMAIN},
    {'rid1.foo.com', nil},
    {'iid1.rid1.foo.com', nil},
    {'x.iid1.rid2.foo.com', hp_core.RESULT_FORWARD_INT},
@@ -466,11 +466,12 @@ describe("hybrid_proxy", function ()
                           mdns:done()
 
                        end)
-            it("match works (correct decisions on various addrs)", function ()
+            it("match works (correct decisions on various addrs) #match", function ()
                   test_list(q_to_r_material,
                             function (n)
                                local q = {name=dns_db.name2ll(n)}
                                local r, err = hp:match{{qd={q}}}
+                               mst.d('got', r, err)
                                return r
                             end)
                         end)

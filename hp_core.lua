@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Tue May 14 19:26:10 2013 mstenber
--- Edit time:     276 min
+-- Last modified: Wed May 15 13:53:08 2013 mstenber
+-- Edit time:     301 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -58,10 +58,10 @@ require 'mst'
 -- module..
 require 'mdns_if'
 
-require 'dns_tree'
+require 'dns_server'
+local _dns_server = dns_server.dns_server
 
 module(..., package.seeall)
-
 MDNS_TIMEOUT=0.5
 
 DOMAIN='home'
@@ -70,12 +70,10 @@ RESULT_FORWARD_EXT='forward_ext' -- forward to the real external resolver
 RESULT_FORWARD_INT='forward_int' -- forward using in-home topology
 RESULT_FORWARD_MDNS='forward_mdns' -- forward via mDNS
 
-RESULT_NXDOMAIN='nxdomain'
-
-hybrid_proxy = mst.create_class{class='hybrid_proxy',
-                                mandatory={'rid', 'domain', 
-                                           'mdns_resolve_callback',
-                                }}
+hybrid_proxy = _dns_server:new_subclass{class='hybrid_proxy',
+                                        mandatory={'rid', 'domain', 
+                                                   'mdns_resolve_callback',
+                                        }}
 
 function prefix_to_ll(s)
    -- We do this in inverse order, and then reverse just in the end
@@ -117,17 +115,9 @@ function create_default_forward_ext_node_callback(o)
    function n:get_value(req)
       return RESULT_FORWARD_EXT
    end
+   mst.d('created default forward node', n)
    return n
 end
-
-function create_default_nxdomain_node_callback(o)
-   local n = dns_tree.create_node_callback(o)
-   function n:get_default(req)
-      return RESULT_NXDOMAIN
-   end
-   return n
-end
-
 
 function hybrid_proxy:repr_data()
    return mst.repr{rid=self.rid}
@@ -145,9 +135,9 @@ function hybrid_proxy:get_local_ifname_for_prefix(prefix)
 end
 
 function hybrid_proxy:recreate_tree()
-   self.db = dns_db.ns:new{}
-   local root = dns_tree.node:new{label=''}
-   self.root = root
+   _dns_server.recreate_tree(self)
+   local root = self.root
+   local fcs = root.find_or_create_subtree
 
    -- [4] what we haven't explicitly chosen to take care of (=<domain>
    -- and <domain>'s usable prefixes for reverse) will be
@@ -157,25 +147,27 @@ function hybrid_proxy:recreate_tree()
    end
    local rid = self.rid
    local domain_ll = dns_db.name2ll(self.domain)
-   local domain = root:find_or_create_subtree(domain_ll,
-                                              -- end node
-                                              create_default_nxdomain_node_callback,
-                                              -- intermediate node
-                                              create_default_forward_ext_node_callback)
+   local domain = fcs(root, domain_ll,
+                      -- end node
+                      dns_server.create_default_nxdomain_node_callback,
+                      -- intermediate node
+                      create_default_forward_ext_node_callback)
 
    local router = domain:add_child(dns_tree.create_node_callback{label=rid})
 
    -- Populate the reverse zone with appropriate nxdomain-generating
    -- entries as well
+
+   local function create_reverse_zone(s)
+      local ll = prefix_to_ll(s)
+      local o = fcs(root, ll,
+                    -- [5r] end node
+                    dns_server.create_default_nxdomain_node_callback,
+                    -- [4r] intermediate node
+                    create_default_forward_ext_node_callback)
+   end
    
-   self:iterate_usable_prefixes(function (s)
-                                   local ll = prefix_to_ll(s)
-                                   local o = root:find_or_create_subtree(ll,
-                                                                         -- [5r] end node
-                                                                         create_default_nxdomain_node_callback,
-                                                                         -- [4r] intermediate node
-                                                                         create_default_forward_ext_node_callback)
-                                end)
+   self:iterate_usable_prefixes(create_reverse_zone)
 
    local function create_reverse_hierarchy (o)
       local rid = o.rid
@@ -186,7 +178,7 @@ function hybrid_proxy:recreate_tree()
       local ll = prefix_to_ll(prefix)
 
       local function create_domain_node (o)
-         local n = create_default_nxdomain_node_callback(o)
+         local n = dns_server.create_default_nxdomain_node_callback(o)
          local hp = self
          function n:get_default(req)
             -- [2r] local prefix => handle 'specially'
@@ -202,15 +194,15 @@ function hybrid_proxy:recreate_tree()
                return RESULT_FORWARD_INT, ip
             end
          end
+         mst.d(' (actually domain node)')
          return n
       end
       
-      local o = root:find_or_create_subtree(ll,
-                                            -- [2r/3r] end node
-                                            create_domain_node,
-                                            
-                                            -- [5r] intermediate node
-                                            create_default_nxdomain_node_callback)
+      local o = fcs(root, ll,
+                    -- [2r/3r] end node
+                    create_domain_node,
+                    -- [5r] intermediate node
+                    dns_server.create_default_nxdomain_node_callback)
       
    end
    self:iterate_ap(create_reverse_hierarchy)
@@ -251,6 +243,7 @@ function hybrid_proxy:recreate_tree()
                return RESULT_FORWARD_INT, ip
             end
             domain:add_child(n)
+            mst.d('defined (non-own)', n:get_fqdn())
          else
             -- XXX - think if just having _one_ ip around is a problem or not?
          end
@@ -274,6 +267,7 @@ function hybrid_proxy:recreate_tree()
                -- XXX 
             end
             router:add_child(n)
+            mst.d('defined (own)', n:get_fqdn())
          else
             -- XXX do something? 
          end
@@ -284,31 +278,6 @@ function hybrid_proxy:recreate_tree()
    -- XXX - populate [1]
    -- (what static information _do_ we need?)
 
-end
-
-function hybrid_proxy:add_rr(rr)
-   -- intermediate nodes will be nxdomain ones
-   local root = self.root
-   self:d('add_rr', rr)
-   local o = root:find_or_create_subtree(rr.name,
-                                         -- end node
-                                         dns_tree.create_leaf_node_callback,
-                                         -- intermediate nodes
-                                         create_default_nxdomain_node_callback)
-   
-   if not o.value then o.value = {} end
-   local l = o.value 
-   for i, v in ipairs(l)
-   do
-      if v:equals(rr)
-      then
-         self:d('duplicate, skipping')
-         return
-      end
-   end
-   local prr = dns_db.rr:new(mst.table_copy(rr))
-   table.insert(l, prr)
-   return o
 end
 
 function hybrid_proxy:iterate_ap(f)
@@ -426,23 +395,6 @@ function hybrid_proxy:rewrite_mdns_rr_to_dns(rr, ll)
    return nrr
 end
 
-function hybrid_proxy:create_dns_reply(req, o)
-   o = o or {}
-   o.an = o.an or mst.array:new{}
-   o.ar = o.ar or mst.array:new{}
-   o.h = o.h or {}
-   -- these are always true
-   o.h.ra = true -- recursion available
-   o.h.qr = true -- reply
-
-   -- these are copied from req, if not specified in o
-   o.h.id = o.h.id or req.h.id
-   o.h.rd = o.h.rd or req.h.rd
-   o.qd = o.qd or req.qd
-
-   return o
-end
-
 -- Rewrite the mDNS-oriented RR list to a reply message that can be
 -- sent to DNS client.
 function hybrid_proxy:rewrite_rrs_from_mdns_to_reply_msg(req, mdns_q, 
@@ -522,39 +474,7 @@ function hybrid_proxy:mdns_forward(ifname, req, ll)
    return nil, err
 end
 
-function hybrid_proxy:match(req)
-   local msg, src, tcp = unpack(req)
-   if not msg.qd or #msg.qd ~= 1
-   then
-      return nil, 'no question/too many questions ' .. mst.repr(msg)
-   end
-   if not self.root
-   then
-      self:recreate_tree()
-      self:a(self.root, 'root not created despite recreate_tree call?')
-   end
-   local q = msg.qd[1]
-   return self.root:match_ll(q.name)
-end
-
-function hybrid_proxy:process(msg, src, tcp)
-   -- by default, assume it's query
-   -- (this may occur when testing locally and it is not an error)
-   local opcode = msg.opcode or dns_const.OPCODE_QUERY
-   
-   if opcode ~= dns_const.OPCODE_QUERY
-   then
-      local r = self:create_dns_reply(msg, {h={rcode=dns_const.RCODE_NOTIMP}})
-      return r, src
-   end
-   local req = {msg, src, tcp}
-   local r, o, o2 = self:match(req)
-   self:d('match result', msg, r, o, o2)
-   if not r
-   then
-      return nil, 'match error ' .. mst.repr(o)
-   end
-   
+function hybrid_proxy:process_match(req, r, o, o2)
    -- Next step depends on what we get
    if r == RESULT_FORWARD_INT
    then
@@ -569,19 +489,6 @@ function hybrid_proxy:process(msg, src, tcp)
    then
       return self:mdns_forward(o, req, o2)
    end
-   if r == RESULT_NXDOMAIN
-   then
-      local r = self:create_dns_reply(msg, {h={rcode=dns_const.RCODE_NXDOMAIN}})
-      return r, src
-   end
-   if r
-   then
-      -- has to be a list of rr's from our own storage
-      self:a(type(r) == 'table')
-      local r = self:create_dns_reply(msg, {an=r})
-      return r, src
-   end
-   -- _something_ else.. hopefully it's rr's that we need to wrap
-   return nil, 'weird result ' .. mst.repr{r, o}
+   return _dns_server.process_match(self, req, r, o, o2)
 end
 
