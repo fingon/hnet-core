@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue May 14 18:42:32 2013 mstenber
--- Edit time:     681 min
+-- Last modified: Wed May 15 16:26:54 2013 mstenber
+-- Edit time:     688 min
 --
 
 -- data structure abstractions provided:
@@ -84,7 +84,7 @@ end
 local _repr_metatable = {__tostring=function (self) return repr(self) end}
 
 -- debugging (class stuff depends on this -> must be first)
-function debug_print(...)
+function debug_print(f, ...)
    -- rewrite all table's to have metatable which has tostring => repr wrapper, if they don't have metatable
    local sm 
    --print('handling arguments', #al)
@@ -106,9 +106,9 @@ function debug_print(...)
    end
    if enable_debug_date
    then
-      print(os.date(), ...)
+      f(os.date(), ...)
    else
-      print(...)
+      f(...)
    end
    if sm
    then
@@ -128,7 +128,7 @@ function a(stmt, ...)
    if not stmt
    then
       print(debug.traceback())
-      debug_print(...)
+      debug_print(print, ...)
       error('assertion failed', 2)
    end
 end
@@ -136,7 +136,7 @@ end
 function d(...)
    if enable_debug
    then
-      debug_print(...)
+      debug_print(print, ...)
    end
 end
 
@@ -244,7 +244,7 @@ function baseclass:d(...)
    self:a(type(self) == 'table', "wrong self type ", type(self))
    if self.debug or enable_debug
    then
-      debug_print(self:tostring(), ...)
+      debug_print(print, self:tostring(), ...)
    end
 end
 
@@ -257,7 +257,7 @@ function baseclass:a(stmt, ...)
    if not stmt
    then
       print(debug.traceback())
-      debug_print(self:tostring(), ...)
+      debug_print(print, self:tostring(), ...)
       error(self:tostring() .. ' assertion failed', 2)
    end
 end
@@ -1161,7 +1161,7 @@ function d_xpcall(fun)
    local r = {xpcall(fun,
                      function (...)
                         print(debug.traceback())
-                        debug_print('!!! d_xpcall failed', ...)
+                        debug_print(print, '!!! d_xpcall failed', ...)
                      end)}
    table.remove(r, 1)
    return unpack(r)

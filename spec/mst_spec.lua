@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Thu May  9 13:11:56 2013 mstenber
--- Edit time:     199 min
+-- Last modified: Wed May 15 16:27:29 2013 mstenber
+-- Edit time:     201 min
 --
 
 require "busted"
@@ -251,6 +251,17 @@ describe("repr", function()
                   assert.are.same(repr(n), '42')
                         end)
                  end)
+
+describe("debug_print", function ()
+            it("works", function ()
+                  local t = {'foo'}
+                  mst.debug_print(function (...)
+
+                                  end, t)
+                  mst.a(getmetatable(t) == nil, 'metatable was set?!?')
+
+                   end)
+             end)
 
 describe("array_to_table", function ()
             it("works", function ()
