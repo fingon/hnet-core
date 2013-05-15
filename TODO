@@ -40,6 +40,15 @@ checks for 'jit')
 
 ** Write patch set for luasocket changes for Diego
 
+** luasocket - no way to use pktinfo etc
+
+Unable to write reasonable any-bound UDP app due to that (it may respond
+from different source address than it received packet in). Options:
+
+- do what is portable == bind to specific addresses
+
+- add pktinfo support to luasocket, use that (Linux-only perhaps(?))
+
 ** BIRD - doesn't handle too big LSAs gracefully
 
 .. blows up due to rx-buf used for sending being smaller than what is being
