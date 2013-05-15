@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Tue Apr 30 13:01:37 2013 mstenber
--- Edit time:     202 min
+-- Last modified: Wed May 15 15:28:35 2013 mstenber
+-- Edit time:     203 min
 --
 
 -- convenience stuff on top of LuaSocket (most of the action happens
@@ -176,7 +176,7 @@ function create_udp_socket(d)
    end
    s:settimeout(0)
    s:setoption('reuseaddr', true)
-   --s:setoption('reuseportr', true)
+   --s:setoption('reuseport', true)
    local r, err = s:setsockname(d.host, d.port)
    if not r
    then
@@ -191,7 +191,8 @@ end
 function new_udp_socket(d)
    mst.check_parameters("scb:new_udp_socket", d, 
                         {"host", "port", "callback"}, 3)
-   local s = create_udp_socket(d)
+   local s, err = create_udp_socket(d)
+   mst.a(s, 'unable to create socket', err)
    local o = wrap_udp_socket{s=s, callback=d.callback}
    return o
 end
