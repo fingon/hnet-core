@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed May 15 16:28:02 2013 mstenber
--- Edit time:     688 min
+-- Last modified: Wed May 15 17:18:29 2013 mstenber
+-- Edit time:     698 min
 --
 
 -- data structure abstractions provided:
@@ -25,6 +25,13 @@ local math = require 'math'
 local os = require 'os'
 local string = require 'string'
 local table = require 'table'
+
+local enable_debug_date_ms=true
+if enable_debug_date_ms
+then
+   socket = require 'socket'
+end
+local socket = socket
 
 local assert = assert
 local collectgarbage = collectgarbage
@@ -104,7 +111,12 @@ function debug_print(f, ...)
          end
       end
    end
-   if enable_debug_date
+   if enable_debug_date_ms
+   then
+      local ms = socket.gettime()*1000%1000
+      local ts = os.date('%x %X')
+      f(string.format('%s.%03d', ts, ms), ...)
+   elseif enable_debug_date
    then
       f(os.date(), ...)
    else
