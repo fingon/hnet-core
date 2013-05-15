@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Wed May 15 14:08:54 2013 mstenber
--- Edit time:     235 min
+-- Last modified: Wed May 15 17:00:59 2013 mstenber
+-- Edit time:     238 min
 --
 
 require 'busted'
@@ -231,6 +231,9 @@ local msg_b_dnssd = {
        rdata_ptr={'iid2', 'rid1', 'foo', 'com'}},
       {name=n_b_dnssd, 
        rtype=dns_const.TYPE_PTR, rclass=dns_const.CLASS_IN, 
+       rdata_ptr={'iid3', 'rid1', 'foo', 'com'}},
+      {name=n_b_dnssd, 
+       rtype=dns_const.TYPE_PTR, rclass=dns_const.CLASS_IN, 
        rdata_ptr={'iid1', 'rid2', 'foo', 'com'}},
    },
 }
@@ -414,6 +417,10 @@ describe("hybrid_proxy", function ()
                                   prefix='dead:beef::/48',
                                  },
                                  {rid='rid1',
+                                  iid='iid3',
+                                  ifname='eth2',
+                                 },
+                                 {rid='rid1',
                                   iid='iid1',
                                   ip='2.3.4.5',
                                   ifname='eth0',
@@ -427,7 +434,6 @@ describe("hybrid_proxy", function ()
                                  {rid='rid2',
                                   iid='iid1',
                                   ip=OTHER_IP,
-                                  ifname='eth0',
                                   prefix='10.11.13.0/24',
                                  },
 

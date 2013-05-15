@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Wed May 15 15:51:30 2013 mstenber
--- Edit time:     307 min
+-- Last modified: Wed May 15 17:00:25 2013 mstenber
+-- Edit time:     316 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -125,6 +125,7 @@ end
 
 function hybrid_proxy:get_local_ifname_for_prefix(prefix)
    local got
+   self:a(prefix, 'no prefix provided')
    self:iterate_ap(function (o)
                       if o.prefix == prefix
                       then
@@ -138,6 +139,18 @@ function hybrid_proxy:recreate_tree()
    _dns_server.recreate_tree(self)
    local root = self.root
    local fcs = root.find_or_create_subtree
+
+   self:iterate_ap(function (o)
+                      self:a(o.rid, 'rid missing', o)
+                      self:a(o.iid, 'iid missing', o)
+                      if o.rid == self.rid
+                      then
+                         -- ip not used
+                         -- ifname, prefix optional
+                      else
+                         self:a(o.ip, 'remote ip missing', o)
+                      end
+                   end)
 
    -- [4] what we haven't explicitly chosen to take care of (=<domain>
    -- and <domain>'s usable prefixes for reverse) will be
@@ -170,12 +183,17 @@ function hybrid_proxy:recreate_tree()
    self:iterate_usable_prefixes(create_reverse_zone)
 
    local function create_reverse_hierarchy (o)
+      -- no prefix -> we can't create reverse hierarchy for this
+      local prefix = o.prefix
+      if not prefix
+      then
+         return
+      end
+
+      local ll = prefix_to_ll(prefix)
       local rid = o.rid
       local iid = o.iid
       local ip = o.ip
-      local prefix = o.prefix
-
-      local ll = prefix_to_ll(prefix)
 
       local function create_domain_node (o)
          local n = dns_server.create_default_nxdomain_node_callback(o)
@@ -215,7 +233,6 @@ function hybrid_proxy:recreate_tree()
       local rid = o.rid
       local iid = o.iid
       local ip = o.ip
-      local prefix = o.prefix
 
       local ap_ll = {iid, rid}
       mst.array_extend(ap_ll, domain_ll)
@@ -280,7 +297,9 @@ function hybrid_proxy:recreate_tree()
 end
 
 function hybrid_proxy:iterate_ap(f)
-   error("child responsibility - should call f with ap (rid, iid, ip, prefix[, ifname if local])")
+   -- for a local, ifname and prefix are optional and ip is not used
+   -- for a remote, ip is mandatory; prefix optional
+   error("child responsibility - should call f with ap (rid, iid[, ip][, prefix][, ifname if local])")
 end
 
 function hybrid_proxy:iterate_usable_prefixes(f)
