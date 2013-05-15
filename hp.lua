@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Wed May 15 16:08:25 2013 mstenber
--- Edit time:     22 min
+-- Last modified: Wed May 15 17:31:01 2013 mstenber
+-- Edit time:     23 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -34,7 +34,9 @@ function create_cli()
    local cli = require "cliargs"
 
    cli:set_name('hp.lua')
-   cli:add_opt("--server=SERVER", "address of upstream DNS server", '8.8.8.8')
+   cli:add_opt("--server=SERVER", 
+               "address of upstream DNS server", 
+               dns_const.GOOGLE_IPV6)
    cli:add_opt("--domain=DOMAIN", "the domain 'own' to provide results for", 'home')
    cli:add_opt("--rid=RID", "the id of the router", 'router')
    cli:optarg("interface","interface(s) to listen proxy for", '', 10)
@@ -100,10 +102,21 @@ local function cb(...)
    return mdns:resolve_ifname_q(...)
 end
 
-local hp = hp_core.hybrid_proxy:new{rid=args.rid,
+local rid = args.rid
+
+local hp = hp_core.hybrid_proxy:new{rid=rid,
                                     domain=args.domain,
                                     server=args.server,
                                     mdns_resolve_callback=cb}
+
+function hp:iterate_ap(f)
+   for i, v in ipairs(iflist)
+   do
+      f{ifname=v,
+        iid=v,
+        rid=rid}
+   end
+end
 
 -- and dns_proxy which wraps hybrid proxy
 
