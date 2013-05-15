@@ -79,6 +79,8 @@ fakedhcpv6d.lua.require:
 	true
 mdns.lua.require:
 	true
+hp.lua.require:
+	true
 pm.lua.require:
 	true
 skvtool.lua.require:
