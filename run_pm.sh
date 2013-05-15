@@ -1,14 +1,14 @@
 #!/bin/bash -e
 #-*-sh-*-
 #
-# $Id: run_elsa.sh $
+# $Id: run_pm.sh $
 #
 # Author: Markus Stenberg <fingon@iki.fi>
 #
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Thu Sep 27 12:51:34 2012 mstenber
-# Last modified: Wed Oct 24 13:53:36 2012 mstenber
+# Last modified: Wed May 15 15:31:42 2013 mstenber
 # Edit time:     4 min
 #
 
