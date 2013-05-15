@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 12:55:42 2013 mstenber
--- Last modified: Tue May 14 17:56:19 2013 mstenber
--- Edit time:     52 min
+-- Last modified: Wed May 15 13:51:31 2013 mstenber
+-- Edit time:     54 min
 --
 
 -- This module implements (nested) dns zone hierarchy using rather
@@ -50,6 +50,7 @@ end
 function node:match_rec(ll, i, ...)
    if i == 0
    then
+      self:d('calling get_value')
       return self:get_value(...)
    end
    self:a(i <= #ll)
@@ -57,8 +58,10 @@ function node:match_rec(ll, i, ...)
    local child = self:get_child(label)
    if not child
    then
+      self:d('returning default', label, i, ...)
       return self:get_default(...)
    end
+   self:d('matching recursively in child', i-1, ...)
    return child:match_rec(ll, i-1, ...)
 end
 
