@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Apr 29 18:16:53 2013 mstenber
--- Last modified: Tue May  7 12:00:32 2013 mstenber
--- Edit time:     96 min
+-- Last modified: Wed May 15 16:08:40 2013 mstenber
+-- Edit time:     99 min
 --
 
 -- This is minimalist DNS proxy implementation.
@@ -38,7 +38,7 @@ require 'mst'
 require 'scr'
 require 'scb'
 require 'scbtcp'
-
+require 'dns_channel'
 
 module(..., package.seeall)
 
