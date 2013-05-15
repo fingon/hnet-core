@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:13:25 2013 mstenber
--- Last modified: Mon May 13 12:28:46 2013 mstenber
--- Edit time:     149 min
+-- Last modified: Wed May 15 17:21:45 2013 mstenber
+-- Edit time:     150 min
 --
 
 -- coroutine event reactor - coroutine based handling of file
@@ -230,7 +230,7 @@ function scrsocket:io_with_timeout(fun, readable, timeout)
    self:clear_ssloop()
    if rt
    then
-      return nil, 'timeout'
+      return nil, 'timeout[io]'
    end
    self:a(rr)
    return fun()
@@ -299,7 +299,7 @@ function scrsocket:send(d, timeout)
       if rt
       then
          self:clear_ssloop()
-         return nil, 'timeout'
+         return nil, 'timeout[send]'
       end
       sent, err = self.s:send(d, sent+1)
       if not sent or sent == 0 then return nil, err end
