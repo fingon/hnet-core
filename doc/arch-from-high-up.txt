@@ -1,3 +1,7 @@
+Created:       Thu May 16 19:11:50 2013 mstenber
+Last modified: Thu May 16 19:17:06 2013 mstenber
+Edit time:     4 min
+
 Very brief overview of how the stuff works on OpenWRT:
 
 [1] /etc/init/hnet 
