@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Thu May 16 11:23:21 2013 mstenber
--- Edit time:     88 min
+-- Last modified: Thu May 16 13:12:10 2013 mstenber
+-- Edit time:     92 min
 --
 
 -- DNS channels is an abstraction between two entities that speak DNS,
@@ -161,17 +161,28 @@ end
 -- convenience 'resolve' functions
 
 function resolve_msg_udp(server, msg, timeout)
-   mst.a(server and msg, 'server+msg not provided')
+   mst.a(server, 'server mandatory')
+   mst.a(msg and msg.h and msg.h.id, 'msg with id mandatory', msg)
    local c, err = get_udp_channel{ip='*', port=0}
    if not c then return c, err end
    local dst = {server, dns_const.PORT}
    local r, err = c:send_msg(msg, dst, timeout)
    if not r then return nil, err end
-   local got, err = c:receive_msg(timeout)
-   if not got then return nil, err end
-   -- XXX - should we call done on this or not?
-   c:done()
-   return got
+   while true
+   do
+      local got, err = c:receive_msg(timeout)
+      if not got then return nil, err end
+      local ip, port = unpack(err)
+      -- if not, it's bogon
+      if ip == server and got.h and got.h.id == msg.h.id
+      then
+         -- XXX - should we call done on this or not?
+         c:done()
+         return got
+      else
+         mst.d('invalid reply', ip, port, got)
+      end
+   end
 end
 
 function resolve_msg_tcp(server, msg, timeout)
