@@ -1,0 +1,30 @@
+Very brief overview of how the stuff works on OpenWRT:
+
+[1] /etc/init/hnet 
+
+ - stops conflicting services (there's list of them)
+
+ - fires up pm.lua (main logic daemon) + bird6-elsa (BIRD variant which runs Lua based prefix assignment stuff on top of OSPF). 
+
+[2] per-interface, pm.lua fires up odhcp6c (our variant, with support for prefix classes)
+
+ - and odhcp6c calls eventually odhcp6c-handler.lua, which publishes the
+ information, when PD prefix state changes (becomes available etc)
+
+[3] bird6-elsa assigns /64 prefixes from usable prefixes (learned via PD,
+generated as ULA, IPv4 10.*/8), and publishes it to system state
+
+[4] pm.lua sets up system state to match the worldview bird6-elsa wants
+
+ - IPv4 DHCP client running on every external interface (interface is learned to be external when it gets prefix via PD, currently)
+
+ - starts/stops bird4
+
+ - dnsmasq running on every internal interface
+
+ - appopriate IPv6 addresses on each interface
+
+ - source routing
+
+ - .. and probably bunch more other things, see pm_*.lua, and openwrt/*.sh that they invoke in hnet-core repository ( https://github.com/fingon/hnet-core )
+
