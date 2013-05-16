@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Wed May 15 17:31:01 2013 mstenber
--- Edit time:     23 min
+-- Last modified: Thu May 16 11:24:08 2013 mstenber
+-- Edit time:     27 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -55,7 +55,7 @@ local loop = ssloop.loop()
 
 
 mst.d('initializing socket')
-local o, err = scb.new_udp_socket{host='*', 
+local o, err = scb.new_udp_socket{ip='*', 
                                   port=mdns_const.PORT,
                                   callback=true,
                                   v6only=true,

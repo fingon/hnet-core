@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 22:04:54 2012 mstenber
--- Last modified: Mon Jan 28 16:27:17 2013 mstenber
+-- Last modified: Thu May 16 11:27:19 2013 mstenber
 -- Edit time:     126 min
 --
 
@@ -26,7 +26,7 @@ MAGIC2='<eof>'
 
 function create_dummy_l_c(port, receiver)
    -- assume receiver is a coroutine
-   local d = {host=scb.LOCALHOST, port=port, 
+   local d = {ip=scb.LOCALHOST, port=port, 
               callback=function (c)
                  mst.d('create_dummy_l_c - got new connection', c)
                  function c.callback(d)
@@ -141,8 +141,7 @@ describe("scb-tcp", function ()
 
 function create_dummy_udp_socket(port)
    local thost = scb.LOCALHOST
-   local o = scb.new_udp_socket{host=thost, port=port,
-                                callback=true}
+   local o = scb.new_udp_socket{ip=thost, port=port, callback=true}
    o.got = {}
    function o.callback(data, host, port)
       mst.a(type(data) == 'string', 'non-string data', 

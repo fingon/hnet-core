@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Wed May 15 17:26:19 2013 mstenber
--- Edit time:     84 min
+-- Last modified: Thu May 16 11:23:21 2013 mstenber
+-- Edit time:     88 min
 --
 
 -- DNS channels is an abstraction between two entities that speak DNS,
@@ -105,12 +105,12 @@ function udp_channel:send_msg(msg, dst)
    self:a(msg, 'no message')
    self:a(dst, 'no destination')
 
-   local host, port = unpack(dst)
+   local ip, port = unpack(dst)
    port = port or dns_const.PORT
-   self:a(host and port, 'host or port missing', dst)
+   self:a(ip and port, 'ip or port missing', dst)
 
    local binary = dns_codec.dns_message:encode(msg)
-   return self.s:sendto(binary, host, port)
+   return self.s:sendto(binary, ip, port)
 end
 
 function udp_channel:receive_msg(timeout)
@@ -132,19 +132,21 @@ end
 
 function get_udp_channel(self)
    self = self or {}
-   local udp_port = self.port or dns_const.PORT 
+   local ip = self.ip or '*'
+   local port = self.port or dns_const.PORT 
    mst.d('creating udp socket', self)
-   local udp_s, err = scb.create_udp_socket{host='*', port=udp_port}
+   local udp_s, err = scb.create_udp_socket{ip=ip, port=port}
    mst.a(udp_s, 'unable to create udp socket', err)
    return udp_channel:new{s=udp_s}
 end
 
 function get_tcp_channel(self)
    self = self or {}
-   local tcp_port = self.port or dns_const.PORT
+   local ip = self.ip or '*'
+   local port = self.port or dns_const.PORT
    mst.d('creating tcp socket', self)
    mst.a(self.server)
-   local tcp_s, err = scbtcp.create_socket{host='*', port=tcp_port}
+   local tcp_s, err = scbtcp.create_socket{ip=ip, port=port}
    mst.a(tcp_s, 'unable to create tcp socket', tcp_port, err)
    local c = tcp_channel:new{s=tcp_s}
    local server_port = self.server_port or dns_const.PORT
@@ -160,7 +162,7 @@ end
 
 function resolve_msg_udp(server, msg, timeout)
    mst.a(server and msg, 'server+msg not provided')
-   local c, err = get_udp_channel{host='*', port=0}
+   local c, err = get_udp_channel{ip='*', port=0}
    if not c then return c, err end
    local dst = {server, dns_const.PORT}
    local r, err = c:send_msg(msg, dst, timeout)
@@ -174,8 +176,7 @@ end
 
 function resolve_msg_tcp(server, msg, timeout)
    mst.a(server and msg, 'server+msg not provided')
-   local c = get_tcp_channel{host='*', port=0, 
-                             server=server}
+   local c = get_tcp_channel{ip='*', port=0, server=server}
    if not c then return c, err end
    local r, err = c:send_msg(msg, timeout)
    if not r then return nil, err end

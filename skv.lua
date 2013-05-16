@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Mon Apr 29 11:09:46 2013 mstenber
--- Edit time:     383 min
+-- Last modified: Thu May 16 11:26:40 2013 mstenber
+-- Edit time:     384 min
 --
 
 require 'mst'
@@ -38,7 +38,7 @@ skvconnection = mst.create_class{mandatory={"s", "parent"}, class="skvconnection
 
 skv.__index = skv
 
-local HOST = scb.LOCALHOST
+local IP = scb.LOCALHOST
 local PORT = 12345
 local MSG_VERSION = 'version'
 local MSG_ID = 'id'
@@ -51,7 +51,7 @@ function skv:init()
 
    self.local_state = mst.map:new{}
    self.remote_state = {}
-   self.host = self.host or HOST
+   self.ip = self.ip or IP
    self.port = self.port or PORT
    self.fsm = sm:new({owner=self})
    self.fsm.debugFlag = true
@@ -129,7 +129,7 @@ function skv:repr_data()
       r = "!"
    end
    local dead = self._is_done
-   return mst.repr{h=self.host, 
+   return mst.repr{h=self.ip, 
                    p=self.port, 
                    st=r, 
                    d=dead,
@@ -161,7 +161,7 @@ function skv:socket_connect()
    self:d('skv:socket_connect')
    self:a(not self.s)
    self.s = scbtcp.new_connect{p=self,
-                               host=self.host, port=self.port,
+                               ip=self.ip, port=self.port,
                                debug=self.debug,
                                callback=function (c) 
                                   self:d('connect callback')
@@ -490,7 +490,7 @@ end
 
 function skv:bind()
    local s, err = scbtcp.new_listener{p=self,
-                                      host=self.host, port=self.port, 
+                                      ip=self.ip, port=self.port, 
                                       debug=self.debug,
                                       callback=function (c) 
                                          self:new_client(c)

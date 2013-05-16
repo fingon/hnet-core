@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 12:38:01 2013 mstenber
--- Last modified: Thu Feb 21 12:01:22 2013 mstenber
--- Edit time:     73 min
+-- Last modified: Thu May 16 11:24:12 2013 mstenber
+-- Edit time:     75 min
 --
 
 -- 'mdns' daemon, which shares state (via skv and then via OSPF AC LSA
@@ -50,7 +50,7 @@ then
 end
 
 mst.d('initializing socket')
-local o, err = scb.new_udp_socket{host='*', 
+local o, err = scb.new_udp_socket{ip='*', 
                                   port=mdns_const.PORT,
                                   callback=true,
                                   v6only=(not args.ipv4),

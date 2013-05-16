@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Wed May 15 15:28:35 2013 mstenber
--- Edit time:     203 min
+-- Last modified: Thu May 16 11:25:01 2013 mstenber
+-- Edit time:     212 min
 --
 
 -- convenience stuff on top of LuaSocket (most of the action happens
@@ -145,9 +145,9 @@ function parameters_or_host_ipv6ish(d)
    end
    -- by default we're ipv6-ish; however, if this looks like ipv4
    -- address, it isn't
-   if d.host
+   if d.ip
    then
-      local r = ipv4s.address_to_binary_address(d.host)
+      local r = ipv4s.address_to_binary_address(d.ip)
       if r
       then
          return false
@@ -158,7 +158,7 @@ end
 
 function create_udp_socket(d)
    mst.check_parameters("scb:create_udp_socket", d, 
-                        {"host", "port"}, 3)
+                        {"ip", "port"}, 3)
    local s
    -- should we?
    if parameters_or_host_ipv6ish(d)
@@ -177,7 +177,7 @@ function create_udp_socket(d)
    s:settimeout(0)
    s:setoption('reuseaddr', true)
    --s:setoption('reuseport', true)
-   local r, err = s:setsockname(d.host, d.port)
+   local r, err = s:setsockname(d.ip, d.port)
    if not r
    then
       return r, string.format('error in setsockname:%s for %s',
@@ -186,11 +186,11 @@ function create_udp_socket(d)
    return s
 end
 
--- set up new udp socket, with given host, port, and calling the given
+-- set up new udp socket, with given ip, port, and calling the given
 -- callback whenever applicable
 function new_udp_socket(d)
    mst.check_parameters("scb:new_udp_socket", d, 
-                        {"host", "port", "callback"}, 3)
+                        {"ip", "port", "callback"}, 3)
    local s, err = create_udp_socket(d)
    mst.a(s, 'unable to create socket', err)
    local o = wrap_udp_socket{s=s, callback=d.callback}

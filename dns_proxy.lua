@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Apr 29 18:16:53 2013 mstenber
--- Last modified: Wed May 15 17:36:40 2013 mstenber
--- Edit time:     107 min
+-- Last modified: Thu May 16 11:23:55 2013 mstenber
+-- Edit time:     110 min
 --
 
 -- This is minimalist DNS proxy implementation.
@@ -127,18 +127,21 @@ function handler:send_response(msg, dst)
 end
 
 dns_proxy = mst.create_class{class='dns_proxy', 
-                             mandatory={'process_callback'},
+                             mandatory={'ip', 
+                                        'process_callback'},
                             }
 
 function dns_proxy:init()
    -- create UDP channel
-   local udp_c = dns_channel.get_udp_channel{port=self:get_udp_port()}
+   local udp_c = dns_channel.get_udp_channel{ip=self.ip, 
+                                             port=self:get_udp_port()}
    -- and then associate handler with it
    self.udp = handler:new{c=udp_c, process_callback=self.process_callback, tcp=false}
    self.udp:start()
 
    
-   local tcp_s = scbtcp.create_listener{host='*', port=self:get_tcp_port()}
+   local tcp_s = scbtcp.create_listener{ip=self.ip,
+                                        port=self:get_tcp_port()}
    self.tcp_s = scr.wrap_socket(tcp_s)
    
    -- fire off coroutine; we get rid of it by killing the tcp_s..

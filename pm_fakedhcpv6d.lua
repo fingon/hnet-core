@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Feb 26 18:35:40 2013 mstenber
--- Last modified: Mon Apr 29 11:09:21 2013 mstenber
+-- Last modified: Thu May 16 11:24:24 2013 mstenber
 -- Edit time:     43 min
 --
 
@@ -55,7 +55,7 @@ function pm_fakedhcpv6d:uninit()
 end
 
 function pm_fakedhcpv6d:init_socket()
-   local o, err = scb.new_udp_socket{host='*', 
+   local o, err = scb.new_udp_socket{ip='*', 
                                      port=self.port,
                                      callback=function (data, src, srcport)
                                         self:recvfrom(data, src, srcport)

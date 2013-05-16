@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Feb 21 11:47:15 2013 mstenber
--- Last modified: Mon Apr 29 11:08:02 2013 mstenber
+-- Last modified: Thu May 16 11:24:04 2013 mstenber
 -- Edit time:     49 min
 --
 
@@ -48,7 +48,7 @@ then
 end
 
 local port = args.port
-local o, err = scb.new_udp_socket{host='*', 
+local o, err = scb.new_udp_socket{ip='*', 
                                   port=port,
                                   callback=true,
                                   v6only=true,

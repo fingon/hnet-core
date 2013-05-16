@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 11:15:32 2013 mstenber
--- Last modified: Thu May  2 14:09:52 2013 mstenber
--- Edit time:     21 min
+-- Last modified: Thu May 16 11:26:04 2013 mstenber
+-- Edit time:     22 min
 --
 
 -- (Code has been moved here from scb.lua)
@@ -140,7 +140,7 @@ local ScbConnect = _base:new_subclass{listen_write=true, class="ScbConnect"}
 
 function ScbConnect:handle_io_write()
    self:d('handle_io_write')
-   local r, err = self.s:connect(self.host, self.port)
+   local r, err = self.s:connect(self.ip, self.port)
    self:d('connect result', r, err)
    self:a(self.callback, 'missing callback from ScbConnect')
    if err == ERR_CONNECTION_REFUSED
@@ -178,7 +178,7 @@ function wrap_socket(d)
 end
 
 function create_socket(d)
-   -- no mandatory parameters really, can have host if necessary
+   -- no mandatory parameters really, can have ip if necessary
    --mst.check_parameters("scb:create_listener", d, {"host"}, 3)
    local s
    if scb.parameters_or_host_ipv6ish(d)
@@ -194,9 +194,9 @@ function create_socket(d)
 end
 
 function create_listener(d)
-   mst.check_parameters("scb:create_listener", d, {"host", "port"}, 3)
+   mst.check_parameters("scb:create_listener", d, {"ip", "port"}, 3)
    local s = create_socket(d)
-   local r, err = s:bind(d.host, d.port)
+   local r, err = s:bind(d.ip, d.port)
    if r
    then
       s:listen(10)
@@ -206,7 +206,7 @@ function create_listener(d)
 end
 
 function new_listener(d)
-   mst.check_parameters("scb:new_listener", d, {"host", "port", "callback"}, 3)
+   mst.check_parameters("scb:new_listener", d, {"ip", "port", "callback"}, 3)
    local s, err = create_listener(d)
    if s
    then
@@ -219,10 +219,10 @@ function new_listener(d)
 end
 
 function new_connect(d)
-   -- host, port, connected_callback, callback
-   mst.check_parameters("scb:new_connect", d, {"host", "port", "callback"}, 3)
+   -- ip, port, connected_callback, callback
+   mst.check_parameters("scb:new_connect", d, {"ip", "port", "callback"}, 3)
    local s  = create_socket(d)
-   local r, e = s:connect(d.host, d.port)
+   local r, e = s:connect(d.ip, d.port)
    --print('new_connect', r, e)
    d.s = s
    if r == 1

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:54:26 2013 mstenber
--- Last modified: Mon May 13 17:20:59 2013 mstenber
--- Edit time:     60 min
+-- Last modified: Thu May 16 11:27:31 2013 mstenber
+-- Edit time:     61 min
 --
 
 -- Simple testsuite for complex stuff - simple coroutine reactor tests
@@ -135,8 +135,8 @@ describe("scrsocket", function ()
                   local thost = scb.LOCALHOST
                   local p1 = 13542
 
-                  local rs1 = scb.create_udp_socket{host=thost, port=0}
-                  local rs2 = scb.create_udp_socket{host=thost, port=p1}
+                  local rs1 = scb.create_udp_socket{ip=thost, port=0}
+                  local rs2 = scb.create_udp_socket{ip=thost, port=p1}
                   local s1 = scr.wrap_socket(rs1)
                   local s2 = scr.wrap_socket(rs2)
                   
@@ -182,8 +182,8 @@ describe("scrsocket", function ()
                   local thost = scb.LOCALHOST
                   local p1 = 13542
 
-                  local rs2 = scbtcp.create_listener{host=thost, port=p1}
-                  local rs1 = scbtcp.create_socket{host=thost}
+                  local rs2 = scbtcp.create_listener{ip=thost, port=p1}
+                  local rs1 = scbtcp.create_socket{ip=thost}
                   local s1 = scr.wrap_socket(rs1)
                   local s2 = scr.wrap_socket(rs2)
                   local stopped, stopping

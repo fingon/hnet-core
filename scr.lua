@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:13:25 2013 mstenber
--- Last modified: Wed May 15 17:21:45 2013 mstenber
+-- Last modified: Thu May 16 11:26:21 2013 mstenber
 -- Edit time:     150 min
 --
 
@@ -251,11 +251,11 @@ function scrsocket:accept(timeout)
                                end, true, timeout)
 end
 
-function scrsocket:connect(host, port, timeout)
-   mst.d('connect', host, port)
-   self:a(host and port, 'host or port not specified')
+function scrsocket:connect(ip, port, timeout)
+   mst.d('connect', ip, port)
+   self:a(ip and port, 'ip or port not specified')
 
-   local r, e = self.s:connect(host, port)
+   local r, e = self.s:connect(ip, port)
    self:d('got from connect', r, e)
    if r == 1
    then
@@ -263,8 +263,8 @@ function scrsocket:connect(host, port, timeout)
    end
    -- blocking connect call -> wait for it to finish
    return self:io_with_timeout(function ()
-                                  self:d('[callback] connect', host, port)
-                                  local r, err = self.s:connect(host, port)
+                                  self:d('[callback] connect', ip, port)
+                                  local r, err = self.s:connect(ip, port)
                                   if err == scbtcp.ERR_CONNECTION_REFUSED
                                   then
                                      r = nil
