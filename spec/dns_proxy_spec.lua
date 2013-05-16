@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 12:51:51 2013 mstenber
--- Last modified: Mon May 13 12:30:51 2013 mstenber
+-- Last modified: Thu May 16 11:29:05 2013 mstenber
 -- Edit time:     35 min
 --
 
@@ -74,15 +74,17 @@ describe("dns_proxy", function ()
                           mst.a(scr.clear_scr())
                        end)
             it("can be initialized", function ()
-                  p = dns_proxy.dns_proxy:new{tcp_port=5354,
-                                              udp_port=5354,
+                  p = dns_proxy.dns_proxy:new{ip='*',
+                                              tcp_port=5354,
+                                              udp_port=5355,
                                               process_callback=echo_process_request}
                    end)
 
             it("works #w", function ()
-                  local p0 = 5354
-                  p = dns_proxy.dns_proxy:new{tcp_port=p0,
-                                              udp_port=p0,
+                  local p0 = 5356
+                  p = dns_proxy.dns_proxy:new{ip='*',
+                                              -- now just general port #
+                                              port=p0,
                                               process_callback=echo_process_request}
                   local thost = scb.LOCALHOST
                   
