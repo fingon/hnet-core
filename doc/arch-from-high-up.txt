@@ -1,6 +1,6 @@
 Created:       Thu May 16 19:11:50 2013 mstenber
-Last modified: Thu May 16 19:17:06 2013 mstenber
-Edit time:     4 min
+Last modified: Thu May 16 19:18:16 2013 mstenber
+Edit time:     5 min
 
 Very brief overview of how the stuff works on OpenWRT:
 
@@ -27,13 +27,16 @@ generated as ULA, IPv4 10.*/8), and publishes it to system state
 
  - starts/stops bird4
 
- - dnsmasq running on every internal interface
+ - hnet-dnsmasq running on every internal interface
 
  - appopriate IPv6 addresses on each interface
 
  - source routing
 
  - .. and probably bunch more other things, see pm_*.lua, and openwrt/*.sh
-   that they invoke in hnet-core repository (
-   which is at https://github.com/fingon/hnet-core )
+   that they invoke in hnet-core repository ( which is at
+   https://github.com/fingon/hnet-core ). Note that some of them are
+   mutually exclusive, such as using dnsmasq and radvd for router
+   advertisements. (or ISC dhclient v6 <> odhcp6c, or ISC dhcpd <>
+   dnsmasq).
 
