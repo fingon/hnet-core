@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Mon May 20 16:04:59 2013 mstenber
--- Edit time:     140 min
+-- Last modified: Mon May 20 20:51:47 2013 mstenber
+-- Edit time:     165 min
 --
 
 -- DNS channels is an abstraction between two entities that speak DNS,
@@ -64,7 +64,9 @@ function msg:get_binary()
    if not self.binary
    then
       self:a(self.msg, 'no msg either?!')
-      return dns_codec.dns_message:encode(self.msg)
+      local b, err = dns_codec.dns_message:encode(self.msg)
+      self.binary = b
+      return b, err
    end
    return self.binary
 end
@@ -80,14 +82,59 @@ function msg:get_msg()
    return self.msg
 end
 
-local function _wrap_msg(o)
-   if msg:is_instance(o)
-   then
-      return o
+function msg:resolve_udp(timeout)
+   local server = self.ip
+   mst.a(server, 'server mandatory')
+   local msg = self:get_msg()
+   mst.a(msg and msg.h and msg.h.id, 'msg with id mandatory', msg)
+   local c, err = get_udp_channel{ip='*', port=0}
+   if not c then return c, err end
+   local dst = {server, dns_const.PORT}
+   local r, err = c:send(self, dst, timeout)
+   if not r then return nil, err end
+   while true
+   do
+      local got, err = c:receive(timeout)
+      if not got then return nil, err end
+      local msg2, err2 = got:get_msg()
+      local ip, port = got.ip, got.port
+      -- if not, it's bogon
+      if ip == server and (not msg2 or (msg2.h and msg2.h.id == msg.h.id))
+      then
+         -- XXX - should we call done on this or not?
+         c:done()
+         return got
+      else
+         mst.d('invalid reply', ip, port, msg2)
+      end
    end
-   mst.a(type(o) == 'table')
-   return msg:new{msg=o}
 end
+
+function msg:resolve_tcp(timeout)
+   local server = self.ip
+   local msg = self:get_msg()
+   mst.a(server and msg, 'server+msg not provided')
+   -- just sanity check, we pass along really self
+   local c = get_tcp_channel{ip='*', port=0, server=server}
+   if not c then return c, err end
+   local r, err = c:send(self, timeout)
+   if not r then return nil, err end
+   local got = c:receive(timeout)
+   c:done()
+   if not got then return nil, ERR_TIMEOUT end
+   return got
+end
+
+
+function msg:resolve(timeout)
+   if self.tcp
+   then
+      return self:resolve_tcp(timeout)
+   else
+      return self:resolve_udp(timeout)
+   end
+end
+
 
 channel = mst.create_class{class='channel', mandatory={'s'}}
 
@@ -106,8 +153,7 @@ tcp_channel = channel:new_subclass{class='tcp_channel'}
 
 function tcp_channel:send(o, timeout)
    self:a(o, 'no o')
-   -- if not instance of msg, we wrap it
-   o = _wrap_msg(o)
+   self:a(mst.get_class(o) == msg, 'invalid superclass', o)
    return self.s:send(o:get_binary(), timeout)
 end
 
@@ -130,7 +176,7 @@ function tcp_channel:receive(timeout)
             self:d('allegedly decoded', pos, m)
             local b = string.sub(q, 1, pos)
             self.queue = string.sub(q, pos+1)
-            return msg:new{binary=b}
+            return msg:new{binary=b, tcp=true}
          end
          self:d('decode failed')
       end
@@ -157,15 +203,14 @@ end
 
 udp_channel = channel:new_subclass{class='udp_channel'}
 
-function udp_channel:send(o, dst)
+function udp_channel:send(o)
    self:a(o, 'no o')
-   self:a(dst, 'no destination')
-   o = _wrap_msg(o)
+   self:a(mst.get_class(o) == msg, 'invalid superclass', o)
 
    -- sanity check that ip + port also looks sane
-   local ip, port = unpack(dst)
-   port = port or dns_const.PORT
-   self:a(ip and port, 'ip or port missing', dst)
+   local ip = o.ip 
+   local port = o.port or dns_const.PORT
+   self:a(ip and port, 'ip or port missing', o)
 
    return self.s:sendto(o:get_binary(), ip, port)
 end
@@ -177,7 +222,7 @@ function udp_channel:receive(timeout)
    -- if successful, return msg, src
    if m
    then
-      return msg:new{binary=b}, {ip, port}
+      return msg:new{binary=b, ip=ip, port=port, tcp=false}
    end
    -- otherwise return nil, err
    return nil, err
@@ -217,49 +262,11 @@ end
 
 -- convenience 'resolve' functions
 
-function resolve_to_msg_udp(server, msg, timeout)
+function resolve_msg_udp(server, m, timeout)
    mst.a(server, 'server mandatory')
-   mst.a(msg and msg.h and msg.h.id, 'msg with id mandatory', msg)
-   local c, err = get_udp_channel{ip='*', port=0}
-   if not c then return c, err end
-   local dst = {server, dns_const.PORT}
-   local r, err = c:send(msg, dst, timeout)
-   if not r then return nil, err end
-   while true
-   do
-      local got, err = c:receive(timeout)
-      if not got then return nil, err end
-      local msg2, err2 = got:get_msg()
-      if not msg2 then return nil, err2 end
-      local ip, port = unpack(err)
-      -- if not, it's bogon
-      if ip == server and msg2.h and msg2.h.id == msg.h.id
-      then
-         -- XXX - should we call done on this or not?
-         c:done()
-         return got
-      else
-         mst.d('invalid reply', ip, port, msg2)
-      end
-   end
-end
-
-function resolve_to_msg_tcp(server, msg, timeout)
-   mst.a(server and msg, 'server+msg not provided')
-   local c = get_tcp_channel{ip='*', port=0, server=server}
-   if not c then return c, err end
-   local r, err = c:send(msg, timeout)
-   if not r then return nil, err end
-   local got = c:receive(timeout)
-   c:done()
-   if not got then return nil, ERR_TIMEOUT end
-   return got
-end
-
-function resolve_msg_udp(server, msg, timeout)
-   mst.a(server, 'server mandatory')
-   mst.a(msg and msg.h and msg.h.id, 'msg with id mandatory', msg)
-   local got, err = resolve_to_msg_udp(server, msg, timeout)
+   mst.a(m and m.h and m.h.id, 'msg without mandatory id', m)
+   local cmsg = msg:new{ip=server, msg=m, tcp=false}
+   local got, err = cmsg:resolve(timeout)
    if got
    then
       return got:get_msg()
@@ -267,10 +274,11 @@ function resolve_msg_udp(server, msg, timeout)
    return nil, err
 end
 
-function resolve_msg_tcp(server, msg, timeout)
+function resolve_msg_tcp(server, m, timeout)
    mst.a(server, 'server mandatory')
-   mst.a(msg and msg.h and msg.h.id, 'msg with id mandatory', msg)
-   local got, err = resolve_to_msg_tcp(server, msg, timeout)
+   mst.a(m and m.h and m.h.id, 'msg without mandatory id', m)
+   local cmsg = msg:new{ip=server, msg=m, tcp=true}
+   local got, err = cmsg:resolve(timeout)
    if got
    then
       return got:get_msg()

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Wed May 15 17:00:25 2013 mstenber
--- Edit time:     316 min
+-- Last modified: Mon May 20 20:49:04 2013 mstenber
+-- Edit time:     330 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -206,7 +206,7 @@ function hybrid_proxy:recreate_tree()
                self:a(ifname, 'no ifname for prefix', prefix)
                local ll = n:get_ll()
                self:a(ll)
-               return RESULT_FORWARD_MDNS, ifname, ll
+               return RESULT_FORWARD_MDNS, {ifname, ll}
             else
                -- [3r] remote rid => query it instead
                return RESULT_FORWARD_INT, ip
@@ -277,7 +277,7 @@ function hybrid_proxy:recreate_tree()
             function n:get_default()
                local ll = n:get_ll()
                self:a(ll)
-               return RESULT_FORWARD_MDNS, ifname, ll
+               return RESULT_FORWARD_MDNS, {ifname, ll}
             end
             function n:get_value()
                -- XXX 
@@ -313,10 +313,20 @@ function hybrid_proxy:iterate_usable_prefixes(f)
                    end)
 end
 
-function hybrid_proxy:forward(server, req)
+function hybrid_proxy:forward(req, server)
    local timeout = 1
-   local msg, src, tcp = unpack(req)
-   return dns_proxy.forward_process_callback(server, msg, src, tcp, timeout)
+   local nreq = dns_channel.msg:new{binary=req:get_binary(),
+                                    ip=server,
+                                    tcp=req.tcp}
+   local got = nreq:resolve(timeout)
+   if got
+   then
+      -- copy some bits so that we forward response to right address
+      got.ip = req.ip
+      got.port = req.port
+      got.tcp = req.tcp
+   end
+   return got
 end
 
 function ll_tail_matches(ll, tail)
@@ -377,15 +387,17 @@ end
 -- transform the 'domain' within req (and the q within it) from 'll'
 -- to mDNS .local while we are at it.
 function hybrid_proxy:rewrite_dns_req_to_mdns_q(dns_req, ll)
-   self:d('rewrite_dns_req_to_mdns_q', dns_req, ll)
-   self:a(dns_req and ll, 'no dns_req/ll')
+   self:a(dns_req and dns_req.get_msg, 'weird dns_req', dns_req)
+   local msg = dns_req:get_msg()
+   self:d('rewrite_msg_to_mdns_q', msg, ll)
+   self:a(msg and ll, 'no msg/ll')
 
-   if not dns_req.qd or #dns_req.qd ~= 1
+   if not msg.qd or #msg.qd ~= 1
    then
-      return nil, 'weird # of questions ' .. mst.repr(dns_req)
+      return nil, 'weird # of questions ' .. mst.repr(msg)
    end
 
-   local q = dns_req.qd[1]
+   local q = msg.qd[1]
    self:a(q.name, 'no name for query', q)
    local n, err = replace_dns_ll_tail_with_another(q.name, ll, mdns_const.LL)
    if not n then return nil, err end
@@ -424,7 +436,8 @@ end
 -- sent to DNS client.
 function hybrid_proxy:rewrite_rrs_from_mdns_to_reply_msg(req, mdns_q, 
                                                          mdns_rrs, ll)
-   local r = self:create_dns_reply(req)
+   local rm = self:create_dns_reply(req)
+   local r = rm:get_msg()
    self:d('rewrite_rrs_from_mdns_to_reply_msg', req, mdns_q, mdns_rrs, ll)
 
    function include_rr(rr)
@@ -465,26 +478,23 @@ function hybrid_proxy:rewrite_rrs_from_mdns_to_reply_msg(req, mdns_q,
       r.ar = {}
       r.h.rcode = dns_const.RCODE_NXDOMAIN
    end
-   return r
+   return rm
 end
 
-function hybrid_proxy:mdns_forward(ifname, req, ll)
-   local msg, src, tcp = unpack(req)
+function hybrid_proxy:mdns_forward(req, ifname, ll)
    -- On high level, this is really simple process. while underneath
    -- it may involve asynchronous stuff (in relation to mdns caching
    -- etc), as we're running within scr coroutine, this can be done
    -- with simple, synchronous-looking logic.
-   self:d('mdns_forward', ifname, req, ll)
-   self:a(ifname and req and ll, 'no ifname/req/ll', ifname, req, ll)
 
    -- First off, convert it to MDNS
-   local q, err = self:rewrite_dns_req_to_mdns_q(msg, ll)
+   local q, err = self:rewrite_dns_req_to_mdns_q(req, ll)
    if not q
    then
       self:d('rewrite_dns_req_to_mdns_q failed', err)
       local r = self:create_dns_reply(req,
                                       {h={rcode=dns_const.RCODE_FORMERR}})
-      return r, src
+      return r
    end
 
    local rrs, err = self.mdns_resolve_callback(ifname, q, MDNS_TIMEOUT)
@@ -492,28 +502,28 @@ function hybrid_proxy:mdns_forward(ifname, req, ll)
    -- if it's non-error, return it, even if result is empty
    if rrs 
    then
-      local r = self:rewrite_rrs_from_mdns_to_reply_msg(msg, q, rrs, ll)
-      return r, src
+      local r = self:rewrite_rrs_from_mdns_to_reply_msg(req, q, rrs, ll)
+      return r
    end
 
    return nil, err
 end
 
-function hybrid_proxy:process_match(req, r, o, o2)
+function hybrid_proxy:process_match(req, r, o)
    -- Next step depends on what we get
    if r == RESULT_FORWARD_INT
    then
-      return self:forward(o, req)
+      return self:forward(req, o)
    end
    if r == RESULT_FORWARD_EXT
    then
       local server = self.server or dns_const.GOOGLE_IPV4
-      return self:forward(server, req)
+      return self:forward(req, server)
    end
    if r == RESULT_FORWARD_MDNS
    then
-      return self:mdns_forward(o, req, o2)
+      return self:mdns_forward(req, unpack(o))
    end
-   return _dns_server.process_match(self, req, r, o, o2)
+   return _dns_server.process_match(self, req, r, o)
 end
 

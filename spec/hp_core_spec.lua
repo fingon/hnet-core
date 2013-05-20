@@ -8,13 +8,14 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Wed May 15 17:00:59 2013 mstenber
--- Edit time:     238 min
+-- Last modified: Mon May 20 20:43:12 2013 mstenber
+-- Edit time:     286 min
 --
 
 require 'busted'
 require 'hp_core'
 require 'scr'
+require 'dns_channel'
 
 module('hp_core_spec', package.seeall)
 
@@ -262,17 +263,17 @@ rr_y_local.name = {'y', 'local'}
 local hp_process_dns_results = {
    -- first case - forward ext, fails
    {
-      {"8.8.8.8", {{h={id=123}, qd={q_bar_com}}, "4.3.2.1", false}},
+      {"8.8.8.8", {h={id=123}, qd={q_bar_com}}},
       nil,
    },
    -- second case - forward ext, succeeds, but op fails (nxdomain)
    {
-      {"8.8.8.8", {{h={id=123}, qd={q_bar_com}}, "4.3.2.1", false}},
+      {"8.8.8.8", {h={id=123}, qd={q_bar_com}}},
       msg_bar_com_nxdomain,
    },
    -- forward int
    {
-      {OTHER_IP, {{h={id=123}, qd={q_x_other}}, "4.3.2.1", false}},
+      {OTHER_IP, {h={id=123}, qd={q_x_other}}},
       msg_x_other_content,
    },
 }
@@ -361,16 +362,49 @@ function fake_callback:__call(...)
    self.i = self.i + 1
    local got = {...}
    local exp, r = unpack(self.array[self.i])
-   self:a(mst.repr_equal(got, exp), 
-          'non-expected input - exp/got', exp, got)
+   self.assert_equals(exp, got)
    return r
+end
+
+function fake_callback.assert_equals(exp, got)
+   mst.a(mst.repr_equal(exp, got), 
+         'non-expected input - exp/got', exp, got)
+end
+
+function assert_dns_result_equals(exp, got)
+   if exp == got
+   then
+      return 
+   end
+   mst.d('considering exp', exp)
+   mst.d('considering got', got)
+
+   mst.a(#exp == #got)
+   mst.a(exp[1] == got[1])
+   -- got is probably within dns_channel.message - remove the wrapper
+   mst.a(#got == 2, 'wrong #got', got)
+   local gcmsg = got[2]
+   mst.a(gcmsg and gcmsg.get_msg, 'missing cmsg', got)
+   local gmsg = gcmsg:get_msg()
+   mst.a(mst.repr_equal(gmsg, exp[2]), 'not same - exp/got', exp[2][1], gmsg)
+end
+
+
+function assert_cmsg_result_equals(exp, got)
+   if exp == got
+   then
+      return 
+   end
+   mst.a(got and got.get_msg, 'no got/get_msg', exp, got)
+
+   mst.a(mst.repr_equal(exp, got:get_msg()), 'not same - exp/got', exp, got)
 end
 
 function fake_callback:uninit()
    self:a(self.i == #self.array, 'wrong amount consumed', self.i, #self.array, self.array)
 end
 
-function test_list(a, f, g)
+function test_list(a, f, assert_equals)
    for i, v in ipairs(a)
    do
       mst.d('test_list', i)
@@ -380,11 +414,10 @@ function test_list(a, f, g)
       local result, err = f(input)
 
       -- and make sure that (repr-wise) result is correct
-      mst.a(mst.repr_equal(result, output), 
-            'not same exp/got', 
-            output, result, err,
-           'for',
-           input)
+      assert_equals = assert_equals or function (v1, v2)
+         mst.a(mst.repr_equal(v1, v2), 'not same', v1, v2)
+                                       end
+      assert_equals(output, result)
    end
 end
 
@@ -396,8 +429,12 @@ describe("hybrid_proxy", function ()
             before_each(function ()
                            local f, g
                            --mst.repr_show_duplicates = true
-                           mdns = fake_callback:new{name='mdns'}
-                           dns = fake_callback:new{name='dns'}
+                           mdns = fake_callback:new{name='mdns',
+                                                    --assert_equals=assert_dns_result_equals,
+                                                   }
+                           dns = fake_callback:new{name='dns',
+                                                   assert_equals=assert_dns_result_equals,
+}
                            
                            hp = hp_core.hybrid_proxy:new{rid='rid1',
                                                          domain=DOMAIN_LL,
@@ -455,9 +492,8 @@ describe("hybrid_proxy", function ()
                                  f(v)
                               end
                            end
-                           function hp:forward(server, req)
-                              local msg, src, tcp = unpack(req)
-                              return dns(server, req), src
+                           function hp:forward(req, server)
+                              return dns(server, req)
                            end
                         end)
             after_each(function ()
@@ -476,7 +512,9 @@ describe("hybrid_proxy", function ()
                   test_list(q_to_r_material,
                             function (n)
                                local q = {name=dns_db.name2ll(n)}
-                               local r, err = hp:match{{qd={q}}}
+                               local msg = {qd={q}}
+                               local cmsg = dns_channel.msg:new{msg=msg}
+                               local r, err = hp:match(cmsg)
                                mst.d('got', r, err)
                                return r
                             end)
@@ -484,24 +522,28 @@ describe("hybrid_proxy", function ()
             it("dns req->mdns q conversion works #d2m", function ()
                   test_list(dns_q_to_mdns_material,
                             function (q)
-                               local req = {qd={q}}
+                               local msg = {qd={q}}
+                               local req = dns_channel.msg:new{msg=msg}
                                local r, err = hp:rewrite_dns_req_to_mdns_q(req, DOMAIN_LL)
                                return r
-                            end)
+                            end
+                           )
                    end)
             it("mdns->dns conversion works", function ()
-                  local req = {
+                  local msg = {
                      h={id=123},
                      qd={
                         dns_dummy_q,
                      }
                   }
+                  local req = dns_channel.msg:new{msg=msg}
                   local q, err = hp:rewrite_dns_req_to_mdns_q(req, DOMAIN_LL)
                   mst.a(q)
                   test_list(mdns_rrs_to_dns_reply_material,
                             function (rrs)
                                return hp:rewrite_rrs_from_mdns_to_reply_msg(req, q, rrs, DOMAIN_LL)
-                            end)
+                            end,
+                           assert_cmsg_result_equals)
                    end)
             it("dns->mdns->reply flow works #flow", function ()
                   -- these are most likely the most complex samples -
@@ -509,21 +551,7 @@ describe("hybrid_proxy", function ()
 
                   -- twice to account for udp + tcp
                   dns.array:extend(hp_process_dns_results)
-                  function rewrite_dns_to_tcp(l)
-                     return mst.array_map(l, function (o)
-                                             mst.a(#o <= 2, 'wrong # in o', #o, o)
-                                             local input, resp = unpack(o)
-                                             mst.a(#input == 2, 'wrong # in input', #input, input)
-                                             -- server + req
-                                             local server, req = unpack(input)
-                                             mst.a(#req == 3,
-                                                  'wrong # in req', #req, req)
-                                             local nreq = {req[1], req[2], 
-                                                           true}
-                                             return {{server, nreq}, resp}
-                                             end)
-                  end
-                  dns.array:extend(rewrite_dns_to_tcp(hp_process_dns_results))
+                  dns.array:extend(hp_process_dns_results)
 
                   mdns.array:extend(hp_process_mdns_results)
                   mdns.array:extend(hp_process_mdns_results)
@@ -535,11 +563,22 @@ describe("hybrid_proxy", function ()
                                 qtype=oq.qtype or dns_const.TYPE_ANY,
                                 qclass=oq.qclass or dns_const.CLASS_IN}
                      local msg = {qd={q}, h={id=TEST_ID}}
-                     local r, src = hp:process(msg, TEST_SRC, is_tcp)
+                     local cmsg = dns_channel.msg:new{msg=msg, ip=TEST_SRC, tcp=is_tcp}
+                     local r, src = hp:process(cmsg)
                      if r
                      then
-                        mst.a(src, 'no src?!?', r)
-                        mst.a(src == TEST_SRC, 'wrong src', src)
+                        if r.get_msg
+                        then
+                           -- sanity check that tcp/ip fields
+                           -- propagate correctly
+                           mst.a(r.tcp == cmsg.tcp)
+                           local ip = r.ip
+                           mst.a(ip, 'no ip?!?', r)
+                           mst.a(ip == TEST_SRC, 'wrong ip', ip)
+
+                           r = r:get_msg()
+                        end
+                        mst.a(r.h, 'no header', r)
                         mst.a(r.h.id == msg.h.id)
                         -- convert result to binary, and then back
                         -- (=normalize it)

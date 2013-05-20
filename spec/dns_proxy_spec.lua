@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 12:51:51 2013 mstenber
--- Last modified: Mon May 20 15:42:52 2013 mstenber
--- Edit time:     38 min
+-- Last modified: Mon May 20 19:47:28 2013 mstenber
+-- Edit time:     39 min
 --
 
 require "busted"
@@ -41,9 +41,10 @@ function test_response_udp(msg, host, port)
    local c, err = dns_channel.get_udp_channel{port=0}
    mst.a(c, 'unable to create channel', err)
    local got
+   local cmsg=dns_channel.msg:new{msg=msg, ip=host, port=port}
    local got = scr.timeouted_run_async_call(1, 
                                             function ()
-                                               c:send(msg, {host, port})
+                                               c:send(cmsg)
                                                return c:receive(1)
                                             end)
    mst.a(got, 'timed out - no reply')
@@ -53,11 +54,13 @@ end
 
 function test_response_tcp(msg, host, port)
    local got
+   -- ip/port not relevant here, they're done in get_tcp_channel
+   local cmsg = dns_channel.msg:new{msg=msg}
    local got = scr.timeouted_run_async_call(1, 
                                             function ()
                                                local c, err = dns_channel.get_tcp_channel{port=0, server=host, server_port=port}
                                                mst.a(c, 'unable to create channel', err)
-                                               c:send(msg)
+                                               c:send(cmsg)
                                                local r = c:receive(1)
                                                c:done()
                                                return r

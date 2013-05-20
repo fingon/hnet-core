@@ -1,5 +1,24 @@
 -*- outline -*-
 
+* 20.5.2013+
+
+** Handle name compression correctly regardless of content
+
+Currently, what we do, is just do name compression correctly on _known_ RR
+types. However, that's implementation artifact of dns_name.lua. Of course,
+as re-encoding of records won't work correctly if we don't know contents of
+RRs (so that name bits are decoded correctly when passing packet along),
+I'm not sure if this is a big problem.
+
+Obviously, pure binary forwarding would be nice. But there's elegance also
+in passing along the decoded messages (as we can play with them). Perhaps
+the correct thing to do is use decoded if and only if we want to change the
+content, and forward blindly otherwise?
+
+=> now we handle things in ~pure binary, with minimal
+non-message-compression supporting and non-rr-decoding stuff to handle
+correct message lengths in TCP. Yay.
+
 * 8.4.2013+
 
 ** Make the whole thing easier to build from scratch

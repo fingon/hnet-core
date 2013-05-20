@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 12:29:52 2013 mstenber
--- Last modified: Wed May 15 13:57:23 2013 mstenber
--- Edit time:     21 min
+-- Last modified: Mon May 20 20:37:54 2013 mstenber
+-- Edit time:     32 min
 --
 
 -- This is VERY minimalist DNS server. It abstracts away dns_tree
@@ -35,7 +35,12 @@ function dns_server:recreate_tree()
 end
 
 function dns_server:match(req)
-   local msg, src, tcp = unpack(req)
+   self:a(req, 'no req')
+   local msg = req:get_msg()
+   if not msg
+   then
+      return nil, 'broken down msg ' .. mst.repr(msg)
+   end
    if not msg.qd or #msg.qd ~= 1
    then
       return nil, 'no question/too many questions ' .. mst.repr(msg)
@@ -52,43 +57,45 @@ function dns_server:match(req)
    --return self.root:match_ll(q.name)
 end
 
-function dns_server:process_match(req, r, o, o2)
-   local msg, src, tcp = unpack(req)
+function dns_server:process_match(req, r, o)
    -- only result code we supply is NXDOMAIN reply; use that if relevant
    if r == RESULT_NXDOMAIN
    then
-      local r = self:create_dns_reply(msg, {h={rcode=dns_const.RCODE_NXDOMAIN}})
-      return r, src
+      local r = self:create_dns_reply(req, {h={rcode=dns_const.RCODE_NXDOMAIN}})
+      return r
    end
    -- has to be a list of rr's from our own storage
    -- (if something else, someone must've done handling before us!
    self:a(type(r) == 'table')
-   local r = self:create_dns_reply(msg, {an=r})
-   return r, src
+   local r = self:create_dns_reply(req, {an=r})
+   return r
 end
 
-function dns_server:process(msg, src, tcp)
+function dns_server:process(req)
    -- by default, assume it's query
    -- (this may occur when testing locally and it is not an error)
+   local msg = req:get_msg()
    local opcode = msg.opcode or dns_const.OPCODE_QUERY
    
    if opcode ~= dns_const.OPCODE_QUERY
    then
-      local r = self:create_dns_reply(msg, {h={rcode=dns_const.RCODE_NOTIMP}})
-      return r, src
+      local r = self:create_dns_reply(req, {h={rcode=dns_const.RCODE_NOTIMP}})
+      return r
    end
-   local req = {msg, src, tcp}
-   local r, o, o2 = self:match(req)
-   self:d('match result', msg, r, o, o2)
+   local r, err = self:match(req)
+   self:d('match result', r, err)
    if not r
    then
-      return nil, 'match error ' .. mst.repr(o)
+      return nil, 'match error ' .. mst.repr(err)
    end
-   return self:process_match(req, r, o, o2)
+   return self:process_match(req, r, err)
 end
 
 function dns_server:create_dns_reply(req, o)
    self:a(req, 'req missing')
+
+   local msg = req:get_msg()
+   self:a(msg)
 
    o = o or {}
    o.an = o.an or mst.array:new{}
@@ -99,11 +106,11 @@ function dns_server:create_dns_reply(req, o)
    o.h.qr = true -- reply
 
    -- these are copied from req, if not specified in o
-   o.h.id = o.h.id or req.h.id
-   o.h.rd = o.h.rd or req.h.rd
-   o.qd = o.qd or req.qd
+   o.h.id = o.h.id or msg.h.id
+   o.h.rd = o.h.rd or msg.h.rd
+   o.qd = o.qd or msg.qd
 
-   return o
+   return dns_channel.msg:new{msg=o, ip=req.ip, port=req.port, tcp=req.tcp}
 end
 
 function create_default_nxdomain_node_callback(o)
