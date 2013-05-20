@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Apr 29 18:16:53 2013 mstenber
--- Last modified: Thu May 16 11:23:55 2013 mstenber
--- Edit time:     110 min
+-- Last modified: Mon May 20 13:32:02 2013 mstenber
+-- Edit time:     117 min
 --
 
 -- This is minimalist DNS proxy implementation.
@@ -94,10 +94,21 @@ function handler:handle_request(msg, src)
    if reply
    then
       self:d('sending reply', reply, dst)
-      -- subclass responsibility
       self:send_response(reply, dst)
    else
       self:d('error occurred?', dst)
+   end
+end
+
+function handler:send_response(reply, dst)
+   self:a(self.tcp or dst, 'no destination')
+   -- if it's binary, it's been already encoded (or is being passed
+   -- as-is)
+   if type(reply) == 'string'
+   then
+      self.c:send_binary(reply, dst)
+   else
+      self.c:send_msg(reply, dst)
    end
 end
 
@@ -118,12 +129,6 @@ end
 function handler:read_request()
    self:d('read_request')
    return self.c:receive_msg()
-end
-
-function handler:send_response(msg, dst)
-   self:d('send_response', msg, dst)
-   self:a(self.tcp or dst, 'no destination')
-   self.c:send_msg(msg, dst)
 end
 
 dns_proxy = mst.create_class{class='dns_proxy', 

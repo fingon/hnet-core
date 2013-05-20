@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Thu May 16 13:12:10 2013 mstenber
--- Edit time:     92 min
+-- Last modified: Mon May 20 13:30:33 2013 mstenber
+-- Edit time:     97 min
 --
 
 -- DNS channels is an abstraction between two entities that speak DNS,
@@ -56,10 +56,15 @@ end
 
 tcp_channel = channel:new_subclass{class='tcp_channel'}
 
+function tcp_channel:send_binary(binary, timeout)
+   self:a(binary, 'no binary')
+   return self.s:send(binary, timeout)
+end
+
 function tcp_channel:send_msg(msg, timeout)
    self:a(msg, 'no message')
    local binary = dns_codec.dns_message:encode(msg)
-   return self.s:send(binary, timeout)
+   return self:send_binary(binary, timeout)
 end
 
 function tcp_channel:receive_msg(timeout)
@@ -101,16 +106,22 @@ end
 
 udp_channel = channel:new_subclass{class='udp_channel'}
 
-function udp_channel:send_msg(msg, dst)
-   self:a(msg, 'no message')
+function udp_channel:send_binary(binary, dst)
+   self:a(binary, 'no binary')
    self:a(dst, 'no destination')
 
+   -- sanity check that ip + port also looks sane
    local ip, port = unpack(dst)
    port = port or dns_const.PORT
    self:a(ip and port, 'ip or port missing', dst)
 
-   local binary = dns_codec.dns_message:encode(msg)
    return self.s:sendto(binary, ip, port)
+end
+
+function udp_channel:send_msg(msg, dst)
+   self:a(msg, 'no message')
+   local binary = dns_codec.dns_message:encode(msg)
+   return self:send_binary(binary, dst)
 end
 
 function udp_channel:receive_msg(timeout)
