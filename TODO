@@ -62,6 +62,22 @@ lsalib.c: 86 => what happens of time moves backwards?
 
 nothing good happens if time moves much forwards, _either_. *sigh*
 
+* DNS - Bugs
+
+** Handle name compression correctly regardless of content
+
+Currently, what we do, is just do name compression correctly on _known_ RR
+types. However, that's implementation artifact of dns_name.lua. Of course,
+as re-encoding of records won't work correctly if we don't know contents of
+RRs (so that name bits are decoded correctly when passing packet along),
+I'm not sure if this is a big problem.
+
+Obviously, pure binary forwarding would be nice. But there's elegance also
+in passing along the decoded messages (as we can play with them). Perhaps
+the correct thing to do is use decoded if and only if we want to change the
+content, and forward blindly otherwise?
+
+* DNS - Improvements
 * PA - Bugs to fix
 
 ** Ensure first-hop routability of our address at border to ISP
