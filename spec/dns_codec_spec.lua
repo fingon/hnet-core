@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 12:06:56 2012 mstenber
--- Last modified: Tue May  7 13:55:20 2013 mstenber
--- Edit time:     91 min
+-- Last modified: Mon May 20 13:07:04 2013 mstenber
+-- Edit time:     97 min
 --
 
 require "busted"
@@ -92,6 +92,11 @@ local known_messages = {
 {'000084000000000100000006' ..
 '045f726662045f746370056c6f63616c00000c0001000011940007046d696e69c00cc0270021800100000078000d00000000170c046d696e69c016c0270010800100001194000100046d696e690c5f6465766963652d696e666fc01100100001000011940011106d6f64656c3d4d61636d696e69332c31c040001c8001000000780010fe80000000000000d69a20fffefd7b50c04000018001000000780004c0a82a03c040001c800100000078001020010470dd5e0000d69a20fffefd7b50', {an=1, ar=6}},
 
+-- example with CNAME + 9x A
+{'9ed4818000010009000000000a33322d636f75726965720470757368056170706c6503636f6d0000010001c00c0005000100005457002602333212636f75726965722d707573682d6170706c6503636f6d06616b61646e73036e657400c03700010001000000330004119524e3c0370001000100000033000411952479c03700010001000000330004119524e2c0370001000100000033000411952026c037000100010000003300041195247ac037000100010000003300041195203bc0370001000100000033000411952044c03700010001000000330004119524d4', {qd=1, an=9}},
+
+-- example with q + CNAME + SOA
+{'7775818000010001000100000a33322d636f75726965720470757368056170706c6503636f6d00001c0001c00c00050001000053bc002602333212636f75726965722d707573682d6170706c6503636f6d06616b61646e73036e657400c0510006000100000010003308696e7465726e616cc0510a686f73746d617374657206616b616d6169c0225199eee400015f9000015f9000015f90000000b4', {qd=1, an=1, ns=1}},
 }
 
 local message_lists = {'qd', 'an', 'ns', 'ar'}
@@ -219,18 +224,23 @@ describe("test dns_codec", function ()
                      -- and encode to same)
 
                      -- and the result should be same length
-                     mst.a(#s == #s2, 'decode->encode, different length', #s, #s2)
+                     --mst.a(#s == #s2, 'decode->encode, different length', #s, #s2)
 
                      -- and same content
 
                      -- due to ordering, can't be same.. but should be
                      -- decode+encodable to yet another one with same
                      -- length
-                     --mst.a(s == s2, 'decode->encode, different content')
+                     mst.a(s == s2, 'decode->encode, different content')
                      local o2, err = dns_message:decode(s2)
                      mst.a(o2, 'decode error', err)
                      local s3 = dns_message:encode(o2)
-                     
+
+                     -- now we can be sure that as we encoded both,
+                     -- result should be same
+                     mst.a(s2 == s3)
+
+
                   end
                    end)
             it("can also deal with cruft from json captures", function ()

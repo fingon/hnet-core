@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:03:28 2013 mstenber
--- Last modified: Wed May 15 17:30:34 2013 mstenber
+-- Last modified: Mon May 20 13:04:57 2013 mstenber
 -- Edit time:     9 min
 --
 
@@ -26,6 +26,7 @@ CLASS_ANY=255
 TYPE_A=1
 TYPE_NS=2
 TYPE_CNAME=5
+TYPE_SOA=6
 TYPE_PTR=12
 TYPE_HINFO=13
 TYPE_MX=15

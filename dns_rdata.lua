@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:08:00 2013 mstenber
--- Last modified: Tue May  7 13:55:00 2013 mstenber
--- Edit time:     12 min
+-- Last modified: Mon May 20 13:06:56 2013 mstenber
+-- Edit time:     19 min
 --
 
 require 'dns_const'
@@ -37,9 +37,9 @@ local function repr_equal(self, v1, v2)
 end
 
 local function encode_ll_field(self, o, context)
-                   local v = o[self.field]
-                   mst.a(v, 'missing', self.field, o)
-                   return table.concat(encode_name_rec(v, context))
+   local v = o[self.field]
+   mst.a(v, 'missing', self.field, o)
+   return table.concat(encode_name_rec(v, context))
 
 end
 
@@ -55,13 +55,20 @@ rtype_map = {[dns_const.TYPE_PTR]={
                 encode=encode_ll_field,
                 decode=decode_ll_field,
                 field_equal=repr_equal,
-                        },
+                                  },
              [dns_const.TYPE_NS]={
                 field='rdata_ns',
                 encode=encode_ll_field,
                 decode=decode_ll_field,
                 field_equal=repr_equal,
-                        },
+             },
+             
+             [dns_const.TYPE_CNAME]={
+                field='rdata_cname',
+                encode=encode_ll_field,
+                decode=decode_ll_field,
+                field_equal=repr_equal,
+             },
              
              [dns_const.TYPE_A]={
                 field='rdata_a',
@@ -139,6 +146,55 @@ function rdata_srv:do_encode(o, context)
    local t = encode_name_rec(o.target, context)
    -- ugh, but oh well :p
    return r .. table.concat(t)
+end
+
+local _hr=3600
+
+rdata_soa = abstract_data:new{class='rdata_soa',
+                              format='serial:u4 refresh:u4 retry:u4 expire:u4 minimum:u4',
+                              header_default={serial=1,
+                                              refresh=_hr,
+                                              retry=_hr,
+                                              expire=_hr,
+                                              minimum=_hr}}
+
+function rdata_soa:try_decode(cur, context)
+   -- mname = domain-name of server that was original info for this zone
+   local mname, err = try_decode_name_rec(cur, context)
+   if not mname then return nil, err end
+   -- rname = mailbox address of responsible person
+   local rname, err = try_decode_name_rec(cur, context)
+   if not rname then return nil, err end
+   
+   -- then 'base struct' which follows after
+   local o, err = abstract_data.try_decode(self, cur)
+   if not o then return nil, err end
+   
+   o.mname = mname
+   o.rname = rname
+   return o
+end
+
+
+function rdata_soa:do_encode(o, context)
+   local t1 = encode_name_rec(o.mname, context)
+   local r1 = table.concat(t1)
+   if context
+   then
+      context.pos = context.pos + #r1
+   end
+   local t2 = encode_name_rec(o.rname, context)
+   local r2 = table.concat(t2)
+   if context
+   then
+      context.pos = context.pos + #r2
+   end
+   local r = abstract_data.do_encode(self, o)
+   if context
+   then
+      context.pos = context.pos + #r
+   end
+   return r1 .. r2 .. r
 end
 
 rdata_nsec = abstract_base:new{class='rdata_nsec'}
@@ -256,12 +312,12 @@ local function add_rtype_decoder(type, cl, o)
       return cl:encode(o[self.field], context)
    end
    function o.decode(self, o, cur, context)
-         cur.endpos = cur.pos + o.rdlength
-         local r, err = cl:decode(cur, context)
-         cur.endpos = nil
-         if not r then return nil, err end
-         o[self.field] = r
-         return true
+      cur.endpos = cur.pos + o.rdlength
+      local r, err = cl:decode(cur, context)
+      cur.endpos = nil
+      if not r then return nil, err end
+      o[self.field] = r
+      return true
    end
 end
 
@@ -275,4 +331,11 @@ add_rtype_decoder(dns_const.TYPE_NSEC, rdata_nsec, {
                      field_equal=repr_equal,
                      default_ttl=mdns_const.DEFAULT_NAME_TTL,
                                                    })
+
+
+add_rtype_decoder(dns_const.TYPE_SOA, rdata_soa, {
+                     field='rdata_soa', 
+                     field_equal=repr_equal,
+                     default_ttl=mdns_const.DEFAULT_NAME_TTL,
+                                                 })
 
