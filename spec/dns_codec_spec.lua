@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 12:06:56 2012 mstenber
--- Last modified: Mon May 20 13:07:04 2013 mstenber
--- Edit time:     97 min
+-- Last modified: Mon May 20 16:13:12 2013 mstenber
+-- Edit time:     108 min
 --
 
 require "busted"
@@ -78,6 +78,43 @@ local message_tests = {
    {an={{name={'foo'}, rdata=''},}},
    {ns={{name={'foo'}, rdata=''},}},
    {ar={{name={'foo'}, rdata=''},}},
+}
+
+local partial_messages = {
+   -- fake, incorrect message :-)
+   -- message + decode context + expected value with context (w/o = nil)
+
+   --format='id:u2 [2|qr:b1 opcode:u4 aa:b1 tc:b1 rd:b1 ra:b1 z:u1 ad:b1 cd:b1 rcode:u4] qdcount:u2 ancount:u2 nscount:u2 arcount:u2',
+
+   {'0001' .. -- id 
+      '0000' .. -- flags
+      '0001' .. -- qdcount
+      '0000' .. -- ancount
+      '0000' .. -- nscount
+      '0000' .. -- arcount
+      -- query
+      'ffff' .. -- fake name compression entry that is broken
+      '0001' .. -- qtype
+      '0001', -- qclass
+      {disable_decode_names=true}
+   },
+
+   {'0001' .. -- id 
+      '0000' .. -- flags
+      '0000' .. -- qdcount
+      '0001' .. -- ancount
+      '0000' .. -- nscount
+      '0000' .. -- arcount
+      -- rr
+      'ffff' .. -- fake name compression entry that is broken
+      '0001' .. -- rtype
+      '0001' .. -- rclass
+      '00000000' .. -- ttl
+      '0001' .. -- rdlength
+      '01',
+      {disable_decode_names=true,
+       disable_decode_rrs =true}
+   },
 }
 
 local known_messages = {
@@ -253,6 +290,19 @@ describe("test dns_codec", function ()
                      mst.d('original json string', #s)
                      mst.d('encoded in dns_message', #b)
 
+                  end
+                   end)
+            it("dns_message partial decode works #partial", function ()
+                  for i, v in ipairs(partial_messages)
+                  do
+                     local h, opt, exp = unpack(v)
+                     local s = mst.hex_to_string(h)
+                     local o, err = dns_message:decode(s)
+                     mst.a(not o, 'no decode error', o, err)
+                     local o, err = dns_message:decode(s, opt)
+                     mst.a(o, 'decode error', err)
+                     -- exp data is boring and not worth it :p
+                     --mst.a(mst.repr_equal(o, exp), 'not same', o, exp)
                   end
                    end)
 end)

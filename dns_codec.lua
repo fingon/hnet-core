@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Tue May 14 19:32:13 2013 mstenber
--- Edit time:     275 min
+-- Last modified: Mon May 20 16:13:34 2013 mstenber
+-- Edit time:     282 min
 --
 
 -- Functionality for en-decoding various DNS structures;
@@ -128,7 +128,7 @@ function dns_rr:try_decode(cur, context)
    mst.table_copy(o, r)
 
    local handler = dns_rdata.rtype_map[r.rtype]
-   if handler 
+   if handler and (not context or not context.disable_decode_rrs)
    then 
       --self:d('using handler', cur)
       local ok, err = handler:decode(r, cur, context)
@@ -244,7 +244,7 @@ function dns_message:do_encode(o)
    return table.concat(t)
 end
 
-function dns_message:try_decode(cur)
+function dns_message:try_decode(cur, context)
    local o = {}
 
    -- grab header
@@ -254,7 +254,12 @@ function dns_message:try_decode(cur)
    o.h = h
 
    -- used to store message compression offsets
-   local context = {}
+   if context
+   then
+      context = mst.table_copy(context)
+   else
+      context = {}
+   end
 
    -- then handle each list
    for i, v in ipairs(self.lists)

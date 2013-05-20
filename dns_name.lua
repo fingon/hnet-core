@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:08:37 2013 mstenber
--- Last modified: Fri Jan 18 11:07:19 2013 mstenber
--- Edit time:     32 min
+-- Last modified: Mon May 20 16:06:14 2013 mstenber
+-- Edit time:     36 min
 --
 
 require 'codec'
@@ -21,14 +21,15 @@ local cursor_has_left = codec.cursor_has_left
 --- general utilities to deal with FQDN en/decode
 
 function try_decode_name_rec(cur, h, n)
+   mst.d('try_decode_name_rec', h)
    n = n or {}
    if not cursor_has_left(cur, 1)
    then
       return nil, 'out of bytes (reading name)'
    end
    local npos = cur.pos
-   local b = cur:read(1)
-   local v = string.byte(b)
+   local b0 = cur:read(1)
+   local v = string.byte(b0)
    if v >= 64
    then
       if not cursor_has_left(cur, 1)
@@ -41,21 +42,26 @@ function try_decode_name_rec(cur, h, n)
       end
       v = v - 64 - 128
       local b = cur:read(1)
-      local v2 = string.byte(b)
-      local ofs = v * 256 + v2
-      mst.a(h, 'h not set when decoding name with message compression')
-      if not h[ofs]
+      if not h.disable_decode_names
       then
-         --mst.d('eek - about to blow up - dump', h, 'missing offset', ofs)
-         return nil, 'unable to find value at ofs ' .. tostring(ofs)
+         local v2 = string.byte(b)
+         local ofs = v * 256 + v2
+         mst.a(h, 'h not set when decoding name with message compression')
+         if not h[ofs]
+         then
+            --mst.d('eek - about to blow up - dump', h, 'missing offset', ofs)
+            return nil, 'unable to find value at ofs ' .. tostring(ofs)
+         end
+         local on, oofs = unpack(h[ofs])
+         -- 'other name' = on. 'oofs' = which entry to start at copying
+         for i=oofs,#on
+         do
+            n[#n+1] = on[i]
+         end
+         --mst.d('found from', ofs, mst.array_slice(n, oofs))
+      else
+         n[#n+1] = {b0, b}
       end
-      local on, oofs = unpack(h[ofs])
-      -- 'other name' = on. 'oofs' = which entry to start at copying
-      for i=oofs,#on
-      do
-         n[#n+1] = on[i]
-      end
-      --mst.d('found from', ofs, mst.array_slice(n, oofs))
       return n
    end
    -- let's see if it's the end

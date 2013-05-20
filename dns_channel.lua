@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Mon May 20 15:48:05 2013 mstenber
--- Edit time:     138 min
+-- Last modified: Mon May 20 16:04:59 2013 mstenber
+-- Edit time:     140 min
 --
 
 -- DNS channels is an abstraction between two entities that speak DNS,
@@ -111,6 +111,9 @@ function tcp_channel:send(o, timeout)
    return self.s:send(o:get_binary(), timeout)
 end
 
+local _decode_args = {disable_decode_names=true,
+                      disable_decode_rrs=true}
+
 function tcp_channel:receive(timeout)
    -- this is rather tricky. we have to ensure that we get only whole
    -- message, but we _also_ have to keep some leftovers around.
@@ -121,9 +124,7 @@ function tcp_channel:receive(timeout)
       if self.queue and #self.queue>0
       then
          local q = self.queue
-         local m, pos = dns_codec.dns_message:decode(q, 
-                                                     {decode_names=false, 
-                                                      decode_rrs=false})
+         local m, pos = dns_codec.dns_message:decode(q, _decode_args)
          if m
          then
             self:d('allegedly decoded', pos, m)
@@ -172,9 +173,7 @@ end
 function udp_channel:receive(timeout)
    local b, ip, port = self.s:receivefrom(timeout)
    if not b then return nil end
-   local m, err = dns_codec.dns_message:decode(b,
-                                               {decode_names=false, 
-                                                decode_rrs=false})
+   local m, err = dns_codec.dns_message:decode(b, _decode_args)
    -- if successful, return msg, src
    if m
    then
