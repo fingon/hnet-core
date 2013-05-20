@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Thu May 16 11:24:08 2013 mstenber
--- Edit time:     27 min
+-- Last modified: Mon May 20 12:27:09 2013 mstenber
+-- Edit time:     31 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -27,6 +27,7 @@ require 'mdns_client'
 require 'hp_core'
 require 'scb'
 require 'dns_proxy'
+require 'per_ip_server'
 
 _TEST = false -- required by cliargs + strict
 
@@ -37,6 +38,9 @@ function create_cli()
    cli:add_opt("--server=SERVER", 
                "address of upstream DNS server", 
                dns_const.GOOGLE_IPV6)
+   cli:add_opt('--listen=LISTEN',
+               'listen on these addresses (comma separated)',
+               '*')
    cli:add_opt("--domain=DOMAIN", "the domain 'own' to provide results for", 'home')
    cli:add_opt("--rid=RID", "the id of the router", 'router')
    cli:optarg("interface","interface(s) to listen proxy for", '', 10)
@@ -124,7 +128,13 @@ local function cb(...)
    return hp:process(...)
 end
 
-local dp = dns_proxy.dns_proxy:new{process_callback=cb}
+local pis = per_ip_server.per_ip_server:new{
+   create_callback=function (ip)
+      return dns_proxy.dns_proxy:new{ip=ip, 
+                                     process_callback=cb}
+   end}
+
+pis:set_ips(mst.string_split(args.listen, ','))
 
 mst.d('entering event loop')
 loop:loop()
