@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Fri May  3 13:57:06 2013 mstenber
--- Edit time:     226 min
+-- Last modified: Mon May 20 15:15:24 2013 mstenber
+-- Edit time:     228 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -36,6 +36,7 @@ module(..., package.seeall)
 abstract_base = mst.create_class{class='abstract_base'}
 
 function abstract_base:decode(cur, context)
+   mst.a(cur, 'nothing to decode?!?')
    mst.a(not self._cur, '_cur left?!?', self, self._cur)
    if type(cur) == 'string'
    then

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Mon May 20 13:30:33 2013 mstenber
--- Edit time:     97 min
+-- Last modified: Mon May 20 15:48:05 2013 mstenber
+-- Edit time:     138 min
 --
 
 -- DNS channels is an abstraction between two entities that speak DNS,
@@ -41,6 +41,54 @@ ERR_TIMEOUT='timeout'
 
 module(..., package.seeall)
 
+-- this is a single message we have received (or are about to send).
+-- it is mainly data structure, that we can use to pass instead of (a
+-- number of) other alternatives.
+
+-- notable members:
+
+-- ip, port = where did we receive it from (if any)
+
+-- (for internal use) msg, binary = encoded/raw representation of dns_message
+
+-- accessors:
+
+-- get_msg() - get readable message (_may_ fail if not decodeable
+-- recursively)
+
+-- get_binary() - get binary encoded message
+
+msg = mst.create_class{class='msg'}
+
+function msg:get_binary()
+   if not self.binary
+   then
+      self:a(self.msg, 'no msg either?!')
+      return dns_codec.dns_message:encode(self.msg)
+   end
+   return self.binary
+end
+
+function msg:get_msg()
+   if not self.msg
+   then
+      self:a(self.binary, 'no binary')
+      local r, err = dns_codec.dns_message:decode(self.binary)
+      self.msg = r
+      return r, err
+   end
+   return self.msg
+end
+
+local function _wrap_msg(o)
+   if msg:is_instance(o)
+   then
+      return o
+   end
+   mst.a(type(o) == 'table')
+   return msg:new{msg=o}
+end
+
 channel = mst.create_class{class='channel', mandatory={'s'}}
 
 function channel:init()
@@ -56,32 +104,34 @@ end
 
 tcp_channel = channel:new_subclass{class='tcp_channel'}
 
-function tcp_channel:send_binary(binary, timeout)
-   self:a(binary, 'no binary')
-   return self.s:send(binary, timeout)
+function tcp_channel:send(o, timeout)
+   self:a(o, 'no o')
+   -- if not instance of msg, we wrap it
+   o = _wrap_msg(o)
+   return self.s:send(o:get_binary(), timeout)
 end
 
-function tcp_channel:send_msg(msg, timeout)
-   self:a(msg, 'no message')
-   local binary = dns_codec.dns_message:encode(msg)
-   return self:send_binary(binary, timeout)
-end
-
-function tcp_channel:receive_msg(timeout)
+function tcp_channel:receive(timeout)
    -- this is rather tricky. we have to ensure that we get only whole
    -- message, but we _also_ have to keep some leftovers around.
    
    while true
    do
       -- first off, see if we've got enough in our incoming queue
-      if self.queue
+      if self.queue and #self.queue>0
       then
-         local msg, pos = dns_codec.dns_message:decode(self.queue)
-         if msg
+         local q = self.queue
+         local m, pos = dns_codec.dns_message:decode(q, 
+                                                     {decode_names=false, 
+                                                      decode_rrs=false})
+         if m
          then
-            self.queue = string.sub(self.queue, pos)
-            return msg
+            self:d('allegedly decoded', pos, m)
+            local b = string.sub(q, 1, pos)
+            self.queue = string.sub(q, pos+1)
+            return msg:new{binary=b}
          end
+         self:d('decode failed')
       end
 
       -- no (full?) message, have to receive more
@@ -106,32 +156,29 @@ end
 
 udp_channel = channel:new_subclass{class='udp_channel'}
 
-function udp_channel:send_binary(binary, dst)
-   self:a(binary, 'no binary')
+function udp_channel:send(o, dst)
+   self:a(o, 'no o')
    self:a(dst, 'no destination')
+   o = _wrap_msg(o)
 
    -- sanity check that ip + port also looks sane
    local ip, port = unpack(dst)
    port = port or dns_const.PORT
    self:a(ip and port, 'ip or port missing', dst)
 
-   return self.s:sendto(binary, ip, port)
+   return self.s:sendto(o:get_binary(), ip, port)
 end
 
-function udp_channel:send_msg(msg, dst)
-   self:a(msg, 'no message')
-   local binary = dns_codec.dns_message:encode(msg)
-   return self:send_binary(binary, dst)
-end
-
-function udp_channel:receive_msg(timeout)
+function udp_channel:receive(timeout)
    local b, ip, port = self.s:receivefrom(timeout)
    if not b then return nil end
-   local msg, err = dns_codec.dns_message:decode(b)
+   local m, err = dns_codec.dns_message:decode(b,
+                                               {decode_names=false, 
+                                                decode_rrs=false})
    -- if successful, return msg, src
-   if msg
+   if m
    then
-      return msg, {ip, port}
+      return msg:new{binary=b}, {ip, port}
    end
    -- otherwise return nil, err
    return nil, err
@@ -171,41 +218,65 @@ end
 
 -- convenience 'resolve' functions
 
-function resolve_msg_udp(server, msg, timeout)
+function resolve_to_msg_udp(server, msg, timeout)
    mst.a(server, 'server mandatory')
    mst.a(msg and msg.h and msg.h.id, 'msg with id mandatory', msg)
    local c, err = get_udp_channel{ip='*', port=0}
    if not c then return c, err end
    local dst = {server, dns_const.PORT}
-   local r, err = c:send_msg(msg, dst, timeout)
+   local r, err = c:send(msg, dst, timeout)
    if not r then return nil, err end
    while true
    do
-      local got, err = c:receive_msg(timeout)
+      local got, err = c:receive(timeout)
       if not got then return nil, err end
+      local msg2, err2 = got:get_msg()
+      if not msg2 then return nil, err2 end
       local ip, port = unpack(err)
       -- if not, it's bogon
-      if ip == server and got.h and got.h.id == msg.h.id
+      if ip == server and msg2.h and msg2.h.id == msg.h.id
       then
          -- XXX - should we call done on this or not?
          c:done()
          return got
       else
-         mst.d('invalid reply', ip, port, got)
+         mst.d('invalid reply', ip, port, msg2)
       end
    end
 end
 
-function resolve_msg_tcp(server, msg, timeout)
+function resolve_to_msg_tcp(server, msg, timeout)
    mst.a(server and msg, 'server+msg not provided')
    local c = get_tcp_channel{ip='*', port=0, server=server}
    if not c then return c, err end
-   local r, err = c:send_msg(msg, timeout)
+   local r, err = c:send(msg, timeout)
    if not r then return nil, err end
-   local got = c:receive_msg(timeout)
+   local got = c:receive(timeout)
    c:done()
    if not got then return nil, ERR_TIMEOUT end
    return got
+end
+
+function resolve_msg_udp(server, msg, timeout)
+   mst.a(server, 'server mandatory')
+   mst.a(msg and msg.h and msg.h.id, 'msg with id mandatory', msg)
+   local got, err = resolve_to_msg_udp(server, msg, timeout)
+   if got
+   then
+      return got:get_msg()
+   end
+   return nil, err
+end
+
+function resolve_msg_tcp(server, msg, timeout)
+   mst.a(server, 'server mandatory')
+   mst.a(msg and msg.h and msg.h.id, 'msg with id mandatory', msg)
+   local got, err = resolve_to_msg_tcp(server, msg, timeout)
+   if got
+   then
+      return got:get_msg()
+   end
+   return nil, err
 end
 
 function resolve_q_base(server, q, timeout, resolve_msg)
