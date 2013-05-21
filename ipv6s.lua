@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Mon Mar  4 13:58:11 2013 mstenber
--- Edit time:     183 min
+-- Last modified: Tue May 21 14:23:26 2013 mstenber
+-- Edit time:     184 min
 --
 
 require 'mst'
@@ -178,6 +178,10 @@ function address_to_binary_address(b)
       end
    end
    return table.concat(t)
+end
+
+function address_is_linklocal(s)
+   return mst.string_startswith(s, 'fe80:')
 end
 
 -- convert binary prefix to binary address (=add trailing 0's)

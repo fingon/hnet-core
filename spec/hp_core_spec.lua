@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Mon May 20 20:43:12 2013 mstenber
--- Edit time:     286 min
+-- Last modified: Tue May 21 14:29:09 2013 mstenber
+-- Edit time:     296 min
 --
 
 require 'busted'
@@ -94,14 +94,24 @@ local mdns_rrs_to_dns_reply_material = {
 
    -- normal case - match
    {{
-       -- matching one
-       {name={'name', 'local'}},
+       -- matching ones
+       {name={'name', 'local'}, cache_flush=true,
+        rtype=dns_const.TYPE_A, rdata_a='1.2.3.4'},
+       {name={'name', 'local'}, cache_flush=true,
+        rtype=dns_const.TYPE_AAAA, rdata_aaaa='dead::1'},
+       -- v6 linklocal should be omitted
+       {name={'name', 'local'}, cache_flush=true,
+        rtype=dns_const.TYPE_AAAA, rdata_aaaa='fe80::1'},
        -- additional record one
        {name={'blarg', 'local'}},
     },
     {h={id=123, qr=true, ra=true}, 
      qd={dns_dummy_q},
-     an={{name={'name', 'foo', 'com'}}}, 
+     an={{name={'name', 'foo', 'com'}, 
+          rtype=dns_const.TYPE_A, rdata_a='1.2.3.4'},
+         {name={'name', 'foo', 'com'}, 
+          rtype=dns_const.TYPE_AAAA, rdata_aaaa='dead::1'},
+     }, 
      ar={{name={'blarg', 'foo', 'com'}}}, 
     },
    },

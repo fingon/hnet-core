@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Mon May 20 20:49:04 2013 mstenber
--- Edit time:     330 min
+-- Last modified: Tue May 21 14:28:24 2013 mstenber
+-- Edit time:     338 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -243,7 +243,7 @@ function hybrid_proxy:recreate_tree()
          rtype=dns_const.TYPE_PTR,
          rclass=dns_const.CLASS_IN,
          rdata_ptr=ap_ll
-                 }
+      }
       self:add_rr(d)
 
       if rid ~= self.rid
@@ -408,10 +408,14 @@ function hybrid_proxy:rewrite_dns_req_to_mdns_q(dns_req, ll)
 end
 
 function hybrid_proxy:rewrite_mdns_rr_to_dns(rr, ll)
+   local nrr = mst.table_copy(rr)
+
+   -- there is no cache flush in dns-land
+   nrr.cache_flush = nil
+
+   -- rewrite name
    local n, err = replace_dns_ll_tail_with_another(rr.name, mdns_const.LL, ll)
    if not n then return nil, err end
-   local nrr = mst.table_copy(rr)
-   -- rewrite name
    nrr.name = n
    
    -- manually rewrite the relevant bits.. sigh SRV, PTR are only
@@ -423,12 +427,28 @@ function hybrid_proxy:rewrite_mdns_rr_to_dns(rr, ll)
       local n, err = replace_dns_ll_tail_with_another(srv.target, mdns_const.LL, ll)
       if not n then return nil, err end
       srv.target = n
-   elseif rr.rtype==dns_const.TYPE_PTR
+      return nrr
+   end
+
+   if rr.rtype == dns_const.TYPE_PTR
    then
       local n, err = replace_dns_ll_tail_with_another(rr.rdata_ptr, mdns_const.LL, ll)
       if not n then return nil, err end
       nrr.rdata_ptr = n
+      return nrr
    end
+
+   if rr.rtype == dns_const.TYPE_AAAA
+   then
+      -- check for linklocal - if so, skip this altogether
+      if ipv6s.address_is_linklocal(rr.rdata_aaaa)
+      then
+         return
+      end
+   end
+
+   -- XXX - what to do with nsec?
+
    return nrr
 end
 
@@ -440,37 +460,28 @@ function hybrid_proxy:rewrite_rrs_from_mdns_to_reply_msg(req, mdns_q,
    local r = rm:get_msg()
    self:d('rewrite_rrs_from_mdns_to_reply_msg', req, mdns_q, mdns_rrs, ll)
 
-   function include_rr(rr)
-      -- XXX - figure criteria why not to
-      return true
-   end
-
    local matched
 
    
    for i, rr in ipairs(mdns_rrs)
    do
-      if include_rr(rr)
+      local nrr, err = self:rewrite_mdns_rr_to_dns(rr, ll)
+      if nrr
       then
 
-         local nrr, err = self:rewrite_mdns_rr_to_dns(rr, ll)
-         if nrr
+         if mdns_if.match_q_rr(mdns_q, rr)
          then
-
-            if mdns_if.match_q_rr(mdns_q, rr)
-            then
-               self:d('adding to an', nrr)
-               r.an:insert(nrr)
-               matched = true
-            else
-               -- anything not directly matching query is clearly additional
-               -- record we may want to include just for fun
-               self:d('adding to ar', nrr)
-               r.ar:insert(nrr)
-            end
+            self:d('adding to an', nrr)
+            r.an:insert(nrr)
+            matched = true
          else
-            self:d('invalid rr skipped', rr, ll)
+            -- anything not directly matching query is clearly additional
+            -- record we may want to include just for fun
+            self:d('adding to ar', nrr)
+            r.ar:insert(nrr)
          end
+      else
+         self:d('invalid rr skipped', rr, ll)
       end
    end
    if not matched

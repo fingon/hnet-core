@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Thu May  9 13:59:44 2013 mstenber
--- Edit time:     970 min
+-- Last modified: Tue May 21 14:23:30 2013 mstenber
+-- Edit time:     971 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -304,7 +304,7 @@ function mdns:is_forwardable_rr(rr)
    if rr.rtype == dns_const.TYPE_AAAA
    then
       -- nor do we want to publish linklocal AAAA records
-      return not mst.string_startswith(rr.rdata_aaaa, 'fe80:')
+      return not ipv6s.address_is_linklocal(rr.rdata_aaaa)
    end
    return true
 end
