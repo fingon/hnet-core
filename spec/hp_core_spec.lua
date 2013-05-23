@@ -8,15 +8,15 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Thu May 23 18:04:28 2013 mstenber
--- Edit time:     297 min
+-- Last modified: Thu May 23 20:55:08 2013 mstenber
+-- Edit time:     302 min
 --
 
 require 'busted'
 require 'hp_core'
 require 'scr'
 require 'dns_channel'
-
+local _t = require 'mst_test'
 module('hp_core_spec', package.seeall)
 
 local DOMAIN_LL={'foo', 'com'}
@@ -356,31 +356,6 @@ local hp_process_mdns_results = {
 }
 
 
-fake_callback = mst.create_class{class='fake_callback'}
-
-function fake_callback:init()
-   self.array = self.array or mst.array:new{}
-   self.i = self.i or 0
-end
-
-function fake_callback:repr_data()
-   return mst.repr{i=self.i,n=#self.array,name=self.name}
-end
-
-function fake_callback:__call(...)
-   self:a(self.i < #self.array, 'not enough left to serve', {...})
-   self.i = self.i + 1
-   local got = {...}
-   local exp, r = unpack(self.array[self.i])
-   self.assert_equals(exp, got)
-   return r
-end
-
-function fake_callback.assert_equals(exp, got)
-   mst.a(mst.repr_equal(exp, got), 
-         'non-expected input - exp/got', exp, got)
-end
-
 function assert_dns_result_equals(exp, got)
    if exp == got
    then
@@ -410,31 +385,6 @@ function assert_cmsg_result_equals(exp, got)
    mst.a(mst.repr_equal(exp, got:get_msg()), 'not same - exp/got', exp, got)
 end
 
-function fake_callback:uninit()
-   self:a(self.i == #self.array, 'wrong amount consumed', self.i, #self.array, self.array)
-end
-
-function test_list(a, f, assert_equals)
-   for i, v in ipairs(a)
-   do
-      mst.d('test_list', i)
-      local input, output = unpack(v)
-
-      -- then call test function
-      local result, err = f(input)
-
-      -- and make sure that (repr-wise) result is correct
-      assert_equals = assert_equals or function (v1, v2)
-         mst.a(mst.repr_equal(v1, v2), 
-               'not same - exp', v1, 
-               'got', v2,
-               'for',
-               input)
-                                       end
-      assert_equals(output, result)
-   end
-end
-
 describe("hybrid_proxy", function ()
             local hp
             local canned_mdns
@@ -443,72 +393,72 @@ describe("hybrid_proxy", function ()
             before_each(function ()
                            local f, g
                            --mst.repr_show_duplicates = true
-                           mdns = fake_callback:new{name='mdns',
-                                                    --assert_equals=assert_dns_result_equals,
-                                                   }
-                           dns = fake_callback:new{name='dns',
-                                                   assert_equals=assert_dns_result_equals,
-}
+                           mdns = _t.fake_callback:new{name='mdns',
+                                                       --assert_equals=assert_dns_result_equals,
+                                                      }
+                           dns = _t.fake_callback:new{name='dns',
+                                                      assert_equals=assert_dns_result_equals,
+                                                     }
                            
                            hp = hp_core.hybrid_proxy:new{rid='rid1',
                                                          domain=DOMAIN_LL,
                                                          mdns_resolve_callback=mdns,
                                                         }
                            l1 = {
-                                 {rid='rid1',
-                                  iid='iid1',
-                                  ip='1.2.3.4',
-                                  ifname='eth0',
-                                  prefix='dead:bee0::/48',
-                                 },
-                                 {rid='rid1',
-                                  iid='iid2',
-                                  ip='1.2.3.4',
-                                  ifname='eth1',
-                                  prefix='dead:beef::/48',
-                                 },
-                                 {rid='rid1',
-                                  iid='iid3',
-                                  ifname='eth2',
-                                 },
-                                 {rid='rid1',
-                                  iid='iid1',
-                                  ip='2.3.4.5',
-                                  ifname='eth0',
-                                  prefix='10.11.12.0/24',
-                                 },
-                                 {rid='rid2',
-                                  iid='iid1',
-                                  ip='3.4.5.6',
-                                  prefix='dead:bee1::/48',
-                                 },
-                                 {rid='rid2',
-                                  iid='iid1',
-                                  ip=OTHER_IP,
-                                  prefix='10.11.13.0/24',
-                                 },
+                              {rid='rid1',
+                               iid='iid1',
+                               ip='1.2.3.4',
+                               ifname='eth0',
+                               prefix='dead:bee0::/48',
+                              },
+                              {rid='rid1',
+                               iid='iid2',
+                               ip='1.2.3.4',
+                               ifname='eth1',
+                               prefix='dead:beef::/48',
+                              },
+                              {rid='rid1',
+                               iid='iid3',
+                               ifname='eth2',
+                              },
+                              {rid='rid1',
+                               iid='iid1',
+                               ip='2.3.4.5',
+                               ifname='eth0',
+                               prefix='10.11.12.0/24',
+                              },
+                              {rid='rid2',
+                               iid='iid1',
+                               ip='3.4.5.6',
+                               prefix='dead:bee1::/48',
+                              },
+                              {rid='rid2',
+                               iid='iid1',
+                               ip=OTHER_IP,
+                               prefix='10.11.13.0/24',
+                              },
 
-                              }
+                           }
                            l2 = 
                               {
-                                 'dead::/16',
-                                 '10.0.0.0/8',
+                              'dead::/16',
+                              '10.0.0.0/8',
                               }
-                           function hp:iterate_ap(f)
-                              for i, v in ipairs(l1)
-                              do
-                                 f(v)
+                              function hp:iterate_ap(f)
+                                 for i, v in ipairs(l1)
+                                 do
+                                    f(v)
+                                 end
                               end
-                           end
-                           function hp:iterate_usable_prefixes(f)
-                              for i, v in ipairs(l2)
-                              do
-                                 f(v)
+                              function hp:iterate_usable_prefixes(f)
+                                 for i, v in ipairs(l2)
+                                 do
+                                    f(v)
+                                 end
                               end
-                           end
-                           function hp:forward(req, server)
-                              return dns(server, req)
-                           end
+                              function hp:forward(req, server)
+                                 return dns(server, req)
+                              end
                         end)
             after_each(function ()
                           hp:done()
@@ -523,26 +473,26 @@ describe("hybrid_proxy", function ()
 
                        end)
             it("match works (correct decisions on various addrs) #match", function ()
-                  test_list(q_to_r_material,
-                            function (n)
-                               local q = {name=dns_db.name2ll(n)}
-                               local msg = {qd={q}}
-                               local cmsg = dns_channel.msg:new{msg=msg}
-                               local r, err = hp:match(cmsg)
-                               mst.d('got', r, err)
-                               return r
-                            end)
-                        end)
+                  _t.test_list(q_to_r_material,
+                               function (n)
+                                  local q = {name=dns_db.name2ll(n)}
+                                  local msg = {qd={q}}
+                                  local cmsg = dns_channel.msg:new{msg=msg}
+                                  local r, err = hp:match(cmsg)
+                                  mst.d('got', r, err)
+                                  return r
+                               end)
+                                                                          end)
             it("dns req->mdns q conversion works #d2m", function ()
-                  test_list(dns_q_to_mdns_material,
-                            function (q)
-                               local msg = {qd={q}}
-                               local req = dns_channel.msg:new{msg=msg}
-                               local r, err = hp:rewrite_dns_req_to_mdns_q(req, DOMAIN_LL)
-                               return r
-                            end
-                           )
-                   end)
+                  _t.test_list(dns_q_to_mdns_material,
+                               function (q)
+                                  local msg = {qd={q}}
+                                  local req = dns_channel.msg:new{msg=msg}
+                                  local r, err = hp:rewrite_dns_req_to_mdns_q(req, DOMAIN_LL)
+                                  return r
+                               end
+                              )
+                                                        end)
             it("mdns->dns conversion works", function ()
                   local msg = {
                      h={id=123},
@@ -553,12 +503,12 @@ describe("hybrid_proxy", function ()
                   local req = dns_channel.msg:new{msg=msg}
                   local q, err = hp:rewrite_dns_req_to_mdns_q(req, DOMAIN_LL)
                   mst.a(q)
-                  test_list(mdns_rrs_to_dns_reply_material,
-                            function (rrs)
-                               return hp:rewrite_rrs_from_mdns_to_reply_msg(req, q, rrs, DOMAIN_LL)
-                            end,
-                           assert_cmsg_result_equals)
-                   end)
+                  _t.test_list(mdns_rrs_to_dns_reply_material,
+                               function (rrs)
+                                  return hp:rewrite_rrs_from_mdns_to_reply_msg(req, q, rrs, DOMAIN_LL)
+                               end,
+                               assert_cmsg_result_equals)
+                                             end)
             it("dns->mdns->reply flow works #flow", function ()
                   -- these are most likely the most complex samples -
                   -- full message interaction 
@@ -619,10 +569,10 @@ describe("hybrid_proxy", function ()
                                           canonize_output)
 
                   -- first via UDP
-                  test_list(l, test_one)
+                  _t.test_list(l, test_one)
                   -- then via TCP
                   is_tcp = true
-                  test_list(l, test_one)
+                  _t.test_list(l, test_one)
 
-                   end)
+                                                    end)
                          end)
