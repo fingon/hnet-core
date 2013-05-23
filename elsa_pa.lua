@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Mon Apr 29 11:07:50 2013 mstenber
--- Edit time:     779 min
+-- Last modified: Thu May 23 14:43:08 2013 mstenber
+-- Edit time:     783 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -88,6 +88,8 @@ DISABLE_V4_SKVPREFIX='disable-pa-v4.'
 OSPF_RID_KEY='ospf-rid' -- OSPF router ID
 OSPF_LAP_KEY='ospf-lap' -- PA alg locally assigned prefixes
 OSPF_USP_KEY='ospf-usp' -- usable prefixes from PA alg
+OSPF_ASP_KEY='ospf-asp' -- assigned prefixes from PA alg
+OSPF_ASA_KEY='ospf-asa' -- assigned addresses from PA alg
 OSPF_IFLIST_KEY='ospf-iflist' -- active set of interfaces
 -- IPv6 DNS 
 OSPF_DNS_KEY='ospf-dns' 
@@ -750,6 +752,7 @@ function elsa_pa:run_handle_skv_publish()
       local p = lap.ascii_prefix
       local o = {ifname=lap.ifname, 
                  prefix=p,
+                 iid=iid,
                  depracate=lap.depracated and 1 or nil,
                  owner=lap.owner,
                  address=lap.address and lap.address:get_ascii() or nil,
@@ -824,6 +827,19 @@ function elsa_pa:run_handle_skv_publish()
       end
    end
    self.skv:set(OSPF_USP_KEY, t)
+
+   -- toss in the asp's too
+   local t = mst.array:new{}
+
+   self:d('creating asp list')
+   for i, asp in ipairs(self.pa.asp:values())
+   do
+      t:insert{iid=asp.iid, rid=asp.rid, prefix=asp.ascii_prefix}
+   end
+   self.skv:set(OSPF_ASP_KEY, t)
+
+   -- and ASA (just as-is)
+   self.skv:set(OSPF_ASA_KEY, self:get_asa_array())
 end
 
 function elsa_pa:iterate_ac_lsa(f, criteria)
