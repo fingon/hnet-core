@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Feb 21 11:53:52 2013 mstenber
--- Last modified: Thu May  9 13:51:37 2013 mstenber
--- Edit time:     6 min
+-- Last modified: Thu May 23 22:17:05 2013 mstenber
+-- Edit time:     11 min
 --
 
 -- Simple abstraction to handle multicast join/leave doing socket
@@ -32,7 +32,12 @@ function mcj:init()
    self.joined_if_set = mst.set:new{}
 end
 
+function mcj:uninit()
+   self:detach_skv()
+end
+
 function mcj:set_if_joined_set(shouldjoin)
+   self:d('set_if_joined_set', shouldjoin)
    mst.sync_tables(self.joined_if_set, shouldjoin,
                    -- remove spurious
                    function (k, v)
@@ -78,5 +83,41 @@ function mcj:try_multicast_op(ifname, is_join)
    mst.a(ifname and #ifname > 0)
    mst.d('try_multicast_op', ifname, is_join)
    return s:setoption(opname, mct6)
+end
+
+
+function mcj:attach_skv(skv, filter_lap)
+   -- detach if we already were attached
+   self:detach_skv()
+
+   -- and attach now
+   self.skv = skv
+   self.f = function (_, pl)
+      -- we can ignore key, we know it pl = list with
+      -- relevant bit the 'address' (while it's just one IP in
+      -- practise)
+
+      -- convert to normal IP's
+      local s = {}
+      for i, lap in ipairs(pl)
+      do
+         if (not filter_lap or filter_lap(lap)) and lap.ifname
+         then
+            s[lap.ifname] = true
+         end
+      end
+      self:set_if_joined_set(s)
+   end
+   self.skv:add_change_observer(self.f, elsa_pa.OSPF_LAP_KEY)
+end
+
+function mcj:detach_skv()
+   if not self.skv
+   then
+      return
+   end
+   self.skv:remove_change_observer(self.f, elsa_pa.OSPF_LAP_KEY)
+   self.skv = nil
+   self.f = nil
 end
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Thu May 23 21:40:59 2013 mstenber
--- Edit time:     33 min
+-- Last modified: Thu May 23 21:55:50 2013 mstenber
+-- Edit time:     34 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -46,6 +46,7 @@ function hybrid_ospf:attach_skv(skv)
    -- - asp (for assigned prefixes)
    -- - asa (for assigned addresses)
    self.f = function (k, v)
+      self:d('skv notification', k)
       if k == elsa_pa.OSPF_RID_KEY
       then
          self.rid = self:rid2label(v)

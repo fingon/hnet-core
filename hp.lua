@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Thu May 23 21:44:00 2013 mstenber
--- Edit time:     39 min
+-- Last modified: Thu May 23 22:16:29 2013 mstenber
+-- Edit time:     46 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -28,6 +28,7 @@ require 'hp_ospf'
 require 'scb'
 require 'dns_proxy'
 require 'per_ip_server'
+require 'skv'
 
 _TEST = false -- required by cliargs + strict
 
@@ -90,18 +91,6 @@ local runner = mdns_core.mdns_runner:new{mdns=mdns}
 loop:add_timeout(runner)
 
 
--- produce interface list and set for later use, and eliminate ''
--- interface if any (thanks, cliargs, optargs handling is not so
--- clever :p)
-local iflist = args.interface 
-local ifset = mst.array_to_table(iflist)
-ifset[''] = nil
-setmetatable(ifset, mst.set)
-iflist = ifset:keys()
-
-mst.a(ifset)
-mst.d(' calling set_if_joined_set', ifset)
-mdns:set_if_joined_set(ifset)
 
 -- then initialize hybrid proxy object
 local function cb(...)
@@ -134,14 +123,32 @@ local pis = per_ip_server.per_ip_server:new{
                                      process_callback=cb}
    end}
 
-pis:set_ips(mst.string_split(args.listen, ','))
-
-if ospf
+if args.ospf
 then
    local s = skv.skv:new{long_lived=false}
+   mdns:attach_skv(s, function (lap)
+                      return lap.owner 
+                      end)
    hp:attach_skv(s)
    pis:attach_skv(s)
+   mst.d('-- OSPF MODE!--')
 else
+   -- produce interface list and set for later use, and eliminate ''
+   -- interface if any (thanks, cliargs, optargs handling is not so
+   -- clever :p)
+   local iflist = args.interface 
+   local ifset = mst.array_to_table(iflist)
+   ifset[''] = nil
+   setmetatable(ifset, mst.set)
+   iflist = ifset:keys()
+
+   mst.a(ifset)
+   mst.d(' calling set_if_joined_set', ifset)
+   mdns:set_if_joined_set(ifset)
+
+   -- also set where DNS server listens
+   pis:set_ips(mst.string_split(args.listen, ','))
+
    function hp:iterate_ap(f)
       for i, v in ipairs(iflist)
       do
@@ -150,6 +157,7 @@ else
            rid=rid}
       end
    end
+   mst.d('-- STATIC MODE!--')
 end
 
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 16 14:06:16 2013 mstenber
--- Last modified: Mon May 20 12:27:30 2013 mstenber
--- Edit time:     17 min
+-- Last modified: Thu May 23 22:02:54 2013 mstenber
+-- Edit time:     20 min
 --
 
 -- This is a server instance controller, which maintains per-ip
@@ -50,6 +50,8 @@ function per_ip_server:uninit()
 end
 
 function per_ip_server:set_ips(l)
+   self:d('set_ips', l)
+
    -- convert to a set
    local s = mst.array_to_table(l)
    mst.sync_tables(self.servers, s,
@@ -94,8 +96,10 @@ function per_ip_server:attach_skv(skv)
          local a = v.address
          if a
          then
-            -- is this even neccessary?
-            --a = mst.string_split(v.address, '/')[1]
+            -- is this even neccessary? probably, given where we get
+            -- these addresses from..
+            a = mst.string_split(v.address, '/')[1]
+
             table.insert(l, a)
          end
       end
