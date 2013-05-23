@@ -8,11 +8,12 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Thu May 23 20:54:13 2013 mstenber
--- Edit time:     1 min
+-- Last modified: Thu May 23 21:44:43 2013 mstenber
+-- Edit time:     4 min
 --
 
 -- testing related utilities
+require 'mst'
 
 module(..., package.seeall)
 
@@ -37,6 +38,14 @@ function test_list(a, f, assert_equals)
                                        end
       assert_equals(output, result)
    end
+end
+
+function create_storing_iterator_and_list()
+   local t = {}
+   local f = function (...)
+      table.insert(t, {...})
+   end
+   return f, t
 end
 
 fake_callback = mst.create_class{class='fake_callback'}
