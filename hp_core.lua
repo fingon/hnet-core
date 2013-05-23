@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Thu May 23 19:53:59 2013 mstenber
--- Edit time:     363 min
+-- Last modified: Thu May 23 21:45:47 2013 mstenber
+-- Edit time:     366 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -153,7 +153,11 @@ function hybrid_proxy:recreate_tree()
                          -- ip not used
                          -- ifname, prefix optional
                       else
-                         self:a(o.ip, 'remote ip missing', o)
+                         -- hopefully temporary state
+                         if not o.ip
+                         then
+                            self:d('remote ip missing', o)
+                         end
                       end
                    end)
 
