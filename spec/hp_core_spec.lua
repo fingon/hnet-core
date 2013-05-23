@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Tue May 21 14:29:09 2013 mstenber
--- Edit time:     296 min
+-- Last modified: Thu May 23 18:04:28 2013 mstenber
+-- Edit time:     297 min
 --
 
 require 'busted'
@@ -425,7 +425,11 @@ function test_list(a, f, assert_equals)
 
       -- and make sure that (repr-wise) result is correct
       assert_equals = assert_equals or function (v1, v2)
-         mst.a(mst.repr_equal(v1, v2), 'not same', v1, v2)
+         mst.a(mst.repr_equal(v1, v2), 
+               'not same - exp', v1, 
+               'got', v2,
+               'for',
+               input)
                                        end
       assert_equals(output, result)
    end
