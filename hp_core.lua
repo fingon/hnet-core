@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Thu May 23 19:33:45 2013 mstenber
--- Edit time:     362 min
+-- Last modified: Thu May 23 19:53:59 2013 mstenber
+-- Edit time:     363 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -125,7 +125,7 @@ function hybrid_proxy:get_rid()
 end
 
 function hybrid_proxy:repr_data()
-   return mst.repr{rid=self:get_rid()}
+   return mst.repr{rid=self.rid}
 end
 
 function hybrid_proxy:get_local_ifname_for_prefix(prefix)
