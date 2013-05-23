@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Thu May 23 15:09:23 2013 mstenber
--- Edit time:     345 min
+-- Last modified: Thu May 23 19:33:45 2013 mstenber
+-- Edit time:     362 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -119,8 +119,13 @@ function create_default_forward_ext_node_callback(o)
    return n
 end
 
+function hybrid_proxy:get_rid()
+   self:a(self.rid, 'no rid?!?')
+   return self.rid
+end
+
 function hybrid_proxy:repr_data()
-   return mst.repr{rid=self.rid}
+   return mst.repr{rid=self:get_rid()}
 end
 
 function hybrid_proxy:get_local_ifname_for_prefix(prefix)
@@ -138,11 +143,12 @@ end
 function hybrid_proxy:recreate_tree()
    local root = _dns_server.recreate_tree(self)
    local fcs = root.find_or_create_subtree
+   local myrid = self:get_rid()
 
    self:iterate_ap(function (o)
                       self:a(o.rid, 'rid missing', o)
                       self:a(o.iid, 'iid missing', o)
-                      if o.rid == self.rid
+                      if o.rid == myrid
                       then
                          -- ip not used
                          -- ifname, prefix optional
@@ -157,7 +163,6 @@ function hybrid_proxy:recreate_tree()
    function root:get_default(req)
       return RESULT_FORWARD_EXT
    end
-   local rid = self.rid
    local domain_ll = dns_db.name2ll(self.domain)
    local domain = fcs(root, domain_ll,
                       -- end node
@@ -165,7 +170,7 @@ function hybrid_proxy:recreate_tree()
                       -- intermediate node
                       create_default_forward_ext_node_callback)
 
-   local router = domain:add_child(dns_tree.create_node_callback{label=rid})
+   local router = domain:add_child(dns_tree.create_node_callback{label=myrid})
 
    -- Populate the reverse zone with appropriate nxdomain-generating
    -- entries as well
@@ -199,7 +204,7 @@ function hybrid_proxy:recreate_tree()
          local hp = self
          function n:get_default(req)
             -- [2r] local prefix => handle 'specially'
-            if rid == hp.rid
+            if rid == myrid
             then
                local ifname = hp:get_local_ifname_for_prefix(prefix)
                self:a(ifname, 'no ifname for prefix', prefix)
@@ -245,7 +250,7 @@ function hybrid_proxy:recreate_tree()
       }
       self:add_rr(d)
 
-      if rid ~= self.rid
+      if rid ~= myrid
       then
          -- [3] <router>[.<domain>] for non-own entries
          local n = domain:get_child(rid)
