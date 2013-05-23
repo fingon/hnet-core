@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Mon May 20 12:27:09 2013 mstenber
--- Edit time:     31 min
+-- Last modified: Thu May 23 21:44:00 2013 mstenber
+-- Edit time:     39 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -24,7 +24,7 @@
 
 require 'ssloop'
 require 'mdns_client'
-require 'hp_core'
+require 'hp_ospf'
 require 'scb'
 require 'dns_proxy'
 require 'per_ip_server'
@@ -35,6 +35,8 @@ function create_cli()
    local cli = require "cliargs"
 
    cli:set_name('hp.lua')
+   cli:add_flag('--ospf', 
+                'maintain configuration via OSPF (applies to --server, --listen, --rid and interfaces)')
    cli:add_opt("--server=SERVER", 
                "address of upstream DNS server", 
                dns_const.GOOGLE_IPV6)
@@ -108,19 +110,17 @@ end
 
 local rid = args.rid
 
-local hp = hp_core.hybrid_proxy:new{rid=rid,
-                                    domain=args.domain,
-                                    server=args.server,
-                                    mdns_resolve_callback=cb}
+local cl = hp_ospf.hybrid_ospf
 
-function hp:iterate_ap(f)
-   for i, v in ipairs(iflist)
-   do
-      f{ifname=v,
-        iid=v,
-        rid=rid}
-   end
+if not args.ospf
+then
+   cl = hp_core.hybrid_proxy
 end
+
+local hp = cl:new{rid=rid,
+                  domain=args.domain,
+                  server=args.server,
+                  mdns_resolve_callback=cb}
 
 -- and dns_proxy which wraps hybrid proxy
 
@@ -135,6 +135,24 @@ local pis = per_ip_server.per_ip_server:new{
    end}
 
 pis:set_ips(mst.string_split(args.listen, ','))
+
+if ospf
+then
+   local s = skv.skv:new{long_lived=false}
+   hp:attach_skv(s)
+   pis:attach_skv(s)
+else
+   function hp:iterate_ap(f)
+      for i, v in ipairs(iflist)
+      do
+         f{ifname=v,
+           iid=v,
+           rid=rid}
+      end
+   end
+end
+
+
 
 mst.d('entering event loop')
 loop:loop()
