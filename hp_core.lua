@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Tue May 21 14:28:24 2013 mstenber
--- Edit time:     338 min
+-- Last modified: Thu May 23 15:09:23 2013 mstenber
+-- Edit time:     345 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -136,8 +136,7 @@ function hybrid_proxy:get_local_ifname_for_prefix(prefix)
 end
 
 function hybrid_proxy:recreate_tree()
-   _dns_server.recreate_tree(self)
-   local root = self.root
+   local root = _dns_server.recreate_tree(self)
    local fcs = root.find_or_create_subtree
 
    self:iterate_ap(function (o)

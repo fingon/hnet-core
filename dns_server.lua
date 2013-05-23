@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 12:29:52 2013 mstenber
--- Last modified: Mon May 20 20:37:54 2013 mstenber
--- Edit time:     32 min
+-- Last modified: Thu May 23 15:09:15 2013 mstenber
+-- Edit time:     33 min
 --
 
 -- This is VERY minimalist DNS server. It abstracts away dns_tree
@@ -32,6 +32,16 @@ RESULT_NXDOMAIN='nxdomain'
 function dns_server:recreate_tree()
    local root = dns_tree.node:new{label=''}
    self.root = root
+   return root
+end
+
+function dns_server:get_root()
+   if not self.root
+   then
+      self:recreate_tree()
+      self:a(self.root, 'root not created despite recreate_tree call?')
+   end
+   return self.root
 end
 
 function dns_server:match(req)
@@ -45,16 +55,11 @@ function dns_server:match(req)
    then
       return nil, 'no question/too many questions ' .. mst.repr(msg)
    end
-   if not self.root
-   then
-      self:recreate_tree()
-      self:a(self.root, 'root not created despite recreate_tree call?')
-   end
+   local root = self:get_root()
    local q = msg.qd[1]
-   local r = {self.root:match_ll(q.name)}
+   local r = {root:match_ll(q.name)}
    self:d('got', r)
    return unpack(r)
-   --return self.root:match_ll(q.name)
 end
 
 function dns_server:process_match(req, r, o)
@@ -126,7 +131,7 @@ end
 
 function dns_server:add_rr(rr)
    -- intermediate nodes will be nxdomain ones
-   local root = self.root
+   local root = self:get_root()
    self:d('add_rr', rr)
    local o = root:find_or_create_subtree(rr.name,
                                          -- end node
