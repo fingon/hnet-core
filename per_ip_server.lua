@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 16 14:06:16 2013 mstenber
--- Last modified: Thu May 23 22:02:54 2013 mstenber
--- Edit time:     20 min
+-- Last modified: Mon May 27 12:07:08 2013 mstenber
+-- Edit time:     21 min
 --
 
 -- This is a server instance controller, which maintains per-ip
@@ -91,14 +91,14 @@ function per_ip_server:attach_skv(skv)
 
       -- convert to normal IP's
       local l = {}
-      for i, v in ipairs(pl)
+      for i, lap in ipairs(pl)
       do
-         local a = v.address
+         local a = lap.address
          if a
          then
             -- is this even neccessary? probably, given where we get
             -- these addresses from..
-            a = mst.string_split(v.address, '/')[1]
+            a = mst.string_split(a, '/')[1]
 
             table.insert(l, a)
          end
