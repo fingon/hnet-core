@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed May 15 17:18:29 2013 mstenber
--- Edit time:     698 min
+-- Last modified: Mon May 27 09:25:02 2013 mstenber
+-- Edit time:     720 min
 --
 
 -- data structure abstractions provided:
@@ -52,12 +52,15 @@ local xpcall = xpcall
 
 
 -- allow prevention of loading strict (e.g. when dealing with luacov)
-if os.getenv("ENABLE_MST_STRICT")
+if not os.getenv("DISABLE_MST_STRICT")
 then
+   -- vstruct fix (sigh)
+   if not jit
+   then
+      jit = false
+   end
    require 'strict'
 end
--- probably bad idea; use lua -lstrict instead if desirable
--- (e.g. recent vstruct breaks horribly if using this, *sigh*)
 
 --module(..., package.seeall)
 module(...)
@@ -291,25 +294,50 @@ function baseclass:call_callback_once(name, ...)
    end
 end
 
+local function _ts(self)
+   return self.tostring(self)
+end
+
 -- create a new class with the given superclass(es)
 -- (the extra arguments)
 function create_class(o, ...)
-   local ts = function (self)
-      return self.tostring(self)
-   end
-
    local scs = {...}
-   if #scs == 0
+   local _index
+   local h = o or {}
+   if #scs > 1
    then
-      scs = {baseclass}
+      -- PIL style lookup in the parents (not super efficient but
+      -- caching, so should not be too bad). Note that we update the
+      -- _class_ object, not _instance_ objects with cache => cache is
+      -- small even if we have lots of instances
+      _index = function (self, k)
+         for i, super in ipairs(scs)
+         do
+            local v = super[k]
+            if v
+            then
+               -- store the result too
+               h[k] = v
+               return v
+            end
+         end
+      end
+   elseif #scs == 1
+   then
+      _index = scs[1]
+   else
+      -- just look it up in the baseclass
+      _index = baseclass
    end
-   mst.a(#scs == 1, "no support for > 1 superclass for now", #scs)
-   h = o or {}
+   -- as we have __index, we can be used as metatable (=class of object)
    h.__index = h
-   h.__tostring = ts
+   h.__tostring = _ts
    h.__mstype = true
-   setmetatable(h, {__index=scs[1],
-                    __tostring=ts})
+
+   -- but we need metatable too, which indexes either the superclass
+   -- directly (1 baseclass)
+   setmetatable(h, {__index=_index,
+                    __tostring=_ts})
    return h
 end
 

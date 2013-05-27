@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed May 15 16:27:29 2013 mstenber
--- Edit time:     201 min
+-- Last modified: Mon May 27 09:25:52 2013 mstenber
+-- Edit time:     216 min
 --
 
 require "busted"
@@ -194,6 +194,23 @@ describe("create_class", function ()
                   local c = mst.create_class()
                   local o = c:new()
                                    end)
+            it("can create subclasses #inh", function ()
+                  local c1 = mst.create_class{class='c1'}
+
+                  -- single inheritance (within class)
+                  local c2 = mst.create_class({class='c2'}, c1)
+                  c1.foo = true
+
+                  mst.a(c2.foo, 'single inheritance fail')
+
+                  -- multiple inheritance (within class)
+                  local c3 = mst.create_class()
+                  c2.bar = true
+                  local c4 = mst.create_class(nil, c3, c2)
+                  mst.a(c4.foo, 'multiple inheritance fail1')
+                  mst.a(c4.bar, 'multiple inheritance fail2')
+
+                   end)
             it("can create class with args", function ()
                   local c = mst.create_class{mandatory={"foo"}}
                   assert.error(function ()
