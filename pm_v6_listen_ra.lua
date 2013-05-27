@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 09:13:53 2012 mstenber
--- Last modified: Wed Nov 21 18:38:50 2012 mstenber
+-- Last modified: Mon May 27 07:49:49 2013 mstenber
 -- Edit time:     22 min
 --
 
@@ -19,7 +19,6 @@
 -- (otherwise horribly routing loops will occur)
 
 require 'pm_handler'
-require 'linux_if'
 
 module(..., package.seeall)
 
