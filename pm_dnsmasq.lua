@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov 21 17:13:32 2012 mstenber
--- Last modified: Wed Mar 20 14:25:23 2013 mstenber
--- Edit time:     68 min
+-- Last modified: Mon May 27 08:59:35 2013 mstenber
+-- Edit time:     81 min
 --
 
 require 'pm_handler'
@@ -57,15 +57,64 @@ function pm_dnsmasq:run()
    return 1
 end
 
-function pm_dnsmasq:write_dnsmasq_conf(fpath)
-   local t = mst.array:new{}
-   local c = 0
-   local ext_set = self.pm:get_external_if_set()
+function pm_dnsmasq:write_dnsmasq_conf_dns_raw(t, dns4, search4, dns6, search6)
+   -- first off, handle normal DNS option
+   function dump_list(l, format)
+      for i, v in ipairs(l)
+      do
+         t:insert(string.format(format, v))
+      end
+   end
+   dump_list(dns4, 'server=%s')
+   dump_list(dns6, 'server=%s')
 
+   -- then DNS search list
+   if #search4 > 0
+   then
+      s = table.concat(search4, ',')
+      t:insert('dhcp-option=option:domain-search,' .. s)
+   end
+
+   -- XXX - domain?
+
+   -- and DHCPv6 search list
+   if #search6 > 0
+   then
+      s = table.concat(search4, ',')
+      t:insert('dhcp-option=option6:domain-search,' .. s)
+   end
+
+end
+
+function pm_dnsmasq:write_dnsmasq_conf_dns(t)
    local dns4 = self.pm.ospf_v4_dns or {}
    local search4 = self.pm.ospf_v4_dns_search or {}
    local dns6 = self.pm.ospf_dns or {}
    local search6 = self.pm.ospf_dns_search or {}
+
+   if self.pm.use_hp_ospf
+   then
+      -- for IPv4 nameserver, we provide one of our own assigned 10.*
+      -- addresses (it doesn't really matter which one, but we provide
+      -- whole list just in case the addresses change over the
+      -- lifetime of the DHCP lease, and it doesn't get refreshed)
+      
+      -- for IPv6 nameserver, we provide our own loopback ULA address
+      -- (fc00::/128 one)
+      
+      -- Perhaps using the dnsmasq for a forwarder would be nicer, and
+      -- then just run the hp_ospf stuff _without_ forwarding on
+      -- different ports or something?Food for thought.
+   end
+
+   self:write_dnsmasq_conf_dns_raw(t, dns4, search4, dns6, search6)
+end
+
+
+function pm_dnsmasq:write_dnsmasq_conf(fpath)
+   local t = mst.array:new{}
+   local c = 0
+   local ext_set = self.pm:get_external_if_set()
 
    -- dnsmasq has 'flat' configuration structure
    -- => we can just iterate through lap to produce what we want
@@ -93,26 +142,7 @@ bind-interfaces
 
 ]])
 
-   -- first off, handle normal DNS option
-   function dump_list(l, format)
-      for i, v in ipairs(l)
-      do
-         t:insert(string.format(format, v))
-      end
-   end
-   dump_list(dns4, 'server=%s')
-   dump_list(dns6, 'server=%s')
-
-   -- then DNS search list
-   if #search4 > 0
-   then
-      s = table.concat(search4, ',')
-      t:insert('dhcp-option=option:domain-search,' .. s)
-   end
-
-   -- XXX - domain?
-
-   -- XXX - DHCPv6 DNS search list?
+   self:write_dnsmasq_conf_dns(t)
 
    -- then the ranges for DHCPv4 / SLAAC
    local ifset = mst.set:new{}
