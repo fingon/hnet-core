@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 12:55:42 2013 mstenber
--- Last modified: Wed May 15 13:51:31 2013 mstenber
--- Edit time:     54 min
+-- Last modified: Mon May 27 14:27:50 2013 mstenber
+-- Edit time:     58 min
 --
 
 -- This module implements (nested) dns zone hierarchy using rather
@@ -45,6 +45,15 @@ end
 
 function node:get_child(label)
    return self.children[string.lower(label)]
+end
+
+function node:iterate_subtree(f)
+   for k, v in pairs(self.children or {})
+   do
+      f(v)
+      self:a(v and v.iterate_subtree, 'no subtree method', v)
+      v:iterate_subtree(f)
+   end
 end
 
 function node:match_rec(ll, i, ...)
@@ -145,11 +154,16 @@ end
 function node:get_ll()
    local t = {}
    local n = self
+   self:a(self.label, 'no label?!?')
+   mst.a(type(self.label) == 'string', 'non-string label')
+
    while #n.label > 0
    do
       table.insert(t, n.label)
       n = n.parent
       self:a(n, 'null parent encountered w/o nil label? error')
+      self:a(n.label, 'no label?!?', n)
+      mst.a(type(n.label) == 'string', 'non-string label', n)
    end
    return t
 end
