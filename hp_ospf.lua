@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Mon May 27 14:34:42 2013 mstenber
+-- Last modified: Mon May 27 14:37:42 2013 mstenber
 -- Edit time:     37 min
 --
 
@@ -162,14 +162,6 @@ function hybrid_ospf:iterate_ap(f)
    do
       f(v)
    end
-end
-
-function hybrid_ospf:rid2label(rid)
-   return string.format('r%s', rid)
-end
-
-function hybrid_ospf:iid2label(iid, rid)
-   return string.format('i%s', iid)
 end
 
 function hybrid_ospf:detach_skv()

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 17:40:20 2013 mstenber
--- Last modified: Mon May 27 14:36:33 2013 mstenber
--- Edit time:     28 min
+-- Last modified: Mon May 27 14:37:13 2013 mstenber
+-- Edit time:     29 min
 --
 
 require 'busted'
@@ -33,9 +33,9 @@ local USP = 'dead::/16'
 local ASP1 = 'dead:beef::/64'
 local ASP2 = 'dead:bee0::/64'
 local RID1 = 'rid1'
-local RID2 = 'rid2'
+local RID2 = 123
 local IID1 = 'iid1'
-local IID2 = 'iid1'
+local IID2 = 234
 local IFNAME = 'if-name'
 local IP2 = '2.3.4.5/32'
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Mon May 27 13:05:49 2013 mstenber
--- Edit time:     367 min
+-- Last modified: Mon May 27 14:43:56 2013 mstenber
+-- Edit time:     374 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -65,6 +65,8 @@ module(..., package.seeall)
 MDNS_TIMEOUT=0.5
 
 DOMAIN='home'
+RIDPREFIX='r-'
+IIDPREFIX='i-'
 
 RESULT_FORWARD_EXT='forward_ext' -- forward to the real external resolver
 RESULT_FORWARD_INT='forward_int' -- forward using in-home topology
@@ -174,7 +176,7 @@ function hybrid_proxy:recreate_tree()
                       -- intermediate node
                       create_default_forward_ext_node_callback)
 
-   local router = domain:add_child(dns_tree.create_node_callback{label=myrid})
+   local router = domain:add_child(dns_tree.create_node_callback{label=self:rid2label(myrid)})
 
    -- Populate the reverse zone with appropriate nxdomain-generating
    -- entries as well
@@ -239,10 +241,12 @@ function hybrid_proxy:recreate_tree()
    -- Create forward hierarchy
    local function create_forward_hierarchy(o)
       local rid = o.rid
+      local lrid = self:rid2label(rid)
       local iid = o.iid
+      local liid = self:iid2label(iid, rid)
       local ip = o.ip
 
-      local ap_ll = {iid, rid}
+      local ap_ll = {liid, lrid}
       mst.array_extend(ap_ll, domain_ll)
 
       -- add it to browse domain
@@ -257,10 +261,10 @@ function hybrid_proxy:recreate_tree()
       if rid ~= myrid
       then
          -- [3] <router>[.<domain>] for non-own entries
-         local n = domain:get_child(rid)
+         local n = domain:get_child(lrid)
          if not n
          then
-            n = dns_tree.create_node_callback{label=rid}
+            n = dns_tree.create_node_callback{label=lrid}
             function n:get_default()
                return RESULT_FORWARD_INT, ip
             end
@@ -277,10 +281,10 @@ function hybrid_proxy:recreate_tree()
          local ifname = o.ifname
          -- (another option: self:get_local_ifname_for_prefix(prefix))
          self:a(ifname)
-         local n = router:get_child(iid)
+         local n = router:get_child(liid)
          if not n
          then
-            n = dns_tree.create_node_callback{label=iid}
+            n = dns_tree.create_node_callback{label=liid}
             canned = {}
             function n:get_default()
                local ll = n:get_ll()
@@ -548,5 +552,13 @@ function hybrid_proxy:process_match(req, r, o)
       return self:mdns_forward(req, unpack(o))
    end
    return _dns_server.process_match(self, req, r, o)
+end
+
+function hybrid_proxy:rid2label(rid)
+   return RIDPREFIX .. rid
+end
+
+function hybrid_proxy:iid2label(iid, rid)
+   return IIDPREFIX .. iid
 end
 

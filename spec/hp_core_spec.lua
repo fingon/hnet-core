@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Thu May 23 20:55:08 2013 mstenber
--- Edit time:     302 min
+-- Last modified: Mon May 27 14:46:17 2013 mstenber
+-- Edit time:     304 min
 --
 
 require 'busted'
@@ -23,6 +23,9 @@ local DOMAIN_LL={'foo', 'com'}
 local TEST_SRC='4.3.2.1'
 local TEST_ID=123
 local OTHER_IP='3.4.5.6'
+
+local RP = hp_core.RIDPREFIX
+local IP = hp_core.IIDPREFIX
 
 local prefix_to_ll_material = {
    {'10.0.0.0/8', {'10', 'in-addr', 'arpa'}},
@@ -173,10 +176,10 @@ local q_to_r_material = {
    {'bar.com', hp_core.RESULT_FORWARD_EXT},
    {'foo.com', nil},
    {'nonexistent.foo.com', dns_server.RESULT_NXDOMAIN},
-   {'rid1.foo.com', nil},
-   {'iid1.rid1.foo.com', nil},
-   {'x.iid1.rid2.foo.com', hp_core.RESULT_FORWARD_INT},
-   {'foo.iid1.rid1.foo.com', hp_core.RESULT_FORWARD_MDNS},
+   {RP .. 'rid1.foo.com', nil},
+   {IP .. 'iid1.' .. RP .. 'rid1.foo.com', nil},
+   {'x.' .. IP .. 'iid1.' .. RP .. 'rid2.foo.com', hp_core.RESULT_FORWARD_INT},
+   {'foo.' .. IP .. 'iid1.' .. RP .. 'rid1.foo.com', hp_core.RESULT_FORWARD_MDNS},
    {'11.in-addr.arpa', hp_core.RESULT_FORWARD_EXT},
    {'10.in-addr.arpa', nil},
    {'12.11.10.in-addr.arpa', nil},
@@ -194,9 +197,9 @@ local q_to_r_material = {
 
 local n_nonexistent_foo={'nonexistent', 'foo', 'com'}
 local n_bar_com={"bar", "com"}
-local n_x_mine={'x', 'iid1', 'rid1', 'foo', 'com'}
-local n_y_mine={'y', 'iid1', 'rid1', 'foo', 'com'}
-local n_x_other={'x', 'iid1', 'rid2', 'foo', 'com'}
+local n_x_mine={'x', IP .. 'iid1', RP .. 'rid1', 'foo', 'com'}
+local n_y_mine={'y', IP .. 'iid1', RP .. 'rid1', 'foo', 'com'}
+local n_x_other={'x', IP.. 'iid1', RP .. 'rid2', 'foo', 'com'}
 local n_b_dnssd={'b', '_dns-sd', '_udp', 'foo', 'com'}
 
 local q_bar_com = {name=n_bar_com, qclass=1, qtype=255}
@@ -236,16 +239,16 @@ local msg_b_dnssd = {
    an={
       {name=n_b_dnssd, 
        rtype=dns_const.TYPE_PTR, rclass=dns_const.CLASS_IN, 
-       rdata_ptr={'iid1', 'rid1', 'foo', 'com'}},
+       rdata_ptr={IP .. 'iid1', RP .. 'rid1', 'foo', 'com'}},
       {name=n_b_dnssd, 
        rtype=dns_const.TYPE_PTR, rclass=dns_const.CLASS_IN, 
-       rdata_ptr={'iid2', 'rid1', 'foo', 'com'}},
+       rdata_ptr={IP .. 'iid2', RP .. 'rid1', 'foo', 'com'}},
       {name=n_b_dnssd, 
        rtype=dns_const.TYPE_PTR, rclass=dns_const.CLASS_IN, 
-       rdata_ptr={'iid3', 'rid1', 'foo', 'com'}},
+       rdata_ptr={IP .. 'iid3', RP .. 'rid1', 'foo', 'com'}},
       {name=n_b_dnssd, 
        rtype=dns_const.TYPE_PTR, rclass=dns_const.CLASS_IN, 
-       rdata_ptr={'iid1', 'rid2', 'foo', 'com'}},
+       rdata_ptr={IP .. 'iid1', RP .. 'rid2', 'foo', 'com'}},
    },
 }
 
