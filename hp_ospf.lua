@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Mon May 27 13:09:07 2013 mstenber
--- Edit time:     36 min
+-- Last modified: Mon May 27 14:34:42 2013 mstenber
+-- Edit time:     37 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -193,5 +193,5 @@ function hybrid_ospf:get_server()
    then
       return l[1]
    end
-   return hybrid_core.get_server(self)
+   return hp_core.hybrid_proxy.get_server(self)
 end

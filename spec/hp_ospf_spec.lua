@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 17:40:20 2013 mstenber
--- Last modified: Mon May 27 13:11:49 2013 mstenber
--- Edit time:     24 min
+-- Last modified: Mon May 27 14:35:41 2013 mstenber
+-- Edit time:     28 min
 --
 
 require 'busted'
@@ -128,26 +128,26 @@ describe("hybrid_ospf", function ()
                   hp:get_root()
 
                   -- test that by default we get Google address
-                  local s = hp:get_server()
-                  mst.a(s == dns_const.GOOGLE_IPV4)
+                  local srv = hp:get_server()
+                  mst.a(srv == dns_const.GOOGLE_IPV4)
 
                   local V6 = 'dead:beef::1'
                   local V4 = '1.2.3.4'
-                  s:set(elsa_pa.OSPF_V4_DNS_KEY, {V4})
+                  s:set(elsa_pa.OSPF_IPV4_DNS_KEY, {V4})
                   s:set(elsa_pa.OSPF_DNS_KEY, {V6})
 
-                  local s = hp:get_server()
-                  mst.a(s == V6)
+                  local srv = hp:get_server()
+                  mst.a(srv == V6)
 
                   s:set(elsa_pa.OSPF_DNS_KEY, false)
 
-                  local s = hp:get_server()
-                  mst.a(s == V4)
+                  local srv = hp:get_server()
+                  mst.a(srv == V4)
 
-                  s:set(elsa_pa.OSPF_V4_DNS_KEY, false)
+                  s:set(elsa_pa.OSPF_IPV4_DNS_KEY, false)
 
-                  local s = hp:get_server()
-                  mst.a(s == dns_const.GOOGLE_IPV4)
+                  local srv = hp:get_server()
+                  mst.a(srv == dns_const.GOOGLE_IPV4)
 
                   hp:done()
                   s:done()
