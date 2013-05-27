@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 17:40:20 2013 mstenber
--- Last modified: Mon May 27 14:35:41 2013 mstenber
+-- Last modified: Mon May 27 14:36:33 2013 mstenber
 -- Edit time:     28 min
 --
 
@@ -125,7 +125,13 @@ describe("hybrid_ospf", function ()
                   mst.a(mst.repr_equal(l, e), 'not same', l, e)
 
                   -- make sure this works too
-                  hp:get_root()
+                  local root = hp:get_root()
+
+                  -- make sure ll's are sane
+                  mst.a(root.iterate_subtree, 'missing iterate_subtree', root)
+                  root:iterate_subtree(function (n)
+                                          n:get_ll()
+                                       end)
 
                   -- test that by default we get Google address
                   local srv = hp:get_server()
