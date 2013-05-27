@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov 21 17:13:32 2012 mstenber
--- Last modified: Mon May 27 08:59:35 2013 mstenber
--- Edit time:     81 min
+-- Last modified: Mon May 27 12:24:39 2013 mstenber
+-- Edit time:     104 min
 --
 
 require 'pm_handler'
@@ -71,7 +71,7 @@ function pm_dnsmasq:write_dnsmasq_conf_dns_raw(t, dns4, search4, dns6, search6)
    -- then DNS search list
    if #search4 > 0
    then
-      s = table.concat(search4, ',')
+      local s = table.concat(search4, ',')
       t:insert('dhcp-option=option:domain-search,' .. s)
    end
 
@@ -80,7 +80,7 @@ function pm_dnsmasq:write_dnsmasq_conf_dns_raw(t, dns4, search4, dns6, search6)
    -- and DHCPv6 search list
    if #search6 > 0
    then
-      s = table.concat(search4, ',')
+      local s = table.concat(search6, ',')
       t:insert('dhcp-option=option6:domain-search,' .. s)
    end
 
@@ -94,17 +94,50 @@ function pm_dnsmasq:write_dnsmasq_conf_dns(t)
 
    if self.pm.use_hp_ospf
    then
-      -- for IPv4 nameserver, we provide one of our own assigned 10.*
+      -- For IPv4 nameserver, we provide one of our own assigned 10.*
       -- addresses (it doesn't really matter which one, but we provide
       -- whole list just in case the addresses change over the
       -- lifetime of the DHCP lease, and it doesn't get refreshed)
       
-      -- for IPv6 nameserver, we provide our own loopback ULA address
-      -- (fc00::/128 one)
+      -- For IPv6 nameserver, we should provide our own loopback ULA
+      -- address (fc00::/128 one)?
       
       -- Perhaps using the dnsmasq for a forwarder would be nicer, and
       -- then just run the hp_ospf stuff _without_ forwarding on
-      -- different ports or something?Food for thought.
+      -- different ports or something? Food for thought.
+
+      -- Anyway. For the time being, just provide V4 DNS server..
+      dns6 = {}
+      search6 = {}
+
+      -- (We provide V6 addresses + V6 DNS-SD + whatever over V4 too
+      -- so it isn't _that_ great problem, just annoying)
+
+      -- for search list, we tack 'home' to the end (XXX - make this
+      -- configuratble)
+      table.insert(search4, 'home')
+      dns4 = {}
+
+      local l = {}
+      for i, lap in ipairs(self.pm.ospf_lap or {})
+      do
+         local a = lap.address
+         mst.d('considering', lap, a)
+         if a
+         then
+            a = mst.string_split(a, '/')[1]
+            mst.d('rewrote to', a)
+            table.insert(l, a)
+         end
+      end
+      if #l > 0
+      then
+         local s = table.concat(l, ',')
+         mst.d('adding dns-server option', s)
+         t:insert('dhcp-option=option:dns-server,' .. s)
+      end
+      -- disable DNS
+      t:insert('port=0')
    end
 
    self:write_dnsmasq_conf_dns_raw(t, dns4, search4, dns6, search6)

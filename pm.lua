@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Wed Mar 13 11:50:09 2013 mstenber
--- Edit time:     32 min
+-- Last modified: Mon May 27 13:05:04 2013 mstenber
+-- Edit time:     35 min
 --
 
 -- 'prefix manager' (name still temporary)
@@ -45,6 +45,7 @@ function create_cli()
       "use fakedhcpv6d to respond to DHCPv6 queries")
    cli:add_flag("-m, --dnsmasq", 
       "use dnsmasq instead of ISC dhcpd + radvd")
+   cli:add_flag('-h, --use_hp_ospf', 'use hybrid DNS proxy instead of dnsmasq for DNS (requires --dnsmasq to be present too)')
    cli:add_flag('--disable_ula', 'disable ULA generation altogether')
    cli:add_flag('--disable_always_ula', 'disable ULAs if global addresses present')
    cli:add_flag('--disable_ipv4', 'disable generation of NATted IPv4 sub-prefixes')
@@ -87,6 +88,7 @@ local pm = pm_core.pm:new{shell=mst.execute_to_string, skv=s,
                           radvd='radvd -m logfile',
                           use_dnsmasq=args.m,
                           use_fakedhcpv6d=args.f,
+                          use_hp_ospf=args.h,
                          }
 
 function pm:schedule_run()

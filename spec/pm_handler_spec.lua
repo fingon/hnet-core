@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Mon Apr 29 11:05:55 2013 mstenber
--- Edit time:     140 min
+-- Last modified: Mon May 27 12:51:18 2013 mstenber
+-- Edit time:     158 min
 --
 
 -- individual handler tests
@@ -72,7 +72,7 @@ describe("pm_led #led", function ()
                   -- and global indicator
                   pm.ipv6_usps = mst.array:new{
                      {nh='dead::1', ifname='eth0', prefix='dead::/56'},
-                  }
+                                              }
                   pm.ds:set_array{
                      {'/usr/share/hnet/led_handler.sh global 1', ''},
                                  }
@@ -80,8 +80,8 @@ describe("pm_led #led", function ()
                   pm.ds:check_used()
 
                   
-                   end)
-             end)
+                        end)
+                        end)
 
 describe("pm_v6_rule", function ()
             local pm
@@ -113,7 +113,7 @@ describe("pm_v6_rule", function ()
                   -- really returned by get_ipv6_usp
                   pm.ipv6_usps = mst.array:new{
                      {nh='dead::1', ifname='eth0', prefix='dead::/56'},
-                  }
+                                              }
 
                   mst.a(o:ready())
                   o:maybe_run()
@@ -126,7 +126,7 @@ describe("pm_v6_rule", function ()
                   o:queue()
                   pm.ipv6_usps = mst.array:new{
                      {nh='dead::2', ifname='eth0', prefix='dead::/56'},
-                  }
+                                              }
                   pm.ds:set_array{
                      {'ip -6 rule', [[
 1000:	from all to dead::/56 lookup main
@@ -147,11 +147,11 @@ describe("pm_v6_rule", function ()
                   o:queue()
                   pm.ipv6_usps = mst.array:new{
                      {nh='dead::2', ifname='eth1', prefix='dead::/56'},
-                  }
+                                              }
                   pm.ds:set_array{
                      {'ip -6 rule', [[
-1000:	from all to dead::/56 lookup main
-1072:	from dead::/56 lookup 1000
+                                        1000:	from all to dead::/56 lookup main
+                                        1072:	from dead::/56 lookup 1000
                                      ]]},
                      --{'ip -6 route del default via dead::2 dev eth0 metric 123456', ''}, (applicably only if usp.rid ~= self.rid)
                      {'ip -6 route flush table 1000', ''},
@@ -166,11 +166,11 @@ describe("pm_v6_rule", function ()
                   o:queue()
                   pm.ipv6_usps = mst.array:new{
                      {nh='dead::2', ifname='eth0', prefix='dead::/56'},
-                  }
+                                              }
                   pm.ds:set_array{
                      {'ip -6 rule', [[
-1000:	from all to dead::/56 lookup main
-1072:	from dead::/56 lookup 1000
+                                        1000:	from all to dead::/56 lookup main
+                                        1072:	from dead::/56 lookup 1000
                                      ]]},
                      --{'ip -6 route del default via dead::2 dev eth0 metric 123456', ''}, (applicably only if usp.rid ~= self.rid)
                      {'ip -6 route flush table 1000', ''},
@@ -185,11 +185,11 @@ describe("pm_v6_rule", function ()
                   o:queue()
                   pm.ipv6_usps = mst.array:new{
                      {nh='dead::2', ifname='eth1', prefix='dead::/56'},
-                  }
+                                              }
                   pm.ds:set_array{
                      {'ip -6 rule', [[
-1000:	from all to dead::/56 lookup main
-1072:	from dead::/56 lookup 1000
+                                        1000:	from all to dead::/56 lookup main
+                                        1072:	from dead::/56 lookup 1000
                                      ]]},
                      --{'ip -6 route del default via dead::2 dev eth0 metric 123456', ''}, (applicably only if usp.rid ~= self.rid)
                      {'ip -6 route flush table 1000', ''},
@@ -204,14 +204,14 @@ describe("pm_v6_rule", function ()
                   o:queue()
                   pm.ds:set_array{
                      {'ip -6 rule', [[
-1000:	from all to dead::/56 lookup main
-1072:	from dead::/56 lookup 1000
+                                        1000:	from all to dead::/56 lookup main
+                                        1072:	from dead::/56 lookup 1000
                                      ]]},
                                  }
                   o:maybe_run()
                   pm.ds:check_used()
-                   end)
-             end)
+                              end)
+                       end)
 
 describe("pm_fakedhcpv6d", function ()
             local pm
@@ -342,8 +342,8 @@ describe("pm_fakedhcpv6d", function ()
                   mst.a(na, 'no ia_na in response')
                   local ia = find_option(dhcpv6_const.O_IAADDR, na)
                   mst.a(ia, 'no addr with ORO?')
-                   end)
-             end)
+                                 end)
+                           end)
 
 describe("pm_radvd", function ()
             it("works", function ()
@@ -430,7 +430,7 @@ describe("pm_radvd", function ()
 
                         end)
 
-             end)
+                     end)
 
 describe("pm_v6_nh", function ()
             it("works #nh", function ()
@@ -445,28 +445,28 @@ describe("pm_v6_nh", function ()
                   
                   pm.ds:set_array{
                      {'ip -6 route',[[
-1.2.3.4 via 2.3.4.5 dev eth0
-default via 1.2.3.4 dev eth0
-default via 1.2.3.4 dev eth0
-default via 1.2.3.4 dev eth1
-default via 1.2.3.5 dev eth0 metric 123456
+                                        1.2.3.4 via 2.3.4.5 dev eth0
+                                        default via 1.2.3.4 dev eth0
+                                        default via 1.2.3.4 dev eth0
+                                        default via 1.2.3.4 dev eth1
+                                        default via 1.2.3.5 dev eth0 metric 123456
                                      ]]},                      
                      {'ip -6 route',[[
-1.2.3.4 via 2.3.4.5 dev eth0
-default via 1.2.3.4 dev eth0
-default via 1.2.3.4 dev eth0
-default via 1.2.3.4 dev eth1
-default via 1.2.3.5 dev eth0 metric 123456
+                                        1.2.3.4 via 2.3.4.5 dev eth0
+                                        default via 1.2.3.4 dev eth0
+                                        default via 1.2.3.4 dev eth0
+                                        default via 1.2.3.4 dev eth1
+                                        default via 1.2.3.5 dev eth0 metric 123456
                                      ]]},                      
-                              }
+                                 }
                   o:maybe_tick()
                   o:maybe_tick()
                   pm.ds:check_used()
                   mst.a(pm.nh, 'no pm.nh')
                   mst.a(pm.nh.count, 'no count?!?', pm.nh)
                   mst.a(pm.nh:count() == 2, pm.nh)
-                   end)
-end)
+                            end)
+                     end)
 
 describe("pm_v6_listen_ra", function ()
             it("works", function ()
@@ -492,8 +492,8 @@ describe("pm_v6_listen_ra", function ()
                   o:run()
 
                   pm.ds:check_used()
-                   end)
-end)
+                        end)
+                            end)
 
 describe("pm_v6_route", function ()
             it("works", function ()
@@ -524,8 +524,8 @@ describe("pm_v6_route", function ()
                   o:run()
                   pm.ds:check_used()
                   
-                   end)
-end)
+                        end)
+                        end)
 
 
 describe("pm_v6_dhclient", function ()
@@ -538,13 +538,13 @@ describe("pm_v6_dhclient", function ()
                   local o = pm_v6_dhclient.pm_v6_dhclient:new{pm=pm}
                   
                   pm.ds:set_array{
-                                 {'ls -1 /var/run', ''},
-{'/usr/share/hnet/dhclient6_handler.sh start eth0 /var/run/pm-pid-dhclient6-eth0', ''},
-                                 {'ls -1 /var/run', ''},
-{'/usr/share/hnet/dhclient6_handler.sh start eth0 /var/run/pm-pid-dhclient6-eth0', ''},
-                                 {'ls -1 /var/run', 'pm-pid-dhclient6-eth0'},
-                                 {'ls -1 /var/run', 'pm-pid-dhclient6-eth0'},
-}
+                     {'ls -1 /var/run', ''},
+                     {'/usr/share/hnet/dhclient6_handler.sh start eth0 /var/run/pm-pid-dhclient6-eth0', ''},
+                     {'ls -1 /var/run', ''},
+                     {'/usr/share/hnet/dhclient6_handler.sh start eth0 /var/run/pm-pid-dhclient6-eth0', ''},
+                     {'ls -1 /var/run', 'pm-pid-dhclient6-eth0'},
+                     {'ls -1 /var/run', 'pm-pid-dhclient6-eth0'},
+                                 }
 
                   o:run()
                   -- 2nd start - pid file disappeared - restart
@@ -561,26 +561,32 @@ describe("pm_v6_dhclient", function ()
 
                   pm.ds:check_used()
 
-                   end)
-end)
+                        end)
+                           end)
 
 describe("pm_dnsmasq", function ()
             local conf = '/tmp/t-dnsmasq.conf'
+            local dns_server_string = 'dhcp-option=option:dns-server,'
+            local pm, o
+            before_each(function ()
+                           pm = dpm.dpm:new{ospf_lap={{ifname='eth0',
+                                                       prefix='dead::/64',
+                                                       owner=true},
+                                                      {ifname='eth0',
+                                                       prefix='beef::/64',
+                                                       owner=true,
+                                                       depracate=true},
+                                                      {ifname='eth0',
+                                                       prefix='10.1.42.0/24',
+                                                       address='10.1.42.1/32',
+                                                       owner=true},
+                                                     },
+                                            dnsmasq_conf_filename=conf,
+                                           }
+                           o = pm_dnsmasq.pm_dnsmasq:new{pm=pm}
+                        end)
             it("works", function ()
-                  local pm = dpm.dpm:new{ospf_lap={{ifname='eth0',
-                                                    prefix='dead::/64',
-                                                    owner=true},
-                                                   {ifname='eth0',
-                                                    prefix='beef::/64',
-                                                    owner=true,
-                                                    depracate=true},
-                                                   {ifname='eth0',
-                                                    prefix='10.1.42.0/24',
-                                                    owner=true},
-                                                  },
-                                         dnsmasq_conf_filename=conf,
-                                        }
-                  local o = pm_dnsmasq.pm_dnsmasq:new{pm=pm}
+                  mst.a(#pm.ospf_lap == 3)
                   pm.ds:set_array{
                      {'/usr/share/hnet/dnsmasq_handler.sh start /tmp/t-dnsmasq.conf', ''},
                      {'/usr/share/hnet/dnsmasq_handler.sh reload /tmp/t-dnsmasq.conf', ''},
@@ -593,6 +599,8 @@ describe("pm_dnsmasq", function ()
                   local s = mst.read_filename_to_string(conf)
                   mst.a(string.find(s, '10.1.42.6'), 'no valid ipv4 address?')
                   mst.a(string.find(s, 'depre'), 'no depracated range')
+                  mst.a(not string.find(s, dns_server_string, nil, true), 'dns server should not be set') -- explicit v4/v6 DHCP server should not be used
+                  mst.a(not string.find(s, 'port=0'), 'should not use hp dns')
 
 
                   -- 2nd run should do nothing, as state hasn't changed
@@ -606,15 +614,27 @@ describe("pm_dnsmasq", function ()
                   local s = mst.read_filename_to_string(conf)
                   mst.a(not string.find(s, '10.1.42.6'), 'valid ipv4 address?')
 
+
                   -- get rid of state, make sure cleanup kills dnsmasq
                   pm.ospf_lap = nil
                   o:run()
 
                   pm.ds:check_used()
-
-
-                   end)
-end)
+                        end)
+            it("works in ospf mode too #hp", function ()
+                  mst.a(#pm.ospf_lap == 3)
+                  pm.use_hp_ospf = true
+                  pm.ds:set_array{
+                     {'/usr/share/hnet/dnsmasq_handler.sh start /tmp/t-dnsmasq.conf', ''},
+                                 }
+                  o:run()
+                  mst.a(#pm.ospf_lap == 3)
+                  local s = mst.read_filename_to_string(conf)
+                  mst.a(string.find(s, 'port=0'), 'should use hp dns')
+                  mst.a(string.find(s, dns_server_string, nil, true),
+                        'dns server should be set', s, dns_server_string) 
+                                         end)
+                       end)
 
 describe("pm_memory", function ()
             it("does nothing ;)", function ()
@@ -627,5 +647,5 @@ describe("pm_memory", function ()
                   o:tick()
                   o:tick()
 
-                   end)
-end)
+                                  end)
+                      end)
