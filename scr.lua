@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:13:25 2013 mstenber
--- Last modified: Thu May 16 11:26:21 2013 mstenber
--- Edit time:     150 min
+-- Last modified: Mon May 27 09:27:35 2013 mstenber
+-- Edit time:     151 min
 --
 
 -- coroutine event reactor - coroutine based handling of file
@@ -278,7 +278,7 @@ end
 
 function scrsocket:receive(timeout)
    return self:io_with_timeout(function ()
-                                  self:d('receive', pattern)
+                                  self:d('receive')
                                   local r, err, partial = self.s:receive(2^10)
                                   local s = r or partial
                                   s = #s>0 and s

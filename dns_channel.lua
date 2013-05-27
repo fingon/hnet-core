@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Mon May 20 20:51:47 2013 mstenber
+-- Last modified: Mon May 27 09:28:15 2013 mstenber
 -- Edit time:     165 min
 --
 
@@ -249,7 +249,7 @@ function get_tcp_channel(self)
    mst.d('creating tcp socket', self)
    mst.a(self.server)
    local tcp_s, err = scbtcp.create_socket{ip=ip, port=port}
-   mst.a(tcp_s, 'unable to create tcp socket', tcp_port, err)
+   mst.a(tcp_s, 'unable to create tcp socket', port, err)
    local c = tcp_channel:new{s=tcp_s}
    local server_port = self.server_port or dns_const.PORT
    local r, err = c.s:connect(self.server, server_port)
