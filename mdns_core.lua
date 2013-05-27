@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Tue May 21 14:23:30 2013 mstenber
--- Edit time:     971 min
+-- Last modified: Mon May 27 09:54:58 2013 mstenber
+-- Edit time:     975 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -55,7 +55,8 @@ require 'mdns_if'
 require 'mdns_const'
 require 'linux_if'
 require 'ssloop'
-require 'mcastjoiner'
+local _mcj = require 'mcastjoiner'.mcj
+local _eventful = require 'mst_eventful'.eventful
 
 IF_INFO_VALIDITY_PERIOD=60
 
@@ -63,15 +64,26 @@ module(..., package.seeall)
 
 -- global mdns structure, which mostly just deals with different
 -- mdns_if instances
-local _mj = mcastjoiner.mcj
-mdns = _mj:new_subclass{class='mdns', 
-                        ifclass=mdns_if.mdns_if,
-                        time=ssloop.time,
-                        mandatory={'sendto', 'shell'}}
+mdns = mst.create_class({class='mdns', 
+                         ifclass=mdns_if.mdns_if,
+                         time=ssloop.time,
+                         mandatory={'sendto', 'shell'},
+                        },
+                        _mcj,
+                        _eventful)
 
 function mdns:init()
-   _mj.init(self)
+   _mcj.init(self)
+   _eventful.init(self)
    self.ifname2if = {}
+end
+
+function mdns:uninit()
+   -- intentionally not calling _mcj.uninit 
+   -- (it would try to detach skv, while not attached - we play with
+   -- skv from superclass, not in mcj)
+   _eventful.uninit(self)
+
 end
 
 function mdns:calculate_local_binary_prefix_set()

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Feb 21 11:53:52 2013 mstenber
--- Last modified: Thu May 23 22:17:05 2013 mstenber
--- Edit time:     11 min
+-- Last modified: Mon May 27 09:48:22 2013 mstenber
+-- Edit time:     14 min
 --
 
 -- Simple abstraction to handle multicast join/leave doing socket
@@ -19,15 +19,12 @@
 -- mcasts (=socket to use) can be provided.
 
 require 'mst'
-local _eventful = require 'mst_eventful'.eventful
 
 module(..., package.seeall)
 
-mcj = _eventful:new_subclass{class='mcj'}
+mcj = mst.create_class{class='mcj'}
 
 function mcj:init()
-   _eventful.init(self)
-
    -- joined if's
    self.joined_if_set = mst.set:new{}
 end
