@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:48:34 2012 mstenber
--- Last modified: Sun Mar 10 16:28:54 2013 mstenber
--- Edit time:     16 min
+-- Last modified: Mon May 27 08:16:06 2013 mstenber
+-- Edit time:     20 min
 --
 
 -- pm_v6_route is responsible for syncing the real state to
@@ -137,7 +137,8 @@ function pm_v6_route:handle_ospf_prefix(prefix, po)
    self:a(addr)
    local ifname = po.ifname
    self:a(ifname)
-   return self.shell(string.format('ip -6 addr add %s dev %s', addr, po.ifname))
+   local ifo = self.pm.if_table:get_if(ifname)
+   return ifo:add_ipv6(addr)
 end
 
 
@@ -149,6 +150,7 @@ function pm_v6_route:handle_real_prefix(prefix, po)
    self:a(addr)
    local ifname = po.ifname
    self:a(ifname)
-   return self.shell(string.format('ip -6 addr del %s dev %s', addr, ifname))
+   local ifo = self.pm.if_table:get_if(ifname)
+   return ifo:del_ipv6(addr)
 end
 
