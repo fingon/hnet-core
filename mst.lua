@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon May 27 09:25:02 2013 mstenber
--- Edit time:     720 min
+-- Last modified: Mon May 27 09:44:36 2013 mstenber
+-- Edit time:     723 min
 --
 
 -- data structure abstractions provided:
@@ -322,6 +322,26 @@ function create_class(o, ...)
             end
          end
       end
+      -- provide init/unint that do the nested calls too
+      if not h.init
+      then
+         function h:init()
+            for i, super in ipairs(scs)
+            do
+               super.init(self)
+            end
+         end
+      end
+      if not h.uninit
+      then
+         function h:uninit()
+            for i, super in ipairs(scs)
+            do
+               super.uninit(self)
+            end
+         end
+      end
+
    elseif #scs == 1
    then
       _index = scs[1]

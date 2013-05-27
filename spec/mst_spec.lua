@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Mon May 27 09:25:52 2013 mstenber
--- Edit time:     216 min
+-- Last modified: Mon May 27 09:43:28 2013 mstenber
+-- Edit time:     225 min
 --
 
 require "busted"
@@ -211,6 +211,42 @@ describe("create_class", function ()
                   mst.a(c4.bar, 'multiple inheritance fail2')
 
                    end)
+            
+            it("has working cascading init/uninit", function ()
+                  local function create_dummy_class(name)
+                     local t = {false, false}
+                     local c = mst.create_class{class=name,
+                                                init=function ()
+                                                   t[1] = true
+                                                end,
+                                                uninit=function ()
+                                                   t[2] = true
+                                                end}
+                     return c, t
+                  end
+                  -- inheritance hierarchy:
+                  -- c1 c2
+                  --  \ /
+                  --   c4
+                  --   |
+                  --   c5  c3
+                  --    \ /
+                  --     c6
+                  local c1, s1 = create_dummy_class('c1')
+                  local c2, s2 = create_dummy_class('c2')
+                  local c3, s3 = create_dummy_class('c3')
+                  local c4 = mst.create_class(nil, c1, c2)
+                  local c5 = mst.create_class(nil, c4)
+                  local c6 = mst.create_class(nil, c5, c3)
+                  mst.a(not s1[1] and not s2[1] and not s3[1])
+                  local i1 = c6:new()
+                  mst.a(s1[1] and s2[1] and s3[1], 'init fail', s1, s2, s3)
+                  mst.a(not s1[2] and not s2[2] and not s3[2])
+                  i1:done()
+                  mst.a(s1[2] and s2[2] and s3[2])
+                  
+                   end)
+
             it("can create class with args", function ()
                   local c = mst.create_class{mandatory={"foo"}}
                   assert.error(function ()
