@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Thu May 23 21:45:47 2013 mstenber
--- Edit time:     366 min
+-- Last modified: Mon May 27 13:05:49 2013 mstenber
+-- Edit time:     367 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -528,6 +528,10 @@ function hybrid_proxy:mdns_forward(req, ifname, ll)
    return nil, err
 end
 
+function hybrid_proxy:get_server()
+   return self.server or dns_const.GOOGLE_IPV4
+end
+
 function hybrid_proxy:process_match(req, r, o)
    -- Next step depends on what we get
    if r == RESULT_FORWARD_INT
@@ -536,7 +540,7 @@ function hybrid_proxy:process_match(req, r, o)
    end
    if r == RESULT_FORWARD_EXT
    then
-      local server = self.server or dns_const.GOOGLE_IPV4
+      local server = self:get_server()
       return self:forward(req, server)
    end
    if r == RESULT_FORWARD_MDNS

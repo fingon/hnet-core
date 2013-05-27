@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Thu May 23 21:55:50 2013 mstenber
--- Edit time:     34 min
+-- Last modified: Mon May 27 13:09:07 2013 mstenber
+-- Edit time:     36 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -52,6 +52,15 @@ function hybrid_ospf:attach_skv(skv)
          self.rid = self:rid2label(v)
          self.root = nil -- invalidate tree
          return
+      end
+      if k == elsa_pa.OSPF_IPV4_DNS_KEY
+      then
+         self.ospf_v4_dns = v or {}
+         return
+      end
+      if k == elsa_pa.OSPF_DNS_KEY
+      then
+         self.ospf_dns = v or {}
       end
       if k == elsa_pa.OSPF_USP_KEY
       then
@@ -171,4 +180,18 @@ function hybrid_ospf:detach_skv()
    self.skv:remove_change_observer(self.f, true)
    self.f = nil
    self.skv = nil
+end
+
+function hybrid_ospf:get_server()
+   local l = self.ospf_dns 
+   if l and #l > 0
+   then
+      return l[1]
+   end
+   local l = self.ospf_v4_dns 
+   if l and #l > 0
+   then
+      return l[1]
+   end
+   return hybrid_core.get_server(self)
 end
