@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Mon May 27 14:43:56 2013 mstenber
--- Edit time:     374 min
+-- Last modified: Tue May 28 07:46:55 2013 mstenber
+-- Edit time:     377 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -540,12 +540,25 @@ function hybrid_proxy:process_match(req, r, o)
    -- Next step depends on what we get
    if r == RESULT_FORWARD_INT
    then
-      return self:forward(req, o)
+      if o
+      then
+         -- server specified
+         return self:forward(req, o)
+      end
+      -- by default, if we don't know about the server, it's NXDOMAIN time!
+      -- log it just in case we care
+      self:d('unknown internal forward', req)
+      r = dns_server.RESULT_NXDOMAIN
    end
    if r == RESULT_FORWARD_EXT
    then
       local server = self:get_server()
-      return self:forward(req, server)
+      if server
+      then
+         return self:forward(req, server)
+      end
+      self:d('unknown external forward', req)
+      r = dns_server.RESULT_NXDOMAIN
    end
    if r == RESULT_FORWARD_MDNS
    then
