@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:08:37 2013 mstenber
--- Last modified: Mon May 20 16:06:14 2013 mstenber
+-- Last modified: Tue May 28 16:37:47 2013 mstenber
 -- Edit time:     36 min
 --
 
@@ -21,7 +21,7 @@ local cursor_has_left = codec.cursor_has_left
 --- general utilities to deal with FQDN en/decode
 
 function try_decode_name_rec(cur, h, n)
-   mst.d('try_decode_name_rec', h)
+   --mst.d('try_decode_name_rec', h)
    n = n or {}
    if not cursor_has_left(cur, 1)
    then
