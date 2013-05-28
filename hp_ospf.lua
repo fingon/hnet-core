@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Mon May 27 14:37:42 2013 mstenber
+-- Last modified: Tue May 28 16:48:45 2013 mstenber
 -- Edit time:     37 min
 --
 
@@ -49,7 +49,7 @@ function hybrid_ospf:attach_skv(skv)
       self:d('skv notification', k)
       if k == elsa_pa.OSPF_RID_KEY
       then
-         self.rid = self:rid2label(v)
+         self.rid = v
          self.root = nil -- invalidate tree
          return
       end
