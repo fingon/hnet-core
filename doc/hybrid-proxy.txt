@@ -4,24 +4,53 @@
 
 ** Components of the system
 
+*** Base domain
+
+We assume that most home users don't have really own domain, and therefore
+their home domain is just some (IANA-assigned) .home or whatever. However,
+some users MIGHT have their own domain, so we'll call the domain part of
+home <domain> from now on.
+
 *** Bunch of routers in home
 
-- either automatically named r<rid>, or manually named (from now on, router
-  name is denoted as <router>)
+All are either automatically named r<rid>, or manually named. From now on,
+router name is denoted as <router>)
+
+*** Even more links in home
+
+Assume each link also has a name - automatically generated i<iid>, or
+automated one. From now on link name is denoted as <link>.
+
+Note that <link> is unique only for given <router> (iow, <link>.<router>
+should be unique).
 
 *** OSPF 'cloud' with prefix assignment
 
-=> owning-router, interface information for each assigned prefix
+It contains:
 
-=> IP address(es) of each router
+- usable prefixes
+
+ - used for broad 'this is our authoritative reverse zone' information
+
+- assigned prefixes
+
+ - used for determining who to contact for reverse zone parts of usable
+   prefixes that should actually result in non-NXDOMAIN
+
+ - same structure also contains iid, rid information => we can also
+   determine forward dns
+
+- IP addresses for each other router
 
 *** port 53-listening DNS forwarder/mdns proxy on each router
 
 - aware of OSPF state
+ - just to know other links within system (owner, link id, router id)
+ - also need to know usable prefixes, assigned prefixes on each link
 
 - publishing nothing to OSPF in and of itself
 
-** DNS data in the system
+** DNS queries in the system
 
 For a single regarding _any_ query, choices are (in order)
 
@@ -35,46 +64,65 @@ For a single regarding _any_ query, choices are (in order)
 
 - [not known] error 
 
-*** Fake 'home zone' information (.home)
+*** Fake 'home zone' information (<domain>)
 
-- <router>.home = contains A/AAAA(s) the router has
+**** Within zone: <router> entries
 
-**** Per-router sub-zones (.<router>.home)
+<router>.<domain> = contains A/AAAA(s) the router has
 
-- contains per-link sub-sub-zones i<iid>.<router>.home
+are these A/AAAA records really needed? because we _can_ just have 'policy'
+that knows that for these reverse IP ranges, call NS IP X, and for
+<router>.<domain>, also call NS IP X.
 
-**** DNS-SD information
+**** Per-router sub-zones .<router>
 
-search path with pointer at _every_ i<iid>.<router>.home (no 'preferred'
-single one)
+They contain per-link sub-sub-zones <link>.<router>.<domain>
 
-(mainly b+lb; we don't do updates, and we don't offer 'single recommended
-one)
+Similarly to the router-specific NS entries, these may be just virtual. 
 
+**** DNS-SD information (_dns-sd._udp.<domain>)
+
+b._dns-sd._udp.<domain> contains pointer at _every_
+<link>.<router>.<domain> (no 'preferred' single one)
 
 *** Fake reverse zone information
 
-- deduced from OSPF assigned state
+[ - pointers to browse domain (in case we don't for some reason check
+   .<domain> for it?) ]
 
-**** Per-subprefix information
 
-(dns-sd sub-domain content)
-- pointers to browse domain (in case we don't for some reason check .home
-  for it)
-
-- router's own IP addr(s) handling (PTR to <router>.home)
+[ - router's own IP addr(s) handling (PTR to <router>.<domain>) ]
+[ this can be also done via mDNS? ]
 
 - forward to MDNS
 
+ (we know where to forward based on assigned prefixes in OSPF)
 
 
+** Routers and MDNS (29.5.2013)
 
+In principle, one could think that the routers can just listen to
+MDNS. However, that is not the case. Either they need _full_ address zone
+information from e.g. OSPF of every other router (and not in zone form, as
+we may not know the assigned <link> and <router> names of every router?),
+_or_ they need to participate in the MDNS.
 
+MDNS participation is perhaps easier; all they need to do is announce their
+_own_ names and all addresses there, on each link, without caring about
+domains or particular links. 
 
-** IDNA handling
+That is, they need to provide:
 
-- mdns = UTF-8
-- dns = punycode
+- A/AAAA for every address their own, as <router>.local
+- <<reverse>>.{in-addr,ip6}.arpa pointer to <router>.local
+
+Provisioning them can be done locally within hybrid proxy process, as long
+as <router> is known. And as it has to be known anyway, no additional data
+flows are needed between hybrid proxy and OSPF, and everyone wins.
+
+** IDNA handling (~4/2013)
+
+- mdns = UTF-8 dns = punycode
 
 => solution: 
 
@@ -85,3 +133,9 @@ one)
 
 (Given caching of results, and detection of pure ASCII, should not even be
 insanely slow?)
+
+(Later update):
+
+Someone at Apple told me to just ignore IDNA and stick in UTF-8 in DNS. I
+think I'll do that, until I see something breaking. DNS-SD supporting hosts
+should be relatively modern anyway.
