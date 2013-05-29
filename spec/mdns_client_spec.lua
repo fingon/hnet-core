@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 14:45:24 2013 mstenber
--- Last modified: Wed May 29 21:36:51 2013 mstenber
--- Edit time:     27 min
+-- Last modified: Wed May 29 22:08:49 2013 mstenber
+-- Edit time:     31 min
 --
 
 require 'busted'
@@ -130,6 +130,16 @@ describe("mdns_client", function ()
                   ds:set_array(ip_addr_get)
                   c:update_own_records(nil)
                   c:update_own_records('foo')
+                  -- XXX - check somehow it works well
                   ds:check_used()
+                   end)
+            it("can generate list of local binary prefixes", function ()
+                  ds:set_array(ip_addr_get)
+                  local m = c:get_local_binary_prefix_set()
+                  mst.a(m, 'get_local_binary_prefix_set failed')
+                  local m = c:get_local_binary_prefix_set()
+                  mst.a(m, 'get_local_binary_prefix_set failed')
+                  ds:check_used()
+
                    end)
                    end)
