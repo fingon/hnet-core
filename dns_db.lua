@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Thu May  9 15:03:27 2013 mstenber
--- Edit time:     204 min
+-- Last modified: Wed May 29 21:00:33 2013 mstenber
+-- Edit time:     205 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -92,6 +92,39 @@ function ll2nameish(ll)
 
    -- we can! so convert it to a name
    return ll2name(ll)
+end
+
+
+function prefix2ll(s)
+   -- We do this in inverse order, and then reverse just in the end
+   local p = ipv6s.new_prefix_from_ascii(s)
+   local b = p:get_binary()
+   local bits = p:get_binary_bits()
+   local a
+
+   if p:is_ipv4()
+   then
+      -- IPv4 is of format
+      -- <reverse-ip>.in-addr.arpa
+      a = mst.array:new(mst.table_copy(dns_const.REVERSE_LL_IPV4_INVERSE))
+      for i=13,bits/8
+      do
+         a:insert(tostring(string.byte(string.sub(b, i, i))))
+      end
+   else
+      -- IPv6 is of format
+      -- <reverse-ip6-addr-per-hex-octet>.ip6.arpa
+      a = mst.array:new(mst.table_copy(dns_const.REVERSE_LL_IPV6_INVERSE))
+      -- just whole bytes?
+      for i=1,bits/8
+      do
+         local v = string.byte(string.sub(b, i, i))
+         a:insert(string.format('%x', v / 16))
+         a:insert(string.format('%x', v % 16))
+      end
+   end
+   a:reverse()
+   return a
 end
 
 -- extend dns_codec's dns_rr

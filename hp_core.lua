@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Wed May 29 19:10:11 2013 mstenber
--- Edit time:     380 min
+-- Last modified: Wed May 29 21:00:52 2013 mstenber
+-- Edit time:     381 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -76,38 +76,6 @@ hybrid_proxy = _dns_server:new_subclass{class='hybrid_proxy',
                                         mandatory={'rid', 'domain', 
                                                    'mdns_resolve_callback',
                                         }}
-
-function prefix_to_ll(s)
-   -- We do this in inverse order, and then reverse just in the end
-   local p = ipv6s.new_prefix_from_ascii(s)
-   local b = p:get_binary()
-   local bits = p:get_binary_bits()
-   local a
-
-   if p:is_ipv4()
-   then
-      -- IPv4 is of format
-      -- <reverse-ip>.in-addr.arpa
-      a = mst.array:new(mst.table_copy(dns_const.REVERSE_LL_IPV4_INVERSE))
-      for i=13,bits/8
-      do
-         a:insert(tostring(string.byte(string.sub(b, i, i))))
-      end
-   else
-      -- IPv6 is of format
-      -- <reverse-ip6-addr-per-hex-octet>.ip6.arpa
-      a = mst.array:new(mst.table_copy(dns_const.REVERSE_LL_IPV6_INVERSE))
-      -- just whole bytes?
-      for i=1,bits/8
-      do
-         local v = string.byte(string.sub(b, i, i))
-         a:insert(string.format('%x', v / 16))
-         a:insert(string.format('%x', v % 16))
-      end
-   end
-   a:reverse()
-   return a
-end
 
 function create_default_forward_ext_node_callback(o)
    local n = dns_tree.create_node_callback(o)
@@ -182,7 +150,7 @@ function hybrid_proxy:recreate_tree()
    -- entries as well
 
    local function create_reverse_zone(s)
-      local ll = prefix_to_ll(s)
+      local ll = dns_db.prefix2ll(s)
       local o = fcs(root, ll,
                     -- [5r] end node
                     dns_server.create_default_nxdomain_node_callback,
@@ -200,7 +168,7 @@ function hybrid_proxy:recreate_tree()
          return
       end
 
-      local ll = prefix_to_ll(prefix)
+      local ll = dns_db.prefix2ll(prefix)
       local rid = o.rid
       local iid = o.iid
       local ip = o.ip
