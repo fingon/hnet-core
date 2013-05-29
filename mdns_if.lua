@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu May  9 13:52:47 2013 mstenber
--- Edit time:     790 min
+-- Last modified: Wed May 29 21:44:07 2013 mstenber
+-- Edit time:     812 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -236,7 +236,7 @@ function mdns_if:init()
    self:connect(self.own.removed, function (rr)
                    self.own_sl:remove_if_present(rr)
                    mark_nsec_dirty_if_cache_flush(rr)
-                end)
+                                  end)
 
    self.probe = dns_db.ns:new{}
    self.probe_sl = mst_skiplist.ipi_skiplist:new{p=2,
@@ -448,7 +448,7 @@ function mdns_if:run_expire(now)
       self:d('sending expire ttl=0 for #pending', #pending)
       -- send per-interface 'these are gone' fyi messages
       local s = dns_codec.dns_message:encode{an=pending, 
-                                            h=mdns_const.DEFAULT_RESPONSE_HEADER}
+                                             h=mdns_const.DEFAULT_RESPONSE_HEADER}
       local dst = mdns_const.MULTICAST_ADDRESS_IPV6 .. '%' .. self.ifname
       self:sendto(s, dst, mdns_const.PORT)
    end
@@ -1075,21 +1075,21 @@ function mdns_if:upsert_cache_rr(rr)
       local q = q_for_rr(rr)
 
       self:iterate_matching_query(true, q, nil,
-                                function (rr2)
-                                   if rr2:equals(rr)
-                                   then
-                                      found = true
-                                      local ttl = self:get_own_rr_current_ttl(rr2)
-                                      if ttl > (rr.ttl * 2)
-                                      then
-                                         -- pretend to have received
-                                         -- query for it => matching stuff
-                                         -- will be re-broadcast shortly
-                                         local fmsg = {h={},qd={q}}
-                                         self:handle_multicast_query(fmsg)
-                                      end
-                                   end
-                                end)
+                                  function (rr2)
+                                     if rr2:equals(rr)
+                                     then
+                                        found = true
+                                        local ttl = self:get_own_rr_current_ttl(rr2)
+                                        if ttl > (rr.ttl * 2)
+                                        then
+                                           -- pretend to have received
+                                           -- query for it => matching stuff
+                                           -- will be re-broadcast shortly
+                                           local fmsg = {h={},qd={q}}
+                                           self:handle_multicast_query(fmsg)
+                                        end
+                                     end
+                                  end)
       if found then return end
 
       -- in some other interface (loop in network topology?)
@@ -1247,7 +1247,7 @@ function mdns_if:handle_multicast_response(msg)
 end
 
 function mdns_if:insert_own_rrset(l)
-   if not l then return end
+   if not l or #l == 0 then return end
 
    local ns = self.own
 
@@ -1714,7 +1714,32 @@ function mdns_if:handle_recvfrom(data, addr, srcport)
 
 end
 
-function mdns_if:propagate_o_l(o, l)
+function mdns_if:create_reverse(rr)
+   -- for the time being, we only support AAAA
+   if rr.rtype == dns_const.TYPE_AAAA
+   then
+      return {name=dns_db.prefix2ll(rr.rdata_aaaa .. '/128'),
+              rclass=rr.rclass,
+              rtype=dns_const.TYPE_PTR,
+              rdata_ptr=rr.name}
+   end
+end
+
+function mdns_if:create_reverse_list(l)
+   local rl 
+   for i, rr in ipairs(l)
+   do
+      local nrr = self:create_reverse(rr)
+      if nrr
+      then
+         rl = rl or {}
+         table.insert(rl, nrr)
+      end
+   end
+   return rl
+end
+
+function mdns_if:propagate_o_l(o, l, handle_reverses)
    -- project: update the 'own' s.t. for anything matching 'o', it
    -- roughly matches 'l' => update own state accordingly.
    
@@ -1737,6 +1762,12 @@ function mdns_if:propagate_o_l(o, l)
    -- (?) - hopefully efficient
    self:insert_own_rrset(l)
 
+   if handle_reverses
+   then
+      local reverses_l = self:create_reverse_list(l)
+      self:insert_own_rrset(reverses_l)
+   end
+
    -- O(n log n-ish)
    for k, rr in pairs(rdata2own)
    do
@@ -1745,9 +1776,22 @@ function mdns_if:propagate_o_l(o, l)
       then
          -- this should be destroyed
          self:start_expire_own_rr(rr)
+
+         -- make sure it's reverse is taken out too, if desired
+         if handle_reverses
+         then
+            local rr2 = self:create_reverse(rr)
+            if rr2
+            then
+               rr2 = self.own:find_rr(rr2)
+               if rr2
+               then
+                  self:start_expire_own_rr(rr2)
+               end
+            end
+         end
       end
    end
-
 end
 
 -- subclassable functionality

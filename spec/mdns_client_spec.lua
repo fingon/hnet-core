@@ -8,13 +8,14 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 14:45:24 2013 mstenber
--- Last modified: Mon May 13 12:35:35 2013 mstenber
--- Edit time:     23 min
+-- Last modified: Wed May 29 21:36:51 2013 mstenber
+-- Edit time:     27 min
 --
 
 require 'busted'
 require 'mdns_client'
 require 'dns_const'
+require 'dshell'
 
 module('mdns_client_spec', package.seeall)
 
@@ -45,14 +46,26 @@ local rr_cf = {name={'foo', 'com'},
 
 local ifname = 'dummy'             
 
+local ip_addr_get = {
+   {"ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary",
+    [[1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 
+2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+  inet6 fdb2:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic 
+  inet6 dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic
+6: 6rd: <NOARP,UP,LOWER_UP> mtu 1480 
+  inet6 ::192.168.100.100/128 scope global 
+]]},
+}
+
+
 describe("mdns_client", function ()
             local c
             local ifo
             before_each(function ()
+                           ds = dshell.dshell:new{}
                            c = mdns_client.mdns_client:new{sendto=function (...)
                                                                   end,
-                                                           shell=function (...)
-                                                           end}
+                                                           shell=ds:get_shell()}
                            ifo = c:get_if(ifname)
                         end)
             after_each(function ()
@@ -113,4 +126,10 @@ describe("mdns_client", function ()
                                                         0.1)
                   mst.a(not r, 'no timeout(?)')
                         end)
+            it("can populate it's own entries if called for #own", function ()
+                  ds:set_array(ip_addr_get)
+                  c:update_own_records(nil)
+                  c:update_own_records('foo')
+                  ds:check_used()
+                   end)
                    end)

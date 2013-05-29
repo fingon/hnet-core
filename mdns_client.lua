@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Wed May 29 16:51:01 2013 mstenber
--- Edit time:     33 min
+-- Last modified: Wed May 29 21:43:22 2013 mstenber
+-- Edit time:     63 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -141,3 +141,72 @@ function mdns_client:resolve_ifname_q(ifname, q, timeout)
 
    return r, o.had_cf
 end
+
+function mdns_client:update_own_records_if(myname, ns, o, rrs)
+   self:d('update_own_records_own_o_rrs', o, rrs)
+
+   -- XXX - in addition to AAAA, do this also with A records..
+
+   -- forward:
+   -- <ourname.local> => AAAA
+   if self.myname and self.myname ~= myname
+   then
+      -- name changed => have to zap
+      local fo = {name={self.myname, 'local'},
+                  rtype=dns_const.TYPE_AAAA,
+      }
+      o:propagate_o_l(fo, nil, true)
+   end
+
+   -- Ok, perhaps the records changed, perhaps not
+   local fo = {name={myname, 'local'},
+               rtype=dns_const.TYPE_AAAA,
+   }
+   o:propagate_o_l(fo, rrs, true)
+end
+
+function mdns_client:update_own_records(myname)
+   -- without name, there is no point
+   if not myname
+   then
+      self:a(not self.myname, 'had name but it was lost?')
+      return
+   end
+
+   local map, fresh = self:get_ipv6_map()
+
+   -- nothing changed, nop
+   if not fresh and self.myname == myname
+   then
+      return
+   end
+
+   -- something changed
+
+   -- for _every_ interface we have, we maintain similar records.
+   -- that is..
+
+   -- create forward name record list. for inverse direction, stuff
+   -- happens 'underneath' (in if-specific propagate_o_l)
+   local rrs = mst.array:new{}
+   for ifname, o in pairs(map)
+   do
+      for i, addr in ipairs(o.ipv6)
+      do
+         -- eliminate /64
+         addr = mst.string_split(addr, '/')[1]
+         rrs:insert{name={myname, 'local'},
+                    rclass=dns_const.CLASS_IN,
+                    rtype=dns_const.TYPE_AAAA,
+                    rdata_aaaa=addr}
+      end
+   end
+
+   -- push it to every interface (and automated reverses should happen
+   -- 'by magic')
+   self:iterate_ifs_ns(true, function (ns, o)
+                          self:update_own_records_if(myname, ns, o, rrs)
+                             end)
+   self.myname = myname
+end
+

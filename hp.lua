@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Thu May 23 22:16:29 2013 mstenber
--- Edit time:     46 min
+-- Last modified: Wed May 29 21:22:35 2013 mstenber
+-- Edit time:     47 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -131,6 +131,15 @@ then
                       end)
    hp:attach_skv(s)
    pis:attach_skv(s)
+   
+   -- Rather brute force approach: update the local IP information
+   -- every 10 seconds if it's relevant (in practise, once every
+   -- minute most likely)
+   ssloop.repeat_every_timedelta(10, 
+                                 function ()
+                                    mdns:update_own_records(hp.rid)
+                                 end)
+
    mst.d('-- OSPF MODE!--')
 else
    -- produce interface list and set for later use, and eliminate ''

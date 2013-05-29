@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Mon May 27 09:54:58 2013 mstenber
--- Edit time:     975 min
+-- Last modified: Wed May 29 19:55:45 2013 mstenber
+-- Edit time:     984 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -86,14 +86,26 @@ function mdns:uninit()
 
 end
 
-function mdns:calculate_local_binary_prefix_set()
-   -- TODO - consider if it is worth storing this if_table;
-   -- for the time being, we save memory by not keeping it around..
-   local if_table = linux_if.if_table:new{shell=self.shell} 
+function mdns:get_ipv6_map()
+   local now = self.time()
+   local was = self.ipv6map_refresh
+   local refreshed
+   if not was or (was + IF_INFO_VALIDITY_PERIOD) < now
+   then
+      -- TODO - consider if it is worth storing this if_table;
+      -- for the time being, we save memory by not keeping it around..
+      local if_table = linux_if.if_table:new{shell=self.shell} 
+      self.ipv6map = if_table:read_ip_ipv6()
+      self.ipv6map_refresh = now
+      refreshed = true
+   end
+   return self.ipv6map, refreshed
+end
 
-   if_table:read_ip_ipv6()
+function mdns:calculate_local_binary_prefix_set()
+   local map = self:get_ipv6_map()
    local m = {}
-   for ifname, ifo in pairs(if_table.map)
+   for ifname, ifo in pairs(map)
    do
       for i, prefix in ipairs(ifo.ipv6 or {})
       do
@@ -112,13 +124,18 @@ function mdns:calculate_local_binary_prefix_set()
 end
 
 function mdns:get_local_binary_prefix_set()
+   local map, refreshed = self:get_ipv6_map()
+   if refreshed
+   then
+      local m = self:calculate_local_binary_prefix_set()
+      self.local_binary2ifname = m
+
+   end
    local now = self.time()
    local was = self.local_binary2ifname_refresh
    if not was or (was + IF_INFO_VALIDITY_PERIOD) < now
    then
-      local m = self:calculate_local_binary_prefix_set()
       self.local_binary2ifname_refresh = now
-      self.local_binary2ifname = m
    end
    return self.local_binary2ifname
 end
