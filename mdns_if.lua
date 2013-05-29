@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Wed May 29 21:44:07 2013 mstenber
--- Edit time:     812 min
+-- Last modified: Wed May 29 22:16:11 2013 mstenber
+-- Edit time:     790 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -1715,6 +1715,7 @@ function mdns_if:handle_recvfrom(data, addr, srcport)
 end
 
 function mdns_if:create_reverse(rr)
+   if not rr then return end
    -- for the time being, we only support AAAA
    if rr.rtype == dns_const.TYPE_AAAA
    then
@@ -1726,6 +1727,7 @@ function mdns_if:create_reverse(rr)
 end
 
 function mdns_if:create_reverse_list(l)
+   if not l or #l == 0 then return end
    local rl 
    for i, rr in ipairs(l)
    do
