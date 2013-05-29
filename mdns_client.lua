@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Wed May 29 22:24:11 2013 mstenber
--- Edit time:     34 min
+-- Last modified: Wed May 29 22:40:14 2013 mstenber
+-- Edit time:     35 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -95,11 +95,24 @@ mdns_client = mdns_core.mdns:new_subclass{class='mdns_client'}
 function mdns_client:resolve_ifo_q(ifo, q, cache_flush)
    local r
    self:d('resolve_ifo_q', ifo, q, cache_flush)
+   -- check own
+   ifo:iterate_matching_query(true,
+                              q,
+                              nil,
+                              function (rr)
+                                 self:d(' found own', rr)
+                                 if not cache_flush or rr.cache_flush
+                                 then
+                                    r = r or {}
+                                    table.insert(r, rr)
+                                 end
+                              end)
+   -- check cache
    ifo:iterate_matching_query(false,
                               q,
                               nil,
                               function (rr)
-                                 self:d(' found', rr)
+                                 self:d(' found cache', rr)
                                  if not cache_flush or rr.cache_flush
                                  then
                                     r = r or {}
