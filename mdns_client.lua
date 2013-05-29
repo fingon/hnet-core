@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Wed May 29 21:43:22 2013 mstenber
--- Edit time:     63 min
+-- Last modified: Wed May 29 22:24:11 2013 mstenber
+-- Edit time:     34 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -173,13 +173,15 @@ function mdns_client:update_own_records(myname)
       return
    end
 
-   local map, fresh = self:get_ipv6_map()
+   local map, gen = self:get_ipv6_map()
 
    -- nothing changed, nop
-   if not fresh and self.myname == myname
+   if self.myname == myname and gen == self.myname_gen
    then
       return
    end
+
+   self:d('update_own_records', myname, self.myname, map)
 
    -- something changed
 
@@ -208,5 +210,6 @@ function mdns_client:update_own_records(myname)
                           self:update_own_records_if(myname, ns, o, rrs)
                              end)
    self.myname = myname
+   self.myname_gen = gen
 end
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Wed May 29 19:55:45 2013 mstenber
--- Edit time:     984 min
+-- Last modified: Wed May 29 22:23:36 2013 mstenber
+-- Edit time:     982 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -97,9 +97,8 @@ function mdns:get_ipv6_map()
       local if_table = linux_if.if_table:new{shell=self.shell} 
       self.ipv6map = if_table:read_ip_ipv6()
       self.ipv6map_refresh = now
-      refreshed = true
    end
-   return self.ipv6map, refreshed
+   return self.ipv6map, self.ipv6map_refresh
 end
 
 function mdns:calculate_local_binary_prefix_set()
@@ -124,30 +123,20 @@ function mdns:calculate_local_binary_prefix_set()
 end
 
 function mdns:get_local_binary_prefix_set()
-   local map, refreshed = self:get_ipv6_map()
-   if refreshed
+   local map, gen = self:get_ipv6_map()
+   if gen ~= self.local_binary2ifname_gen
    then
       local m = self:calculate_local_binary_prefix_set()
       self.local_binary2ifname = m
-
+      self.local_binary2ifname_gen = gen
    end
-   local now = self.time()
-   local was = self.local_binary2ifname_refresh
-   if not was or (was + IF_INFO_VALIDITY_PERIOD) < now
-   then
-      self.local_binary2ifname_refresh = now
-   end
+   self:a(self.local_binary2ifname, 
+          'no local_binary2ifname', 
+          map, refreshed)
    return self.local_binary2ifname
 end
 
 function mdns:is_local_binary_prefix(b)
-   -- shortcut - if it was on last refresh, we don't really
-   -- care now (assume the host doesn't move that much)
-   local v = self.local_binary2ifname and self.local_binary2ifname[b]
-   if v
-   then
-      return v
-   end
    return self:get_local_binary_prefix_set()[b]
 end
 
