@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 12:29:52 2013 mstenber
--- Last modified: Thu May 23 15:09:15 2013 mstenber
--- Edit time:     33 min
+-- Last modified: Tue May 28 16:37:31 2013 mstenber
+-- Edit time:     34 min
 --
 
 -- This is VERY minimalist DNS server. It abstracts away dns_tree
@@ -58,7 +58,7 @@ function dns_server:match(req)
    local root = self:get_root()
    local q = msg.qd[1]
    local r = {root:match_ll(q.name)}
-   self:d('got', r)
+   self:d('got match', r)
    return unpack(r)
 end
 
