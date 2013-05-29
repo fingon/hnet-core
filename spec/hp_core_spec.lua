@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Mon May 27 14:46:17 2013 mstenber
+-- Last modified: Wed May 29 22:26:38 2013 mstenber
 -- Edit time:     304 min
 --
 
@@ -165,7 +165,7 @@ describe("prefix_to_ll", function ()
                   for i, v in ipairs(prefix_to_ll_material)
                   do
                      local p, exp_ll = unpack(v)
-                     local ll = hp_core.prefix_to_ll(p)
+                     local ll = dns_db.prefix2ll(p)
                      mst.a(mst.repr_equal(ll, exp_ll),
                            'not equal', ll, exp_ll)
                   end

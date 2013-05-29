@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Wed May 29 22:23:36 2013 mstenber
--- Edit time:     982 min
+-- Last modified: Wed May 29 22:26:08 2013 mstenber
+-- Edit time:     986 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -132,7 +132,7 @@ function mdns:get_local_binary_prefix_set()
    end
    self:a(self.local_binary2ifname, 
           'no local_binary2ifname', 
-          map, refreshed)
+          map, gen)
    return self.local_binary2ifname
 end
 
