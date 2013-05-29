@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:03:28 2013 mstenber
--- Last modified: Mon May 20 13:04:57 2013 mstenber
--- Edit time:     9 min
+-- Last modified: Wed May 29 19:08:22 2013 mstenber
+-- Edit time:     10 min
 --
 
 module(...)
@@ -65,9 +65,11 @@ OPCODE_UPDATE=4 -- RFC2136
 
 -- reverse LL for IPv4
 REVERSE_LL_IPV4={'in-addr', 'arpa'}
+REVERSE_LL_IPV4_INVERSE={'arpa', 'in-addr'}
 
 -- reverse LL for IPv6
 REVERSE_LL_IPV6={'ip6', 'arpa'}
+REVERSE_LL_IPV6_INVERSE={'arpa', 'ip6'}
 
 GOOGLE_IPV4='8.8.8.8'
 GOOGLE_IPV6='2001:4860:4860::8888'

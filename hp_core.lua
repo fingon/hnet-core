@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Tue May 28 07:46:55 2013 mstenber
--- Edit time:     377 min
+-- Last modified: Wed May 29 19:10:11 2013 mstenber
+-- Edit time:     380 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -88,7 +88,7 @@ function prefix_to_ll(s)
    then
       -- IPv4 is of format
       -- <reverse-ip>.in-addr.arpa
-      a = mst.array:new{'arpa', 'in-addr'}
+      a = mst.array:new(mst.table_copy(dns_const.REVERSE_LL_IPV4_INVERSE))
       for i=13,bits/8
       do
          a:insert(tostring(string.byte(string.sub(b, i, i))))
@@ -96,7 +96,7 @@ function prefix_to_ll(s)
    else
       -- IPv6 is of format
       -- <reverse-ip6-addr-per-hex-octet>.ip6.arpa
-      a = mst.array:new{'arpa', 'ip6'}
+      a = mst.array:new(mst.table_copy(dns_const.REVERSE_LL_IPV6_INVERSE))
       -- just whole bytes?
       for i=1,bits/8
       do
