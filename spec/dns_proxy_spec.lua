@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 12:51:51 2013 mstenber
--- Last modified: Mon May 20 19:47:28 2013 mstenber
--- Edit time:     39 min
+-- Last modified: Thu May 30 15:19:40 2013 mstenber
+-- Edit time:     40 min
 --
 
 require "busted"
@@ -58,7 +58,7 @@ function test_response_tcp(msg, host, port)
    local cmsg = dns_channel.msg:new{msg=msg}
    local got = scr.timeouted_run_async_call(1, 
                                             function ()
-                                               local c, err = dns_channel.get_tcp_channel{port=0, server=host, server_port=port}
+                                               local c, err = dns_channel.get_tcp_channel{port=0, remote_ip=host, remote_port=port}
                                                mst.a(c, 'unable to create channel', err)
                                                c:send(cmsg)
                                                local r = c:receive(1)
