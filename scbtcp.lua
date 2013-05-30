@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 11:15:32 2013 mstenber
--- Last modified: Thu May 16 11:26:04 2013 mstenber
--- Edit time:     22 min
+-- Last modified: Thu May 30 15:12:57 2013 mstenber
+-- Edit time:     23 min
 --
 
 -- (Code has been moved here from scb.lua)
@@ -181,7 +181,7 @@ function create_socket(d)
    -- no mandatory parameters really, can have ip if necessary
    --mst.check_parameters("scb:create_listener", d, {"host"}, 3)
    local s
-   if scb.parameters_or_host_ipv6ish(d)
+   if scb.parameters_ipv6ish(d)
    then
       s = socket.tcp6()
    else
