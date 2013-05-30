@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Wed May 29 21:00:33 2013 mstenber
--- Edit time:     205 min
+-- Last modified: Thu May 30 13:45:59 2013 mstenber
+-- Edit time:     207 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -119,7 +119,7 @@ function prefix2ll(s)
       for i=1,bits/8
       do
          local v = string.byte(string.sub(b, i, i))
-         a:insert(string.format('%x', v / 16))
+         a:insert(string.format('%x', math.floor(v / 16)))
          a:insert(string.format('%x', v % 16))
       end
    end
