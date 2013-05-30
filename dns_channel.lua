@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Mon May 27 09:28:15 2013 mstenber
--- Edit time:     165 min
+-- Last modified: Thu May 30 15:16:24 2013 mstenber
+-- Edit time:     173 min
 --
 
 -- DNS channels is an abstraction between two entities that speak DNS,
@@ -83,18 +83,25 @@ function msg:get_msg()
 end
 
 function msg:resolve_udp(timeout)
+   self:d('resolve_udp', timeout)
    local server = self.ip
    mst.a(server, 'server mandatory')
    local msg = self:get_msg()
    mst.a(msg and msg.h and msg.h.id, 'msg with id mandatory', msg)
-   local c, err = get_udp_channel{ip='*', port=0}
+   local c, err = get_udp_channel{ip='*', port=0, remote_ip=server}
    if not c then return c, err end
    local dst = {server, dns_const.PORT}
    local r, err = c:send(self, dst, timeout)
-   if not r then return nil, err end
+   if not r 
+   then 
+      self:d('send returned nil', err)
+      return nil, err 
+   end
    while true
    do
+      self:d('waiting for reply')
       local got, err = c:receive(timeout)
+      self:d('got reply', got, err)
       if not got then return nil, err end
       local msg2, err2 = got:get_msg()
       local ip, port = got.ip, got.port
@@ -111,11 +118,12 @@ function msg:resolve_udp(timeout)
 end
 
 function msg:resolve_tcp(timeout)
+   self:d('resolve_tcp', timeout)
    local server = self.ip
    local msg = self:get_msg()
    mst.a(server and msg, 'server+msg not provided')
    -- just sanity check, we pass along really self
-   local c = get_tcp_channel{ip='*', port=0, server=server}
+   local c = get_tcp_channel{ip='*', port=0, remote_ip=server}
    if not c then return c, err end
    local r, err = c:send(self, timeout)
    if not r then return nil, err end
@@ -234,10 +242,10 @@ end
 
 function get_udp_channel(self)
    self = self or {}
-   local ip = self.ip or '*'
-   local port = self.port or dns_const.PORT 
-   mst.d('creating udp socket', self)
-   local udp_s, err = scb.create_udp_socket{ip=ip, port=port}
+   self.ip = self.ip or '*'
+   self.port = self.port or dns_const.PORT 
+   mst.d('creating udp socket [get_udp_channel]', self)
+   local udp_s, err = scb.create_udp_socket(self)
    mst.a(udp_s, 'unable to create udp socket', err)
    return udp_channel:new{s=udp_s}
 end
@@ -247,12 +255,12 @@ function get_tcp_channel(self)
    local ip = self.ip or '*'
    local port = self.port or dns_const.PORT
    mst.d('creating tcp socket', self)
-   mst.a(self.server)
+   mst.a(self.remote_ip)
    local tcp_s, err = scbtcp.create_socket{ip=ip, port=port}
    mst.a(tcp_s, 'unable to create tcp socket', port, err)
    local c = tcp_channel:new{s=tcp_s}
-   local server_port = self.server_port or dns_const.PORT
-   local r, err = c.s:connect(self.server, server_port)
+   local remote_port = self.remote_port or dns_const.PORT
+   local r, err = c.s:connect(self.remote_ip, remote_port)
    if not r
    then
       return nil, err

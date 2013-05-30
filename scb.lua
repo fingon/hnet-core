@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:10:18 2012 mstenber
--- Last modified: Thu May 16 11:25:01 2013 mstenber
--- Edit time:     212 min
+-- Last modified: Thu May 30 15:12:36 2013 mstenber
+-- Edit time:     216 min
 --
 
 -- convenience stuff on top of LuaSocket (most of the action happens
@@ -133,7 +133,7 @@ function wrap_udp_socket(d)
    return o
 end
 
-function parameters_or_host_ipv6ish(d)
+function parameters_ipv6ish(d)
    -- check explicit parameters
    if d.ipv4 or not support_ipv6
    then
@@ -153,6 +153,15 @@ function parameters_or_host_ipv6ish(d)
          return false
       end
    end
+
+   if d.remote_ip
+   then
+      local r = ipv4s.address_to_binary_address(d.remote_ip)
+      if r
+      then
+         return false
+      end
+   end
    return true
 end
 
@@ -161,8 +170,9 @@ function create_udp_socket(d)
                         {"ip", "port"}, 3)
    local s
    -- should we?
-   if parameters_or_host_ipv6ish(d)
+   if parameters_ipv6ish(d)
    then
+      mst.d('creating udp6 socket for', d)
       s = socket.udp6()
       if d.v6only
       then
@@ -170,6 +180,7 @@ function create_udp_socket(d)
          mst.a(r, err)
       end
    else 
+      mst.d('creating udp socket for', d)
       -- normal socket? v4/v6 decision is painful here though, but
       -- guess we don't really want IPv4 anyway..
       s = socket.udp()
