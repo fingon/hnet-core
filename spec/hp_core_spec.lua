@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Wed May 29 22:26:38 2013 mstenber
--- Edit time:     304 min
+-- Last modified: Thu May 30 09:26:01 2013 mstenber
+-- Edit time:     322 min
 --
 
 require 'busted'
@@ -172,6 +172,8 @@ describe("prefix_to_ll", function ()
                         end)
                          end)
 
+local ip6_local = '1.0.0.0.0.0.e.e.b.d.a.e.d.ip6.arpa'
+
 local q_to_r_material = {
    {'bar.com', hp_core.RESULT_FORWARD_EXT},
    {'foo.com', nil},
@@ -190,7 +192,7 @@ local q_to_r_material = {
    {'d.a.e.d.ip6.arpa', nil},
    {'d.ip6.arpa', hp_core.RESULT_FORWARD_EXT},
    -- local
-   {'1.0.0.0.0.0.e.e.b.d.a.e.d.ip6.arpa', hp_core.RESULT_FORWARD_MDNS},
+   {ip6_local, hp_core.RESULT_FORWARD_MDNS},
    -- remote
    {'1.0.0.0.0.1.e.e.b.d.a.e.d.ip6.arpa', hp_core.RESULT_FORWARD_INT},
 }
@@ -198,12 +200,14 @@ local q_to_r_material = {
 local n_nonexistent_foo={'nonexistent', 'foo', 'com'}
 local n_bar_com={"bar", "com"}
 local n_x_mine={'x', IP .. 'iid1', RP .. 'rid1', 'foo', 'com'}
+local n_x_reverse=dns_db.name2ll(ip6_local)
 local n_y_mine={'y', IP .. 'iid1', RP .. 'rid1', 'foo', 'com'}
 local n_x_other={'x', IP.. 'iid1', RP .. 'rid2', 'foo', 'com'}
 local n_b_dnssd={'b', '_dns-sd', '_udp', 'foo', 'com'}
 
 local q_bar_com = {name=n_bar_com, qclass=1, qtype=255}
 local q_x_mine = {name=n_x_mine, qclass=1, qtype=255}
+local q_x_reverse = {name=n_x_reverse, qclass=1, qtype=255}
 local q_x_other = {name=n_x_other, qclass=1, qtype=255}
 local q_nonexistent = {name=n_nonexistent_foo, qclass=1, qtype=255}
 local q_b_dnssd = {name=n_b_dnssd, 
@@ -256,6 +260,13 @@ local rr_x_mine = {name=n_x_mine, rtype=dns_const.TYPE_A, rdata_a="8.7.6.5", rcl
 
 local rr_y_mine = {name=n_y_mine, rtype=dns_const.TYPE_A, rdata_a="9.8.7.6", rclass=dns_const.CLASS_IN}
 
+local rr_x_reverse = {name=n_x_reverse, rtype=dns_const.TYPE_PTR, rdata_ptr=n_x_mine, rclass=dns_const.CLASS_IN}
+
+local rr_x_reverse_local = mst.table_copy(rr_x_reverse)
+rr_x_reverse_local.rdata_ptr = {'x', 'local'}
+
+
+
 local msg_x_mine_result = {
    h={id=123, qr=true, ra=true},
    qd={q_x_mine},
@@ -265,6 +276,14 @@ local msg_x_mine_result = {
    ar={
       rr_y_mine,
    }
+}
+
+local msg_x_reverse_result = {
+   h={id=123, qr=true, ra=true},
+   qd={q_x_reverse},
+   an={
+      rr_x_reverse,
+   },
 }
 
 local rr_x_local = mst.table_copy(rr_x_mine)
@@ -291,48 +310,6 @@ local hp_process_dns_results = {
    },
 }
 
-local hp_process_tests = {
-   -- first case - forward ext, fails
-   {
-      q_bar_com,
-      nil,
-   },
-   -- second case - forward ext, succeeds
-   {
-      q_bar_com,
-      msg_bar_com_nxdomain,
-   },
-   -- third case, forward int
-   {
-      q_x_other,
-      msg_x_other_content,
-   },
-   -- nxdomain
-   {
-      q_nonexistent,
-      msg_nonexistent_nxdomain,
-   },
-   -- mdns forward - error
-   {
-      q_x_mine,
-   },
-   -- mdns forward - timeout
-   {
-      q_x_mine,
-      msg_x_mine_nxdomain,
-   },
-   -- mdns forward - real result
-   {
-      q_x_mine,
-      msg_x_mine_result,
-   },
-   -- browse path
-   {
-      q_b_dnssd,
-      msg_b_dnssd,
-   }
-}
-
 local hp_process_mdns_results = {
    -- error => nil
    {
@@ -356,7 +333,63 @@ local hp_process_mdns_results = {
          {name={'bar', 'com'}, rtype=dns_const.TYPE_A, rdata_a="1.2.3.4", rclass=dns_const.TYPE_IN},
       }
    },
+   -- ok, with ip
+   {
+      {"eth0", {name=n_x_reverse, qclass=1, qtype=255}, 0.5},
+      {
+         rr_x_reverse_local,
+      }
+   },
+   
 }
+
+local hp_process_tests = {
+   -- #1 forward ext, fails
+   {
+      q_bar_com,
+      nil,
+   },
+   -- #2 forward ext, succeeds
+   {
+      q_bar_com,
+      msg_bar_com_nxdomain,
+   },
+   -- #3 forward int
+   {
+      q_x_other,
+      msg_x_other_content,
+   },
+   -- #4 nxdomain
+   {
+      q_nonexistent,
+      msg_nonexistent_nxdomain,
+   },
+   -- #5 mdns forward - error
+   {
+      q_x_mine,
+   },
+   -- #6 mdns forward - timeout
+   {
+      q_x_mine,
+      msg_x_mine_nxdomain,
+   },
+   -- #7 mdns forward - real result
+   {
+      q_x_mine,
+      msg_x_mine_result,
+   },
+   -- #8 mdns forward - reverse address
+   {
+      q_x_reverse,
+      msg_x_reverse_result,
+   },
+   -- #9 browse path
+   {
+      q_b_dnssd,
+      msg_b_dnssd,
+   }
+}
+
 
 
 function assert_dns_result_equals(exp, got)

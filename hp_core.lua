@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Wed May 29 21:00:52 2013 mstenber
--- Edit time:     381 min
+-- Last modified: Thu May 30 09:06:59 2013 mstenber
+-- Edit time:     395 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -146,63 +146,6 @@ function hybrid_proxy:recreate_tree()
 
    local router = domain:add_child(dns_tree.create_node_callback{label=self:rid2label(myrid)})
 
-   -- Populate the reverse zone with appropriate nxdomain-generating
-   -- entries as well
-
-   local function create_reverse_zone(s)
-      local ll = dns_db.prefix2ll(s)
-      local o = fcs(root, ll,
-                    -- [5r] end node
-                    dns_server.create_default_nxdomain_node_callback,
-                    -- [4r] intermediate node
-                    create_default_forward_ext_node_callback)
-   end
-   
-   self:iterate_usable_prefixes(create_reverse_zone)
-
-   local function create_reverse_hierarchy (o)
-      -- no prefix -> we can't create reverse hierarchy for this
-      local prefix = o.prefix
-      if not prefix
-      then
-         return
-      end
-
-      local ll = dns_db.prefix2ll(prefix)
-      local rid = o.rid
-      local iid = o.iid
-      local ip = o.ip
-
-      local function create_domain_node (o)
-         local n = dns_server.create_default_nxdomain_node_callback(o)
-         local hp = self
-         function n:get_default(req)
-            -- [2r] local prefix => handle 'specially'
-            if rid == myrid
-            then
-               local ifname = hp:get_local_ifname_for_prefix(prefix)
-               self:a(ifname, 'no ifname for prefix', prefix)
-               local ll = n:get_ll()
-               self:a(ll)
-               return RESULT_FORWARD_MDNS, {ifname, ll}
-            else
-               -- [3r] remote rid => query it instead
-               return RESULT_FORWARD_INT, ip
-            end
-         end
-         mst.d(' (actually domain node)')
-         return n
-      end
-      
-      local o = fcs(root, ll,
-                    -- [2r/3r] end node
-                    create_domain_node,
-                    -- [5r] intermediate node
-                    dns_server.create_default_nxdomain_node_callback)
-      
-   end
-   self:iterate_ap(create_reverse_hierarchy)
-
    local b_dns_sd_ll = mst.table_copy(dns_const.B_DNS_SD_LL)
    mst.array_extend(b_dns_sd_ll, domain_ll)
 
@@ -270,6 +213,65 @@ function hybrid_proxy:recreate_tree()
       end
    end
    self:iterate_ap(create_forward_hierarchy)
+
+   -- Populate the reverse zone with appropriate nxdomain-generating
+   -- entries as well
+   local function create_reverse_zone(s)
+      local ll = dns_db.prefix2ll(s)
+      local o = fcs(root, ll,
+                    -- [5r] end node
+                    dns_server.create_default_nxdomain_node_callback,
+                    -- [4r] intermediate node
+                    create_default_forward_ext_node_callback)
+   end
+   
+   self:iterate_usable_prefixes(create_reverse_zone)
+
+   local function create_reverse_hierarchy (o)
+      -- no prefix -> we can't create reverse hierarchy for this
+      local prefix = o.prefix
+      if not prefix
+      then
+         return
+      end
+
+      local ll = dns_db.prefix2ll(prefix)
+      local rid = o.rid
+      local iid = o.iid
+      local liid = self:iid2label(iid, rid)
+      local ip = o.ip
+
+      local function create_domain_node (o)
+         local n = dns_server.create_default_nxdomain_node_callback(o)
+         local hp = self
+         function n:get_default(req)
+            -- [2r] local prefix => handle 'specially'
+            if rid == myrid
+            then
+               local ifname = hp:get_local_ifname_for_prefix(prefix)
+               self:a(ifname, 'no ifname for prefix', prefix)
+               local on = router:get_child(liid)
+               self:a(on, 'forward hierarchy creation bug?')
+               local ll = on:get_ll()
+               self:a(ll)
+               return RESULT_FORWARD_MDNS, {ifname, ll}
+            else
+               -- [3r] remote rid => query it instead
+               return RESULT_FORWARD_INT, ip
+            end
+         end
+         mst.d(' (actually domain node)')
+         return n
+      end
+      
+      local o = fcs(root, ll,
+                    -- [2r/3r] end node
+                    create_domain_node,
+                    -- [5r] intermediate node
+                    dns_server.create_default_nxdomain_node_callback)
+      
+   end
+   self:iterate_ap(create_reverse_hierarchy)
 
    -- XXX - populate [1]
    -- (what static information _do_ we need?)
@@ -473,6 +475,8 @@ function hybrid_proxy:rewrite_rrs_from_mdns_to_reply_msg(req, mdns_q,
 end
 
 function hybrid_proxy:mdns_forward(req, ifname, ll)
+   self:d('mdns_forward', ifname, ll)
+
    -- On high level, this is really simple process. while underneath
    -- it may involve asynchronous stuff (in relation to mdns caching
    -- etc), as we're running within scr coroutine, this can be done
