@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Thu May 30 09:06:59 2013 mstenber
--- Edit time:     395 min
+-- Last modified: Thu May 30 10:01:48 2013 mstenber
+-- Edit time:     398 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -138,6 +138,17 @@ function hybrid_proxy:recreate_tree()
       return RESULT_FORWARD_EXT
    end
    local domain_ll = dns_db.name2ll(self.domain)
+   -- create .local zone too, which always says NXDOMAIN
+   local localz = fcs(root, mdns_const.LL,
+                      -- end node
+                      dns_server.create_default_nxdomain_node_callback,
+                      -- intermediate node
+                      create_default_forward_ext_node_callback)
+   function localz:get_value(req)
+      self:d('returning nxdomain')
+      return dns_server.RESULT_NXDOMAIN
+   end
+
    local domain = fcs(root, domain_ll,
                       -- end node
                       dns_server.create_default_nxdomain_node_callback,

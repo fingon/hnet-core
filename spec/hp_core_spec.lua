@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Thu May 30 09:26:01 2013 mstenber
--- Edit time:     322 min
+-- Last modified: Thu May 30 09:58:13 2013 mstenber
+-- Edit time:     324 min
 --
 
 require 'busted'
@@ -177,6 +177,8 @@ local ip6_local = '1.0.0.0.0.0.e.e.b.d.a.e.d.ip6.arpa'
 local q_to_r_material = {
    {'bar.com', hp_core.RESULT_FORWARD_EXT},
    {'foo.com', nil},
+   {'local', dns_server.RESULT_NXDOMAIN},
+   {'foo.local', dns_server.RESULT_NXDOMAIN},
    {'nonexistent.foo.com', dns_server.RESULT_NXDOMAIN},
    {RP .. 'rid1.foo.com', nil},
    {IP .. 'iid1.' .. RP .. 'rid1.foo.com', nil},
