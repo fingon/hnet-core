@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 17:40:20 2013 mstenber
--- Last modified: Mon May 27 14:37:13 2013 mstenber
--- Edit time:     29 min
+-- Last modified: Thu May 30 14:13:56 2013 mstenber
+-- Edit time:     30 min
 --
 
 require 'busted'
@@ -38,6 +38,7 @@ local IID1 = 'iid1'
 local IID2 = 234
 local IFNAME = 'if-name'
 local IP2 = '2.3.4.5/32'
+local IP2_NOMASK = '2.3.4.5'
 
 describe("hybrid_ospf", function ()
             it("works", function ()
@@ -117,7 +118,7 @@ describe("hybrid_ospf", function ()
                      {{prefix=ASP2, 
                       iid=IID2, 
                       rid=RID2,
-                      ip=IP2,
+                      ip=IP2_NOMASK,
                       },
                      }
                   }
