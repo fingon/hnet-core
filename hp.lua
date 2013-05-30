@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Wed May 29 21:47:11 2013 mstenber
--- Edit time:     47 min
+-- Last modified: Thu May 30 14:43:11 2013 mstenber
+-- Edit time:     51 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -123,14 +123,23 @@ local pis = per_ip_server.per_ip_server:new{
                                      process_callback=cb}
    end}
 
+local function valid_lap_filter(lap)
+   -- we're interested about _any_ if! even if
+   -- we're not owner, as we have to give answers
+   -- for our own address. however, if we're
+   -- deprecated, then not that good.. or external,
+   -- perhaps
+   local ext = lap.external
+   local dep = lap.depracate
+   return not ext and not dep
+end
+
 if args.ospf
 then
    local s = skv.skv:new{long_lived=false}
-   mdns:attach_skv(s, function (lap)
-                      return lap.owner 
-                      end)
+   mdns:attach_skv(s, valid_lap_filter)
    hp:attach_skv(s)
-   pis:attach_skv(s)
+   pis:attach_skv(s, valid_lap_filter)
    
    -- Rather brute force approach: update the local IP information
    -- every 10 seconds if it's relevant (in practise, once every
