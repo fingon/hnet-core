@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Wed May 29 22:16:11 2013 mstenber
--- Edit time:     790 min
+-- Last modified: Thu May 30 09:47:53 2013 mstenber
+-- Edit time:     792 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -1722,7 +1722,9 @@ function mdns_if:create_reverse(rr)
       return {name=dns_db.prefix2ll(rr.rdata_aaaa .. '/128'),
               rclass=rr.rclass,
               rtype=dns_const.TYPE_PTR,
-              rdata_ptr=rr.name}
+              rdata_ptr=rr.name,
+              cache_flush=rr.cache_flush,
+             }
    end
 end
 
