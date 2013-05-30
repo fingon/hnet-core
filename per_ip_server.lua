@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 16 14:06:16 2013 mstenber
--- Last modified: Mon May 27 12:07:08 2013 mstenber
+-- Last modified: Thu May 30 14:42:36 2013 mstenber
 -- Edit time:     21 min
 --
 
@@ -78,7 +78,7 @@ function per_ip_server:detach_skv()
    self.f = nil
 end
 
-function per_ip_server:attach_skv(skv)
+function per_ip_server:attach_skv(skv, f)
    -- detach if we already were attached
    self:detach_skv()
 
@@ -96,11 +96,14 @@ function per_ip_server:attach_skv(skv)
          local a = lap.address
          if a
          then
-            -- is this even neccessary? probably, given where we get
-            -- these addresses from..
-            a = mst.string_split(a, '/')[1]
+            if not f or f(lap)
+            then
+               -- is this even neccessary? probably, given where we get
+               -- these addresses from..
+               a = mst.string_split(a, '/')[1]
 
-            table.insert(l, a)
+               table.insert(l, a)
+            end
          end
       end
       self:set_ips(l)
