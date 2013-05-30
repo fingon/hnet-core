@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon May 27 09:44:36 2013 mstenber
+-- Last modified: Thu May 30 12:40:59 2013 mstenber
 -- Edit time:     723 min
 --
 
@@ -116,7 +116,7 @@ function debug_print(f, ...)
    end
    if enable_debug_date_ms
    then
-      local ms = socket.gettime()*1000%1000
+      local ms = math.floor(socket.gettime()*1000%1000)
       local ts = os.date('%x %X')
       f(string.format('%s.%03d', ts, ms), ...)
    elseif enable_debug_date
