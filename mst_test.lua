@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Thu May 23 21:44:43 2013 mstenber
--- Edit time:     4 min
+-- Last modified: Thu May 30 09:59:37 2013 mstenber
+-- Edit time:     5 min
 --
 
 -- testing related utilities
@@ -29,7 +29,7 @@ function test_list(a, f, assert_equals)
       local result, err = f(input)
 
       -- and make sure that (repr-wise) result is correct
-      assert_equals = assert_equals or function (v1, v2)
+      local assert_equals = assert_equals or function (v1, v2)
          mst.a(mst.repr_equal(v1, v2), 
                'not same - exp', v1, 
                'got', v2,
