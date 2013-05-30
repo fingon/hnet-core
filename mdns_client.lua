@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Wed May 29 22:40:14 2013 mstenber
--- Edit time:     35 min
+-- Last modified: Thu May 30 09:47:28 2013 mstenber
+-- Edit time:     37 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -213,7 +213,9 @@ function mdns_client:update_own_records(myname)
          rrs:insert{name={myname, 'local'},
                     rclass=dns_const.CLASS_IN,
                     rtype=dns_const.TYPE_AAAA,
-                    rdata_aaaa=addr}
+                    rdata_aaaa=addr,
+                    cache_flush=true,
+                   }
       end
    end
 
