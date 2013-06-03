@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Mon Jun  3 16:07:57 2013 mstenber
--- Edit time:     793 min
+-- Last modified: Mon Jun  3 16:43:42 2013 mstenber
+-- Edit time:     795 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -197,6 +197,12 @@ elsa_pa = mst.create_class{class='elsa_pa',
                           }
 
 function elsa_pa:init()
+   -- set of _all_ interface names we've _ever_ seen (used for
+   -- checking SKV for tidbits). initialized only here so that it
+   -- won't be screwed if pa reconfigure is called.
+
+   self.all_seen_if_names = mst.set:new{}
+
    self.f = function (k, v) self:kv_changed(k, v) end
    self.skv:add_change_observer(self.f)
 
@@ -239,10 +245,6 @@ function elsa_pa:init_own()
    self.last_originate = 0
    -- and what did it contain?
    self.last_body = ''
-
-   -- set of _all_ interface names we've _ever_ seen (used for
-   -- checking SKV for tidbits)
-   self.all_seen_if_names = mst.set:new{}
 end
 
 function elsa_pa:init_pa(o)
