@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu May 23 14:43:08 2013 mstenber
--- Edit time:     783 min
+-- Last modified: Mon Jun  3 15:51:17 2013 mstenber
+-- Edit time:     790 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -54,16 +54,14 @@ FORCE_SKV_AC_CHECK_INTERVAL=60
 
 PD_SKVPREFIX='pd.'
 DHCPV4_SKVPREFIX='dhcp.'
-SIXRD_SKVPREFIX='6rd.'
-
--- hardcoded device for 6rd (it's not associated with real devices)
-SIXRD_DEV='6rd'
+TUNNEL_SKVPREFIX='tunnel.'
 
 -- these keys are used within the objects to describe found information
 PREFIX_KEY='prefix'
 DNS_KEY='dns'
 DNS_SEARCH_KEY='dns_search'
 NH_KEY='nh'
+IFLIST_KEY='iflist' -- allow overriding of active interfaces for source type
 
 -- extra info fields not used directly, but used in e.g. pm handlers
 PREFIX_CLASS_KEY='pclass'
@@ -105,8 +103,6 @@ MDNS_OSPF_SKV_KEY='ospf-mdns'
 -- allow for configuration of prefix assignment algorithm
 -- via skv too
 PA_CONFIG_SKV_KEY='pa-config'
-
-PD_IFLIST_KEY='pd-iflist' -- allow overriding of active interfaces
 
 -- JSON fields within jsonblob AC TLV
 JSON_ASA_KEY='asa'
@@ -1025,13 +1021,8 @@ function elsa_pa:iterate_all_skv_prefixes(f)
       end
       return g
    end
-   self:iterate_skvprefix_o(PD_SKVPREFIX, 
-                            create_metric_callback(1000)
-                           )
-   self:iterate_skvprefix_o(SIXRD_SKVPREFIX, 
-                            create_metric_callback(2000),
-                            {SIXRD_DEV}
-                           )
+   self:iterate_skvprefix_o(PD_SKVPREFIX, create_metric_callback(1000))
+   self:iterate_skvprefix_o(TUNNEL_SKVPREFIX, create_metric_callback(2000))
 end
 
 function elsa_pa:get_field_array(locala, jsonfield, cl, get_keys)
@@ -1072,7 +1063,7 @@ end
 -- iterate callback called with object + name of interface (possibly N
 -- times per interface name)
 function elsa_pa:iterate_skvprefix_o(prefix, f, l)
-   for i, ifname in ipairs(l or self.skv:get(PD_IFLIST_KEY) 
+   for i, ifname in ipairs(l or self.skv:get(prefix .. IFLIST_KEY) 
                            or self.all_seen_if_names:keys())
    do
       local l = self.skv:get(string.format('%s%s', 

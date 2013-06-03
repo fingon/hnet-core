@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Thu Mar 28 14:17:37 2013 mstenber
--- Edit time:     417 min
+-- Last modified: Mon Jun  3 15:53:21 2013 mstenber
+-- Edit time:     419 min
 --
 
 require 'mst'
@@ -19,6 +19,7 @@ require 'skv'
 require 'ssloop'
 
 module("elsa_pa_spec", package.seeall)
+
 
 local _dsm = require 'dsm'
 local dsm = _dsm.dsm
@@ -37,6 +38,8 @@ local valid_end='::/64'
 
 local FAKE_DNS_ADDRESS='dead::1'
 local FAKE_DNS_SEARCH='dummy.local'
+
+local SIXRD_DEV='6rd'
 
 -- override timeouts so that this won't take forever..
 elsa_pa.LAP_DEPRACATE_TIMEOUT=0.01
@@ -280,7 +283,7 @@ describe("elsa_pa [one node]", function ()
 
                   -- now we fake it that we got prefix from pd
                   -- (skv changes - both interface list, and pd info)
-                  s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth1'})
+                  --s:set(elsa_pa.IFLIST_KEY, {'eth0', 'eth1'})
                   s:set(elsa_pa.PD_SKVPREFIX .. 'eth0', 
                         {
                            {
@@ -327,7 +330,7 @@ describe("elsa_pa [one node]", function ()
 
                   -- now we fake it that we got prefix from pd
                   -- (skv changes - both interface list, and pd info)
-                  s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth2'})
+                  --s:set(elsa_pa.IFLIST_KEY, {'eth0', 'eth2'})
                   s:set(elsa_pa.PD_SKVPREFIX .. 'eth0', 
                         {
                            {[elsa_pa.PREFIX_KEY]='dead::/16',
@@ -385,11 +388,13 @@ describe("elsa_pa [one node]", function ()
 
                   -- now we fake it that we got prefix from pd
                   -- (skv changes - both interface list, and pd info)
-                  s:set(elsa_pa.SIXRD_SKVPREFIX .. elsa_pa.SIXRD_DEV,
+                  s:set(elsa_pa.TUNNEL_SKVPREFIX .. SIXRD_DEV,
                         {
                            {prefix='dead::/16'},
                         }
                        )
+                  s:set(elsa_pa.TUNNEL_SKVPREFIX .. elsa_pa.IFLIST_KEY,
+                        {SIXRD_DEV})
                   
                   -- make sure it's recognized as usp
                   ep:run()

@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Mon Apr 29 11:05:28 2013 mstenber
+-- Last modified: Mon Jun  3 15:54:12 2013 mstenber
 -- Edit time:     245 min
 --
 
@@ -256,7 +256,8 @@ describe("pm", function ()
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid=myrid}
                            e:add_node(ep)
                            s:set(elsa_pa.OSPF_RID_KEY, myrid)
-                           s:set(elsa_pa.PD_IFLIST_KEY, {'eth0', 'eth1'})
+                           s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.IFLIST_KEY, 
+                                 {'eth0', 'eth1'})
                            s:set(elsa_pa.PD_SKVPREFIX .. 'eth0',
                                  {
                                     eth0_prefix1,
