@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Thu May 30 13:45:59 2013 mstenber
+-- Last modified: Mon Jun  3 17:47:55 2013 mstenber
 -- Edit time:     207 min
 --
 
@@ -336,6 +336,8 @@ function ns:insert_rr(o, do_copy)
    -- these fields have to be set
    self:a(o.name and o.rtype and o.rclass, 
           'one of mandatory fields is missing (name/rtype/rclass)', o)
+   self:a(o.rtype > 0, 'rtype == 0', o)
+   self:a(o.rclass > 0, 'rclass == 0', o)
 
    -- let's see if we have _exactly_ same rr already
    local old_rr = self:find_rr(o)
