@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Tue Mar 26 16:11:59 2013 mstenber
-# Edit time:     17 min
+# Last modified: Mon Jun  3 12:56:19 2013 mstenber
+# Edit time:     18 min
 #
 
 # Start or stop bird4 (for 'home' routing)
@@ -18,6 +18,14 @@
 # start RID
 # or
 # stop
+
+if [ -f /usr/bin/hnetenv.sh ]
+then
+    . /usr/bin/hnetenv.sh
+    BIRD4=$HNET/build/bin/bird4
+else
+    BIRD4=bird4
+fi
 
 CONF=/tmp/pm-bird4.conf
 
@@ -66,7 +74,7 @@ protocol ospf {
 }
 
 EOF
-    bird4 -c $CONF
+    $BIRD4 -c $CONF
 }
 
 stop() {
