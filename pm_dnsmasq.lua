@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov 21 17:13:32 2012 mstenber
--- Last modified: Mon May 27 12:24:39 2013 mstenber
--- Edit time:     104 min
+-- Last modified: Mon Jun  3 12:40:35 2013 mstenber
+-- Edit time:     106 min
 --
 
 require 'pm_handler'
@@ -114,7 +114,11 @@ function pm_dnsmasq:write_dnsmasq_conf_dns(t)
       -- so it isn't _that_ great problem, just annoying)
 
       -- for search list, we tack 'home' to the end (XXX - make this
-      -- configuratble)
+      -- configuratble; we have to make copy of the list, so we don't
+      -- wind up adding more and more of these as we re-use the same
+      -- field (that is originally from SKV) whenever dnsmasq
+      -- reconfigure happens)
+      search4 = mst.table_copy(search4)
       table.insert(search4, 'home')
       dns4 = {}
 
