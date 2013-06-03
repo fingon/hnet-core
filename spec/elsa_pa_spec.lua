@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Mon Jun  3 15:53:21 2013 mstenber
--- Edit time:     419 min
+-- Last modified: Mon Jun  3 16:08:31 2013 mstenber
+-- Edit time:     420 min
 --
 
 require 'mst'
@@ -393,8 +393,10 @@ describe("elsa_pa [one node]", function ()
                            {prefix='dead::/16'},
                         }
                        )
-                  s:set(elsa_pa.TUNNEL_SKVPREFIX .. elsa_pa.IFLIST_KEY,
-                        {SIXRD_DEV})
+
+                  -- should not be necessary - automatically should
+                  -- occur once TUNNEL_SKVPREFIX is added
+                  --s:set(elsa_pa.TUNNEL_SKVPREFIX .. elsa_pa.IFLIST_KEY, {SIXRD_DEV})
                   
                   -- make sure it's recognized as usp
                   ep:run()

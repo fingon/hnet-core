@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu May 30 12:40:59 2013 mstenber
--- Edit time:     723 min
+-- Last modified: Mon Jun  3 16:07:03 2013 mstenber
+-- Edit time:     725 min
 --
 
 -- data structure abstractions provided:
@@ -630,11 +630,17 @@ function string_rstrip(s)
 end
 
 function string_endswith(s, x)
-   return string.sub(s, -#x) == x
+   if string.sub(s, -#x) == x
+   then
+      return string.sub(s, #x-1)
+   end
 end
 
 function string_startswith(s, x)
-   return string.sub(s, 1, #x) == x
+   if string.sub(s, 1, #x) == x
+   then
+      return string.sub(s, #x+1)
+   end
 end
 
 local _my_varok_table = false

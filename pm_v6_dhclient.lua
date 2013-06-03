@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 16 12:56:30 2012 mstenber
--- Last modified: Tue Mar 26 14:25:56 2013 mstenber
+-- Last modified: Mon Jun  3 16:07:26 2013 mstenber
 -- Edit time:     24 min
 --
 
@@ -30,10 +30,10 @@ function pm_v6_dhclient:run()
    for i, v in ipairs(mst.string_split(self.shell('ls -1 ' .. pm_core.PID_DIR), '\n'))
    do
       v = mst.string_strip(v)
-      if mst.string_startswith(v, DHCLIENT6_PID_PREFIX)
+      local rest = mst.string_startswith(v, DHCLIENT6_PID_PREFIX)
+      if rest
       then
-         local s = string.sub(v, #DHCLIENT6_PID_PREFIX+1)
-         running_ifnames:insert(s)
+         running_ifnames:insert(rest)
       end
    end
 

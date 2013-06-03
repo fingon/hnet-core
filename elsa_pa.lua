@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Mon Jun  3 15:51:17 2013 mstenber
--- Edit time:     790 min
+-- Last modified: Mon Jun  3 16:07:57 2013 mstenber
+-- Edit time:     793 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -288,6 +288,18 @@ function elsa_pa:kv_changed(k, v)
       self:reconfigure_pa(v)
       return
    end
+   -- implicitly add the tunnel interfaces to the all_seen_if_names
+   -- (someone plays with stuff that starts with TUNNEL_SKVPREFIX ->
+   -- stuff happens)
+   local r = mst.string_startswith(k, TUNNEL_SKVPREFIX)
+   if r
+   then
+      if r ~= IFLIST_KEY
+      then
+         self.all_seen_if_names:insert(r)
+      end
+   end
+
    -- should check skv the next time we've run
    self.check_skv = true
 end
