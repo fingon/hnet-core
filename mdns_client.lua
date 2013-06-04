@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Thu May 30 09:47:28 2013 mstenber
--- Edit time:     37 min
+-- Last modified: Mon Jun  3 18:03:22 2013 mstenber
+-- Edit time:     40 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -206,8 +206,11 @@ function mdns_client:update_own_records(myname)
    local rrs = mst.array:new{}
    for ifname, o in pairs(map)
    do
+      local found
       for i, addr in ipairs(o.ipv6)
       do
+         found = true
+
          -- eliminate /64
          addr = mst.string_split(addr, '/')[1]
          rrs:insert{name={myname, 'local'},
@@ -216,6 +219,14 @@ function mdns_client:update_own_records(myname)
                     rdata_aaaa=addr,
                     cache_flush=true,
                    }
+      end
+
+      if found
+      then
+         -- if we have address on device, we _should_ care about it
+         -- enough to have own data structure for it too. this should
+         -- make sure of that.
+         self:get_if(ifname)
       end
    end
 
