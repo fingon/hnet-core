@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct 29 16:05:22 2012 mstenber
--- Last modified: Wed Nov  7 18:27:06 2012 mstenber
--- Edit time:     12 min
+-- Last modified: Tue Jun  4 18:48:40 2013 mstenber
+-- Edit time:     15 min
 --
 
 require "busted"
@@ -26,6 +26,26 @@ hwaddr_array = {
     'upper      Link encap:Ethernet  HWaddr 00:1C:42:A7:F1:D9  '},
    {'ifconfig openwrt | grep HWaddr',
     'eth2      Link encap:Ethernet  HWaddr CE:38:AD:C6:9B:43  \n'},
+}
+
+read_ip_ip4_array = {
+   {'ip -4 addr',
+[[
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc no queue state UNKNOWN 
+    inet 127.0.0.1/8 scope host lo 
+        valid_lft forever preferred_lft forever
+]]
+   },
+   {'ip -4 addr', 
+    [[
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
+    inet 127.0.0.1/8 scope host lo
+2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    inet 10.211.55.3/24 brd 10.211.55.255 scope global eth2
+428: nk_tap_mstenber: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 500
+    inet 192.168.42.1/24 brd 192.168.42.255 scope global nk_tap_mstenber
+]]
+},
 }
 
 describe("if_table", function ()
@@ -48,6 +68,13 @@ describe("if_table", function ()
                   mst.a(hw3)
                   ds:check_used()
                                  end)
+
+            it("works - read_ip_ipv4", function ()
+                  ds:set_array(read_ip_ip4_array)
+                  local m = ift:read_ip_ipv4()
+                  local m = ift:read_ip_ipv4()
+                  ds:check_used()
+                   end)
              end)
 
 route_test = [[
@@ -71,3 +98,4 @@ describe("parse_route", function ()
                   mst.a(routes[3].expires)
                    end)
 end)
+
