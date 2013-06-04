@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 17:40:20 2013 mstenber
--- Last modified: Thu May 30 14:13:56 2013 mstenber
--- Edit time:     30 min
+-- Last modified: Tue Jun  4 11:16:44 2013 mstenber
+-- Edit time:     32 min
 --
 
 require 'busted'
@@ -31,14 +31,22 @@ local DOMAIN_LL={'foo', 'com'}
 
 local USP = 'dead::/16'
 local ASP1 = 'dead:beef::/64'
-local ASP2 = 'dead:bee0::/64'
 local RID1 = 'rid1'
-local RID2 = 123
 local IID1 = 'iid1'
-local IID2 = 234
-local IFNAME = 'if-name'
+
+local ASP2 = 'dead:bee0::/64'
+local RID2 = 123
+local IID2 = 23
 local IP2 = '2.3.4.5/32'
 local IP2_NOMASK = '2.3.4.5'
+
+local ASP3 = 'dead:bee1::/64'
+local RID3 = 234
+local IID3 = 34
+-- rid 3 does not HAVE IP yet for some reason. it still shouldn't
+-- cause things to blow up..
+
+local IFNAME = 'if-name'
 
 describe("hybrid_ospf", function ()
             it("works", function ()
@@ -79,6 +87,11 @@ describe("hybrid_ospf", function ()
                               rid=RID2,
                               iid=IID2,
                            },
+                           {
+                              prefix=ASP3,
+                              rid=RID3,
+                              iid=IID3,
+                           },
                         })
 
                   s:set(elsa_pa.OSPF_ASA_KEY, 
@@ -91,6 +104,7 @@ describe("hybrid_ospf", function ()
                               rid=RID2,
                               prefix=IP2,
                            },
+                           -- no ASA for RID3
                         })
                   
                   s:set(elsa_pa.OSPF_LAP_KEY, 
@@ -120,7 +134,12 @@ describe("hybrid_ospf", function ()
                       rid=RID2,
                       ip=IP2_NOMASK,
                       },
-                     }
+                     },
+                     {{prefix=ASP3,
+                      iid=IID3,
+                      rid=RID3,
+                      },
+                     },
                   }
                   
                   mst.a(mst.repr_equal(l, e), 'not same', l, e)

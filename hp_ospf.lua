@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Thu May 30 14:12:18 2013 mstenber
--- Edit time:     39 min
+-- Last modified: Tue Jun  4 11:12:00 2013 mstenber
+-- Edit time:     40 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -109,7 +109,11 @@ function hybrid_ospf:get_rid_ip(rid)
       self:d('initialized get_rid_ip', h)
    end
    -- the asa ones have /32 or /128 at the end => skip that
-   return mst.string_split(self.rid2ip[rid], '/')[1]
+   local ip = self.rid2ip[rid]
+   if ip
+   then
+      return mst.string_split(ip, '/')[1]
+   end
 end
 
 function hybrid_ospf:get_ap()
