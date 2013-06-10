@@ -2,6 +2,17 @@
 
 * 3.6.2013+
 
+** vstruct - enable strict support somehow
+
+(so we can at least run tests under -lstrict again)
+
+Apparently the endianness check's jit check is broken (io/endianness.lua
+checks for 'jit')
+
+https://github.com/ToxicFrog/vstruct/issues/18
+
+=> added workaround for it
+
 ** Improve Debian 7.0 boot times in NetKit - they're ridiculously high now
 
 - should use bootchart2 and track down the worst offenders, get rid of them

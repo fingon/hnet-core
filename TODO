@@ -25,13 +25,6 @@ Dream: 'one-command' setup+testing / automated setup+testing+teardown
 
 * Not-exactly-our software - Bugs to fix
 
-** vstruct - enable strict support somehow
-
-(so we can at least run tests under -lstrict again)
-
-Apparently the endianness check's jit check is broken (io/endianness.lua
-checks for 'jit')
-
 ** luasocket - no way to use pktinfo etc
 
 Unable to write reasonable any-bound UDP app due to that (it may respond
@@ -62,11 +55,38 @@ nothing good happens if time moves much forwards, _either_. *sigh*
   AAAA
 
 * DNS - Improvements
+
+** Add vanity router/link name support
+
+*** Router name
+
+View has to be same across whole home. Therefore, in case of conflict,
+perform automatic re-naming with -<X> suffixes until things look sane
+again.
+
+*** Link name
+
+Could be just based on interface name (for example) by default. Allow
+overriding by user, of course, too..
+
+*** Add some hook to add 'extra' browsing domains to hybrid proxy
+
+*** Disable non .home search paths when hybrid proxy in use?
+
+RFC6204 indicates we should pass values across; on the other hand,
+conversations with Ole indicate that passing search path across
+administrative boundary is not good idea. Hmm.
+
+*** Add multiple upstream router support to proxy(/elsewhere)
+
+*** Add support for detecting in-progress mdns query -> do not ask again, but instead wait for result
+
 * PA - Bugs to fix
 
 ** Ensure first-hop routability of our address at border to ISP
 
-ping6 -r <default gateway-link-local>%interface <own global address from delegated prefix>
+ping6 -r <default gateway-link-local>%interface <own global address from
+delegated prefix>
 
 (or equivalent) every now and then..
 
