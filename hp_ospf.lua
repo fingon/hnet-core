@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Tue Jun  4 11:12:00 2013 mstenber
--- Edit time:     40 min
+-- Last modified: Mon Jun 10 14:04:24 2013 mstenber
+-- Edit time:     45 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -20,13 +20,30 @@ require 'elsa_pa'
 
 module(..., package.seeall)
 
+-- this filter function can be used in e.g. attach_skv of mcastjoiner;
+-- it is also used directly here. regardless, all 3 elements of a
+-- hybrid proxy (hp*, which provides dns, per_ip_server with N
+-- dns_proxy instances, and mdns_client) should have _same_ idea of
+-- valid laps to use. otherwise, not so happy things happen..
+function valid_lap_filter(lap)
+   -- we're interested about _any_ if! even if
+   -- we're not owner, as we have to give answers
+   -- for our own address. however, if we're
+   -- deprecated, then not that good.. or external,
+   -- perhaps
+   local ext = lap.external
+   local dep = lap.depracate
+   return not ext and not dep
+end
+
 hybrid_ospf = hp_core.hybrid_proxy:new_subclass{name='hybrid_ospf',
                                                 -- rid isn't
                                                 -- mandatory, we get
                                                 -- it from ospf
                                                 mandatory={'domain', 
                                                            'mdns_resolve_callback',
-                                                }
+                                                },
+                                                lap_filter=valid_lap_filter,
                                                }
 
 function hybrid_ospf:uninit()
@@ -133,7 +150,6 @@ function hybrid_ospf:get_ap()
             -- 'ap' is supposed to contain rid, iid[, ip][, prefix],
             -- and [ifname]
             local o = {rid=asp.rid, iid=asp.iid, prefix=asp.prefix}
-            ap:insert(o)
 
             if asp.rid ~= myrid
             then
@@ -143,16 +159,24 @@ function hybrid_ospf:get_ap()
             end
 
             -- ifname we look for in lap
+            local found = true
             if o.rid == myrid
             then
+               found = nil
                for i, lap in ipairs(lap)
                do
-                  if lap.iid == asp.iid
+                  if lap.iid == asp.iid and (not self.lap_filter or
+                                             self.lap_filter(lap))
                   then
+                     found = true
                      o.ifname = lap.ifname
                      break
                   end
                end
+            end
+            if found
+            then
+               ap:insert(o)
             end
          end
       end
