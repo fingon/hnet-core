@@ -71,6 +71,33 @@ not probably configurable enough..
 
 ** HP - Add vanity router/link name support
 
+As we do active mdns discovery, it should be trivial-ish to do 
+
+hp.lua
+
+skv:set('hp-iflist', {{name='eth0', iid=1}, ...})
+
+=> 
+
+BIRD6
+
+which then announces _only_ valid interfaces forward (JSONBLOB; hp-ifs
+{{iid, name}}, hp-rname=...)
+
+=>
+
+aggregated ospf-hp-iflist (add rid=)
+
+=>
+
+other hp.lua
+
+which then uses the skv value for zone generation
+
+** HP - Announce only links on which mdns chatter is detected
+
+See above. Add to vanity link name 
+
 *** Router name
 
 View has to be same across whole home. Therefore, in case of conflict,
@@ -131,6 +158,11 @@ same link confuse the other party.
   addresses present (right now we seed it with IPv6)
 
 * PA - Things to do
+
+** 6204bis compliance
+
+Check where we diverge from it, and check whether divergence is intentional
+or accidental. 
 
 ** Change every 'system state altering thing' to a shell script
 
