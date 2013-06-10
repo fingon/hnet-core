@@ -47,16 +47,29 @@ lsalib.c: 86 => what happens of time moves backwards?
 
 nothing good happens if time moves much forwards, _either_. *sigh*
 
-* DNS - Bugs
+* HP/DNS - Bugs
 
-** IPv4 hybrid proxy - forward + reverse DNS for IPv4
+** HP - IPv4 - forward + reverse DNS for IPv4
 
 - need to support both routers and nodes' A RRs too; right now we do only
   AAAA
 
-* DNS - Improvements
+* HP/DNS - Improvements
 
-** Add vanity router/link name support
+** HP - Use IPv6 addresses for internal zone lookups
+
+=> need to have them in OSPF too! (right now have only v4)
+
+** HP - Alter design s.t. it is possible to use some other resolver again
+
+Right now we do our own resolving, and then fall-back to external in many
+cases.
+
+It should be possible to just output .home and the related sub-zones (and
+reverse zones) and use BIND! Or something else. Unfortunately, dnsmasq is
+not probably configurable enough..
+
+** HP - Add vanity router/link name support
 
 *** Router name
 
