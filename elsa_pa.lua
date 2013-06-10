@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Mon Jun  3 16:43:42 2013 mstenber
--- Edit time:     795 min
+-- Last modified: Mon Jun 10 15:29:37 2013 mstenber
+-- Edit time:     815 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -236,7 +236,6 @@ function elsa_pa:init_own()
    -- set various things to their default values
    self.ac_changes = 1
    self.lsa_changes = 1
-   self.check_skv = true
 
    -- when did we consider originate/publish last
    self.last_publish = 0
@@ -290,6 +289,7 @@ function elsa_pa:kv_changed(k, v)
       self:reconfigure_pa(v)
       return
    end
+<<<<<<< HEAD
    -- implicitly add the tunnel interfaces to the all_seen_if_names
    -- (someone plays with stuff that starts with TUNNEL_SKVPREFIX ->
    -- stuff happens)
@@ -304,6 +304,12 @@ function elsa_pa:kv_changed(k, v)
 
    -- should check skv the next time we've run
    self.check_skv = true
+=======
+
+   -- invalidate caches that have if info
+   self.skvp = nil
+   self.ext_set = nil
+>>>>>>> master
 end
 
 function elsa_pa:lsa_changed(lsa)
@@ -556,15 +562,6 @@ function elsa_pa:run()
    self.ac_changes = 0
    self.lsa_changes = 0
 
-   if self.check_skv
-   then
-      self.check_skv = nil
-      self:update_skvp()
-      -- we implicitly also wind up checking the publish needs, if
-      -- there's relevant changes in SKV (for example, mdns cache
-      -- changes)
-   end
-
    -- our rid may have changed -> change that of the pa too, just in case
    self.pa.rid = self.rid
 
@@ -671,7 +668,7 @@ function elsa_pa:copy_prefix_info_to_o(prefix, dst)
                                  o = p
                                  self:d('found from local', o)
                               end
-                          end)
+                           end)
    if not o
    then
 
@@ -824,7 +821,8 @@ function elsa_pa:run_handle_skv_publish()
          else
             -- look up the local SKV prefix if available
             -- (pa code doesn't pass-through whole objects, intentionally)
-            local n = self.skvp[p]
+            local skvp = self:get_skvp()
+            local n = skvp[p]
             if not n or not n.ifname
             then
                n = self:route_to_rid(rid) or {}
@@ -946,32 +944,47 @@ function elsa_pa:iterate_usp(rid, f)
                            end, {type=ospf_codec.AC_TLV_USP})
 end
 
+function elsa_pa:get_external_ifname_set()
+   self:d('get_external_ifname_set')
+   if not self.ext_set
+   then
+      local ext_set = mst.set:new{}
+      -- determine the interfaces for which we don't want to provide
+      -- interface callback (if we're using local interface-sourced
+      -- delegated prefix, we don't want to offer anything there)
+      self:iterate_skv_prefix(function (o)
+                                 local ifname = o.ifname
+                                 self:d('in use ifname', ifname)
+                                 ext_set:insert(ifname)
+                              end)
+      self.ext_set = ext_set
+   end
+   return self.ext_set
+end
+
+function elsa_pa:add_seen_if(ifname)
+   if self.all_seen_if_names[ifname]
+   then
+      return
+   end
+   self.all_seen_if_names:insert(ifname)
+
+   -- invalidate caches that have if info
+   self.skvp = nil
+   self.ext_set = nil
+end
+
 --  iterate_if(rid, f) => callback with ifo
 function elsa_pa:iterate_if(rid, f)
-   local external_ifnames = mst.set:new{}
-
-   -- determine the interfaces for which we don't want to provide
-   -- interface callback (if we're using local interface-sourced
-   -- delegated prefix, we don't want to offer anything there)
-   self:iterate_skv_prefix(function (o)
-                              local ifname = o.ifname
-                              self:d('in use ifname', ifname)
-                              external_ifnames:insert(ifname)
-                           end)
-
+   self:d('called iterate_if')
    self.elsa:iterate_if(rid, function (ifo)
-                           self.all_seen_if_names:insert(ifo.name)
                            self:a(ifo)
-                           if external_ifnames[ifo.name]
+                           self:add_seen_if(ifo.name)
+                           local ext_set = self:get_external_ifname_set()
+                           if ext_set[ifo.name]
                            then
-                              --self:d('skipping in use', ifo, 'delegated prefix source')
-                              --return
                               ifo.external = true
-                              -- mark it as external; PA alg should
-                              -- propagate flag onwards, and it means
-                              -- that while we may assign address on
-                              -- that prefix, we don't do any outward
-                              -- facing services
+                              --mst.d('marking ext')
                            end
                            -- set up the static variable on the ifo
                            ifo.disable = self.skv:get(DISABLE_SKVPREFIX .. ifo.name)
@@ -988,18 +1001,23 @@ end
 
 
 function elsa_pa:iterate_skv_prefix(f)
-   for k, v in pairs(self.skvp)
+   local skvp = self:get_skvp()
+   for k, v in pairs(skvp)
    do
       f(v)
    end
 end
 
-function elsa_pa:update_skvp()
-   self.skvp = mst.map:new()
-   self:iterate_all_skv_prefixes(function (p)
-                                    self.skvp[p.prefix] = p
-                                 end)
-   self.skvp_repr = mst.repr(self.skvp)
+function elsa_pa:get_skvp()
+   if not self.skvp
+   then
+      self.skvp = mst.map:new()
+      self:iterate_all_skv_prefixes(function (p)
+                                       self.skvp[p.prefix] = p
+                                    end)
+      self.skvp_repr = mst.repr(self.skvp)
+   end
+   return self.skvp
 end
 
 function elsa_pa:iterate_all_skv_prefixes(f)

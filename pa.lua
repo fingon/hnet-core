@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Wed Apr 10 15:01:44 2013 mstenber
--- Edit time:     934 min
+-- Last modified: Mon Jun 10 15:28:50 2013 mstenber
+-- Edit time:     935 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -636,17 +636,16 @@ function pa:run_if_usp(iid, neigh, usp)
       return
    end
 
-   -- skip if it's IPv4 prefix + interface is disabled for v4
-   if usp.prefix:is_ipv4() and (ifo.disable_v4 or ifo.external)
+   if ifo.external
    then
-      self:d(' v4 PA disabled')
+      self:d(' external (according to RFC6204, should be just host W-1)')
       return
    end
 
-   -- skip ULA if it's external
-   if usp.prefix:is_ula() and ifo.external
+   -- skip if it's IPv4 prefix + interface is disabled for v4
+   if usp.prefix:is_ipv4() and ifo.disable_v4 
    then
-      self:d(' ULA disabled (external)')
+      self:d(' v4 PA disabled')
       return
    end
 

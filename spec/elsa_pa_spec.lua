@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Mon Jun  3 16:08:31 2013 mstenber
--- Edit time:     420 min
+-- Last modified: Mon Jun 10 15:29:28 2013 mstenber
+-- Edit time:     438 min
 --
 
 require 'mst'
@@ -325,8 +325,6 @@ describe("elsa_pa [one node]", function ()
 
                   local rel_pref = 300
                   local rel_valid = 600
-                  local abs_pref = t + rel_pref
-                  local abs_valid = t + rel_valid
 
                   -- now we fake it that we got prefix from pd
                   -- (skv changes - both interface list, and pd info)
@@ -334,8 +332,8 @@ describe("elsa_pa [one node]", function ()
                   s:set(elsa_pa.PD_SKVPREFIX .. 'eth0', 
                         {
                            {[elsa_pa.PREFIX_KEY]='dead::/16',
-                            [elsa_pa.PREFERRED_KEY]=abs_pref,
-                            [elsa_pa.VALID_KEY]=abs_valid,
+                            [elsa_pa.PREFERRED_KEY]=rel_pref,
+                            [elsa_pa.VALID_KEY]=rel_valid,
                            },
                         }
                        )
@@ -359,8 +357,8 @@ describe("elsa_pa [one node]", function ()
                   s:set(elsa_pa.PD_SKVPREFIX .. 'eth0', 
                         {
                            {[elsa_pa.PREFIX_KEY]='dead::/16',
-                            [elsa_pa.PREFERRED_KEY]=abs_pref,
-                            [elsa_pa.VALID_KEY]=abs_valid,
+                            [elsa_pa.PREFERRED_KEY]=rel_pref,
+                            [elsa_pa.VALID_KEY]=rel_valid,
                             [elsa_pa.NH_KEY]='fe80:1234:2345:3456:4567:5678:6789:789a'},
                         }
                        )
@@ -461,7 +459,7 @@ describe("elsa_pa 2-node", function ()
                        end)
             it("2 syncs state over long time too #long", function ()
                   -- store DNS information
-                  skv1:set(elsa_pa.PD_SKVPREFIX .. 'eth1',
+                  skv1:set(elsa_pa.PD_SKVPREFIX .. 'eth0',
                            {
                               --prefix
                               {[elsa_pa.PREFIX_KEY] = 'dead::/16',
@@ -492,7 +490,7 @@ describe("elsa_pa 2-node", function ()
                         mst.a(string.sub(asp.ascii_prefix, -#valid_end) == valid_end, 'invalid prefix', asp)
 
                      end
-                     mst.a(ep.pa.asp:count() == 3, 
+                     mst.a(ep.pa.asp:count() == 2, 
                            'invalid ep.pa.asp', i,
                            ep.pa.asp)
                      for i, lap in ipairs(ep.pa.lap:values())
@@ -500,8 +498,14 @@ describe("elsa_pa 2-node", function ()
                         --mst.a(lap[elsa_pa.PREFIX_CLASS_KEY] == 42, 
                         --'no pclass set')
                      end
-                     mst.a(ep.pa.lap:count() == 2)
                   end
+
+                  -- ep1 is connected to ISP on one interface =>
+                  -- shouldn't be AP there
+                  mst.a(ep1.pa.lap:count() == 1, ep1.pa.lap)
+
+                  -- ep2 should have AP on each interface
+                  mst.a(ep2.pa.lap:count() == 2, ep2.pa.lap)
             end
             it("2 sync state ok #mn", function ()
                   ep1.originate_min_interval=0
@@ -511,16 +515,14 @@ describe("elsa_pa 2-node", function ()
                   -- store DNS information
                   local rel_pref = 123
                   local rel_valid = 234
-                  local abs_pref = rel_pref + sm.t
-                  local abs_valid = rel_valid + sm.t
 
-                  skv1:set(elsa_pa.PD_SKVPREFIX .. 'eth1',
+                  skv1:set(elsa_pa.PD_SKVPREFIX .. 'eth0',
                            {
                               --prefix
                               {[elsa_pa.PREFIX_KEY] = 'dead::/16',
                                [elsa_pa.PREFIX_CLASS_KEY] = 42,
-                               [elsa_pa.PREFERRED_KEY] = abs_pref,
-                               [elsa_pa.VALID_KEY] = abs_valid,
+                               [elsa_pa.PREFERRED_KEY] = rel_pref,
+                               [elsa_pa.VALID_KEY] = rel_valid,
                               },
                               -- and some random other info
                               {[elsa_pa.DNS_KEY] = FAKE_DNS_ADDRESS},
@@ -536,6 +538,8 @@ describe("elsa_pa 2-node", function ()
                   skv2:set(elsa_pa.MDNS_OWN_SKV_KEY, o2)
 
                   -- run once, and make sure we get to pa.add_or_update_usp
+                  mst.d('starting run post-config')
+
 
                   mst.a(sm:run_nodes(123), 'did not halt in time')
 
@@ -548,10 +552,10 @@ describe("elsa_pa 2-node", function ()
                      do
                         mst.a(usp.pclass, 'no pclass in ospf-usp', i, usp)
                         local pref = usp[elsa_pa.PREFERRED_KEY]
-                        local exp = abs_pref
+                        local exp = rel_pref
                         mst.a(pref == exp, 'pref mismatch', pref, exp)
                         local val = usp[elsa_pa.VALID_KEY]
-                        local exp = abs_valid
+                        local exp = rel_valid
                         mst.a(val == exp, 'valid mismatch', val, exp)
                      end
                   end
@@ -562,10 +566,10 @@ describe("elsa_pa 2-node", function ()
                      do
                         mst.a(lap.pclass, 'no pclass in ospf-lap', i, lap)
                         local pref = lap[elsa_pa.PREFERRED_KEY]
-                        local exp = abs_pref
+                        local exp = rel_pref
                         mst.a(pref == exp, 'preference mismatch', pref, exp)
                         local val = lap[elsa_pa.VALID_KEY]
-                        local exp = abs_valid
+                        local exp = rel_valid
                         mst.a(val == exp, 'valid mismatch', val, exp)
                      end
                   end
