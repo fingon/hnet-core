@@ -2,12 +2,6 @@
 
 * Infrastructure
 
-** Enable Debian-based infra dev too
-
-Now we have infra-on-OWRT+UML+NetKit pretty much done; however, how to get
-stuff also working with Debian+Bird+stuff? It requires fixing of various
-node templates under ttin/ at least.
-
 ** Continuous integration
 
 *** OWRT build
@@ -37,8 +31,6 @@ Dream: 'one-command' setup+testing / automated setup+testing+teardown
 
 Apparently the endianness check's jit check is broken (io/endianness.lua
 checks for 'jit')
-
-** Write patch set for luasocket changes for Diego
 
 ** luasocket - no way to use pktinfo etc
 

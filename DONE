@@ -1,5 +1,32 @@
 -*- outline -*-
 
+* 3.6.2013+
+
+** Improve Debian 7.0 boot times in NetKit - they're ridiculously high now
+
+- should use bootchart2 and track down the worst offenders, get rid of them
+
+(the boot times have nasty multiplicative effect on productivity; 6.0 was
+much better, at a guess it booted in half the time)
+
+==> minimized the number of services to be loaded; filed a bug about
+bootchart2 not working in UML (
+https://github.com/mmeeks/bootchart/issues/47 )
+
+* 27.5.2013+
+
+** Enable Debian-based infra dev too
+
+Now we have infra-on-OWRT+UML+NetKit pretty much done; however, how to get
+stuff also working with Debian+Bird+stuff? It requires fixing of various
+node templates under ttin/ at least.
+
+** Write patch set for luasocket changes for Diego
+
+.. Diego took in most of our changes already. Unfortunately, he did _not_
+take multicast if join/leave name change => we maintain own branch just for
+that (which isn't much, luckily, though).
+
 * 20.5.2013+
 
 ** Handle name compression correctly regardless of content
