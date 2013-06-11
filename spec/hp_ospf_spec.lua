@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 17:40:20 2013 mstenber
--- Last modified: Tue Jun  4 11:16:44 2013 mstenber
--- Edit time:     32 min
+-- Last modified: Tue Jun 11 12:07:05 2013 mstenber
+-- Edit time:     41 min
 --
 
 require 'busted'
@@ -36,6 +36,7 @@ local IID1 = 'iid1'
 
 local ASP2 = 'dead:bee0::/64'
 local RID2 = 123
+local RNAME2 = 'rid2'
 local IID2 = 23
 local IP2 = '2.3.4.5/32'
 local IP2_NOMASK = '2.3.4.5'
@@ -94,6 +95,9 @@ describe("hybrid_ospf", function ()
                            },
                         })
 
+                  s:set(elsa_pa.OSPF_RNAME_KEY,
+                        {[RID2]=RNAME2})
+
                   s:set(elsa_pa.OSPF_ASA_KEY, 
                         {
                            {
@@ -124,20 +128,20 @@ describe("hybrid_ospf", function ()
 
                      -- ap
                      {{prefix=ASP1, 
-                      iid=IID1, 
-                      rid=RID1,
-                      ifname=IFNAME,
+                       iid=IID1, 
+                       rid=RID1,
+                       ifname=IFNAME,
                       },
                      },
                      {{prefix=ASP2, 
-                      iid=IID2, 
-                      rid=RID2,
-                      ip=IP2_NOMASK,
+                       iid=IID2, 
+                       rid=RID2,
+                       ip=IP2_NOMASK,
                       },
                      },
                      {{prefix=ASP3,
-                      iid=IID3,
-                      rid=RID3,
+                       iid=IID3,
+                       rid=RID3,
                       },
                      },
                   }
@@ -175,7 +179,36 @@ describe("hybrid_ospf", function ()
                   local srv = hp:get_server()
                   mst.a(srv == dns_const.GOOGLE_IPV4)
 
+                  -- make sure we get appropriate verdict for _named_
+                  -- rid2
+                  local n = {'foo', RNAME2}
+                  mst.array_extend(n, DOMAIN_LL)
+                  local q = {name=n}
+                  local msg = {qd={q}}
+                  local cmsg = dns_channel.msg:new{msg=msg}
+                  local r, err = hp:match(cmsg)
+                  mst.a(r == hp_core.RESULT_FORWARD_INT, 'got', r, err)
+
+                  if false
+                  then
+                     -- <own-name>.<domain> should give IPs.
+                     -- or maybe not? hmmh. Have to think about this.
+
+                     local n = {hp:rid2label(RID1)}
+                     mst.array_extend(n, DOMAIN_LL)
+                     local q = {name=n, 
+                                qclass=dns_const.CLASS_IN, qtype=dns_const.TYPE_A}
+                     local msg = {qd={q}}
+                     local cmsg = dns_channel.msg:new{msg=msg}
+                     local r, err = hp:match(cmsg)
+                     mst.a(type(r) == 'table', 'non-table', r, err)
+                     mst.a(#r > 0)
+
+                  end
+
+                  
+
                   hp:done()
                   s:done()
-                   end)
-             end)
+                        end)
+                        end)

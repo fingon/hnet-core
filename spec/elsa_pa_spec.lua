@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Mon Jun 10 15:29:28 2013 mstenber
--- Edit time:     438 min
+-- Last modified: Tue Jun 11 11:15:25 2013 mstenber
+-- Edit time:     439 min
 --
 
 require 'mst'
@@ -485,6 +485,7 @@ describe("elsa_pa 2-node", function ()
                   -- (2 ifs per box)
                   for i, ep in ipairs({ep1, ep2})
                   do
+                     mst.a(ep.pa.rname, 'has to have router name', i, ep)
                      for i, asp in ipairs(ep.pa.asp:values())
                      do
                         mst.a(string.sub(asp.ascii_prefix, -#valid_end) == valid_end, 'invalid prefix', asp)
@@ -499,6 +500,11 @@ describe("elsa_pa 2-node", function ()
                         --'no pclass set')
                      end
                   end
+
+                  -- router naems should be different
+                  mst.a(ep1.pa.rname ~= ep2.pa.rname, 
+                        'router name same?!?', ep1.pa.rname)
+
 
                   -- ep1 is connected to ISP on one interface =>
                   -- shouldn't be AP there

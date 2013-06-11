@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Mon Jun 10 15:35:39 2013 mstenber
--- Edit time:     816 min
+-- Last modified: Tue Jun 11 11:42:59 2013 mstenber
+-- Edit time:     840 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -88,6 +88,7 @@ OSPF_LAP_KEY='ospf-lap' -- PA alg locally assigned prefixes
 OSPF_USP_KEY='ospf-usp' -- usable prefixes from PA alg
 OSPF_ASP_KEY='ospf-asp' -- assigned prefixes from PA alg
 OSPF_ASA_KEY='ospf-asa' -- assigned addresses from PA alg
+OSPF_RNAME_KEY='ospf-rname' -- rid -> rname mapping
 OSPF_IFLIST_KEY='ospf-iflist' -- active set of interfaces
 -- IPv6 DNS 
 OSPF_DNS_KEY='ospf-dns' 
@@ -110,6 +111,8 @@ JSON_DNS_KEY='dns'
 JSON_DNS_SEARCH_KEY='dns-search'
 JSON_IPV4_DNS_KEY='ipv4-dns'
 JSON_IPV4_DNS_SEARCH_KEY='ipv4-dns-search'
+JSON_RNAME_KEY='rname'
+
 -- local mdns rr cache
 JSON_MDNS_KEY='mdns'
 -- extra USP information
@@ -338,6 +341,12 @@ end
 
 function elsa_pa:repr_data()
    return '-'
+end
+
+function elsa_pa:get_rname_base()
+   local n = mst.read_filename_to_string('/proc/sys/kernel/hostname') or 'r'
+   self:d('get_rname_base', n)
+   return n
 end
 
 function elsa_pa:get_hwf(rid)
@@ -788,11 +797,11 @@ function elsa_pa:run_handle_skv_publish()
    for jsonkey, o in pairs(json_sources)
    do
       local l = self:get_local_field_array(o.prefix, o.key)
-      self.skv:set(o.ospf, self:get_field_array(l, jsonkey))
+      self.skv:set(o.ospf, self:get_field_array(jsonkey, l))
    end
 
    -- copy over mdns records, if any
-   local l = self:get_field_array(nil, JSON_MDNS_KEY, mst.array)
+   local l = self:get_field_array(JSON_MDNS_KEY, nil, mst.array)
    self.skv:set(MDNS_OSPF_SKV_KEY, l)
 
    -- toss in the usp's too
@@ -842,6 +851,9 @@ function elsa_pa:run_handle_skv_publish()
 
    -- and ASA (just as-is)
    self.skv:set(OSPF_ASA_KEY, self:get_asa_array())
+
+   -- rid->rname map
+   self.skv:set(OSPF_RNAME_KEY, self:get_json_map(JSON_RNAME_KEY, self.pa.rname))
 end
 
 function elsa_pa:iterate_ac_lsa(f, criteria)
@@ -893,12 +905,15 @@ end
 
 --  iterate_rid(rid, f) => callback with rid
 function elsa_pa:iterate_rid(rid, f)
+   -- get a map of rid => rname
+   local rid2rname = self:get_json_map(JSON_RNAME_KEY)
+
    -- we're always reachable (duh), but no next-hop/if
-   f{rid=rid}
+   f{rid=rid, rname=self.pa.rname}
 
    -- the rest, we look at LSADB 
    self:iterate_ac_lsa(function (lsa) 
-                          f{rid=lsa.rid}
+                          f{rid=lsa.rid, rname=rid2rname[lsa.rid]}
                        end)
 end
 
@@ -1051,7 +1066,18 @@ function elsa_pa:iterate_all_skv_prefixes(f)
    self:iterate_skvprefix_o(TUNNEL_SKVPREFIX, create_metric_callback(2000))
 end
 
-function elsa_pa:get_field_array(locala, jsonfield, cl, get_keys)
+function elsa_pa:get_json_map(jsonfield, localo)
+   local s = mst.map:new{}
+   s[self.rid] = localo
+   self:iterate_ac_lsa_tlv(function (json, lsa)
+                              local o = json.table[jsonfield]
+                              s[lsa.rid] = o
+                           end, {type=ospf_codec.AC_TLV_JSONBLOB})
+   self:d('get_json_map', jsonfield, s)
+   return s
+end
+
+function elsa_pa:get_field_array(jsonfield, locala, cl, get_keys)
    local cl = cl or mst.set
    local s = cl:new{}
    local get_keys = get_keys or (cl == mst.set)
@@ -1136,7 +1162,7 @@ function elsa_pa:get_local_asa_array()
 end
 
 function elsa_pa:get_asa_array()
-   return self:get_field_array(self:get_local_asa_array(), JSON_ASA_KEY)
+   return self:get_field_array(JSON_ASA_KEY, self:get_local_asa_array())
 end
 
 function elsa_pa:ph_list_sorted(l)
@@ -1207,6 +1233,9 @@ function elsa_pa:generate_ac_lsa(use_relative_timestamps)
       t[jsonkey] = l
    end
    t[JSON_ASA_KEY] = self:get_local_asa_array()
+
+   -- router name (if any)
+   t[JSON_RNAME_KEY] = self.pa.rname
 
    -- format the own mdns cache entries, if any
    local o = self.skv:get(MDNS_OWN_SKV_KEY)

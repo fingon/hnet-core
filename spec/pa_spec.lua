@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Tue Nov 13 14:42:28 2012 mstenber
--- Edit time:     247 min
+-- Last modified: Tue Jun 11 11:37:42 2013 mstenber
+-- Edit time:     248 min
 --
 
 require "busted"
@@ -51,6 +51,11 @@ end
 
 function ospf:get_hwf(rid)
    return rid
+end
+
+function ospf:get_rname_base(rid)
+   -- we don't really care
+   return 'r'
 end
 
 function ospf:iterate_asa(rid, f)

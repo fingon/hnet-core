@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Mon Jun 10 15:28:50 2013 mstenber
--- Edit time:     935 min
+-- Last modified: Tue Jun 11 11:43:17 2013 mstenber
+-- Edit time:     949 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -19,7 +19,7 @@
 
 -- client is expected to provide:
 --  get_hwf(rid) => hardware fingerprint in string
---  iterate_rid(rid, f) => callback f with {rid=[, ifname=, nh=]}
+--  iterate_rid(rid, f) => callback f with {rid=[, ifname=, nh=][, rname=]}
 --  iterate_usp(rid, f) => callback f with {prefix=, rid=}
 --  iterate_asp(rid, f) => callback f with {prefix=, iid=, rid=}
 --  iterate_asa(rid, f) => callback f with {prefix=, rid=}
@@ -1063,11 +1063,53 @@ function pa:get_hwf()
    return self.hwf
 end
 
+function pa:update_rname()
+   -- current rname is non-existent or not good.
+
+   -- create set of rnames we do _not_ want to use (we don't care
+   -- about precedence, stealing someone else's name is bad form, and
+   -- we try not to do that)
+   local rnames = mst.set:new()
+   for rid, o in pairs(self.ridr)
+   do
+      if o.rname
+      then
+         rnames:insert(o.rname)
+      end
+   end
+
+   -- get rname base from client, and then try to append -N to it
+   -- until we find something that does not exist in self.ridr.
+   local rb = self.client:get_rname_base()
+
+   -- nobody should have more than 123 devices at their home, right?
+   -- (with same name, at any rate)
+   for i=1,123
+   do
+      local rn
+      if i > 1
+      then
+         rn = string.format('%s-%d', rb, i)
+      else
+         rn = rb
+      end
+      if not rnames[rn]
+      then
+         self:d('update_rname', rn)
+         self.rname = rn
+         -- this is definitely change of PA state..
+         self:changed()
+         return
+      end
+   end
+end
+
 function pa:run(d)
    self:d('run called')
 
    local client = self.client
    local rid = self.rid
+   local rname = self.rname
 
    self:a(client, 'no client')
 
@@ -1088,11 +1130,17 @@ function pa:run(d)
    self.ridr:keys():map(function (k) self.ridr[k]=false end)
 
    -- get the rid reachability
+   local rname_valid = rname ~= nil
    client:iterate_rid(rid, function (o)
-                         local rid = o.rid
                          self:d('got rid', o)
-                         self:a(_valid_rid(rid), 'invalid rid', o)
-                         self.ridr[rid] = o
+                         self:a(_valid_rid(o.rid), 'invalid rid', o)
+                         self.ridr[o.rid] = o
+
+                         -- handle name duplicate detection here
+                         if o.rname == rname and o.rid > rid
+                         then
+                            rname_valid = false
+                         end
                            end)
 
    -- get the usable prefixes from the 'client' [prefix => rid]
@@ -1104,6 +1152,12 @@ function pa:run(d)
                          self:a(prefix)
                          self:add_or_update_usp(prefix, rid)
                            end)
+
+   -- update the rname if necessary
+   if not rname_valid
+   then
+      self:update_rname()
+   end
 
    -- generate ULA prefix if necessary
    if not self.disable_ula

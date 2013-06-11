@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Mon Jun 10 14:04:24 2013 mstenber
--- Edit time:     45 min
+-- Last modified: Tue Jun 11 11:47:01 2013 mstenber
+-- Edit time:     48 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -86,6 +86,11 @@ function hybrid_ospf:attach_skv(skv)
       if k == elsa_pa.OSPF_ASA_KEY 
       then
          self.rid2ip = nil
+      end
+      if k == elsa_pa.OSPF_RNAME_KEY
+      then
+         -- invalidates tree (at the very least)
+         self.root = nil
       end
       if k == elsa_pa.OSPF_ASP_KEY or 
          k == elsa_pa.OSPF_LAP_KEY or 
@@ -216,3 +221,15 @@ function hybrid_ospf:get_server()
    end
    return hp_core.hybrid_proxy.get_server(self)
 end
+
+function hybrid_ospf:rid2label(rid)
+   -- by default, take it from OSPF_RNAME_KEY in skv
+   local n = (self.skv:get(elsa_pa.OSPF_RNAME_KEY) or {})[rid]
+   if n
+   then
+      return n
+   end
+   -- if no luck, fallback to parent
+   return hp_core.hybrid_proxy.rid2label(self, rid)
+end
+
