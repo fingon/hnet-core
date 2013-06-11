@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Mon May 27 09:43:28 2013 mstenber
+-- Last modified: Tue Jun 11 12:14:34 2013 mstenber
 -- Edit time:     225 min
 --
 
@@ -606,6 +606,13 @@ describe("string misc", function ()
                   mst.a(mst.string_startswith('foobar', 'foo'))
                   mst.a(not mst.string_startswith('oobar', 'foo'))
                              end)
+            it("strip", function ()
+                  mst.a(mst.string_strip('foo ') == 'foo')
+                  mst.a(mst.string_strip(' foo') == 'foo')
+                  mst.a(mst.string_strip(' foo ') == 'foo')
+                  mst.a(mst.string_strip(' foo\n') == 'foo')
+
+                   end)
                         end)
 
 describe("validity_sync", function ()
