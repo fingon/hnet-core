@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:12:11 2012 mstenber
--- Last modified: Tue Mar 12 18:59:54 2013 mstenber
--- Edit time:     79 min
+-- Last modified: Tue Jun 11 12:49:26 2013 mstenber
+-- Edit time:     82 min
 --
 
 require 'pm_handler'
@@ -71,7 +71,9 @@ function pm_v6_rule:added_default(table, nh, dev)
 end
 
 function pm_v6_rule:get_usp_nhl(usp)
-   return self.pm.nh[usp.ifname] or (usp.nh and {usp.nh}) or {}
+   local r = self.pm.nh[usp.ifname] or (usp.nh and {usp.nh}) or {}
+   self:d('get_usp_nhl', usp, r)
+   return r
 end
 
 function pm_v6_rule:get_usp_key(usp)
