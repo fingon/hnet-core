@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Jun 11 12:38:45 2013 mstenber
--- Edit time:     843 min
+-- Last modified: Tue Jun 11 13:54:25 2013 mstenber
+-- Edit time:     844 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -1021,10 +1021,24 @@ end
 function elsa_pa:get_skvp()
    if not self.skvp
    then
-      self.skvp = mst.map:new()
+      -- temporary measure to find out invalid accesses + to enable us
+      -- to check whether or not our state is still valid at the end
+      -- too
+      self.skvp = true
+      local skvp = mst.map:new()
       self:iterate_all_skv_prefixes(function (p)
-                                       self.skvp[p.prefix] = p
+                                       self:a(p.prefix, 'no prefix object', p)
+                                       skvp[p.prefix] = p
                                     end)
+      -- if skvp is invalidated mid-calculation, re-calculate (this
+      -- should not be eternal loop, as the invalidation happens if
+      -- and only if we have skv state change (won't happen), or new
+      -- interface added (happens limited number of times)
+      if self.skvp ~= true
+      then
+         return self:get_skvp()
+      end
+      self.skvp = skvp
       self.skvp_repr = mst.repr(self.skvp)
    end
    return self.skvp
