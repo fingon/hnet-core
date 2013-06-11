@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Tue Jun 11 11:47:01 2013 mstenber
--- Edit time:     48 min
+-- Last modified: Tue Jun 11 14:57:26 2013 mstenber
+-- Edit time:     63 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -66,13 +66,22 @@ function hybrid_ospf:attach_skv(skv)
       self:d('skv notification', k)
       if k == elsa_pa.OSPF_RID_KEY
       then
-         self.rid = v
+         -- router ids are always numbers; however, having gone through skv,
+         -- the raw router id might not be!
+         self.rid = tonumber(v)
          self.root = nil -- invalidate tree
          return
       end
       if k == elsa_pa.OSPF_IPV4_DNS_KEY
       then
          self.ospf_v4_dns = v or {}
+         return
+      end
+      if k == elsa_pa.OSPF_RNAME_KEY
+      then
+         -- invalidates tree (at the very least)
+         self.root = nil
+         self.rid2rname = v
          return
       end
       if k == elsa_pa.OSPF_DNS_KEY
@@ -86,11 +95,6 @@ function hybrid_ospf:attach_skv(skv)
       if k == elsa_pa.OSPF_ASA_KEY 
       then
          self.rid2ip = nil
-      end
-      if k == elsa_pa.OSPF_RNAME_KEY
-      then
-         -- invalidates tree (at the very least)
-         self.root = nil
       end
       if k == elsa_pa.OSPF_ASP_KEY or 
          k == elsa_pa.OSPF_LAP_KEY or 
@@ -224,7 +228,24 @@ end
 
 function hybrid_ospf:rid2label(rid)
    -- by default, take it from OSPF_RNAME_KEY in skv
-   local n = (self.skv:get(elsa_pa.OSPF_RNAME_KEY) or {})[rid]
+   local m = self.rid2rname or {}
+   local n = m[rid]
+   if not n
+   then
+      -- fallback - if the types are somewhat non-equal
+      -- (e.g. number <> integer <> string), normalize to strings and
+      -- see if that works.
+
+      local srid = tostring(rid)
+      for k, v in pairs(m)
+      do
+         if tostring(k) == srid
+         then
+            n = v
+         end
+      end
+   end
+   self:d('rid2label', m, type(rid), rid, n)
    if n
    then
       return n
