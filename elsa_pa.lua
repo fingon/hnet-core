@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Jun 11 11:42:59 2013 mstenber
+-- Last modified: Tue Jun 11 12:15:21 2013 mstenber
 -- Edit time:     840 min
 --
 
@@ -345,6 +345,7 @@ end
 
 function elsa_pa:get_rname_base()
    local n = mst.read_filename_to_string('/proc/sys/kernel/hostname') or 'r'
+   n = mst.string_strip(n)
    self:d('get_rname_base', n)
    return n
 end
