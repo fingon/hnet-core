@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Mon May 27 12:51:18 2013 mstenber
--- Edit time:     158 min
+-- Last modified: Tue Jun 11 13:49:24 2013 mstenber
+-- Edit time:     164 min
 --
 
 -- individual handler tests
@@ -437,12 +437,17 @@ describe("pm_v6_nh", function ()
                   local pm = dpm.dpm:new{}
                   local o = pm_v6_nh.pm_v6_nh:new{pm=pm}
                   -- make sure that it does NOTHING without external
-                  -- LAP present
+                  -- USP present
                   o:maybe_tick()
                   pm.ds:check_used()
 
-                  pm.ospf_lap = {{ifname='eth0', external=true}}
-                  
+                  -- ifname but no nh == external
+                  -- ifname + nh == OSPF-routed internal
+                  --pm.ospf_usp = {{ifname='eth0'}}
+
+                  -- however, dpm doesn't do the real API -> have to just set the external_ifs.
+                  pm.external_ifs={['eth0']=true}
+
                   pm.ds:set_array{
                      {'ip -6 route',[[
                                         1.2.3.4 via 2.3.4.5 dev eth0
