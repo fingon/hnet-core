@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Jun 11 12:15:21 2013 mstenber
--- Edit time:     840 min
+-- Last modified: Tue Jun 11 12:38:45 2013 mstenber
+-- Edit time:     843 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -300,7 +300,7 @@ function elsa_pa:kv_changed(k, v)
    then
       if r ~= IFLIST_KEY
       then
-         self.all_seen_if_names:insert(r)
+         self:add_seen_if(r)
       end
    end
 
@@ -1035,7 +1035,7 @@ function elsa_pa:iterate_all_skv_prefixes(f)
       function g(o, ifname)
          -- enter to the fallback lottery - the interface set we check
          -- should NOT decrease in size
-         self.all_seen_if_names:insert(ifname)
+         self:add_seen_if(ifname)
          
          -- old prefixes don't exist
          --if o.valid and o.valid < self.time()
