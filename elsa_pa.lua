@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Jun 12 11:32:15 2013 mstenber
--- Edit time:     871 min
+-- Last modified: Wed Jun 12 13:32:30 2013 mstenber
+-- Edit time:     888 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -103,13 +103,13 @@ PA_CONFIG_SKV_KEY='pa-config'
 -- JSON fields within jsonblob AC TLV
 JSON_ASA_KEY='asa'
 JSON_DNS_KEY='dns'
-JSON_DNS_SEARCH_KEY='dns-search'
-JSON_IPV4_DNS_KEY='ipv4-dns'
-JSON_IPV4_DNS_SEARCH_KEY='ipv4-dns-search'
+JSON_DNS_SEARCH_KEY='dns_search'
+JSON_IPV4_DNS_KEY='ipv4_dns'
+JSON_IPV4_DNS_SEARCH_KEY='ipv4_dns_search'
 JSON_RNAME_KEY='rname'
 
 -- extra USP information
-JSON_USP_INFO_KEY='usp-info'
+JSON_USP_INFO_KEY='usp_info'
 
 -- Hybrid proxy specific things
 
@@ -128,16 +128,25 @@ JSON_USP_INFO_KEY='usp-info'
 -- search being set indicates that the zone is ~remote, and it should
 -- be added to the DHCP{v4,v6} and RA search list
 
-HP_DOMAIN_KEY='hp-domain' -- <name>
+
+-- these two are set by user
+STATIC_HP_DOMAIN_KEY='static-domain' -- <name>
+STATIC_HP_ZONES_KEY='static-zones' -- manually added extra remote zones
+
+-- this is provided by hybrid proxy _to_ OSPF
 HP_MDNS_ZONES_KEY='hp-mdns-zones' -- local autodiscovered mdns zones
                                   -- (populated by hp_ospf)
-HP_ZONES_KEY='hp-zones' -- manually added extra remote zones
+
+-- and this to PM for local DHCP/RA server usage
 HP_SEARCH_LIST_KEY='hp-search' -- to be published via DHCP*/RA
 
+-- these are provided by OSPF _to_ hybrid proxy
 OSPF_HP_DOMAIN_KEY='ospf-hp-domain' -- <name>
 OSPF_HP_ZONES_KEY='ospf-hp-zones' -- non-local hybrid proxy zones
-JSON_HP_ZONES_KEY='hp-zones' -- array of zones
-JSON_HP_DOMAIN_KEY='hp-domain' -- <name>
+
+-- these are used within OSPF
+JSON_HP_ZONES_KEY='hp_zones' -- array of zones
+JSON_HP_DOMAIN_KEY='hp_domain' -- <name>
 
 
 
@@ -617,6 +626,20 @@ function elsa_pa:run()
 
       self:run_handle_new_lsa()
 
+      -- store the domain; by default, static one, but also one from OSPF
+      -- if we don't have static
+      local domain = self.skv:get(STATIC_HP_DOMAIN_KEY)
+      if not domain
+      then
+         local m = self:get_json_map(JSON_HP_DOMAIN_KEY)
+         for rid, v in pairs(m)
+         do
+            -- we don't really care about the order..
+            domain = v
+         end
+      end
+      self.hp_domain = domain
+
       self:run_handle_skv_publish()
    end
    self:d('run done')
@@ -768,6 +791,9 @@ function elsa_pa:run_handle_skv_publish()
    -- store own router name
    self.skv:set(OSPF_RNAME_KEY, self.pa.rname)
 
+   -- store the hp domain (if any)
+   self.skv:set(OSPF_HP_DOMAIN_KEY, self.hp_domain)
+
    -- set up the locally assigned prefix field
    local t = mst.array:new()
    local dumped_if_ipv4 = {}
@@ -900,7 +926,7 @@ function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
              function (...)
                 if mst.enable_debug
                 then
-                   print(debug.traceback())
+                   --print(debug.traceback())
                    mst.debug_print('!!! lsa body handling failed', ...)
                    mst.debug_print('invalid lsa in hex', lsa.rid, lsa.type, mst.string_to_hex(lsa.body))
                 end
@@ -1262,6 +1288,9 @@ function elsa_pa:generate_ac_lsa(use_relative_timestamps)
 
    -- router name (if any)
    t[JSON_RNAME_KEY] = self.pa.rname
+
+   -- local domain preference (if any)
+   t[JSON_HP_DOMAIN_KEY] = self.skv:get(STATIC_HP_DOMAIN_KEY)
 
    -- bonus USP prefix option list 
    local h

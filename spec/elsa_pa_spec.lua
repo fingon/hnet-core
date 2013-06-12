@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Jun 12 10:55:20 2013 mstenber
--- Edit time:     439 min
+-- Last modified: Wed Jun 12 13:28:52 2013 mstenber
+-- Edit time:     445 min
 --
 
 require 'mst'
@@ -536,6 +536,9 @@ describe("elsa_pa 2-node", function ()
                            }
                           )
 
+                  -- set the static domain here
+                  local DUMMYDOMAIN='xxxdomain'
+                  skv1:set(elsa_pa.STATIC_HP_DOMAIN_KEY, DUMMYDOMAIN)
 
                   -- run once, and make sure we get to pa.add_or_update_usp
                   mst.d('starting run post-config')
@@ -580,6 +583,14 @@ describe("elsa_pa 2-node", function ()
 
                   local v = skv2:get(elsa_pa.OSPF_DNS_SEARCH_KEY)
                   mst.a(mst.repr_equal(v, {FAKE_DNS_SEARCH}))
+
+                  -- make sure the 'hp-domain' for both nodes is 
+                  -- what we set by hand
+                  local v = skv1:get(elsa_pa.OSPF_HP_DOMAIN_KEY)
+                  mst.a(mst.repr_equal(v, DUMMYDOMAIN), 'not same')
+                  local v = skv2:get(elsa_pa.OSPF_HP_DOMAIN_KEY)
+                  mst.a(mst.repr_equal(v, DUMMYDOMAIN), 'not same', v, DUMMYDOMAIN)
+
 
                                       end)
                            end)
