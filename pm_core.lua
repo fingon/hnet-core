@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Thu May  9 13:10:02 2013 mstenber
--- Edit time:     572 min
+-- Last modified: Wed Jun 12 14:46:13 2013 mstenber
+-- Edit time:     573 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -261,6 +261,11 @@ function pm:kv_changed(k, v)
       self:queue('radvd')
       -- in theory fakedhcpv6d cares too, but in practise
       -- it has no state => next one will just have updated naming parameters
+   elseif k == elsa_pa.HP_SEARCH_LIST_KEY
+   then
+      self.hp_search = v or {}
+      self:queue('dhcpd')
+      self:queue('radvd')
    else
       -- if it looks like pd change, we may be also interested
       if string.find(k, '^' .. elsa_pa.PD_SKVPREFIX) 

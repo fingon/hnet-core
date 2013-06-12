@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Wed Jun 12 12:32:35 2013 mstenber
--- Edit time:     440 min
+-- Last modified: Wed Jun 12 14:43:49 2013 mstenber
+-- Edit time:     453 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -116,11 +116,11 @@ function hybrid_proxy:get_local_ifname_for_prefix(prefix)
    local got
    self:a(prefix, 'no prefix provided')
    self:iterate_lap(function (o)
-                      if o.prefix == prefix
-                      then
-                         got = o.ifname
-                      end
-                   end)
+                       if o.prefix == prefix
+                       then
+                          got = o.ifname
+                       end
+                    end)
    return got
 end
 
@@ -137,10 +137,107 @@ function hybrid_proxy:add_browse(n)
    self:add_rr(d)
 end
 
+function hybrid_proxy:create_local_forward_node(router, o)
+   local iid = o.iid
+   local liid = self:iid2label(iid)
+
+   -- [2] <link>.<router>[.<domain>] for our entries
+   local ifname = o.ifname
+   -- (another option: self:get_local_ifname_for_prefix(prefix))
+   self:a(ifname)
+   local n = router:get_child(liid)
+   if n then return end
+   n = dns_tree.create_node_callback{label=liid}
+   function n:get_default()
+      local ll = n:get_ll()
+      self:a(ll)
+      return RESULT_FORWARD_MDNS, {ifname, ll}
+   end
+   function n:get_value()
+      -- XXX - is NXDOMAIN ok result for link itself?
+      return nil
+   end
+   router:add_child(n)
+   mst.d('defined (own)', n:get_fqdn())
+   
+   -- add it to browse domain
+   self:add_browse(n)
+
+   return n
+end
+
+function hybrid_proxy:create_local_reverse_node(root, router, o)
+   -- no prefix -> we can't create reverse hierarchy for this
+   local prefix = o.prefix
+   if not prefix
+   then
+      return
+   end
+
+   local fcs = root.find_or_create_subtree
+   local ll = dns_db.prefix2ll(prefix)
+   local iid = o.iid
+   local liid = self:iid2label(iid)
+   
+   local function create_domain_node (o)
+      local n = dns_server.create_default_nxdomain_node_callback(o)
+      local hp = self
+      function n:get_default(req)
+         -- [2r] local prefix => handle 'specially'
+         local ifname = hp:get_local_ifname_for_prefix(prefix)
+         self:a(ifname, 'no ifname for prefix', prefix)
+         local on = router:get_child(liid)
+         self:a(on, 'forward hierarchy creation bug?')
+         local ll = on:get_ll()
+         self:a(ll)
+         return RESULT_FORWARD_MDNS, {ifname, ll}
+      end
+      mst.d(' (actually domain node)')
+      return n
+   end
+   local o = fcs(root, ll,
+                 -- [2r/3r] end node
+                 create_domain_node,
+                 -- [5r] intermediate node
+                 dns_server.create_default_nxdomain_node_callback)
+
+   return o
+end
+
+function hybrid_proxy:create_remote_zone(root, zone)
+   local fcs = root.find_or_create_subtree
+   local ip = zone.ip
+   self:a(ip, 'no ip address for the zone', zone)
+   self:a(not string.find(ip, '/'), 'ip should not be prefix', ip)
+   self:a(zone.name, 'no name for zone?!?', zone)
+
+   local ll = dns_db.name2ll(zone.name)
+
+   local n = fcs(root, ll,
+                 function (o)
+                    local n = dns_tree.create_node_callback(o)
+                    function n:get_default()
+                       return RESULT_FORWARD_INT, ip
+                    end
+                    return n
+                 end,
+                 -- we inherit the default behavior; hopefully
+                 -- parent exists or we're sol..  (it should
+                 -- though, at least the root node if nothing else)
+                 create_default_inherit_node_callback)
+   
+   if n and zone.browse
+   then
+      self:add_browse(n)
+   end
+   return n
+end
+
 function hybrid_proxy:recreate_tree()
    local root = _dns_server.recreate_tree(self)
    local fcs = root.find_or_create_subtree
    local myrid = self:get_rid()
+   local mylabel = self:rid2label(myrid)
 
    -- [4] what we haven't explicitly chosen to take care of (=<domain>
    -- and <domain>'s usable prefixes for reverse) will be
@@ -166,44 +263,15 @@ function hybrid_proxy:recreate_tree()
                       -- intermediate node
                       create_default_forward_ext_node_callback)
 
-   local router = domain:add_child(dns_tree.create_node_callback{label=self:rid2label(myrid)})
+   local router = domain:add_child(dns_tree.create_node_callback{label=mylabel})
 
    -- Create forward hierarchy
-   local lrid = self:rid2label(myrid)
-   local function create_local_forward_hierarchy(o)
-      local iid = o.iid
-      local liid = self:iid2label(iid)
+   self:iterate_lap(
+      function (o)
+         self:create_local_forward_node(router, o)
+      end)
 
-      -- [2] <link>.<router>[.<domain>] for our entries
-      local ifname = o.ifname
-      -- (another option: self:get_local_ifname_for_prefix(prefix))
-      self:a(ifname)
-      local n = router:get_child(liid)
-      if not n
-      then
-         n = dns_tree.create_node_callback{label=liid}
-         canned = {}
-         function n:get_default()
-            local ll = n:get_ll()
-            self:a(ll)
-            return RESULT_FORWARD_MDNS, {ifname, ll}
-         end
-         function n:get_value()
-            -- XXX - is NXDOMAIN ok result for link itself?
-            return nil
-         end
-         router:add_child(n)
-         mst.d('defined (own)', n:get_fqdn())
-
-         -- add it to browse domain
-         self:add_browse(n)
-      end
-   end
-   self:iterate_lap(create_local_forward_hierarchy)
-
-
-   -- Populate the reverse zone with appropriate nxdomain-generating
-   -- entries as well
+   -- Create reverse hierarchy
    local function create_reverse_zone(s)
       local ll = dns_db.prefix2ll(s)
       local o = fcs(root, ll,
@@ -215,77 +283,18 @@ function hybrid_proxy:recreate_tree()
    
    self:iterate_usable_prefixes(create_reverse_zone)
 
-   local function create_local_reverse_hierarchy (o)
-      -- no prefix -> we can't create reverse hierarchy for this
-      local prefix = o.prefix
-      if not prefix
-      then
-         return
-      end
-
-      local ll = dns_db.prefix2ll(prefix)
-      local iid = o.iid
-      local liid = self:iid2label(iid)
-
-      local function create_domain_node (o)
-         local n = dns_server.create_default_nxdomain_node_callback(o)
-         local hp = self
-         function n:get_default(req)
-            -- [2r] local prefix => handle 'specially'
-            local ifname = hp:get_local_ifname_for_prefix(prefix)
-            self:a(ifname, 'no ifname for prefix', prefix)
-            local on = router:get_child(liid)
-            self:a(on, 'forward hierarchy creation bug?')
-            local ll = on:get_ll()
-            self:a(ll)
-            return RESULT_FORWARD_MDNS, {ifname, ll}
-         end
-         mst.d(' (actually domain node)')
-         return n
-      end
-      
-      local o = fcs(root, ll,
-                    -- [2r/3r] end node
-                    create_domain_node,
-                    -- [5r] intermediate node
-                    dns_server.create_default_nxdomain_node_callback)
-      
-   end
-   self:iterate_lap(create_local_reverse_hierarchy)
+   self:iterate_lap(function (o)
+                       self:create_local_reverse_node(root, router, o)
+                    end)
 
    -- XXX - populate [1]
    -- (what static information _do_ we need?)
 
-
-
    -- Remote zones - forward/reverse, we don't care
-   local function create_remote_zone(zone)
-      local ip = zone.ip
-      self:a(ip, 'no ip address for the zone', zone)
-      self:a(zone.name, 'no name for zone?!?', zone)
-
-      local ll = dns_db.name2ll(zone.name)
-
-      local n = fcs(root, ll,
-                    function (o)
-                       local n = dns_tree.create_node_callback(o)
-                       function n:get_default()
-                          return RESULT_FORWARD_INT, ip
-                       end
-                       return n
-                    end,
-                    -- we inherit the default behavior; hopefully
-                    -- parent exists or we're sol..  (it should
-                    -- though, at least the root node if nothing else)
-                    create_default_inherit_node_callback)
-      
-      if n and zone.browse
-      then
-         self:add_browse(n)
-      end
-
-   end
-   self:iterate_remote_zones(create_remote_zone)
+   self:iterate_remote_zones(
+      function (o)
+         self:create_remote_zone(root, o)
+      end)
 end
 
 function hybrid_proxy:iterate_lap(f)
@@ -294,7 +303,7 @@ function hybrid_proxy:iterate_lap(f)
    error("child responsibility - should call f with lap (iid[, prefix][, ifname])")
 end
 
-function hybrid_proxy:iterate_remote_zones()
+function hybrid_proxy:iterate_remote_zones(f)
    -- for remote, all we need is name + ip
    -- optionally, can have 'browse' and 'search' set too
    --error("child responsibility - should call f with {name,ip}")

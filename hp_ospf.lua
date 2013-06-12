@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Wed Jun 12 12:31:12 2013 mstenber
--- Edit time:     55 min
+-- Last modified: Wed Jun 12 14:44:00 2013 mstenber
+-- Edit time:     85 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -19,6 +19,8 @@ require 'hp_core'
 require 'elsa_pa'
 
 module(..., package.seeall)
+
+local _hp = hp_core.hybrid_proxy
 
 -- this filter function can be used in e.g. attach_skv of mcastjoiner;
 -- it is also used directly here. regardless, all 3 elements of a
@@ -36,25 +38,65 @@ function valid_lap_filter(lap)
    return not ext and not dep
 end
 
-hybrid_ospf = hp_core.hybrid_proxy:new_subclass{name='hybrid_ospf',
-                                                -- rid isn't
-                                                -- mandatory, we get
-                                                -- it from ospf
-                                                mandatory={'domain', 
-                                                           'mdns_resolve_callback',
-                                                },
-                                                lap_filter=valid_lap_filter,
-                                               }
+hybrid_ospf = _hp:new_subclass{name='hybrid_ospf',
+                               -- rid isn't
+                               -- mandatory, we get
+                               -- it from ospf
+                               mandatory={'domain', 
+                                          'mdns_resolve_callback',
+                               },
+                               lap_filter=valid_lap_filter,
+                              }
 
 function hybrid_ospf:uninit()
    self:detach_skv()
 end
 
 function hybrid_ospf:recreate_tree()
-   local root = hp_core.hybrid_proxy.recreate_tree()
-   -- XXX - do we want to do something more?
+   self.local_zones = {}
+   self.search_path = {dns_db.ll2name(self.domain)}
+   local root = _hp.recreate_tree(self)
+   self.skv:set(elsa_pa.HP_MDNS_ZONES_KEY, self.local_zones)
+   self.skv:set(elsa_pa.HP_SEARCH_LIST_KEY, self.search_path)
    return root
 end
+
+function hybrid_ospf:create_local_forward_node(router, o)
+   local n = _hp.create_local_forward_node(self, router, o)
+   if not n then return end
+   local ip = self:get_ip()
+   if not ip then return end
+   local o2 = {
+      name=n:get_fqdn(),
+      ip=ip,
+      browse=1,
+   }
+   table.insert(self.local_zones, o2)
+end
+
+function hybrid_ospf:create_local_reverse_node(root, router, o)
+   local n = _hp.create_local_reverse_node(self, root, router, o)
+   if not n then return end
+   local ip = self:get_ip()
+   if not ip then return end
+   -- don't browse reverse zones..
+   local o2 = {
+      name=n:get_fqdn(),
+      ip=ip,
+   }
+   table.insert(self.local_zones, o2)
+end
+
+function hybrid_ospf:create_remote_zone(root, zone)
+   local n = _hp.create_remote_zone(self, root, zone)
+   self:d('create_remote_zone', zone, n)
+   if not n then return end
+   if zone.search
+   then
+      table.insert(self.search_path, n:get_fqdn())
+   end
+end
+
 
 function hybrid_ospf:attach_skv(skv)
    self:detach_skv()
@@ -72,40 +114,38 @@ function hybrid_ospf:attach_skv(skv)
       if k == elsa_pa.OSPF_RID_KEY
       then
          self.rid = v
-         self.root = nil -- invalidate tree
-         return
-      end
-      if k == elsa_pa.OSPF_IPV4_DNS_KEY
+      elseif k == elsa_pa.OSPF_RNAME_KEY
       then
+         self.rname = v
+      elseif k == elsa_pa.OSPF_IPV4_DNS_KEY
+      then
+         -- no need for tree invalidation (handled in :get_server per-request)
          self.ospf_v4_dns = v or {}
          return
-      end
-      if k == elsa_pa.OSPF_DNS_KEY
+      elseif k == elsa_pa.OSPF_DNS_KEY
       then
+         -- no need for tree invalidation (handled in :get_server per-request)
          self.ospf_dns = v or {}
-      end
-      if k == elsa_pa.OSPF_USP_KEY
+         return
+      elseif k == elsa_pa.OSPF_USP_KEY
       then
          self.usp = v
-      end
-      if k == elsa_pa.OSPF_ASA_KEY 
+      elseif k == elsa_pa.OSPF_HP_DOMAIN_KEY
       then
-         self.rid2ip = nil
-      end
-      if k == elsa_pa.OSPF_RNAME_KEY
+         -- domain has changed (perhaps)
+         self.domain = v
+      elseif k == elsa_pa.OSPF_HP_ZONES_KEY
       then
-         -- invalidates tree (at the very least)
-         self.root = nil
-      end
-      if k == elsa_pa.OSPF_ASP_KEY or 
-         k == elsa_pa.OSPF_LAP_KEY or 
-         k == elsa_pa.OSPF_ASA_KEY
+         -- domain has changed (perhaps)
+         self.zones = v
+      elseif k == elsa_pa.OSPF_LAP_KEY 
       then
-         -- ap = nil -> get_ap() will calculate it
-         self.ap = nil
-         -- invalidated tree => next time it's needed it is recalculated
-         self.root = nil -- invalidate tree
+         self.lap = v
+      else
+         -- unknown key => no need to invalidate tree, hopefully ;-)
+         return
       end
+      self.root = nil -- invalidate tree
    end
    self.skv:add_change_observer(self.f, true)
 end
@@ -121,85 +161,21 @@ function hybrid_ospf:iterate_usable_prefixes(f)
    end
 end
 
-function hybrid_ospf:get_rid_ip(rid)
-   if not self.rid2ip
+function hybrid_ospf:iterate_lap(f)
+   if not self.lap
    then
-      local asa = self.skv:get(elsa_pa.OSPF_ASA_KEY)
-      local h = {}
-      self.rid2ip = h
-
-      for i, o in ipairs(asa or {})
-      do
-         --self:d('handling', o)
-         h[o.rid] = o.prefix
-      end
-      self:d('initialized get_rid_ip', h)
+      return
    end
-   -- the asa ones have /32 or /128 at the end => skip that
-   local ip = self.rid2ip[rid]
-   if ip
-   then
-      return mst.string_split(ip, '/')[1]
-   end
-end
-
-function hybrid_ospf:get_ap()
-   if not self.ap
-   then
-      local ap = mst.array:new{}
-      self.ap = ap
-      local myrid = self.skv:get(elsa_pa.OSPF_RID_KEY)
-      local asp = self.skv:get(elsa_pa.OSPF_ASP_KEY)
-      local asa = self.skv:get(elsa_pa.OSPF_ASA_KEY)
-      local lap = self.skv:get(elsa_pa.OSPF_LAP_KEY)
-      if myrid and asp and asa and lap
-      then
-         -- without all of this info available, kinda little point..
-         for i, asp in ipairs(asp)
-         do
-            -- 'ap' is supposed to contain rid, iid[, ip][, prefix],
-            -- and [ifname]
-            local o = {rid=asp.rid, iid=asp.iid, prefix=asp.prefix}
-
-            if asp.rid ~= myrid
-            then
-               -- ip we look for in asa (these should be available for
-               -- all but we don't care about our own ips)
-               o.ip = self:get_rid_ip(asp.rid)
-            end
-
-            -- ifname we look for in lap
-            local found = true
-            if o.rid == myrid
-            then
-               found = nil
-               for i, lap in ipairs(lap)
-               do
-                  if lap.iid == asp.iid and (not self.lap_filter or
-                                             self.lap_filter(lap))
-                  then
-                     found = true
-                     o.ifname = lap.ifname
-                     break
-                  end
-               end
-            end
-            if found
-            then
-               ap:insert(o)
-            end
-         end
-      end
-   end
-   self:a(self.ap, 'self.ap creation failed?!?')
-   return self.ap
-end
-
-function hybrid_ospf:iterate_ap(f)
-   -- 'ap' is supposed to contain rid, iid[, ip][, prefix], and [ifname]
-   for i, v in ipairs(self:get_ap())
+   for i, lap in ipairs(mst.array_filter(self.lap, self.lap_filter))
    do
-      f(v)
+      f(lap)
+   end
+end
+
+function hybrid_ospf:iterate_remote_zones(f)
+   for i, zone in ipairs(self.zones or {})
+   do
+      f(zone)
    end
 end
 
@@ -213,6 +189,23 @@ function hybrid_ospf:detach_skv()
    self.skv = nil
 end
 
+function hybrid_ospf:get_ip()
+   -- find _one_ ip that matches us
+   for i, lap in ipairs(self.lap or {})
+   do
+      local ip = lap.address
+      if ip
+      then
+         -- strip prefix, just in case
+         ip = mst.string_split(ip, '/')[1]
+         self:d('got ip', ip)
+         return ip
+      end
+   end
+   self:d('no ip available', self.lap)
+
+end
+
 function hybrid_ospf:get_server()
    local l = self.ospf_dns 
    if l and #l > 0
@@ -224,7 +217,7 @@ function hybrid_ospf:get_server()
    then
       return l[1]
    end
-   return hp_core.hybrid_proxy.get_server(self)
+   return _hp.get_server(self)
 end
 
 function hybrid_ospf:rid2label(rid)
@@ -235,6 +228,6 @@ function hybrid_ospf:rid2label(rid)
       return n
    end
    -- if no luck, fallback to parent
-   return hp_core.hybrid_proxy.rid2label(self, rid)
+   return _hp.rid2label(self, rid)
 end
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 17:40:20 2013 mstenber
--- Last modified: Tue Jun 11 12:07:05 2013 mstenber
--- Edit time:     41 min
+-- Last modified: Wed Jun 12 14:41:17 2013 mstenber
+-- Edit time:     64 min
 --
 
 require 'busted'
@@ -33,19 +33,17 @@ local USP = 'dead::/16'
 local ASP1 = 'dead:beef::/64'
 local RID1 = 'rid1'
 local IID1 = 'iid1'
+local IP1 = '1.2.3.4'
+local IP1_MASK = IP1 .. '/32'
 
 local ASP2 = 'dead:bee0::/64'
 local RID2 = 123
 local RNAME2 = 'rid2'
 local IID2 = 23
-local IP2 = '2.3.4.5/32'
-local IP2_NOMASK = '2.3.4.5'
+local IP2 = '2.3.4.5'
 
-local ASP3 = 'dead:bee1::/64'
-local RID3 = 234
-local IID3 = 34
--- rid 3 does not HAVE IP yet for some reason. it still shouldn't
--- cause things to blow up..
+local NAME3 = 'bar.com'
+local IP3 = '3.4.5.6'
 
 local IFNAME = 'if-name'
 
@@ -64,7 +62,7 @@ describe("hybrid_ospf", function ()
 
                   -- initially iteration should do nothing, as no state
                   hp:iterate_usable_prefixes(f)
-                  hp:iterate_ap(f)
+                  hp:iterate_lap(f)
                   mst.a(#l == 0)
 
                   -- wish we had real test material. oh well, this
@@ -76,74 +74,44 @@ describe("hybrid_ospf", function ()
                               prefix=USP,
                            }
                         })
-                  s:set(elsa_pa.OSPF_ASP_KEY, 
-                        {
-                           {
-                              prefix=ASP1,
-                              rid=RID1,
-                              iid=IID1,
-                           },
-                           {
-                              prefix=ASP2,
-                              rid=RID2,
-                              iid=IID2,
-                           },
-                           {
-                              prefix=ASP3,
-                              rid=RID3,
-                              iid=IID3,
-                           },
-                        })
 
-                  s:set(elsa_pa.OSPF_RNAME_KEY,
-                        {[RID2]=RNAME2})
-
-                  s:set(elsa_pa.OSPF_ASA_KEY, 
+                  local n = {RNAME2}
+                  mst.array_extend(n, DOMAIN_LL)
+                  mst.d('added fake remote zone', n)
+                  s:set(elsa_pa.OSPF_HP_ZONES_KEY,
                         {
-                           {
-                              rid=RID1,
-                              prefix='1.2.3.4/32',
+                           -- inetrnally learnt one -> should be in browse path
+                           {name=n,
+                            ip=IP2,
+                            browse=1,
                            },
-                           {
-                              rid=RID2,
-                              prefix=IP2,
+                           -- one externally learnt one
+                           {name=NAME3,
+                            ip=IP3,
+                            search=1,
                            },
-                           -- no ASA for RID3
-                        })
-                  
+                        }
+                       )
+
+                  local lap1 = {
+                     iid=IID1,
+                     ifname=IFNAME,
+                     prefix=ASP1,
+                     address=IP1_MASK,
+                  }
+
                   s:set(elsa_pa.OSPF_LAP_KEY, 
-                        {
-                           {
-                              iid=IID1,
-                              ifname=IFNAME,
-                              prefix=ASP1,
-                           },
+                        {lap1
                         })
                   
                   hp:iterate_usable_prefixes(f)
-                  hp:iterate_ap(f)
+                  hp:iterate_lap(f)
                   local e = {
                      -- usable prefix
                      {USP},
 
-                     -- ap
-                     {{prefix=ASP1, 
-                       iid=IID1, 
-                       rid=RID1,
-                       ifname=IFNAME,
-                      },
-                     },
-                     {{prefix=ASP2, 
-                       iid=IID2, 
-                       rid=RID2,
-                       ip=IP2_NOMASK,
-                      },
-                     },
-                     {{prefix=ASP3,
-                       iid=IID3,
-                       rid=RID3,
-                      },
-                     },
+                     -- lap
+                     {lap1},
                   }
                   
                   mst.a(mst.repr_equal(l, e), 'not same', l, e)
@@ -186,6 +154,7 @@ describe("hybrid_ospf", function ()
                   local q = {name=n}
                   local msg = {qd={q}}
                   local cmsg = dns_channel.msg:new{msg=msg}
+                  mst.d('matching', cmsg)
                   local r, err = hp:match(cmsg)
                   mst.a(r == hp_core.RESULT_FORWARD_INT, 'got', r, err)
 
@@ -206,7 +175,29 @@ describe("hybrid_ospf", function ()
 
                   end
 
-                  
+                  -- make sure skv has magically these two new
+                  -- hp-originated keys:
+
+                  local v = s:get(elsa_pa.HP_MDNS_ZONES_KEY)
+                  local e = {
+                     {browse=1, ip="1.2.3.4", name="i-iid1.r-rid1.foo.com"}, 
+                     {ip="1.2.3.4", 
+                      name="0.0.0.0.0.0.0.0.f.e.e.b.d.a.e.d.ip6.arpa"},
+                  }
+                  mst.a(mst.repr_equal(v, e), 'not same', v, e)
+
+                  local v = s:get(elsa_pa.HP_SEARCH_LIST_KEY)
+                  local e = {'foo.com', NAME3}
+                  mst.a(mst.repr_equal(v, e), 'not same', v, e)
+
+                  local b_dns_sd_ll = mst.table_copy(dns_const.B_DNS_SD_LL)
+                  mst.array_extend(b_dns_sd_ll, DOMAIN_LL)
+                  local q = {name=b_dns_sd_ll}
+                  local msg = {qd={q}}
+                  local r, err = hp:match(cmsg)
+                  mst.a(r == hp_core.RESULT_FORWARD_INT, 'got', r, err)
+
+
 
                   hp:done()
                   s:done()

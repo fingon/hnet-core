@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov 21 17:13:32 2012 mstenber
--- Last modified: Mon Jun  3 12:40:35 2013 mstenber
--- Edit time:     106 min
+-- Last modified: Wed Jun 12 14:47:09 2013 mstenber
+-- Edit time:     108 min
 --
 
 require 'pm_handler'
@@ -118,8 +118,7 @@ function pm_dnsmasq:write_dnsmasq_conf_dns(t)
       -- wind up adding more and more of these as we re-use the same
       -- field (that is originally from SKV) whenever dnsmasq
       -- reconfigure happens)
-      search4 = mst.table_copy(search4)
-      table.insert(search4, 'home')
+      search4 = self.pm.hp_search or {}
       dns4 = {}
 
       local l = {}

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Jun 12 13:32:30 2013 mstenber
--- Edit time:     888 min
+-- Last modified: Wed Jun 12 13:50:11 2013 mstenber
+-- Edit time:     890 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -129,7 +129,8 @@ JSON_USP_INFO_KEY='usp_info'
 -- be added to the DHCP{v4,v6} and RA search list
 
 
--- these two are set by user
+-- these two are set by user (and come through elsa_pa to hybrid
+-- proxy)
 STATIC_HP_DOMAIN_KEY='static-domain' -- <name>
 STATIC_HP_ZONES_KEY='static-zones' -- manually added extra remote zones
 
