@@ -59,6 +59,12 @@ perhaps leave it as a feature?)
 - need to support both routers and nodes' A RRs too; right now we do only
   AAAA
 
+** HP - sometimes takes long after boot for some legs mdns to work
+
+I don't know yet why; possibly the re-send-LSA code is a culprit, we try to
+resend it, it fails, and we resend it only after force resend interval
+again (which is minute currently).
+
 * HP/DNS - Improvements
 
 ** HP - Use IPv6 addresses for internal zone lookups
