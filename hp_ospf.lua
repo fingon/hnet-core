@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Wed Jun 12 16:29:14 2013 mstenber
--- Edit time:     113 min
+-- Last modified: Wed Jun 12 16:51:44 2013 mstenber
+-- Edit time:     102 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -88,8 +88,7 @@ function hybrid_ospf:set_timeout(enabled)
    self:d('queueing timeout')
    self.timeout = loop:new_timeout_delta(1, function ()
                                             self:d('timeout')
-                                            --not needed (single-use by default)
-                                            --self:set_timeout(false)
+                                            self:set_timeout(false)
 
                                             -- get_root will lead to
                                             -- recreate_tree (if
