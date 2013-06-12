@@ -77,6 +77,25 @@ again (which is minute currently).
 
 ** HP - Add support for detecting in-progress mdns query -> do not ask again, but instead wait for result
 
+** HP - Add browse domain import feature
+
+Caveats: DNS-SD browse domain list update occurs relatively rapidly in
+clients (as the PTR we provide has sub-2min TTL), but the DHCP parameter
+refresh will take awhile (I can't remember how long lease time we had, but
+it's obviously much more than the PTR TTL). So I think the search path
+update scheme in general is not that useful, but at least it's there.
+
+If we ever find ourselves _really_ wanting use whole foreign DNS-SD zones
+for non-demo purposes (for demo, we can probably just reset DHCP client if
+it's necessary), we probably need to implement some sort of 'DNS-SD browse
+domain list import' feature, in which the hybrid proxy will query browse
+domain of those 'search' type foreign domains, and add them to the local
+browse domain list (and always just present the local zone to the clients
+as the DNS-SD zone to look for browse domain lists).
+
+As it's additional complexity, and not obvious if it's desirable, it hasn't
+been implemented yet.
+
 * PA - Bugs to fix
 
 ** Ensure first-hop routability of our address at border to ISP
