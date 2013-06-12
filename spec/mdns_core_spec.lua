@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Wed Jun 12 10:58:25 2013 mstenber
--- Edit time:     829 min
+-- Last modified: Wed Jun 12 11:00:31 2013 mstenber
+-- Edit time:     831 min
 --
 
 -- TO DO: 
@@ -25,12 +25,6 @@ require "elsa_pa"
 require "dns_codec"
 require "dneigh"
 require "dshell"
-
-
--- do we have code to deal with e.g. multiple interfaces
--- being 'master'? if not, do not enable this (XXX)
-DEGENERATE_CASES_WORK=true
-DEGENERATE_CASES_WORK=false
 
 local _dsm = require "dsm"
 
