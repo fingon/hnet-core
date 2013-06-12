@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Wed Jun 12 14:44:00 2013 mstenber
+-- Last modified: Wed Jun 12 14:48:35 2013 mstenber
 -- Edit time:     85 min
 --
 
@@ -222,7 +222,24 @@ end
 
 function hybrid_ospf:rid2label(rid)
    -- by default, take it from OSPF_RNAME_KEY in skv
-   local n = (self.skv:get(elsa_pa.OSPF_RNAME_KEY) or {})[rid]
+   local m = self.rid2rname or {}
+   local n = m[rid]
+   if not n
+   then
+      -- fallback - if the types are somewhat non-equal
+      -- (e.g. number <> integer <> string), normalize to strings and
+      -- see if that works.
+
+      local srid = tostring(rid)
+      for k, v in pairs(m)
+      do
+         if tostring(k) == srid
+         then
+            n = v
+         end
+      end
+   end
+   self:d('rid2label', m, type(rid), rid, n)
    if n
    then
       return n
