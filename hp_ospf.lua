@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Wed Jun 12 15:10:26 2013 mstenber
--- Edit time:     89 min
+-- Last modified: Wed Jun 12 15:29:03 2013 mstenber
+-- Edit time:     96 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -51,11 +51,39 @@ hybrid_ospf = _hp:new_subclass{name='hybrid_ospf',
 
 function hybrid_ospf:uninit()
    self:detach_skv()
+   self:set_timeout(false)
+end
+
+function hybrid_ospf:set_timeout(enabled)
+   if not enabled
+   then
+      if self.timeout
+      then
+         self.timeout:done()
+         self.timeout = nil
+      end
+   end
    if self.timeout
    then
-      self.timeout:done()
-      self.timeout = nil
+      return
    end
+   -- want timeout, but none yet
+
+   -- schedule a timeout to update our state in a second
+   -- ~once/second should not be 'a lot'; recreate_tree side
+   -- effect (skv updates) is relevant 'soon', so we do this
+   -- even if nobody needs the tree itself
+   local loop = ssloop.loop()
+   self:d('queueing timeout')
+   self.timeout = loop:new_timeout_delta(1, function ()
+                                            self:d('timeout')
+                                            self:set_timeout(false)
+                                            -- get_root will lead
+                                            -- to recreate_tree
+                                            -- (if necessary)
+                                            self:get_root()
+                                                  end)
+   self.timeout:start()
 end
 
 function hybrid_ospf:recreate_tree()
@@ -152,22 +180,9 @@ function hybrid_ospf:attach_skv(skv)
          return
       end
       self.root = nil -- invalidate tree
-      if not self.timeout
-      then
-         -- schedule a timeout to update our state in a second
-         -- ~once/second should not be 'a lot'; recreate_tree side
-         -- effect (skv updates) is relevant 'soon', so we do this
-         -- even if nobody needs the tree itself
-         local loop = ssloop.loop()
-         self.timeout = loop:new_timeout_delta(1, function ()
-                                                  -- get_root will lead
-                                                  -- to recreate_tree
-                                                  -- (if necessary)
-                                                  self:get_root()
-                                                  end)
-      end
+      self:set_timeout(true)
    end
-   self.skv:add_change_observer(self.f, true)
+   self.skv:add_change_observer(self.f)
 end
 
 function hybrid_ospf:iterate_usable_prefixes(f)
@@ -204,7 +219,7 @@ function hybrid_ospf:detach_skv()
    then
       return
    end
-   self.skv:remove_change_observer(self.f, true)
+   self.skv:remove_change_observer(self.f)
    self.f = nil
    self.skv = nil
 end
