@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Wed Jun 12 14:48:35 2013 mstenber
--- Edit time:     85 min
+-- Last modified: Wed Jun 12 15:10:26 2013 mstenber
+-- Edit time:     89 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -17,6 +17,7 @@
 
 require 'hp_core'
 require 'elsa_pa'
+require 'ssloop'
 
 module(..., package.seeall)
 
@@ -50,6 +51,11 @@ hybrid_ospf = _hp:new_subclass{name='hybrid_ospf',
 
 function hybrid_ospf:uninit()
    self:detach_skv()
+   if self.timeout
+   then
+      self.timeout:done()
+      self.timeout = nil
+   end
 end
 
 function hybrid_ospf:recreate_tree()
@@ -146,6 +152,20 @@ function hybrid_ospf:attach_skv(skv)
          return
       end
       self.root = nil -- invalidate tree
+      if not self.timeout
+      then
+         -- schedule a timeout to update our state in a second
+         -- ~once/second should not be 'a lot'; recreate_tree side
+         -- effect (skv updates) is relevant 'soon', so we do this
+         -- even if nobody needs the tree itself
+         local loop = ssloop.loop()
+         self.timeout = loop:new_timeout_delta(1, function ()
+                                                  -- get_root will lead
+                                                  -- to recreate_tree
+                                                  -- (if necessary)
+                                                  self:get_root()
+                                                  end)
+      end
    end
    self.skv:add_change_observer(self.f, true)
 end
