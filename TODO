@@ -49,6 +49,11 @@ nothing good happens if time moves much forwards, _either_. *sigh*
 
 * HP/DNS - Bugs
 
+** HP - currently escaping of .'s on ifnames doesn't work
+
+(but it doesn't really _matter_, we support arbitrary-depth domains;
+perhaps leave it as a feature?)
+
 ** HP - IPv4 - forward + reverse DNS for IPv4
 
 - need to support both routers and nodes' A RRs too; right now we do only
