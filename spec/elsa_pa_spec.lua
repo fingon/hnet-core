@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Jun 11 11:15:25 2013 mstenber
+-- Last modified: Wed Jun 12 10:55:20 2013 mstenber
 -- Edit time:     439 min
 --
 
@@ -536,12 +536,6 @@ describe("elsa_pa 2-node", function ()
                            }
                           )
 
-                  -- fake mdns data - all that matters is that the list
-                  -- gets propagated 
-                  local o1 = {1, 2, 3}
-                  local o2 = {4, 5}
-                  skv1:set(elsa_pa.MDNS_OWN_SKV_KEY, o1)
-                  skv2:set(elsa_pa.MDNS_OWN_SKV_KEY, o2)
 
                   -- run once, and make sure we get to pa.add_or_update_usp
                   mst.d('starting run post-config')
@@ -586,12 +580,6 @@ describe("elsa_pa 2-node", function ()
 
                   local v = skv2:get(elsa_pa.OSPF_DNS_SEARCH_KEY)
                   mst.a(mst.repr_equal(v, {FAKE_DNS_SEARCH}))
-
-                  local v1 = skv1:get(elsa_pa.MDNS_OSPF_SKV_KEY)
-                  mst.a(mst.repr_equal(v1, o2), 'mdns state not propagating', o2, v1)
-
-                  local v2 = skv2:get(elsa_pa.MDNS_OSPF_SKV_KEY)
-                  mst.a(mst.repr_equal(v2, o1), 'mdns state not propagating', o1, v2)
 
                                       end)
                            end)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Jun 11 13:54:25 2013 mstenber
--- Edit time:     844 min
+-- Last modified: Wed Jun 12 10:54:55 2013 mstenber
+-- Edit time:     852 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -96,10 +96,6 @@ OSPF_DNS_SEARCH_KEY='ospf-dns-search'
 -- IPv4 DNS 
 OSPF_IPV4_DNS_KEY='ospf-v4-dns'
 OSPF_IPV4_DNS_SEARCH_KEY='ospf-v4-dns-search'
--- locally owned (owner) interfaces' cache rr data
-MDNS_OWN_SKV_KEY='mdns'
--- other nodes' cache data skv key
-MDNS_OSPF_SKV_KEY='ospf-mdns'
 
 -- allow for configuration of prefix assignment algorithm
 -- via skv too
@@ -113,8 +109,6 @@ JSON_IPV4_DNS_KEY='ipv4-dns'
 JSON_IPV4_DNS_SEARCH_KEY='ipv4-dns-search'
 JSON_RNAME_KEY='rname'
 
--- local mdns rr cache
-JSON_MDNS_KEY='mdns'
 -- extra USP information
 JSON_USP_INFO_KEY='usp-info'
 
@@ -528,7 +522,7 @@ end
 function elsa_pa:get_mutable_state()
    local s = table.concat{mst.repr{self.pa.ridr}, 
                           self.skvp_repr,
-                          mst.repr(self.skv:get(MDNS_OWN_SKV_KEY))}
+                         }
    s = mst.create_hash_if_fast(s)
    return s
 end
@@ -800,10 +794,6 @@ function elsa_pa:run_handle_skv_publish()
       local l = self:get_local_field_array(o.prefix, o.key)
       self.skv:set(o.ospf, self:get_field_array(jsonkey, l))
    end
-
-   -- copy over mdns records, if any
-   local l = self:get_field_array(JSON_MDNS_KEY, nil, mst.array)
-   self.skv:set(MDNS_OSPF_SKV_KEY, l)
 
    -- toss in the usp's too
    local t = mst.array:new{}
@@ -1251,13 +1241,6 @@ function elsa_pa:generate_ac_lsa(use_relative_timestamps)
 
    -- router name (if any)
    t[JSON_RNAME_KEY] = self.pa.rname
-
-   -- format the own mdns cache entries, if any
-   local o = self.skv:get(MDNS_OWN_SKV_KEY)
-   if o and #o > 0
-   then
-      t[JSON_MDNS_KEY] = o
-   end
 
    -- bonus USP prefix option list 
    local h
