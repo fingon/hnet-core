@@ -60,66 +60,11 @@ nothing good happens if time moves much forwards, _either_. *sigh*
 
 => need to have them in OSPF too! (right now have only v4)
 
-** HP - Alter design s.t. it is possible to use some other resolver again
-
-Right now we do our own resolving, and then fall-back to external in many
-cases.
-
-It should be possible to just output .home and the related sub-zones (and
-reverse zones) and use BIND! Or something else. Unfortunately, dnsmasq is
-not probably configurable enough..
-
-** HP - Add vanity router/link name support
-
-As we do active mdns discovery, it should be trivial-ish to do 
-
-hp.lua
-
-skv:set('hp-iflist', {{name='eth0', iid=1}, ...})
-
-=> 
-
-BIRD6
-
-which then announces _only_ valid interfaces forward (JSONBLOB; hp-ifs
-{{iid, name}}, hp-rname=...)
-
-=>
-
-aggregated ospf-hp-iflist (add rid=)
-
-=>
-
-other hp.lua
-
-which then uses the skv value for zone generation
-
 ** HP - Announce only links on which mdns chatter is detected
 
-See above. Add to vanity link name 
+** HP - Add multiple upstream router support to proxy(/elsewhere)
 
-*** Router name
-
-View has to be same across whole home. Therefore, in case of conflict,
-perform automatic re-naming with -<X> suffixes until things look sane
-again.
-
-*** Link name
-
-Could be just based on interface name (for example) by default. Allow
-overriding by user, of course, too..
-
-*** Add some hook to add 'extra' browsing domains to hybrid proxy
-
-*** Disable non .home search paths when hybrid proxy in use?
-
-RFC6204 indicates we should pass values across; on the other hand,
-conversations with Ole indicate that passing search path across
-administrative boundary is not good idea. Hmm.
-
-*** Add multiple upstream router support to proxy(/elsewhere)
-
-*** Add support for detecting in-progress mdns query -> do not ask again, but instead wait for result
+** HP - Add support for detecting in-progress mdns query -> do not ask again, but instead wait for result
 
 * PA - Bugs to fix
 

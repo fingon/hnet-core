@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Thu Apr 25 15:35:41 2013 mstenber
--- Edit time:     173 min
+-- Last modified: Wed Jun 12 16:19:14 2013 mstenber
+-- Edit time:     175 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -413,7 +413,7 @@ function run_loop_awhile(timeout)
    local t = l:new_timeout_delta(timeout,
                                  function ()
                                     l:unloop()
-                                 end, timeout)
+                                 end)
    t:start()
    l:loop()
    -- whether timeout triggered or not, it should be gone

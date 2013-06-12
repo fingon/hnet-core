@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 17:40:20 2013 mstenber
--- Last modified: Wed Jun 12 14:41:17 2013 mstenber
--- Edit time:     64 min
+-- Last modified: Wed Jun 12 16:27:03 2013 mstenber
+-- Edit time:     66 min
 --
 
 require 'busted'
@@ -48,6 +48,11 @@ local IP3 = '3.4.5.6'
 local IFNAME = 'if-name'
 
 describe("hybrid_ospf", function ()
+            after_each(function ()
+                          local r = ssloop.loop():clear()
+                          mst.a(not r, 'event loop not clear', r)
+
+                       end)
             it("works", function ()
                   local hp, s
 
@@ -180,7 +185,7 @@ describe("hybrid_ospf", function ()
 
                   local v = s:get(elsa_pa.HP_MDNS_ZONES_KEY)
                   local e = {
-                     {browse=1, ip="1.2.3.4", name="i-iid1.r-rid1.foo.com"}, 
+                     {browse=1, ip="1.2.3.4", name=IFNAME .. ".r-rid1.foo.com"}, 
                      {ip="1.2.3.4", 
                       name="0.0.0.0.0.0.0.0.f.e.e.b.d.a.e.d.ip6.arpa"},
                   }
@@ -196,8 +201,6 @@ describe("hybrid_ospf", function ()
                   local msg = {qd={q}}
                   local r, err = hp:match(cmsg)
                   mst.a(r == hp_core.RESULT_FORWARD_INT, 'got', r, err)
-
-
 
                   hp:done()
                   s:done()

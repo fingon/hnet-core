@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Wed Jun 12 15:34:39 2013 mstenber
--- Edit time:     99 min
+-- Last modified: Wed Jun 12 16:29:14 2013 mstenber
+-- Edit time:     113 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -49,25 +49,36 @@ hybrid_ospf = _hp:new_subclass{name='hybrid_ospf',
                                lap_filter=valid_lap_filter,
                               }
 
+function hybrid_ospf:init()
+   self:d('init')
+
+end
+
 function hybrid_ospf:uninit()
+   self:d('uninit')
    self:detach_skv()
    self:set_timeout(false)
 end
 
 function hybrid_ospf:set_timeout(enabled)
+   self:d('set_timeout', enabled)
    if not enabled
    then
       if self.timeout
       then
+         self:d('set_timeout clearing timeout')
          self.timeout:done()
          self.timeout = nil
       end
+      return
    end
+   self:a(not self._is_done, 'post-death notification')
    if self.timeout
    then
       return
    end
    -- want timeout, but none yet
+   self:d('set_timeout adding timeout')
 
    -- schedule a timeout to update our state in a second
    -- ~once/second should not be 'a lot'; recreate_tree side
@@ -77,10 +88,12 @@ function hybrid_ospf:set_timeout(enabled)
    self:d('queueing timeout')
    self.timeout = loop:new_timeout_delta(1, function ()
                                             self:d('timeout')
-                                            self:set_timeout(false)
-                                            -- get_root will lead
-                                            -- to recreate_tree
-                                            -- (if necessary)
+                                            --not needed (single-use by default)
+                                            --self:set_timeout(false)
+
+                                            -- get_root will lead to
+                                            -- recreate_tree (if
+                                            -- necessary)
                                             self:get_root()
                                                   end)
    self.timeout:start()
@@ -256,12 +269,30 @@ end
 
 function hybrid_ospf:rid2label(rid)
    -- for our own rid only, use the rname as is
+   local n
    if tostring(rid) == tostring(self.rid)
    then
-      local n = self.rname
-      if n then return n end
+      n = self.rname
    end
+   if n then return n end
    -- if no luck, fallback to parent
    return _hp.rid2label(self, rid)
 end
 
+function hybrid_ospf:iid2label(iid)
+   -- if no luck, fallback to parent
+   for i, lap in ipairs(self.lap or {})
+   do
+      if lap.iid == iid 
+      then
+         local n = lap.ifname
+         if n
+         then
+            -- sanitize name - we don't want dots there
+            n = string.gsub(n, '\\.', '_') 
+            return n
+         end
+      end
+   end
+   return _hp.rid2label(self, rid)
+end

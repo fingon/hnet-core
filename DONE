@@ -1,5 +1,42 @@
 -*- outline -*-
 
+* 10.6.2013+
+
+** HP - Alter design s.t. it is possible to use some other resolver again
+
+Right now we do our own resolving, and then fall-back to external in many
+cases.
+
+It should be possible to just output .home and the related sub-zones (and
+reverse zones) and use BIND! Or something else. Unfortunately, dnsmasq is
+not probably configurable enough..
+
+.. now the zone creation is very 'local' (remote zones are just basically
+NS records we receive via OSPF) => we _could_ synthesize real zones. If we
+wanted to. (Or at least, BIND config file + few zone files.)
+
+** HP - Add vanity router/link name support
+
+.. added router name generation algorithm to the prefix assignment stuff in
+OSPF. link names are entirely local constructs, and changed hp_ospf to use
+ifname as base for creating them.
+
+*** Router name
+
+View has to be same across whole home. Therefore, in case of conflict,
+perform automatic re-naming with -<X> suffixes until things look sane
+again.
+
+** HP - Add some hook to add 'extra' browsing domains to hybrid proxy
+
+static-zones can be used for that now
+
+** Disable non .home search paths when hybrid proxy in use?
+
+RFC6204 indicates we should pass values across; on the other hand,
+conversations with Ole indicate that passing search path across
+administrative boundary is not good idea. Hmm.
+
 * 3.6.2013+
 
 ** vstruct - enable strict support somehow
