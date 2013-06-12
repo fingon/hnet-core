@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 12:29:52 2013 mstenber
--- Last modified: Tue May 28 16:37:31 2013 mstenber
+-- Last modified: Wed Jun 12 14:58:19 2013 mstenber
 -- Edit time:     34 min
 --
 
@@ -30,6 +30,7 @@ dns_server = mst.create_class{class='dns_server'}
 RESULT_NXDOMAIN='nxdomain'
 
 function dns_server:recreate_tree()
+   self:d('recreate_tree')
    local root = dns_tree.node:new{label=''}
    self.root = root
    return root
