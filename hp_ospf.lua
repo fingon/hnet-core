@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Tue Jun 11 11:47:01 2013 mstenber
--- Edit time:     48 min
+-- Last modified: Wed Jun 12 12:31:12 2013 mstenber
+-- Edit time:     55 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -50,6 +50,11 @@ function hybrid_ospf:uninit()
    self:detach_skv()
 end
 
+function hybrid_ospf:recreate_tree()
+   local root = hp_core.hybrid_proxy.recreate_tree()
+   -- XXX - do we want to do something more?
+   return root
+end
 
 function hybrid_ospf:attach_skv(skv)
    self:detach_skv()

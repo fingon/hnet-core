@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Tue Jun 11 12:06:30 2013 mstenber
--- Edit time:     404 min
+-- Last modified: Wed Jun 12 12:32:35 2013 mstenber
+-- Edit time:     440 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -89,6 +89,20 @@ function create_default_forward_ext_node_callback(o)
    return n
 end
 
+function create_default_inherit_node_callback(o)
+   -- inherit from the parent
+   local n = dns_tree.create_node_callback(o)
+   function n:get_default(req)
+      return n.parent:get_default(req)
+   end
+   -- inherited default value sounds weird, so we don't do that
+   function n:get_value(req)
+      return nil
+   end
+   mst.d('created default inherit node', n)
+   return n
+end
+
 function hybrid_proxy:get_rid()
    self:a(self.rid, 'no rid?!?')
    return self.rid
@@ -101,7 +115,7 @@ end
 function hybrid_proxy:get_local_ifname_for_prefix(prefix)
    local got
    self:a(prefix, 'no prefix provided')
-   self:iterate_ap(function (o)
+   self:iterate_lap(function (o)
                       if o.prefix == prefix
                       then
                          got = o.ifname
@@ -110,26 +124,23 @@ function hybrid_proxy:get_local_ifname_for_prefix(prefix)
    return got
 end
 
+function hybrid_proxy:add_browse(n)
+   local b_dns_sd_ll = mst.table_copy(dns_const.B_DNS_SD_LL)
+   mst.array_extend(b_dns_sd_ll, self.domain_ll)
+
+   local d = {
+      name=b_dns_sd_ll,
+      rtype=dns_const.TYPE_PTR,
+      rclass=dns_const.CLASS_IN,
+      rdata_ptr=n:get_ll(),
+   }
+   self:add_rr(d)
+end
+
 function hybrid_proxy:recreate_tree()
    local root = _dns_server.recreate_tree(self)
    local fcs = root.find_or_create_subtree
    local myrid = self:get_rid()
-
-   self:iterate_ap(function (o)
-                      self:a(o.rid, 'rid missing', o)
-                      self:a(o.iid, 'iid missing', o)
-                      if o.rid == myrid
-                      then
-                         -- ip not used
-                         -- ifname, prefix optional
-                      else
-                         -- hopefully temporary state
-                         if not o.ip
-                         then
-                            self:d('remote ip missing', o)
-                         end
-                      end
-                   end)
 
    -- [4] what we haven't explicitly chosen to take care of (=<domain>
    -- and <domain>'s usable prefixes for reverse) will be
@@ -137,7 +148,7 @@ function hybrid_proxy:recreate_tree()
    function root:get_default(req)
       return RESULT_FORWARD_EXT
    end
-   local domain_ll = dns_db.name2ll(self.domain)
+   self.domain_ll = dns_db.name2ll(self.domain)
    -- create .local zone too, which always says NXDOMAIN
    local localz = fcs(root, mdns_const.LL,
                       -- end node
@@ -149,7 +160,7 @@ function hybrid_proxy:recreate_tree()
       return dns_server.RESULT_NXDOMAIN
    end
 
-   local domain = fcs(root, domain_ll,
+   local domain = fcs(root, self.domain_ll,
                       -- end node
                       dns_server.create_default_nxdomain_node_callback,
                       -- intermediate node
@@ -157,73 +168,39 @@ function hybrid_proxy:recreate_tree()
 
    local router = domain:add_child(dns_tree.create_node_callback{label=self:rid2label(myrid)})
 
-   local b_dns_sd_ll = mst.table_copy(dns_const.B_DNS_SD_LL)
-   mst.array_extend(b_dns_sd_ll, domain_ll)
-
    -- Create forward hierarchy
-   local function create_forward_hierarchy(o)
-      local rid = o.rid
-      local lrid = self:rid2label(rid)
+   local lrid = self:rid2label(myrid)
+   local function create_local_forward_hierarchy(o)
       local iid = o.iid
-      local liid = self:iid2label(iid, rid)
-      local ip = o.ip
+      local liid = self:iid2label(iid)
 
-      local ap_ll = {liid, lrid}
-      mst.array_extend(ap_ll, domain_ll)
-
-      -- add it to browse domain
-      local d = {
-         name=b_dns_sd_ll,
-         rtype=dns_const.TYPE_PTR,
-         rclass=dns_const.CLASS_IN,
-         rdata_ptr=ap_ll
-      }
-      self:add_rr(d)
-
-      if rid ~= myrid
+      -- [2] <link>.<router>[.<domain>] for our entries
+      local ifname = o.ifname
+      -- (another option: self:get_local_ifname_for_prefix(prefix))
+      self:a(ifname)
+      local n = router:get_child(liid)
+      if not n
       then
-         -- [3] <router>[.<domain>] for non-own entries
-         local n = domain:get_child(lrid)
-         if not n
-         then
-            n = dns_tree.create_node_callback{label=lrid}
-            function n:get_default()
-               return RESULT_FORWARD_INT, ip
-            end
-            function n:get_value()
-               return RESULT_FORWARD_INT, ip
-            end
-            domain:add_child(n)
-            mst.d('defined (non-own)', n:get_fqdn())
-         else
-            -- XXX - think if just having _one_ ip around is a problem or not?
+         n = dns_tree.create_node_callback{label=liid}
+         canned = {}
+         function n:get_default()
+            local ll = n:get_ll()
+            self:a(ll)
+            return RESULT_FORWARD_MDNS, {ifname, ll}
          end
-      else
-         -- [2] <link>.<router>[.<domain>] for our entries
-         local ifname = o.ifname
-         -- (another option: self:get_local_ifname_for_prefix(prefix))
-         self:a(ifname)
-         local n = router:get_child(liid)
-         if not n
-         then
-            n = dns_tree.create_node_callback{label=liid}
-            canned = {}
-            function n:get_default()
-               local ll = n:get_ll()
-               self:a(ll)
-               return RESULT_FORWARD_MDNS, {ifname, ll}
-            end
-            function n:get_value()
-               -- XXX 
-            end
-            router:add_child(n)
-            mst.d('defined (own)', n:get_fqdn())
-         else
-            -- XXX do something? 
+         function n:get_value()
+            -- XXX - is NXDOMAIN ok result for link itself?
+            return nil
          end
+         router:add_child(n)
+         mst.d('defined (own)', n:get_fqdn())
+
+         -- add it to browse domain
+         self:add_browse(n)
       end
    end
-   self:iterate_ap(create_forward_hierarchy)
+   self:iterate_lap(create_local_forward_hierarchy)
+
 
    -- Populate the reverse zone with appropriate nxdomain-generating
    -- entries as well
@@ -238,7 +215,7 @@ function hybrid_proxy:recreate_tree()
    
    self:iterate_usable_prefixes(create_reverse_zone)
 
-   local function create_reverse_hierarchy (o)
+   local function create_local_reverse_hierarchy (o)
       -- no prefix -> we can't create reverse hierarchy for this
       local prefix = o.prefix
       if not prefix
@@ -247,29 +224,21 @@ function hybrid_proxy:recreate_tree()
       end
 
       local ll = dns_db.prefix2ll(prefix)
-      local rid = o.rid
       local iid = o.iid
-      local liid = self:iid2label(iid, rid)
-      local ip = o.ip
+      local liid = self:iid2label(iid)
 
       local function create_domain_node (o)
          local n = dns_server.create_default_nxdomain_node_callback(o)
          local hp = self
          function n:get_default(req)
             -- [2r] local prefix => handle 'specially'
-            if rid == myrid
-            then
-               local ifname = hp:get_local_ifname_for_prefix(prefix)
-               self:a(ifname, 'no ifname for prefix', prefix)
-               local on = router:get_child(liid)
-               self:a(on, 'forward hierarchy creation bug?')
-               local ll = on:get_ll()
-               self:a(ll)
-               return RESULT_FORWARD_MDNS, {ifname, ll}
-            else
-               -- [3r] remote rid => query it instead
-               return RESULT_FORWARD_INT, ip
-            end
+            local ifname = hp:get_local_ifname_for_prefix(prefix)
+            self:a(ifname, 'no ifname for prefix', prefix)
+            local on = router:get_child(liid)
+            self:a(on, 'forward hierarchy creation bug?')
+            local ll = on:get_ll()
+            self:a(ll)
+            return RESULT_FORWARD_MDNS, {ifname, ll}
          end
          mst.d(' (actually domain node)')
          return n
@@ -282,17 +251,56 @@ function hybrid_proxy:recreate_tree()
                     dns_server.create_default_nxdomain_node_callback)
       
    end
-   self:iterate_ap(create_reverse_hierarchy)
+   self:iterate_lap(create_local_reverse_hierarchy)
 
    -- XXX - populate [1]
    -- (what static information _do_ we need?)
 
+
+
+   -- Remote zones - forward/reverse, we don't care
+   local function create_remote_zone(zone)
+      local ip = zone.ip
+      self:a(ip, 'no ip address for the zone', zone)
+      self:a(zone.name, 'no name for zone?!?', zone)
+
+      local ll = dns_db.name2ll(zone.name)
+
+      local n = fcs(root, ll,
+                    function (o)
+                       local n = dns_tree.create_node_callback(o)
+                       function n:get_default()
+                          return RESULT_FORWARD_INT, ip
+                       end
+                       return n
+                    end,
+                    -- we inherit the default behavior; hopefully
+                    -- parent exists or we're sol..  (it should
+                    -- though, at least the root node if nothing else)
+                    create_default_inherit_node_callback)
+      
+      if n and zone.browse
+      then
+         self:add_browse(n)
+      end
+
+   end
+   self:iterate_remote_zones(create_remote_zone)
 end
 
-function hybrid_proxy:iterate_ap(f)
-   -- for a local, ifname and prefix are optional and ip is not used
-   -- for a remote, ip is mandatory; prefix optional
-   error("child responsibility - should call f with ap (rid, iid[, ip][, prefix][, ifname if local])")
+function hybrid_proxy:iterate_lap(f)
+   -- iid mandatory
+   -- ifname, prefix optional (but very nice to have)
+   error("child responsibility - should call f with lap (iid[, prefix][, ifname])")
+end
+
+function hybrid_proxy:iterate_remote_zones()
+   -- for remote, all we need is name + ip
+   -- optionally, can have 'browse' and 'search' set too
+   --error("child responsibility - should call f with {name,ip}")
+   
+   -- for the time being, this is just nop; therefore, by default, we
+   -- have no remote zones..
 end
 
 function hybrid_proxy:iterate_usable_prefixes(f)
@@ -554,7 +562,7 @@ function hybrid_proxy:rid2label(rid)
    return RIDPREFIX .. rid
 end
 
-function hybrid_proxy:iid2label(iid, rid)
+function hybrid_proxy:iid2label(iid)
    return IIDPREFIX .. iid
 end
 

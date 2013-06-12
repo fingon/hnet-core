@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Jun 12 10:54:55 2013 mstenber
--- Edit time:     852 min
+-- Last modified: Wed Jun 12 11:32:15 2013 mstenber
+-- Edit time:     871 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -84,11 +84,10 @@ DISABLE_V4_SKVPREFIX='disable-pa-v4.'
 
 -- SKV 'singleton' keys
 OSPF_RID_KEY='ospf-rid' -- OSPF router ID
-OSPF_LAP_KEY='ospf-lap' -- PA alg locally assigned prefixes
-OSPF_USP_KEY='ospf-usp' -- usable prefixes from PA alg
-OSPF_ASP_KEY='ospf-asp' -- assigned prefixes from PA alg
-OSPF_ASA_KEY='ospf-asa' -- assigned addresses from PA alg
-OSPF_RNAME_KEY='ospf-rname' -- rid -> rname mapping
+OSPF_RNAME_KEY='ospf-rname' -- (home-wide unique) router name
+
+OSPF_LAP_KEY='ospf-lap' -- PA alg locally assigned prefixes (local)
+OSPF_USP_KEY='ospf-usp' -- usable prefixes from PA alg (across whole home)
 OSPF_IFLIST_KEY='ospf-iflist' -- active set of interfaces
 -- IPv6 DNS 
 OSPF_DNS_KEY='ospf-dns' 
@@ -111,6 +110,37 @@ JSON_RNAME_KEY='rname'
 
 -- extra USP information
 JSON_USP_INFO_KEY='usp-info'
+
+-- Hybrid proxy specific things
+
+-- Zones consist of:
+-- name=<name>, ip=<ip>[, browse=<something][, search=<something>]
+
+-- note that name is UTF-8 string ('foo.bar.com'). this could be done
+-- with label lists if we cared enough..
+
+-- ip is where the responsible name server can be reached within (or
+-- without) home
+
+-- browse being set indicates that the zone is ~local, and it should
+-- be added to the DNS-SD browse path
+
+-- search being set indicates that the zone is ~remote, and it should
+-- be added to the DHCP{v4,v6} and RA search list
+
+HP_DOMAIN_KEY='hp-domain' -- <name>
+HP_MDNS_ZONES_KEY='hp-mdns-zones' -- local autodiscovered mdns zones
+                                  -- (populated by hp_ospf)
+HP_ZONES_KEY='hp-zones' -- manually added extra remote zones
+HP_SEARCH_LIST_KEY='hp-search' -- to be published via DHCP*/RA
+
+OSPF_HP_DOMAIN_KEY='ospf-hp-domain' -- <name>
+OSPF_HP_ZONES_KEY='ospf-hp-zones' -- non-local hybrid proxy zones
+JSON_HP_ZONES_KEY='hp-zones' -- array of zones
+JSON_HP_DOMAIN_KEY='hp-domain' -- <name>
+
+
+
 
 -- from the draft; time from boot to wait iff no other routers around
 -- before starting new assignments
@@ -735,6 +765,9 @@ function elsa_pa:run_handle_skv_publish()
    -- store the rid to SKV too
    self.skv:set(OSPF_RID_KEY, self.rid)
 
+   -- store own router name
+   self.skv:set(OSPF_RNAME_KEY, self.pa.rname)
+
    -- set up the locally assigned prefix field
    local t = mst.array:new()
    local dumped_if_ipv4 = {}
@@ -830,21 +863,9 @@ function elsa_pa:run_handle_skv_publish()
    end
    self.skv:set(OSPF_USP_KEY, t)
 
-   -- toss in the asp's too
-   local t = mst.array:new{}
-
-   self:d('creating asp list')
-   for i, asp in ipairs(self.pa.asp:values())
-   do
-      t:insert{iid=asp.iid, rid=asp.rid, prefix=asp.ascii_prefix}
-   end
-   self.skv:set(OSPF_ASP_KEY, t)
-
-   -- and ASA (just as-is)
-   self.skv:set(OSPF_ASA_KEY, self:get_asa_array())
-
-   -- rid->rname map
-   self.skv:set(OSPF_RNAME_KEY, self:get_json_map(JSON_RNAME_KEY, self.pa.rname))
+   -- also provide the hybrid proxy zones as a list
+   -- (who they are from shouldn't matter, they should be self-contained)
+   self.skv:set(OSPF_HP_ZONES_KEY, self:get_field_array(JSON_HP_ZONES_KEY))
 end
 
 function elsa_pa:iterate_ac_lsa(f, criteria)

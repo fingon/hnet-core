@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Thu May 30 09:58:13 2013 mstenber
--- Edit time:     324 min
+-- Last modified: Wed Jun 12 12:30:30 2013 mstenber
+-- Edit time:     333 min
 --
 
 require 'busted'
@@ -20,6 +20,7 @@ local _t = require 'mst_test'
 module('hp_core_spec', package.seeall)
 
 local DOMAIN_LL={'foo', 'com'}
+local DOMAIN_SUFFIX='.foo.com'
 local TEST_SRC='4.3.2.1'
 local TEST_ID=123
 local OTHER_IP='3.4.5.6'
@@ -426,7 +427,7 @@ end
 describe("hybrid_proxy", function ()
             local hp
             local canned_mdns
-            local l1, l2
+            local l1, l2, l3
             local mdns, dns
             before_each(function ()
                            local f, g
@@ -443,60 +444,66 @@ describe("hybrid_proxy", function ()
                                                          mdns_resolve_callback=mdns,
                                                         }
                            l1 = {
-                              {rid='rid1',
-                               iid='iid1',
+                              {iid='iid1',
                                ip='1.2.3.4',
                                ifname='eth0',
                                prefix='dead:bee0::/48',
                               },
-                              {rid='rid1',
-                               iid='iid2',
+                              {iid='iid2',
                                ip='1.2.3.4',
                                ifname='eth1',
                                prefix='dead:beef::/48',
                               },
-                              {rid='rid1',
-                               iid='iid3',
+                              {iid='iid3',
                                ifname='eth2',
                               },
-                              {rid='rid1',
-                               iid='iid1',
+                              {iid='iid1',
                                ip='2.3.4.5',
                                ifname='eth0',
                                prefix='10.11.12.0/24',
                               },
-                              {rid='rid2',
-                               iid='iid1',
-                               ip='3.4.5.6',
-                               prefix='dead:bee1::/48',
-                              },
-                              {rid='rid2',
-                               iid='iid1',
-                               ip=OTHER_IP,
-                               prefix='10.11.13.0/24',
-                              },
 
                            }
-                           l2 = 
-                              {
+                           l2 = {
                               'dead::/16',
                               '10.0.0.0/8',
-                              }
-                              function hp:iterate_ap(f)
-                                 for i, v in ipairs(l1)
-                                 do
-                                    f(v)
-                                 end
+                           }
+                           -- XXX - convert these to name+ip pairs
+                           l3 = {
+                              -- forward zone
+                              {name='i-iid1.r-rid2' .. DOMAIN_SUFFIX,
+                               ip=OTHER_IP,
+                               --prefix='dead:bee1::/48',
+                               browse=true,
+                              },
+                              -- v6 reverse zone'
+                              {name='1.e.e.b.d.a.e.d.ip6.arpa',
+                               ip=OTHER_IP},
+                              -- v4 reverse zone
+                              {name='13.11.10.in-addr.arpa',
+                               ip=OTHER_IP},
+                           }
+                           function hp:iterate_lap(f)
+                              for i, v in ipairs(l1)
+                              do
+                                 f(v)
                               end
-                              function hp:iterate_usable_prefixes(f)
-                                 for i, v in ipairs(l2)
-                                 do
-                                    f(v)
-                                 end
+                           end
+                           function hp:iterate_usable_prefixes(f)
+                              for i, v in ipairs(l2)
+                              do
+                                 f(v)
                               end
-                              function hp:forward(req, server)
-                                 return dns(server, req)
+                           end
+                           function hp:iterate_remote_zones(f)
+                              for i, v in ipairs(l3)
+                              do
+                                 f(v)
                               end
+                           end
+                           function hp:forward(req, server)
+                              return dns(server, req)
+                           end
                         end)
             after_each(function ()
                           hp:done()

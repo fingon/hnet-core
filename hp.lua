@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Mon Jun 10 14:02:08 2013 mstenber
--- Edit time:     53 min
+-- Last modified: Wed Jun 12 12:01:16 2013 mstenber
+-- Edit time:     55 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -160,12 +160,11 @@ else
    -- also set where DNS server listens
    pis:set_ips(mst.string_split(args.listen, ','))
 
-   function hp:iterate_ap(f)
+   function hp:iterate_lap(f)
       for i, v in ipairs(iflist)
       do
          f{ifname=v,
-           iid=v,
-           rid=rid}
+           iid=v}
       end
    end
    mst.d('-- STATIC MODE!--')
