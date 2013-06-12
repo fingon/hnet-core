@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Jun 12 13:28:52 2013 mstenber
--- Edit time:     445 min
+-- Last modified: Wed Jun 12 15:54:55 2013 mstenber
+-- Edit time:     453 min
 --
 
 require 'mst'
@@ -540,6 +540,13 @@ describe("elsa_pa 2-node", function ()
                   local DUMMYDOMAIN='xxxdomain'
                   skv1:set(elsa_pa.STATIC_HP_DOMAIN_KEY, DUMMYDOMAIN)
 
+                  local STATICZONE={name='bar.com',
+                                    ip='1.2.3.4'}
+                  local DUMMYZONE={name='r2.foo.com',
+                                   ip='1.2.3.4'}
+                  skv1:set(elsa_pa.STATIC_HP_ZONES_KEY, {STATICZONE})
+                  skv1:set(elsa_pa.HP_MDNS_ZONES_KEY, {DUMMYZONE}) 
+
                   -- run once, and make sure we get to pa.add_or_update_usp
                   mst.d('starting run post-config')
 
@@ -591,6 +598,13 @@ describe("elsa_pa 2-node", function ()
                   local v = skv2:get(elsa_pa.OSPF_HP_DOMAIN_KEY)
                   mst.a(mst.repr_equal(v, DUMMYDOMAIN), 'not same', v, DUMMYDOMAIN)
 
+                  local v = skv1:get(elsa_pa.OSPF_HP_ZONES_KEY)
+                  local e = {STATICZONE}
+                  mst.a(mst.repr_equal(v, e), 'not same', v, e)
+
+                  local v = skv2:get(elsa_pa.OSPF_HP_ZONES_KEY)
+                  local e = {STATICZONE, DUMMYZONE}
+                  mst.a(mst.repr_equal(v, e), 'not same', v, e)
 
                                       end)
                            end)

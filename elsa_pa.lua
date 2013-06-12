@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Jun 12 13:50:11 2013 mstenber
--- Edit time:     890 min
+-- Last modified: Wed Jun 12 15:57:29 2013 mstenber
+-- Edit time:     894 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -892,7 +892,7 @@ function elsa_pa:run_handle_skv_publish()
 
    -- also provide the hybrid proxy zones as a list
    -- (who they are from shouldn't matter, they should be self-contained)
-   self.skv:set(OSPF_HP_ZONES_KEY, self:get_field_array(JSON_HP_ZONES_KEY))
+   self.skv:set(OSPF_HP_ZONES_KEY, self:get_field_array(JSON_HP_ZONES_KEY, self.skv:get(STATIC_HP_ZONES_KEY)))
 end
 
 function elsa_pa:iterate_ac_lsa(f, criteria)
@@ -1292,6 +1292,18 @@ function elsa_pa:generate_ac_lsa(use_relative_timestamps)
 
    -- local domain preference (if any)
    t[JSON_HP_DOMAIN_KEY] = self.skv:get(STATIC_HP_DOMAIN_KEY)
+
+   -- local zones (if any)
+   local z1 = self.skv:get(STATIC_HP_ZONES_KEY)
+   local z2 = self.skv:get(HP_MDNS_ZONES_KEY)
+   local z = z1 or z2
+   if z1 and z2
+   then
+      -- expensive
+      z = mst.table_copy(z1)
+      mst.array_extend(z, z2)
+   end
+   t[JSON_HP_ZONES_KEY] = z
 
    -- bonus USP prefix option list 
    local h
