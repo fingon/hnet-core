@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Wed Jun 12 15:29:03 2013 mstenber
--- Edit time:     96 min
+-- Last modified: Wed Jun 12 15:34:39 2013 mstenber
+-- Edit time:     99 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -197,13 +197,12 @@ function hybrid_ospf:iterate_usable_prefixes(f)
 end
 
 function hybrid_ospf:iterate_lap(f)
-   if not self.lap
-   then
-      return
-   end
-   for i, lap in ipairs(mst.array_filter(self.lap, self.lap_filter))
+   for i, lap in ipairs(self.lap or {})
    do
-      f(lap)
+      if self.lap_filter(lap)
+      then
+         f(lap)
+      end
    end
 end
 
@@ -256,28 +255,11 @@ function hybrid_ospf:get_server()
 end
 
 function hybrid_ospf:rid2label(rid)
-   -- by default, take it from OSPF_RNAME_KEY in skv
-   local m = self.rid2rname or {}
-   local n = m[rid]
-   if not n
+   -- for our own rid only, use the rname as is
+   if tostring(rid) == tostring(self.rid)
    then
-      -- fallback - if the types are somewhat non-equal
-      -- (e.g. number <> integer <> string), normalize to strings and
-      -- see if that works.
-
-      local srid = tostring(rid)
-      for k, v in pairs(m)
-      do
-         if tostring(k) == srid
-         then
-            n = v
-         end
-      end
-   end
-   self:d('rid2label', m, type(rid), rid, n)
-   if n
-   then
-      return n
+      local n = self.rname
+      if n then return n end
    end
    -- if no luck, fallback to parent
    return _hp.rid2label(self, rid)
