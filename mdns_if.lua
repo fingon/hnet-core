@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu May 30 09:47:53 2013 mstenber
--- Edit time:     792 min
+-- Last modified: Thu Jun 13 11:16:53 2013 mstenber
+-- Edit time:     808 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -254,7 +254,7 @@ function mdns_if:init()
                                               }
 end
 
-function mdns_if:kas_matches_rr(is_own, kas, rr)
+function mdns_if:kas_matches_rr(is_own, kas, rr, check_rr_ttl)
    if not kas then return end
    local orr = kas:find_rr(rr)
    if not orr then return end
@@ -267,14 +267,17 @@ function mdns_if:kas_matches_rr(is_own, kas, rr)
    local ttl_kas = orr.ttl
    if not ttl_kas then return true end
 
-   local ttl_rr 
+   if not check_rr_ttl
+   then
+      return true
+   end
+   local ttl_rr
    if is_own
    then
       ttl_rr = self:get_own_rr_current_ttl(rr)
    else
       ttl_rr = self:get_cache_rr_current_ttl(rr)
    end
-
    -- rr = propsed answer
    -- orr = what we got in KAS
    local r = ttl_kas >= ttl_rr / 2
@@ -300,7 +303,7 @@ function mdns_if:iterate_matching_query(is_own, q, kas, f)
       if match_q_rr(q, rr)
       then  
          matched = true
-         if not self:kas_matches_rr(is_own, kas, rr)
+         if not self:kas_matches_rr(is_own, kas, rr, true)
          then
             mst.d(' calling callback', rr)
             f(rr)
@@ -608,7 +611,7 @@ function mdns_if:get_rr_current_ttl(rr, now)
 end
 
 function mdns_if:get_own_rr_current_ttl(rr, now)
-   self:a(rr.is_own == true)
+   self:a(rr.is_own == true, 'trying to get ttl of non-own rr', rr)
    if rr.rtype == dns_const.TYPE_NSEC
    then
       return self:get_own_nsec_rr_current_ttl(rr, now)
@@ -691,10 +694,10 @@ function mdns_if:determine_ar(an, kas)
    function push(t1, t2)
       for i, a in ipairs(an)
       do
-         local cand = {name=a.name, rtype=t2, rclass=a.rclass}
+         local cand = {name=a.name, rtype=t2, rclass=a.rclass, ttl=a.ttl}
          if a.rtype == t1 
             and not all:find_rr(cand)
-            and not self:kas_matches_rr(true, kas, cand)
+            and not self:kas_matches_rr(false, kas, cand, false)
          then
             -- if we have something like this, cool, let's add it
             self:iterate_matching_query(true,
@@ -702,7 +705,7 @@ function mdns_if:determine_ar(an, kas)
                                         kas,
                                         function (rr)
                                            if not all:find_rr(rr) 
-                                              and not self:kas_matches_rr(true, kas, rr)
+                                              and not self:kas_matches_rr(true, kas, rr, true)
                                            then
                                               all:insert_rr(rr)
                                               table.insert(ar, rr)
@@ -1716,10 +1719,18 @@ end
 
 function mdns_if:create_reverse(rr)
    if not rr then return end
-   -- for the time being, we only support AAAA
    if rr.rtype == dns_const.TYPE_AAAA
    then
       return {name=dns_db.prefix2ll(rr.rdata_aaaa .. '/128'),
+              rclass=rr.rclass,
+              rtype=dns_const.TYPE_PTR,
+              rdata_ptr=rr.name,
+              cache_flush=rr.cache_flush,
+             }
+   end
+   if rr.rtype == dns_const.TYPE_A
+   then
+      return {name=dns_db.prefix2ll(rr.rdata_a .. '/32'),
               rclass=rr.rclass,
               rtype=dns_const.TYPE_PTR,
               rdata_ptr=rr.name,
@@ -1746,11 +1757,13 @@ end
 function mdns_if:propagate_o_l(o, l, handle_reverses)
    -- project: update the 'own' s.t. for anything matching 'o', it
    -- roughly matches 'l' => update own state accordingly.
-   
+   self:d('propagate_o_l', o, l and #l or 0, handle_reverses)
+
 
    -- O(n log n)
    local rdata2own = {}
    local ol = self.own:find_rr_list(o)
+   self:d(' found', ol and #ol or 0)
    for i, rr in ipairs(ol or {})
    do
       rdata2own[dns_db.rr.get_rdata(rr)] = rr
