@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Thu Jun 13 12:14:52 2013 mstenber
--- Edit time:     72 min
+-- Last modified: Thu Jun 13 12:48:48 2013 mstenber
+-- Edit time:     90 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -43,6 +43,7 @@ require 'mst'
 require 'mdns_core'
 require 'scr'
 local _eventful = require 'mst_eventful'.eventful
+local _mdns = mdns_core.mdns
 
 module(..., package.seeall)
 
@@ -61,6 +62,15 @@ function mdns_client_request:init()
    -- start query
    self.ifo:query(self.q)
    
+   -- store the objects for later use
+   self.t, self.to = scr.get_timeout(self.timeout)
+end
+
+function mdns_client_request:uninit()
+   if self.to
+   then
+      self.to:done()
+   end
 end
 
 function mdns_client_request:inserted_cache_rr(rr)
@@ -73,24 +83,31 @@ function mdns_client_request:inserted_cache_rr(rr)
    end
 end
 
-function mdns_client_request:wait_done(timeout)
+function mdns_client_request:wait_done()
    local had_cf = function ()
       return self.had_cf
    end
-   local t, to = scr.get_timeout(timeout)
-   coroutine.yield(had_cf, t)
-   -- get rid of timeout object
-   if to
-   then
-      to:done()
-   end
+   coroutine.yield(had_cf, self.t)
 end
 
 function mdns_client_request:is_done()
    return self.had_cf or self.had_timeout
 end
 
-mdns_client = mdns_core.mdns:new_subclass{class='mdns_client'}
+mdns_client = _mdns:new_subclass{class='mdns_client'}
+
+function mdns_client:init()
+   _mdns.init(self)
+   self.requests = mst.set:new{}
+end
+
+function mdns_client:uninit()
+   for r, _ in pairs(self.requests)
+   do
+      r:done()
+   end
+end
+
 
 function mdns_client:resolve_ifo_q(ifo, q, cache_flush)
    local r
@@ -127,6 +144,25 @@ function mdns_client:queue_check_propagate_if_rr(ifname, rr)
    return
 end
 
+function mdns_client:run_request(ifo, q, timeout)
+   for r, _ in pairs(self.requests)
+   do
+      if mst.repr_equal(q, r.q) and ifo == r.ifo and timeout == r.timeout
+      then
+         -- yay, let's just latch on to this!
+         r:wait_done()
+         return o.had_cf
+      end
+   end
+   -- nothing readily available => have to create new request
+   local o = mdns_client_request:new{ifo=ifo, q=q, timeout=timeout}
+   self.requests:insert(o)
+   o:wait_done()
+   o:done()
+   self.requests:remove(o)
+   return o.had_cf
+end
+
 function mdns_client:resolve_ifname_q(ifname, q, timeout)
    self:d('resolve_ifname_q', ifname, q, timeout)
    local ifo = self:get_if(ifname)
@@ -140,11 +176,9 @@ function mdns_client:resolve_ifname_q(ifname, q, timeout)
    end
 
    -- no such luck, we have to play with mdns_client_request, and wait
-   -- up to timeout (or cf entry).
-   local o = mdns_client_request:new{ifo=ifo, q=q}
-   self:d(' wait_done', timeout)
-   o:wait_done(timeout)
-   o:done()
+   -- up to timeout (or cf entry). in truth, we actually may wait for
+   -- earlier request started by someone else to complete.
+   local had_cf = self:run_request(ifo, q, timeout)
 
    -- now, just dump whatever we have in cache (if anything) as result
    self:d('wait finished, checking cache')
@@ -152,7 +186,7 @@ function mdns_client:resolve_ifname_q(ifname, q, timeout)
    r = self:resolve_ifo_q(ifo, q)
    self:d('found in cache', r)
 
-   return r, o.had_cf
+   return r, had_cf
 end
 
 function mdns_client:update_own_records_if(myname, ns, o, rrs, rtype)
