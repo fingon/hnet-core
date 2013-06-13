@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Wed Jun 12 16:25:51 2013 mstenber
--- Edit time:     455 min
+-- Last modified: Thu Jun 13 11:53:04 2013 mstenber
+-- Edit time:     457 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -62,7 +62,13 @@ require 'dns_server'
 local _dns_server = dns_server.dns_server
 
 module(..., package.seeall)
-MDNS_TIMEOUT=0.5
+
+-- let's consider MDNS spec.
+-- first query delay = 20-120ms
+-- responder can delay up to 500ms on ethernet
+-- processing delay can be <250ms (otherwise probe could be horribly broken
+-- => let's guess 1 second and hope it's accurate enough
+MDNS_TIMEOUT=1
 
 DOMAIN='home'
 RIDPREFIX='r-'
