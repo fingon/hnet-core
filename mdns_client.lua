@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Mon Jun  3 18:03:22 2013 mstenber
--- Edit time:     40 min
+-- Last modified: Thu Jun 13 10:13:00 2013 mstenber
+-- Edit time:     59 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -155,49 +155,62 @@ function mdns_client:resolve_ifname_q(ifname, q, timeout)
    return r, o.had_cf
 end
 
-function mdns_client:update_own_records_if(myname, ns, o, rrs)
+function mdns_client:update_own_records_if(myname, ns, o, rrs, rtype)
    self:d('update_own_records_own_o_rrs', o, rrs)
 
-   -- XXX - in addition to AAAA, do this also with A records..
-
-   -- forward:
-   -- <ourname.local> => AAAA
+   -- remove old records if any
    if self.myname and self.myname ~= myname
    then
       -- name changed => have to zap
-      local fo = {name={self.myname, 'local'},
-                  rtype=dns_const.TYPE_AAAA,
-      }
+      -- (using old name)
+      local fo = {name={self.myname, 'local'}, rtype=rtype}
       o:propagate_o_l(fo, nil, true)
    end
 
    -- Ok, perhaps the records changed, perhaps not
-   local fo = {name={myname, 'local'},
-               rtype=dns_const.TYPE_AAAA,
-   }
+   -- (using new name)
+   local fo = {name={myname, 'local'}, rtype=rtype}
    o:propagate_o_l(fo, rrs, true)
 end
 
-function mdns_client:update_own_records(myname)
-   -- without name, there is no point
-   if not myname
-   then
-      self:a(not self.myname, 'had name but it was lost?')
-      return
+function mdns_client:update_own_records_a(myname, map)
+   -- for _every_ interface we have, we maintain similar records.
+   -- that is..
+
+   -- create forward name record list. for inverse direction, stuff
+   -- happens 'underneath' (in if-specific propagate_o_l)
+   local rrs = mst.array:new{}
+   for ifname, o in pairs(map)
+   do
+      local found
+      addr = o.ipv4
+      if addr
+      then
+         -- eliminate /x
+         addr = mst.string_split(addr, '/')[1]
+         rrs:insert{name={myname, 'local'},
+                    rclass=dns_const.CLASS_IN,
+                    rtype=dns_const.TYPE_A,
+                    rdata_a=addr,
+                    cache_flush=true,
+                   }
+         -- if we have address on device, we _should_ care about it
+         -- enough to have own data structure for it too. this should
+         -- make sure of that.
+         self:get_if(ifname)
+      end
    end
 
-   local map, gen = self:get_ipv6_map()
+   -- push it to every interface (and automated reverses should happen
+   -- 'by magic')
+   self:iterate_ifs_ns(true, function (ns, o)
+                          self:update_own_records_if(myname, ns, o, rrs,
+                                                     dns_const.TYPE_A)
+                             end)
 
-   -- nothing changed, nop
-   if self.myname == myname and gen == self.myname_gen
-   then
-      return
-   end
+end
 
-   self:d('update_own_records', myname, self.myname, map)
-
-   -- something changed
-
+function mdns_client:update_own_records_aaaa(myname, map)
    -- for _every_ interface we have, we maintain similar records.
    -- that is..
 
@@ -233,9 +246,50 @@ function mdns_client:update_own_records(myname)
    -- push it to every interface (and automated reverses should happen
    -- 'by magic')
    self:iterate_ifs_ns(true, function (ns, o)
-                          self:update_own_records_if(myname, ns, o, rrs)
+                          self:update_own_records_if(myname, ns, o, rrs,
+                                                    dns_const.TYPE_AAAA)
                              end)
+
+end
+
+function mdns_client:update_own_records(myname)
+   -- without name, there is no point
+   if not myname
+   then
+      self:a(not self.myname, 'had name but it was lost?')
+      return
+   end
+
+   local map4, gen4 = self:get_ipv4_map()
+   local map6, gen6 = self:get_ipv6_map()
+
+   -- force refresh
+   if myname ~= self.myname
+   then
+      self.gen4 = nil
+      self.gen6 = nil
+   end
+
+   -- nothing changed, nop
+   if gen4 == self.gen4 and gen6 == self.gen6
+   then
+      return
+   end
+
+   self:d('update_own_records', myname, self.myname, map6)
+
+   if gen4 ~= self.gen4
+   then
+      self:update_own_records_a(myname, map4)
+      self.gen4 = gen4
+   end
+
+   if gen6 ~= self.gen6
+   then
+      self:update_own_records_aaaa(myname, map6)
+      self.gen6 = gen6
+   end
+
    self.myname = myname
-   self.myname_gen = gen
 end
 

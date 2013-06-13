@@ -2,6 +2,13 @@
 
 * 10.6.2013+
 
+** HP - IPv4 - forward + reverse DNS for IPv4
+
+- need to support both routers and nodes' A RRs too; right now we do only
+  AAAA
+
+=> added A record support too
+
 ** HP - currently escaping of .'s on ifnames doesn't work
 
 (does it reallyreally _matter_?, we support arbitrary-depth domains

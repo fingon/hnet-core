@@ -8,14 +8,15 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 14:45:24 2013 mstenber
--- Last modified: Wed May 29 22:08:49 2013 mstenber
--- Edit time:     31 min
+-- Last modified: Thu Jun 13 11:49:12 2013 mstenber
+-- Edit time:     65 min
 --
 
 require 'busted'
 require 'mdns_client'
 require 'dns_const'
 require 'dshell'
+require 'mst_test'
 
 module('mdns_client_spec', package.seeall)
 
@@ -46,25 +47,48 @@ local rr_cf = {name={'foo', 'com'},
 
 local ifname = 'dummy'             
 
-local ip_addr_get = {
-   {"ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary",
+local ip4_addr_get = {
+   'ip -4 addr', 
+   [[
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
+    inet 127.0.0.1/8 scope host lo
+2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    inet 10.211.55.3/24 brd 10.211.55.255 scope global eth2
+428: nk_tap_mstenber: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 500
+    inet 192.168.42.1/24 brd 192.168.42.255 scope global nk_tap_mstenber
+]]
+}
+
+local ip6_addr_get = {
+   "ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary",
     [[1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 
 2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
   inet6 fdb2:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic 
   inet6 dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic
 6: 6rd: <NOARP,UP,LOWER_UP> mtu 1480 
   inet6 ::192.168.100.100/128 scope global 
-]]},
+]],
 }
 
+local N_IF=4 -- dummy + 3 in ip4_addr_get
+
+local N_IPV4=3
+local N_IPV6=2
+local N_IP=N_IPV4+N_IPV6
 
 describe("mdns_client", function ()
             local c
+            local t
+            local t_start = 123
             local ifo
             before_each(function ()
+                           t = t_start
                            ds = dshell.dshell:new{}
                            c = mdns_client.mdns_client:new{sendto=function (...)
                                                                   end,
+                                                           time=function ()
+                                                              return t
+                                                           end,
                                                            shell=ds:get_shell()}
                            ifo = c:get_if(ifname)
                         end)
@@ -109,9 +133,7 @@ describe("mdns_client", function ()
                   scr.run(function ()
                              got, got_cf = c:resolve_ifname_q(ifname, q, 0.1)
                           end)
-                  local r = ssloop.loop():loop_until(function ()
-                                                        return got
-                                                     end, 1)
+                  local r = ssloop.loop():loop_until(function () return got end, 1)
                   mst.a(r, 'timed out')
                   mst.a(mst.repr_equal(got, {rr}), 'not same', got, {rr})
                   mst.a(not got_cf)
@@ -127,14 +149,67 @@ describe("mdns_client", function ()
                   mst.a(not r, 'no timeout(?)')
                         end)
             it("can populate it's own entries if called for #own", function ()
-                  ds:set_array(ip_addr_get)
+                  -- by default, dummy if should be there
+                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), 1,
+                                             'initial')
                   c:update_own_records(nil)
+                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), 1,
+                                             'after nil update')
+
+                  -- now we should actually do something for real
+                  ds:set_array{ip4_addr_get,
+                               ip6_addr_get}
                   c:update_own_records('foo')
-                  -- XXX - check somehow it works well
+                  -- add eth2, lo, 6rd
+                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), N_IF,
+                                            'after foo')
+                  local cnt = c:get_if('eth2').own:count()
+                  mst_test.assert_repr_equal(cnt, N_IP * 2)
+
+                  -- second foo, should be nop
+                  c:update_own_records('foo')
+                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), N_IF,
+                                            'after foo')
+                  local cnt = c:get_if('eth2').own:count()
+                  mst_test.assert_repr_equal(cnt, N_IP * 2)
+
+                  -- now change name to bar
+                  c:update_own_records('bar')
+                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), N_IF,
+                                            'after bar')
+                  local cnt = c:get_if('eth2').own:count()
+                  -- initially the cache-flush set reverse records
+                  -- (PTRs) get replaced immediately. A/AAAA will hang
+                  -- around until they get expired (very soon)
+                  mst_test.assert_repr_equal(cnt, N_IP * 3)
+
+                  -- however, the old ones should expire 'after awhile'
+                  -- (but nsec records get added in; we have 1 name + N_IP addresses => we should have N_IP * 2 + (1 + N_IP) in the end)
+                  
+                  local ifo = c:get_if('eth2')
+                  while true
+                  do
+                     local cnt = ifo.own:count()
+                     mst.d('time', t, 'cnt', cnt)
+                     if cnt == N_IP * 2 + (1 + N_IP)
+                     then
+                        break
+                     end
+                     t = t + 0.1
+                     if t > t_start + 10
+                     then
+                        local ol = ifo.own:values()
+                        mst.a(false, 'timeout',  
+                              ifo.own:count(), ol)
+                        
+                     end
+                     c:run()
+                  end
+
                   ds:check_used()
                    end)
             it("can generate list of local binary prefixes", function ()
-                  ds:set_array(ip_addr_get)
+                  ds:set_array{ip6_addr_get}
                   local m = c:get_local_binary_prefix_set()
                   mst.a(m, 'get_local_binary_prefix_set failed')
                   local m = c:get_local_binary_prefix_set()

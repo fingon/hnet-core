@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Wed May 29 22:26:08 2013 mstenber
--- Edit time:     986 min
+-- Last modified: Thu Jun 13 10:04:47 2013 mstenber
+-- Edit time:     987 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -84,6 +84,21 @@ function mdns:uninit()
    -- skv from superclass, not in mcj)
    _eventful.uninit(self)
 
+end
+
+function mdns:get_ipv4_map()
+   local now = self.time()
+   local was = self.ipv4map_refresh
+   local refreshed
+   if not was or (was + IF_INFO_VALIDITY_PERIOD) < now
+   then
+      -- TODO - consider if it is worth storing this if_table;
+      -- for the time being, we save memory by not keeping it around..
+      local if_table = linux_if.if_table:new{shell=self.shell} 
+      self.ipv4map = if_table:read_ip_ipv4()
+      self.ipv4map_refresh = now
+   end
+   return self.ipv4map, self.ipv4map_refresh
 end
 
 function mdns:get_ipv6_map()

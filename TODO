@@ -49,11 +49,6 @@ nothing good happens if time moves much forwards, _either_. *sigh*
 
 * HP/DNS - Bugs
 
-** HP - IPv4 - forward + reverse DNS for IPv4
-
-- need to support both routers and nodes' A RRs too; right now we do only
-  AAAA
-
 ** HP - sometimes takes long after boot for some legs mdns to work
 
 I don't know yet why; possibly the re-send-LSA code is a culprit, we try to
