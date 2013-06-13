@@ -8,14 +8,31 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Thu May 30 09:59:37 2013 mstenber
--- Edit time:     5 min
+-- Last modified: Thu Jun 13 10:26:29 2013 mstenber
+-- Edit time:     8 min
 --
 
 -- testing related utilities
 require 'mst'
 
 module(..., package.seeall)
+
+-- first some individual functions
+
+-- convenience function to make sure that o1 == o2 (as far as repr
+-- goes)
+function assert_repr_equal(o1, o2, ...)
+   -- equality is trivially repr_equal too
+   if o1 == o2
+   then
+      return
+   end
+   local r1 = mst.repr(o1)
+   local r2 = mst.repr(o2)
+   mst.a(r1 == r2, 
+         'assert_repr_equal failure got', r1, 'expected', r2, ...)
+end
+
 
 -- run test list given in a, giving first item as argument to the f,
 -- and making sure second item is assert_equsl to the first.
@@ -30,11 +47,7 @@ function test_list(a, f, assert_equals)
 
       -- and make sure that (repr-wise) result is correct
       local assert_equals = assert_equals or function (v1, v2)
-         mst.a(mst.repr_equal(v1, v2), 
-               'not same - exp', v1, 
-               'got', v2,
-               'for',
-               input)
+         assert_repr_equal(v2, v1, 'for', input)
                                        end
       assert_equals(output, result)
    end
