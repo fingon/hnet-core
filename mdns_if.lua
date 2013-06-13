@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu Jun 13 13:47:33 2013 mstenber
--- Edit time:     819 min
+-- Last modified: Thu Jun 13 14:55:55 2013 mstenber
+-- Edit time:     829 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -417,6 +417,7 @@ function mdns_if:run_expire(now)
                                 if rr.valid and rr.valid <= now
                                 then
                                    self:d('[own] getting rid of', rr)
+                                   self:a(self.own_sl:is_present(rr))
                                    -- get rid of the entry
                                    if not rr.cache_flush
                                    then
@@ -425,8 +426,12 @@ function mdns_if:run_expire(now)
                                       rr.ttl = 0
                                    end
                                    local old_rr = self.own:remove_rr(rr)
-                                   self:a(old_rr, 'remove_rr failed??', 
-                                          rr, self.own)
+                                   self:a(old_rr, 'remove_rr failed??', rr)
+                                  -- make sure it looks sane; if not
+                                  -- current rr, we're really fucked,
+                                  -- as iterate_while is safe to
+                                  -- remove only current item..
+                                   self:a(rr == old_rr, 'remove_rr removed something else? eep', rr, old_rr)
                                    -- make sure the expire hook removed it
                                    self:a(not self.own_sl:is_present(old_rr))
                                 end
@@ -450,6 +455,11 @@ function mdns_if:run_expire(now)
                                   local old_rr = self.cache:remove_rr(rr)
                                   self:a(old_rr, 'remove_rr failed??', 
                                          rr, self.own)
+                                  -- make sure it looks sane; if not
+                                  -- current rr, we're really fucked,
+                                  -- as iterate_while is safe to
+                                  -- remove only current item..
+                                  self:a(rr == old_rr, 'remove_rr removed something else? eep', rr, old_rr)
                                   return true
                                end)
    if pending
