@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:08:00 2013 mstenber
--- Last modified: Mon May 20 13:06:56 2013 mstenber
+-- Last modified: Thu Jun 13 10:12:53 2013 mstenber
 -- Edit time:     19 min
 --
 
@@ -74,7 +74,7 @@ rtype_map = {[dns_const.TYPE_PTR]={
                 field='rdata_a',
                 encode=function (self, o, context)
                    local v = o[self.field]
-                   mst.a(v)
+                   mst.a(v, 'no value for', self.field)
                    local b = ipv4s.address_to_binary_address(v)
                    mst.a(#b == 4, 'encode error')
                    return b
