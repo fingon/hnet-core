@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Thu Jun 13 12:48:48 2013 mstenber
--- Edit time:     90 min
+-- Last modified: Thu Jun 13 12:55:16 2013 mstenber
+-- Edit time:     91 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -151,7 +151,7 @@ function mdns_client:run_request(ifo, q, timeout)
       then
          -- yay, let's just latch on to this!
          r:wait_done()
-         return o.had_cf
+         return r.had_cf
       end
    end
    -- nothing readily available => have to create new request

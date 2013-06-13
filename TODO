@@ -65,8 +65,6 @@ again (which is minute currently).
 
 ** HP - Add multiple upstream router support to proxy(/elsewhere)
 
-** HP - Add support for detecting in-progress mdns query -> do not ask again, but instead wait for result
-
 ** HP - Add browse domain import feature
 
 Caveats: DNS-SD browse domain list update occurs relatively rapidly in

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 14:45:24 2013 mstenber
--- Last modified: Thu Jun 13 11:49:12 2013 mstenber
--- Edit time:     65 min
+-- Last modified: Thu Jun 13 12:56:06 2013 mstenber
+-- Edit time:     67 min
 --
 
 require 'busted'
@@ -104,7 +104,14 @@ describe("mdns_client", function ()
                   mst.a(got_cf)
                    end)
             it("works with CF that shows up later #b", function ()
-                  local got, got_cf
+                  local got1, got1_cf
+                  local got2, got2_cf
+                  local cnt = 0
+                  mst_test.inject_snitch(mdns_client.mdns_client_request,
+                                         'init',
+                                         function ()
+                                            cnt = cnt + 1
+                                         end)
                   scr.run(function ()
                              scr.sleep(0.01)
                              mst.d('inserting cf entry')
@@ -114,14 +121,20 @@ describe("mdns_client", function ()
                              ifo.cache:insert_rr(rr)
                           end)
                   scr.run(function ()
-                             got, got_cf = c:resolve_ifname_q(ifname, q, 1)
+                             got1, got1_cf = c:resolve_ifname_q(ifname, q, 1)
+                          end)
+                  scr.run(function ()
+                             got2, got2_cf = c:resolve_ifname_q(ifname, q, 1)
                           end)
                   local r = ssloop.loop():loop_until(function ()
-                                                        return got
+                                                        return got1 and got2
                                                      end, 1)
                   mst.a(r, 'timed out')
-                  mst.a(mst.repr_equal(got, {rr_cf}), 'not same', got, {rr_cf})
-                  mst.a(got_cf)
+                  mst_test.assert_repr_equal(got1, {rr_cf})
+                  mst.a(got1_cf)
+                  mst_test.assert_repr_equal(got1_cf, got2_cf)
+                  mst_test.assert_repr_equal(got1, got2)
+                  mst_test.assert_repr_equal(cnt, 1)
                    end)
             it("works with non-CF #c", function ()
                   local got, got_cf

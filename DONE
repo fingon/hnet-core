@@ -2,6 +2,8 @@
 
 * 10.6.2013+
 
+** HP - Add support for detecting in-progress mdns query -> do not ask again, but instead wait for result
+
 ** HP - IPv4 - forward + reverse DNS for IPv4
 
 - need to support both routers and nodes' A RRs too; right now we do only
