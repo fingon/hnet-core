@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Thu Jun 13 13:04:41 2013 mstenber
--- Edit time:     181 min
+-- Last modified: Thu Jun 13 13:09:12 2013 mstenber
+-- Edit time:     183 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -341,11 +341,6 @@ function ssloop:unloop()
 end
 
 function ssloop:run_timeouts(now, nd)
-   -- check nesting depth - more than 100 timeouts triggering each other
-   -- is at least sign of broken code if not worse
-   nd = nd and (nd + 1) or 0
-   self:a(nd < 100, 'runaway timeout handling')
-
    self:a(now, 'now mandatory in run_timeouts')
    local t
    -- first gather a list of expired events
@@ -371,6 +366,12 @@ function ssloop:run_timeouts(now, nd)
       --v:done()
       c = c + 1
    end
+
+   -- check nesting depth - more than 100 timeouts triggering each other
+   -- is at least sign of broken code if not worse
+   nd = nd and (nd + 1) or 0
+   self:a(nd < 100, 'runaway timeout handling')
+
    self:d('recursing run_timeout', nd)
    return c + self:run_timeouts(now, nd)
 end
