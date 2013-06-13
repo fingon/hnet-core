@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 14:45:24 2013 mstenber
--- Last modified: Thu Jun 13 12:56:06 2013 mstenber
--- Edit time:     67 min
+-- Last modified: Thu Jun 13 13:33:29 2013 mstenber
+-- Edit time:     72 min
 --
 
 require 'busted'
@@ -70,11 +70,36 @@ local ip6_addr_get = {
 ]],
 }
 
+
+local ip4_addr_get2 = {
+   'ip -4 addr', 
+   [[
+2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    inet 10.211.55.4/24 brd 10.211.55.255 scope global eth2
+428: nk_tap_mstenber: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 500
+    inet 192.168.42.1/24 brd 192.168.42.255 scope global nk_tap_mstenber
+]]
+}
+
+local ip6_addr_get2 = {
+   "ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary",
+    [[1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 
+2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+  inet6 fdb2:2c26:f4e4:0:21c:42ff:fea7:f1da/64 scope global dynamic 
+  inet6 dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic
+]],
+}
+
+
 local N_IF=4 -- dummy + 3 in ip4_addr_get
 
 local N_IPV4=3
 local N_IPV6=2
 local N_IP=N_IPV4+N_IPV6
+
+local N2_IPV4=2
+local N2_IPV6=2
+local N2_IP=N2_IPV4+N2_IPV6
 
 describe("mdns_client", function ()
             local c
@@ -220,6 +245,34 @@ describe("mdns_client", function ()
                   end
 
                   ds:check_used()
+
+                  -- now, some wild stuff - change addresses _and_ name!
+                  ds:set_array{ip4_addr_get2, ip6_addr_get2}
+
+                  t = t + mdns_core.IF_INFO_VALIDITY_PERIOD + 10
+                  t_start = t
+                  c:update_own_records('baz')
+                  ds:check_used()
+
+                  while true
+                  do
+                     local cnt = ifo.own:count()
+                     mst.d('time', t, 'cnt', cnt)
+                     if cnt == N2_IP * 2 + (1 + N2_IP)
+                     then
+                        break
+                     end
+                     t = t + 0.1
+                     if t > t_start + 10
+                     then
+                        local ol = ifo.own:values()
+                        mst.a(false, 'timeout',  
+                              ifo.own:count(), ol)
+                        
+                     end
+                     c:run()
+                  end
+
                    end)
             it("can generate list of local binary prefixes", function ()
                   ds:set_array{ip6_addr_get}
