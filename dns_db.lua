@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Thu Jun 13 11:07:58 2013 mstenber
--- Edit time:     211 min
+-- Last modified: Thu Jun 13 16:32:38 2013 mstenber
+-- Edit time:     218 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -198,7 +198,7 @@ function rr:equals(o)
       and self.rclass == (o.rclass or dns_const.CLASS_IN)
       and ll_equal(self.name, o.name)
       and self:rdata_equals(o) 
-      and (not self.cache_flush == not o.cache_flush or o.cache_flush == nil)
+      and not self.cache_flush == not o.cache_flush
 end
 
 -- namespace of RR records; it has ~fast access to RRs by name
@@ -241,7 +241,10 @@ function ns:iterate_rrs_for_ll(ll, f)
    do
       if ll_equal(v.name, ll)
       then
-         f(v)
+         if f(v)
+         then
+            break
+         end
       end
    end
 end
@@ -274,27 +277,28 @@ function ns:find_rr_list(o)
    local r 
    self:a(o.name, 'missing name', o)
    self:a(o.rtype, 'missing rtype', o)
-   for i, rr in ipairs(self:find_rr_list_for_ll(o.name))
-   do
-      if rr:equals(o)
-      then
-         r = r or {}
-         table.insert(r, rr)
-      end
-   end
+   self:iterate_rrs_for_ll(o.name, function (rr)
+                              if rr:equals(o)
+                              then
+                                 r = r or {}
+                                 table.insert(r, rr)
+                              end
+                                   end)
    return r
 end
 
 function ns:find_rr(o)
    self:a(o.name, 'missing name', o)
    self:a(o.rtype, 'missing rtype', o)
-   for i, rr in ipairs(self:find_rr_list_for_ll(o.name))
-   do
-      if rr:equals(o)
-      then
-         return rr
-      end
-   end
+   local found
+   self:iterate_rrs_for_ll(o.name, function (rr)
+                              if rr:equals(o)
+                              then
+                                 found = rr
+                                 return 1
+                              end
+                                   end)
+   return found
 end
 
 -- transactionally correct multi-rr insert
