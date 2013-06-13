@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 21:35:07 2013 mstenber
--- Last modified: Mon Feb 11 11:19:11 2013 mstenber
--- Edit time:     254 min
+-- Last modified: Thu Jun 13 13:46:52 2013 mstenber
+-- Edit time:     255 min
 --
 
 local mst = require 'mst'
@@ -292,6 +292,12 @@ function ipi_skiplist:insert(o)
    self:a(not o[lk], 'already inserted?', o)
    self:insert_up_to_level(o, l)
    o[lk] = l
+end
+
+function ipi_skiplist:is_present(o)
+   local lk = self.lkey
+   local l = o[lk]
+   return l
 end
 
 function ipi_skiplist:remove_if_present(o)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu Jun 13 13:18:12 2013 mstenber
--- Edit time:     814 min
+-- Last modified: Thu Jun 13 13:47:33 2013 mstenber
+-- Edit time:     819 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -427,7 +427,8 @@ function mdns_if:run_expire(now)
                                    local old_rr = self.own:remove_rr(rr)
                                    self:a(old_rr, 'remove_rr failed??', 
                                           rr, self.own)
-
+                                   -- make sure the expire hook removed it
+                                   self:a(not self.own_sl:is_present(old_rr))
                                 end
                                 return true
                              end)
