@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Thu Jun 13 10:13:00 2013 mstenber
--- Edit time:     59 min
+-- Last modified: Thu Jun 13 12:14:52 2013 mstenber
+-- Edit time:     72 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -173,13 +173,8 @@ function mdns_client:update_own_records_if(myname, ns, o, rrs, rtype)
    o:propagate_o_l(fo, rrs, true)
 end
 
-function mdns_client:update_own_records_a(myname, map)
-   -- for _every_ interface we have, we maintain similar records.
-   -- that is..
-
-   -- create forward name record list. for inverse direction, stuff
-   -- happens 'underneath' (in if-specific propagate_o_l)
-   local rrs = mst.array:new{}
+function mdns_client:get_a_addrs(map)
+   local addrs = {}
    for ifname, o in pairs(map)
    do
       local found
@@ -188,31 +183,19 @@ function mdns_client:update_own_records_a(myname, map)
       then
          -- eliminate /x
          addr = mst.string_split(addr, '/')[1]
-         rrs:insert{name={myname, 'local'},
-                    rclass=dns_const.CLASS_IN,
-                    rtype=dns_const.TYPE_A,
-                    rdata_a=addr,
-                    cache_flush=true,
-                   }
+         addrs[addr] = true
          -- if we have address on device, we _should_ care about it
          -- enough to have own data structure for it too. this should
          -- make sure of that.
          self:get_if(ifname)
       end
    end
-
-   -- push it to every interface (and automated reverses should happen
-   -- 'by magic')
-   self:iterate_ifs_ns(true, function (ns, o)
-                          self:update_own_records_if(myname, ns, o, rrs,
-                                                     dns_const.TYPE_A)
-                             end)
-
+   return addrs
 end
 
-function mdns_client:update_own_records_aaaa(myname, map)
-   -- for _every_ interface we have, we maintain similar records.
-   -- that is..
+
+function mdns_client:get_aaaa_addrs(map)
+   local addrs = {}
 
    -- create forward name record list. for inverse direction, stuff
    -- happens 'underneath' (in if-specific propagate_o_l)
@@ -226,12 +209,7 @@ function mdns_client:update_own_records_aaaa(myname, map)
 
          -- eliminate /64
          addr = mst.string_split(addr, '/')[1]
-         rrs:insert{name={myname, 'local'},
-                    rclass=dns_const.CLASS_IN,
-                    rtype=dns_const.TYPE_AAAA,
-                    rdata_aaaa=addr,
-                    cache_flush=true,
-                   }
+         addrs[addr] = true
       end
 
       if found
@@ -243,13 +221,39 @@ function mdns_client:update_own_records_aaaa(myname, map)
       end
    end
 
-   -- push it to every interface (and automated reverses should happen
-   -- 'by magic')
+   return addrs
+end
+
+function mdns_client:addrs_to_rrs(myname, rtype, addrs)
+   local rrs = mst.array:new{}
+   local m = dns_rdata.rtype_map[rtype]
+   local addrfield = m.field
+   for addr, _ in pairs(addrs)
+   do
+      rrs:insert{name={myname, 'local'},
+                 rclass=dns_const.CLASS_IN,
+                 rtype=rtype,
+                 [addrfield]=addr,
+                 cache_flush=true,
+                }
+   end
+   return rrs
+end
+
+function mdns_client:update_own_records_addrs(myname, rtype, addrs)
+   self.rtype2addr = self.rtyp2addr or {}
+   -- if no change, just don't do a thing
+   if mst.repr_equal(self.rtype2addr[rtype], addrs) and myname == self.myname
+   then
+      return
+   end
+   self.rtype2addr[rtype] = addrs
+   local rrs = self:addrs_to_rrs(myname, rtype, addrs)
    self:iterate_ifs_ns(true, function (ns, o)
                           self:update_own_records_if(myname, ns, o, rrs,
-                                                    dns_const.TYPE_AAAA)
+                                                     rtype)
                              end)
-
+   
 end
 
 function mdns_client:update_own_records(myname)
@@ -280,13 +284,15 @@ function mdns_client:update_own_records(myname)
 
    if gen4 ~= self.gen4
    then
-      self:update_own_records_a(myname, map4)
+      local m = self:get_a_addrs(map4)
+      self:update_own_records_addrs(myname, dns_const.TYPE_A, m)
       self.gen4 = gen4
    end
 
    if gen6 ~= self.gen6
    then
-      self:update_own_records_aaaa(myname, map6)
+      local m = self:get_aaaa_addrs(map6)
+      self:update_own_records_addrs(myname, dns_const.TYPE_AAAA, m)
       self.gen6 = gen6
    end
 
