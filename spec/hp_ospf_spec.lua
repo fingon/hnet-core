@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 17:40:20 2013 mstenber
--- Last modified: Wed Jun 12 16:27:03 2013 mstenber
--- Edit time:     66 min
+-- Last modified: Thu Jun 13 09:34:51 2013 mstenber
+-- Edit time:     67 min
 --
 
 require 'busted'
@@ -45,7 +45,8 @@ local IP2 = '2.3.4.5'
 local NAME3 = 'bar.com'
 local IP3 = '3.4.5.6'
 
-local IFNAME = 'if-name'
+local IFNAME = 'if.name'
+local IFNAME_ESCAPED = 'if_name'
 
 describe("hybrid_ospf", function ()
             after_each(function ()
@@ -185,7 +186,7 @@ describe("hybrid_ospf", function ()
 
                   local v = s:get(elsa_pa.HP_MDNS_ZONES_KEY)
                   local e = {
-                     {browse=1, ip="1.2.3.4", name=IFNAME .. ".r-rid1.foo.com"}, 
+                     {browse=1, ip="1.2.3.4", name=IFNAME_ESCAPED .. ".r-rid1.foo.com"}, 
                      {ip="1.2.3.4", 
                       name="0.0.0.0.0.0.0.0.f.e.e.b.d.a.e.d.ip6.arpa"},
                   }

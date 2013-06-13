@@ -2,6 +2,11 @@
 
 * 10.6.2013+
 
+** HP - currently escaping of .'s on ifnames doesn't work
+
+(does it reallyreally _matter_?, we support arbitrary-depth domains
+anyway.. but perhaps it does, in some UI.)
+
 ** HP - Alter design s.t. it is possible to use some other resolver again
 
 Right now we do our own resolving, and then fall-back to external in many

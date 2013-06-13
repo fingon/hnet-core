@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Wed Jun 12 16:51:44 2013 mstenber
--- Edit time:     102 min
+-- Last modified: Thu Jun 13 09:37:27 2013 mstenber
+-- Edit time:     115 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -288,7 +288,7 @@ function hybrid_ospf:iid2label(iid)
          if n
          then
             -- sanitize name - we don't want dots there
-            n = string.gsub(n, '\\.', '_') 
+            n = string.gsub(n, '%.', '_') 
             return n
          end
       end
