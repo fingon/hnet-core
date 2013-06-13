@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Wed Jun 12 12:30:30 2013 mstenber
--- Edit time:     333 min
+-- Last modified: Thu Jun 13 12:14:00 2013 mstenber
+-- Edit time:     334 min
 --
 
 require 'busted'
@@ -316,17 +316,17 @@ local hp_process_dns_results = {
 local hp_process_mdns_results = {
    -- error => nil
    {
-      {"eth0", {name={"x", "local"}, qclass=1, qtype=255}, 0.5},
+      {"eth0", {name={"x", "local"}, qclass=1, qtype=255}, hp_core.MDNS_TIMEOUT},
       nil,
    },
    -- timeout => should result in empty list
    {
-      {"eth0", {name={"x", "local"}, qclass=1, qtype=255}, 0.5},
+      {"eth0", {name={"x", "local"}, qclass=1, qtype=255}, hp_core.MDNS_TIMEOUT},
       {},
    },
    -- ok
    {
-      {"eth0", {name={"x", "local"}, qclass=1, qtype=255}, 0.5},
+      {"eth0", {name={"x", "local"}, qclass=1, qtype=255}, hp_core.MDNS_TIMEOUT},
       {
          -- 3 rr's - one matching x.local, additional record y.local,
          -- and third bar.com that should not be propagated
@@ -338,7 +338,7 @@ local hp_process_mdns_results = {
    },
    -- ok, with ip
    {
-      {"eth0", {name=n_x_reverse, qclass=1, qtype=255}, 0.5},
+      {"eth0", {name=n_x_reverse, qclass=1, qtype=255}, hp_core.MDNS_TIMEOUT},
       {
          rr_x_reverse_local,
       }
