@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 14:45:24 2013 mstenber
--- Last modified: Thu Jun 13 13:33:29 2013 mstenber
--- Edit time:     72 min
+-- Last modified: Thu Jun 13 13:37:36 2013 mstenber
+-- Edit time:     76 min
 --
 
 require 'busted'
@@ -61,13 +61,13 @@ local ip4_addr_get = {
 
 local ip6_addr_get = {
    "ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary",
-    [[1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 
+   [[1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 
 2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
-  inet6 fdb2:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic 
-  inet6 dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic
+     inet6 fdb2:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic 
+     inet6 dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic
 6: 6rd: <NOARP,UP,LOWER_UP> mtu 1480 
-  inet6 ::192.168.100.100/128 scope global 
-]],
+     inet6 ::192.168.100.100/128 scope global 
+    ]],
 }
 
 
@@ -75,19 +75,18 @@ local ip4_addr_get2 = {
    'ip -4 addr', 
    [[
 2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
-    inet 10.211.55.4/24 brd 10.211.55.255 scope global eth2
+       inet 10.211.55.4/24 brd 10.211.55.255 scope global eth2
 428: nk_tap_mstenber: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 500
-    inet 192.168.42.1/24 brd 192.168.42.255 scope global nk_tap_mstenber
-]]
+       inet 192.168.42.1/24 brd 192.168.42.255 scope global nk_tap_mstenber
+    ]]
 }
 
 local ip6_addr_get2 = {
    "ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary",
-    [[1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 
-2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
-  inet6 fdb2:2c26:f4e4:0:21c:42ff:fea7:f1da/64 scope global dynamic 
-  inet6 dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic
-]],
+   [[2: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+     inet6 fdb2:2c26:f4e4:0:21c:42ff:fea7:f1da/64 scope global dynamic 
+     inet6 dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 scope global dynamic
+    ]],
 }
 
 
@@ -127,7 +126,7 @@ describe("mdns_client", function ()
                   local r, got_cf = c:resolve_ifname_q(ifname, q, 0.1)
                   mst.a(mst.repr_equal(r, {rr_cf}), 'not same')
                   mst.a(got_cf)
-                   end)
+                                                               end)
             it("works with CF that shows up later #b", function ()
                   local got1, got1_cf
                   local got2, got2_cf
@@ -160,7 +159,7 @@ describe("mdns_client", function ()
                   mst_test.assert_repr_equal(got1_cf, got2_cf)
                   mst_test.assert_repr_equal(got1, got2)
                   mst_test.assert_repr_equal(cnt, 1)
-                   end)
+                                                       end)
             it("works with non-CF #c", function ()
                   local got, got_cf
                   scr.run(function ()
@@ -176,17 +175,40 @@ describe("mdns_client", function ()
                   mst.a(mst.repr_equal(got, {rr}), 'not same', got, {rr})
                   mst.a(not got_cf)
 
-                   end)
+                                       end)
             it("timeout #d", function ()
                   local r = scr.timeouted_run_async_call(1, 
                                                          c.resolve_ifname_q,
                                                          c,
                                                          ifname, 
                                                          q,
-                                                        0.1)
+                                                         0.1)
                   mst.a(not r, 'no timeout(?)')
-                        end)
+                             end)
             it("can populate it's own entries if called for #own", function ()
+                  function run_until_ifo_count(n)
+                     local ifo = c:get_if('eth2')
+                     while true
+                     do
+                        local cnt = ifo.own:count()
+                        mst.d('time', t, 'cnt', cnt)
+                        if cnt == n
+                        then
+                           break
+                        end
+                        t = t + 0.1
+                        if t > t_start + 10
+                        then
+                           local ol = ifo.own:values()
+                           mst.a(false, 'timeout',  
+                                 ifo.own:count(), ol)
+                           
+                        end
+                        c:run()
+                     end
+
+                  end
+
                   -- by default, dummy if should be there
                   mst_test.assert_repr_equal(mst.table_count(c.ifname2if), 1,
                                              'initial')
@@ -200,21 +222,21 @@ describe("mdns_client", function ()
                   c:update_own_records('foo')
                   -- add eth2, lo, 6rd
                   mst_test.assert_repr_equal(mst.table_count(c.ifname2if), N_IF,
-                                            'after foo')
+                                             'after foo')
                   local cnt = c:get_if('eth2').own:count()
                   mst_test.assert_repr_equal(cnt, N_IP * 2)
 
                   -- second foo, should be nop
                   c:update_own_records('foo')
                   mst_test.assert_repr_equal(mst.table_count(c.ifname2if), N_IF,
-                                            'after foo')
+                                             'after foo')
                   local cnt = c:get_if('eth2').own:count()
                   mst_test.assert_repr_equal(cnt, N_IP * 2)
 
                   -- now change name to bar
                   c:update_own_records('bar')
                   mst_test.assert_repr_equal(mst.table_count(c.ifname2if), N_IF,
-                                            'after bar')
+                                             'after bar')
                   local cnt = c:get_if('eth2').own:count()
                   -- initially the cache-flush set reverse records
                   -- (PTRs) get replaced immediately. A/AAAA will hang
@@ -223,26 +245,7 @@ describe("mdns_client", function ()
 
                   -- however, the old ones should expire 'after awhile'
                   -- (but nsec records get added in; we have 1 name + N_IP addresses => we should have N_IP * 2 + (1 + N_IP) in the end)
-                  
-                  local ifo = c:get_if('eth2')
-                  while true
-                  do
-                     local cnt = ifo.own:count()
-                     mst.d('time', t, 'cnt', cnt)
-                     if cnt == N_IP * 2 + (1 + N_IP)
-                     then
-                        break
-                     end
-                     t = t + 0.1
-                     if t > t_start + 10
-                     then
-                        local ol = ifo.own:values()
-                        mst.a(false, 'timeout',  
-                              ifo.own:count(), ol)
-                        
-                     end
-                     c:run()
-                  end
+                  run_until_ifo_count(N_IP * 2 + (1 + N_IP))
 
                   ds:check_used()
 
@@ -254,26 +257,9 @@ describe("mdns_client", function ()
                   c:update_own_records('baz')
                   ds:check_used()
 
-                  while true
-                  do
-                     local cnt = ifo.own:count()
-                     mst.d('time', t, 'cnt', cnt)
-                     if cnt == N2_IP * 2 + (1 + N2_IP)
-                     then
-                        break
-                     end
-                     t = t + 0.1
-                     if t > t_start + 10
-                     then
-                        local ol = ifo.own:values()
-                        mst.a(false, 'timeout',  
-                              ifo.own:count(), ol)
-                        
-                     end
-                     c:run()
-                  end
+                  run_until_ifo_count(N2_IP * 2 + (1 + N2_IP))
 
-                   end)
+                                                                   end)
             it("can generate list of local binary prefixes", function ()
                   ds:set_array{ip6_addr_get}
                   local m = c:get_local_binary_prefix_set()
@@ -282,5 +268,5 @@ describe("mdns_client", function ()
                   mst.a(m, 'get_local_binary_prefix_set failed')
                   ds:check_used()
 
-                   end)
-                   end)
+                                                             end)
+                        end)
