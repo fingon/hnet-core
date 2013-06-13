@@ -8,12 +8,13 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:37:02 2012 mstenber
--- Last modified: Thu Feb 14 10:37:01 2013 mstenber
--- Edit time:     47 min
+-- Last modified: Thu Jun 13 10:56:16 2013 mstenber
+-- Edit time:     50 min
 --
 
 require "busted"
 require "dns_db"
+require "mst_test"
 
 module("dns_db_spec", package.seeall)
 
@@ -131,6 +132,15 @@ describe("ns", function ()
                   local s = {name = fake1.name, rtype = fake1.rtype, rdata=fake1.rdata}
                   local o = ns:find_rr(s)
                   mst.a(o and o:equals(fake1))
+
+                  local l = ns:find_rr_list(s)
+                  mst_test.assert_repr_equal(l, {o}, 'find_rr_list bug')
+
+                  local s = {name = fake1.name, rtype=fake1.rtype}
+                  local l = ns:find_rr_list(s)
+                  -- should get fake1 + fake12
+                  mst_test.assert_repr_equal(#l, 2, 'find_rr_list bug')
+
 
                   -- make sure that removing items works too
 
