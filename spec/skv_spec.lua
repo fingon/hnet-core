@@ -8,18 +8,19 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Mon Jan 28 14:06:46 2013 mstenber
+-- Last modified: Thu Jun 13 12:52:22 2013 mstenber
 -- Edit time:     184 min
 --
 
 require "busted"
 require "mst"
+require 'mst_test'
 require 'ssloop'
 
 local run_loop_awhile = ssloop.run_loop_awhile
 local run_loop_until = ssloop.run_loop_until
-local add_eventloop_terminator = ssloop.add_eventloop_terminator
-local inject_refcounted_terminator = ssloop.inject_refcounted_terminator
+local add_eventloop_terminator = mst_test.add_eventloop_terminator
+local inject_refcounted_terminator = mst_test.inject_refcounted_terminator
 
 local _skv = require 'skv'
 local skv = _skv.skv

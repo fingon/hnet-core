@@ -8,11 +8,12 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Jun 12 15:54:55 2013 mstenber
+-- Last modified: Thu Jun 13 12:52:58 2013 mstenber
 -- Edit time:     453 min
 --
 
 require 'mst'
+require 'mst_test'
 require 'busted'
 require 'elsa_pa'
 require 'skv'
@@ -86,10 +87,10 @@ describe("elsa_pa [one node]", function ()
             function inject_snitches()
                usp_added = false
                asp_added = false
-               ssloop.inject_snitch(ep.pa, 'add_or_update_usp', function ()
-                                       usp_added = true
+               mst_test.inject_snitch(ep.pa, 'add_or_update_usp', function ()
+                                         usp_added = true
                                                                 end)
-               ssloop.inject_snitch(ep.pa, 'add_or_update_asp', function ()
+               mst_test.inject_snitch(ep.pa, 'add_or_update_asp', function ()
                                        asp_added = true
                                                                 end)
             end

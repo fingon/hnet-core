@@ -8,12 +8,13 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Thu Jun 13 10:26:29 2013 mstenber
--- Edit time:     8 min
+-- Last modified: Thu Jun 13 12:51:58 2013 mstenber
+-- Edit time:     10 min
 --
 
 -- testing related utilities
 require 'mst'
+require 'ssloop'
 
 module(..., package.seeall)
 
@@ -53,6 +54,7 @@ function test_list(a, f, assert_equals)
    end
 end
 
+-- create iterator and a list; the calls to iterator are stored in the list
 function create_storing_iterator_and_list()
    local t = {}
    local f = function (...)
@@ -60,6 +62,34 @@ function create_storing_iterator_and_list()
    end
    return f, t
 end
+
+function inject_snitch(o, n, sf)
+   local f = o[n]
+   o[n] = function (...)
+      sf(...)
+      return f(...)
+   end
+end
+
+function inject_refcounted_terminator(o, n, c)
+   local l = ssloop.loop()
+   local terminator = function ()
+      c[1] = c[1] - 1
+      if c[1] == 0
+      then
+         l:unloop()
+      end
+   end
+   inject_snitch(o, n, terminator)
+end
+
+function add_eventloop_terminator(o, n)
+   local c = {1}
+   inject_refcounted_terminator(o, n, c)
+end
+
+
+-- fake callback class for fun and profit
 
 fake_callback = mst.create_class{class='fake_callback'}
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Wed Jun 12 16:19:14 2013 mstenber
--- Edit time:     175 min
+-- Last modified: Thu Jun 13 12:50:54 2013 mstenber
+-- Edit time:     177 min
 --
 
 -- Minimalist event loop, with ~compatible API to that of the lua_ev,
@@ -429,32 +429,6 @@ function run_loop_until(stmt, timeout)
       error("timeout expired")
    end
 end
-
-function inject_snitch(o, n, sf)
-   local f = o[n]
-   o[n] = function (...)
-      sf(...)
-      f(...)
-   end
-end
-
-function inject_refcounted_terminator(o, n, c)
-   local l = loop()
-   local terminator = function ()
-      c[1] = c[1] - 1
-      if c[1] == 0
-      then
-         l:unloop()
-      end
-   end
-   inject_snitch(o, n, terminator)
-end
-
-function add_eventloop_terminator(o, n)
-   local c = {1}
-   inject_refcounted_terminator(o, n, c)
-end
-
 
 function repeat_every_timedelta(delta, callback)
    local t
