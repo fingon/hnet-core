@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Mon Jun  3 17:53:00 2013 mstenber
--- Edit time:     208 min
+-- Last modified: Thu Jun 13 11:07:58 2013 mstenber
+-- Edit time:     211 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -198,7 +198,7 @@ function rr:equals(o)
       and self.rclass == (o.rclass or dns_const.CLASS_IN)
       and ll_equal(self.name, o.name)
       and self:rdata_equals(o) 
-      and (not self.cache_flush == not o.cache_flush)
+      and (not self.cache_flush == not o.cache_flush or o.cache_flush == nil)
 end
 
 -- namespace of RR records; it has ~fast access to RRs by name
