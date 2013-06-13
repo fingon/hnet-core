@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu Jun 13 14:55:55 2013 mstenber
--- Edit time:     829 min
+-- Last modified: Thu Jun 13 16:56:51 2013 mstenber
+-- Edit time:     828 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -1775,6 +1775,7 @@ function mdns_if:propagate_o_l(o, l, handle_reverses)
    -- roughly matches 'l' => update own state accordingly.
    self:d('propagate_o_l', o, l and #l or 0, handle_reverses)
 
+   self:a(o.name and o.rtype and o.cache_flush ~= nil, 'incomplete o', o)
 
    -- O(n log n)
    local rdata2own = {}

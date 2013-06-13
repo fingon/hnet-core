@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 14:45:24 2013 mstenber
--- Last modified: Thu Jun 13 13:37:36 2013 mstenber
--- Edit time:     76 min
+-- Last modified: Thu Jun 13 17:04:57 2013 mstenber
+-- Edit time:     83 min
 --
 
 require 'busted'
@@ -186,8 +186,22 @@ describe("mdns_client", function ()
                   mst.a(not r, 'no timeout(?)')
                              end)
             it("can populate it's own entries if called for #own", function ()
+                  -- by default, dummy if should be there
+                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), 1,
+                                             'initial')
+                  c:update_own_records(nil)
+                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), 1,
+                                             'after nil update')
+
+                  -- now we should actually do something for real
+                  ds:set_array{ip4_addr_get,
+                               ip6_addr_get}
+                  c:update_own_records('foo')
+                  -- add eth2, lo, 6rd
+                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), N_IF,
+                                             'after foo')
+                  local ifo = c:get_if('eth2')
                   function run_until_ifo_count(n)
-                     local ifo = c:get_if('eth2')
                      while true
                      do
                         local cnt = ifo.own:count()
@@ -209,39 +223,22 @@ describe("mdns_client", function ()
 
                   end
 
-                  -- by default, dummy if should be there
-                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), 1,
-                                             'initial')
-                  c:update_own_records(nil)
-                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), 1,
-                                             'after nil update')
-
-                  -- now we should actually do something for real
-                  ds:set_array{ip4_addr_get,
-                               ip6_addr_get}
-                  c:update_own_records('foo')
-                  -- add eth2, lo, 6rd
-                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), N_IF,
-                                             'after foo')
-                  local cnt = c:get_if('eth2').own:count()
-                  mst_test.assert_repr_equal(cnt, N_IP * 2)
+                  local cnt = ifo.own:count()
+                  mst_test.assert_repr_equal(cnt, N_IP * 2,
+                                             'after first foo (cnt)')
 
                   -- second foo, should be nop
                   c:update_own_records('foo')
-                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), N_IF,
+                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), 
+                                             N_IF,
                                              'after foo')
-                  local cnt = c:get_if('eth2').own:count()
-                  mst_test.assert_repr_equal(cnt, N_IP * 2)
+                  local cnt = ifo.own:count()
+                  mst_test.assert_repr_equal(cnt, 
+                                             N_IP * 2,
+                                             'after foo (cnt)')
 
                   -- now change name to bar
                   c:update_own_records('bar')
-                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), N_IF,
-                                             'after bar')
-                  local cnt = c:get_if('eth2').own:count()
-                  -- initially the cache-flush set reverse records
-                  -- (PTRs) get replaced immediately. A/AAAA will hang
-                  -- around until they get expired (very soon)
-                  mst_test.assert_repr_equal(cnt, N_IP * 3)
 
                   -- however, the old ones should expire 'after awhile'
                   -- (but nsec records get added in; we have 1 name + N_IP addresses => we should have N_IP * 2 + (1 + N_IP) in the end)

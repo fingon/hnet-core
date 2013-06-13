@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Thu Jun 13 12:55:16 2013 mstenber
+-- Last modified: Thu Jun 13 16:57:25 2013 mstenber
 -- Edit time:     91 min
 --
 
@@ -197,13 +197,13 @@ function mdns_client:update_own_records_if(myname, ns, o, rrs, rtype)
    then
       -- name changed => have to zap
       -- (using old name)
-      local fo = {name={self.myname, 'local'}, rtype=rtype}
+      local fo = {name={self.myname, 'local'}, rtype=rtype, cache_flush=true}
       o:propagate_o_l(fo, nil, true)
    end
 
    -- Ok, perhaps the records changed, perhaps not
    -- (using new name)
-   local fo = {name={myname, 'local'}, rtype=rtype}
+   local fo = {name={myname, 'local'}, rtype=rtype, cache_flush=true}
    o:propagate_o_l(fo, rrs, true)
 end
 
