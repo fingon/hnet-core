@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu Jun 13 11:16:53 2013 mstenber
--- Edit time:     808 min
+-- Last modified: Thu Jun 13 13:18:12 2013 mstenber
+-- Edit time:     814 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -424,7 +424,10 @@ function mdns_if:run_expire(now)
                                       table.insert(pending, rr)
                                       rr.ttl = 0
                                    end
-                                   self.own:remove_rr(rr)
+                                   local old_rr = self.own:remove_rr(rr)
+                                   self:a(old_rr, 'remove_rr failed??', 
+                                          rr, self.own)
+
                                 end
                                 return true
                              end)
@@ -443,7 +446,9 @@ function mdns_if:run_expire(now)
                                      return true
                                   end
                                   self:d('[cache] getting rid of', rr)
-                                  self.cache:remove_rr(rr)
+                                  local old_rr = self.cache:remove_rr(rr)
+                                  self:a(old_rr, 'remove_rr failed??', 
+                                         rr, self.own)
                                   return true
                                end)
    if pending
