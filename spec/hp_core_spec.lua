@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Tue Jun 18 11:54:34 2013 mstenber
--- Edit time:     335 min
+-- Last modified: Tue Jun 18 16:24:46 2013 mstenber
+-- Edit time:     338 min
 --
 
 require 'busted'
@@ -507,7 +507,6 @@ describe("hybrid_proxy", function ()
                         end)
             after_each(function ()
                           hp:done()
-                          hp = nil
 
                           -- shouldn't have scr running anyway, we use only
                           -- in-system state
