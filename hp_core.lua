@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Thu Jun 13 11:53:04 2013 mstenber
+-- Last modified: Tue Jun 18 11:52:35 2013 mstenber
 -- Edit time:     457 min
 --
 
@@ -321,12 +321,12 @@ end
 function hybrid_proxy:iterate_usable_prefixes(f)
    -- by default, iterating just through ap's prefixes - bit less
    -- elegant layout (it may ask outside for non-assigned prefixes)
-   self:iterate_ap(function (ap)
-                      if ap.prefix
-                      then
-                         f(ap.prefix)
-                      end
-                   end)
+   self:iterate_lap(function (ap)
+                       if ap.prefix
+                       then
+                          f(ap.prefix)
+                       end
+                    end)
 end
 
 function hybrid_proxy:forward(req, server)

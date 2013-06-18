@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Thu Jun 13 12:14:00 2013 mstenber
--- Edit time:     334 min
+-- Last modified: Tue Jun 18 11:54:34 2013 mstenber
+-- Edit time:     335 min
 --
 
 require 'busted'
@@ -528,6 +528,16 @@ describe("hybrid_proxy", function ()
                                   return r
                                end)
                                                                           end)
+            it("iterate_usable_prefixes fallback works #iup", function ()
+                  hp.iterate_usable_prefixes = nil
+                  local ran
+                  hp:iterate_usable_prefixes(function (p)
+                                                mst.d('got', p)
+                                                ran = true
+                                             end)
+                  mst.a(ran)
+
+                   end)
             it("dns req->mdns q conversion works #d2m", function ()
                   _t.test_list(dns_q_to_mdns_material,
                                function (q)
