@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:03:28 2013 mstenber
--- Last modified: Wed May 29 19:08:22 2013 mstenber
--- Edit time:     10 min
+-- Last modified: Tue Jun 18 17:12:30 2013 mstenber
+-- Edit time:     12 min
 --
 
 module(...)
@@ -18,6 +18,12 @@ module(...)
 
 -- protocol port #
 PORT=53
+
+
+-- random limits from RFC1035
+MAXIMUM_PAYLOAD_SIZE=512 -- in RFC1035; there are extensions
+MAXIMUM_LABEL_SIZE=63 -- single label (not incl. size byte)
+MAXIMUM_NAME_SIZE=255 -- =~ label list
 
 CLASS_IN=1
 CLASS_ANY=255

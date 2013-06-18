@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Thu Jun 13 16:32:38 2013 mstenber
--- Edit time:     218 min
+-- Last modified: Tue Jun 18 17:14:32 2013 mstenber
+-- Edit time:     219 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -71,7 +71,8 @@ function ll2key(ll)
    --return mst.create_hash(s)
 
    -- computationally efficient (all we do is just concatenate lengths + data)
-   local t = dns_name.encode_name_rec(lowercase_ll)
+   local t = dns_name.encode_name(lowercase_ll)
+
    return table.concat(t)
 end
 

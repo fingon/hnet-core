@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Thu May 30 15:16:24 2013 mstenber
--- Edit time:     173 min
+-- Last modified: Tue Jun 18 17:54:49 2013 mstenber
+-- Edit time:     182 min
 --
 
 -- DNS channels is an abstraction between two entities that speak DNS,
@@ -162,7 +162,13 @@ tcp_channel = channel:new_subclass{class='tcp_channel'}
 function tcp_channel:send(o, timeout)
    self:a(o, 'no o')
    self:a(mst.get_class(o) == msg, 'invalid superclass', o)
-   return self.s:send(o:get_binary(), timeout)
+   local b, err = o:get_binary()
+   if not b then return nil, 'send error - unable to encode ' .. err end
+   return self:socket_send(b, timeout)
+end
+
+function tcp_channel:socket_send(b, timeout)
+   return self.s:send(b, timeout)
 end
 
 local _decode_args = {disable_decode_names=true,
@@ -220,7 +226,43 @@ function udp_channel:send(o)
    local port = o.port or dns_const.PORT
    self:a(ip and port, 'ip or port missing', o)
 
-   return self.s:sendto(o:get_binary(), ip, port)
+   local b, err = o:get_binary()
+   if not b then return nil, 'send error - unable to encode ' .. err end
+   
+   -- RFC1035 (classic) mode limits length of message to 512 bytes.
+   if b and #b > dns_const.MAXIMUM_PAYLOAD_SIZE
+   then
+      o.binary = nil
+
+      local m = o.msg
+
+      -- clear non-query sublists
+      for i, v in ipairs(dns_codec.dns_message.lists)
+      do
+         local n, f = unpack(v)
+         if n ~= 'qd'
+         then
+            self:d('truncating list', n)
+            m[n] = {}
+         end
+      end
+
+      -- set the truncated bit in the header
+      local h = m.h or {}
+      h.tc = true
+      m.h = h
+      
+      b = o:get_binary()
+      if #b > dns_const.MAXIMUM_PAYLOAD_SIZE
+      then
+         return nil, 'too long message even with truncation'
+      end
+   end
+   return self:socket_sendto(b, ip, port)
+end
+
+function udp_channel:socket_sendto(b, ip, port)
+   return self.s:sendto(b, ip, port)
 end
 
 function udp_channel:receive(timeout)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:08:00 2013 mstenber
--- Last modified: Thu Jun 13 10:12:53 2013 mstenber
--- Edit time:     19 min
+-- Last modified: Tue Jun 18 17:14:55 2013 mstenber
+-- Edit time:     21 min
 --
 
 require 'dns_const'
@@ -21,8 +21,8 @@ module(..., package.seeall)
 local abstract_base = codec.abstract_base
 local abstract_data = codec.abstract_data
 local cursor_has_left = codec.cursor_has_left
-local encode_name_rec = dns_name.encode_name_rec
-local try_decode_name_rec = dns_name.try_decode_name_rec
+local try_encode_name = dns_name.try_encode_name
+local try_decode_name = dns_name.try_decode_name
 
 local function simple_equal(self, v1, v2)
    local r = (not v1 or not v2) or v1 == v2
@@ -39,12 +39,13 @@ end
 local function encode_ll_field(self, o, context)
    local v = o[self.field]
    mst.a(v, 'missing', self.field, o)
-   return table.concat(encode_name_rec(v, context))
-
+   local t, err = try_encode_name(v, context)
+   if not t then return nil, err end
+   return table.concat(t)
 end
 
 local function decode_ll_field(self, o, cur, context)
-   local name, err = try_decode_name_rec(cur, context)
+   local name, err = try_decode_name(cur, context)
    if not name then return nil, err end
    o[self.field] = name
    return true
@@ -128,7 +129,7 @@ function rdata_srv:try_decode(cur, context)
    if not o then return nil, err end
 
    -- and then 'target', which is FQDN
-   local n, err = try_decode_name_rec(cur, context)
+   local n, err = try_decode_name(cur, context)
    if not n then return nil, err end
    
    o.target = n
@@ -143,7 +144,8 @@ function rdata_srv:do_encode(o, context)
    then
       context.pos = context.pos + #r
    end
-   local t = encode_name_rec(o.target, context)
+   local t, err = try_encode_name(o.target, context)
+   if not t then return nil, err  end
    -- ugh, but oh well :p
    return r .. table.concat(t)
 end
@@ -160,10 +162,10 @@ rdata_soa = abstract_data:new{class='rdata_soa',
 
 function rdata_soa:try_decode(cur, context)
    -- mname = domain-name of server that was original info for this zone
-   local mname, err = try_decode_name_rec(cur, context)
+   local mname, err = try_decode_name(cur, context)
    if not mname then return nil, err end
    -- rname = mailbox address of responsible person
-   local rname, err = try_decode_name_rec(cur, context)
+   local rname, err = try_decode_name(cur, context)
    if not rname then return nil, err end
    
    -- then 'base struct' which follows after
@@ -177,13 +179,15 @@ end
 
 
 function rdata_soa:do_encode(o, context)
-   local t1 = encode_name_rec(o.mname, context)
+   local t1, err = try_encode_name(o.mname, context)
+   if not t1 then return nil, err end
    local r1 = table.concat(t1)
    if context
    then
       context.pos = context.pos + #r1
    end
-   local t2 = encode_name_rec(o.rname, context)
+   local t2, err = try_encode_name(o.rname, context)
+   if not t2 then return nil, err end
    local r2 = table.concat(t2)
    if context
    then
@@ -209,7 +213,7 @@ end
 
 function rdata_nsec:try_decode(cur, context)
    -- two things - next domain name (ndn)
-   local n, err = try_decode_name_rec(cur, context)
+   local n, err = try_decode_name(cur, context)
    if not n then return nil, err end
    
    -- and bitmap
@@ -273,7 +277,8 @@ end
 function rdata_nsec:do_encode(o, context)
    mst.a(o, 'no object given to encode?!?')
    mst.a(o.ndn)
-   local n = encode_name_rec(o.ndn, context)
+   local n, err = try_encode_name(o.ndn, context)
+   if not n then return nil, err end
    local t = {}
    -- encoding of the bits is bit more complex
    local bits = o.bits

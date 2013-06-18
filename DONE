@@ -1,5 +1,17 @@
 -*- outline -*-
 
+* 17.6.2013+
+
+** dns library in general
+
+RFC1035-compliant size checking on encode, and refusing to play ball if
+input is invalid. This way, we're liberal in what we receive, but strict
+when sending, hopefully making the world a better place?
+
+(Obviously, dns->dns->mdns->dns chain will break at some point if someone feeds
+in something invalid, but I think it's better not to cause problems with
+other devices.)
+
 * 10.6.2013+
 
 ** HP - Add support for detecting in-progress mdns query -> do not ask again, but instead wait for result

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Mon May 20 16:13:34 2013 mstenber
--- Edit time:     282 min
+-- Last modified: Tue Jun 18 17:35:39 2013 mstenber
+-- Edit time:     288 min
 --
 
 -- Functionality for en-decoding various DNS structures;
@@ -47,8 +47,6 @@ module(..., package.seeall)
 local abstract_base = codec.abstract_base
 local abstract_data = codec.abstract_data
 local cursor_has_left = codec.cursor_has_left
-local encode_name_rec = dns_name.encode_name_rec
-local try_decode_name_rec = dns_name.try_decode_name_rec
 
 --- actual data classes
 
@@ -84,7 +82,7 @@ function dns_query:try_decode(cur, context)
    
    local r = {}
 
-   local name, err = try_decode_name_rec(cur, context)
+   local name, err = dns_name.try_decode_name(cur, context)
    if not name then return nil, err end
 
 
@@ -98,7 +96,8 @@ function dns_query:try_decode(cur, context)
 end
 
 function dns_query:do_encode(o, context)
-   local t = encode_name_rec(o.name, context)
+   local t, err = dns_name.try_encode_name(o.name, context)
+   if not t then return nil, err end
    table.insert(t, abstract_data.do_encode(self, o))
    return table.concat(t)
 end
@@ -117,7 +116,7 @@ function dns_rr:try_decode(cur, context)
    
    local r = {}
 
-   local name, err = try_decode_name_rec(cur, context)
+   local name, err = dns_name.try_decode_name(cur, context)
    if not name then return nil, err end
    r.name = name
 
@@ -170,8 +169,10 @@ end
 function dns_rr:do_encode(o, context)
    mst.a(type(o) == 'table')
    self:a(o.name, 'no name', o)
-   local t = encode_name_rec(o.name, context)
+   local t, err = dns_name.try_encode_name(o.name, context)
+   if not t then return nil, err end
    o.rdata = self:produce_rdata(o, context)
+   if not o.rdata then return nil, err end
    o.rdlength = #o.rdata
    table.insert(t, abstract_data.do_encode(self, o))
    table.insert(t, o.rdata)

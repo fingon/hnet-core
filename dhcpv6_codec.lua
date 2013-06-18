@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Feb 20 18:30:04 2013 mstenber
--- Last modified: Wed Apr 10 17:00:04 2013 mstenber
--- Edit time:     83 min
+-- Last modified: Tue Jun 18 17:07:02 2013 mstenber
+-- Edit time:     84 min
 --
 
 require 'codec'
@@ -81,7 +81,7 @@ option_map = {
          local t = {}
          while true
          do
-            local r = dns_name.try_decode_name_rec(cur)
+            local r = dns_name.try_decode_name(cur)
             if not r
             then
                mst.d('decode', mst.repr(data), t)
@@ -94,8 +94,13 @@ option_map = {
          local t = {}
          for i, v in ipairs(o)
          do
-            local t2 = dns_name.encode_name_rec(v)
-            mst.array_extend(t, t2)
+            local t2, err = dns_name.try_encode_name(v)
+            if t2
+            then
+               mst.array_extend(t, t2)
+            else
+               mst.d('unable to encode', v)
+            end
          end
          local data = table.concat(t)
          mst.d('encode', o, mst.repr(data))

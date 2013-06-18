@@ -8,21 +8,21 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:08:37 2013 mstenber
--- Last modified: Tue May 28 16:37:47 2013 mstenber
--- Edit time:     36 min
+-- Last modified: Tue Jun 18 17:37:57 2013 mstenber
+-- Edit time:     45 min
 --
 
+require 'dns_const'
 require 'codec'
 
 module(..., package.seeall)
 
+
 local cursor_has_left = codec.cursor_has_left
 
 --- general utilities to deal with FQDN en/decode
-
-function try_decode_name_rec(cur, h, n)
+function _try_decode_name_rec(cur, h, n)
    --mst.d('try_decode_name_rec', h)
-   n = n or {}
    if not cursor_has_left(cur, 1)
    then
       return nil, 'out of bytes (reading name)'
@@ -84,14 +84,14 @@ function try_decode_name_rec(cur, h, n)
    end
    n[#n+1] = b
    -- and recurse (can't end on non-0 string)
-   return try_decode_name_rec(cur, h, n)
+   return _try_decode_name_rec(cur, h, n)
 end
 
--- message compression is optional => we skip it for the time being
-function encode_name_rec(n, h, t, ofs)
-   local t = t or {}
-   local ofs = ofs or 1
+function try_decode_name(cur, h)
+   return _try_decode_name_rec(cur, h, {})
+end
 
+function _encode_name_rec(n, h, t, ofs)
    mst.a(type(n) == 'table', 'non-table given to encode_name_rec', n)
    -- handle eof
    if ofs > #n
@@ -140,7 +140,34 @@ function encode_name_rec(n, h, t, ofs)
    mst.a(#v < 64, 'too long label', v)
    table.insert(t, string.char(#v))
    table.insert(t, v)
-   return encode_name_rec(n, h, t, ofs+1)
+   return _encode_name_rec(n, h, t, ofs+1)
 end
 
+function encode_name(n, h)
+   local t = {}
+   return _encode_name_rec(n, h, t, 1)
+end
 
+function try_encode_name(n, h)
+   mst.a(n, 'trying to encode nil name')
+
+   -- XXX - RFC1035 is not very clear about interaction between name
+   -- compression and maximum name length. here we check
+   -- _uncompressed_ length, even if h and h.ns is provided (=name
+   -- compression is enabled)
+
+   local cnt = 1 -- final 0 label's length
+   for i, v in ipairs(n)
+   do
+      if #v > dns_const.MAXIMUM_LABEL_SIZE
+      then
+         return nil, 'too long label ' .. mst.repr(n)
+      end
+      cnt = cnt + 1 + #v
+   end
+   if cnt > dns_const.MAXIMUM_NAME_SIZE
+   then
+      return nil, 'too long name ' .. mst.repr(n)
+   end
+   return encode_name(n, h)
+end

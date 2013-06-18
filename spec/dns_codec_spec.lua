@@ -8,14 +8,16 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 12:06:56 2012 mstenber
--- Last modified: Mon May 20 16:13:12 2013 mstenber
--- Edit time:     108 min
+-- Last modified: Tue Jun 18 17:38:19 2013 mstenber
+-- Edit time:     120 min
 --
 
 require "busted"
 require "dns_codec"
 require 'dns_const'
 require 'dns_rdata'
+require 'mst_test'
+
 local json = require "dkjson"
 
 module("dns_codec_spec", package.seeall)
@@ -78,6 +80,56 @@ local message_tests = {
    {an={{name={'foo'}, rdata=''},}},
    {ns={{name={'foo'}, rdata=''},}},
    {ar={{name={'foo'}, rdata=''},}},
+}
+
+local LONG_LABEL={'1234567890123456789012345678901234567890123456789012345678901234'}
+
+local LONG_NAME={'123456789012345678901234567890123456789012345678901234567890',
+                 '123456789012345678901234567890123456789012345678901234567890',
+                 '123456789012345678901234567890123456789012345678901234567890',
+                 '123456789012345678901234567890123456789012345678901234567890',
+                 '123456789012345678901234567890123456789012345678901234567890',
+}
+
+local failing_encode_cases = {
+   -- query name (1, 2)
+   {qd={{name=LONG_LABEL}}},
+   {qd={{name=LONG_NAME}}},
+
+   -- for the rest, we ju st try the LONG_NAME; we use same encoder
+   -- anyway
+
+   -- rr name (3)
+   {an={{name=LONG_NAME}}},
+
+   -- ptr/ns/rname ll field handling are all the same (4)
+   {an={{name={'foo'},
+         rtype=dns_const.TYPE_PTR,
+         rclass=dns_const.CLASS_IN,
+         rdata_ptr=LONG_NAME}}},
+   -- SRV has target (5)
+   {an={{name={'foo'},
+         rtype=dns_const.TYPE_SRV,
+         rclass=dns_const.CLASS_IN,
+         rdata_srv={target=LONG_NAME}}}},
+   -- SOA has mname, rname (6, 7)
+   {an={{name={'foo'},
+         rtype=dns_const.TYPE_SOA,
+         rclass=dns_const.CLASS_IN,
+         rdata_soa={mname=LONG_NAME,
+                    rname={'foo'}}}}},
+   {an={{name={'foo'},
+         rtype=dns_const.TYPE_SOA,
+         rclass=dns_const.CLASS_IN,
+         rdata_soa={mname={'foo'},
+                    rname=LONG_NAME}}}},
+   -- NSEC has ndn (8)
+   {an={{name={'foo'},
+         rtype=dns_const.TYPE_NSEC,
+         rclass=dns_const.CLASS_IN,
+         rdata_nsec={ndn=LONG_NAME}}}},
+
+
 }
 
 local partial_messages = {
@@ -304,5 +356,16 @@ describe("test dns_codec", function ()
                      -- exp data is boring and not worth it :p
                      --mst.a(mst.repr_equal(o, exp), 'not same', o, exp)
                   end
+                   end)
+            it("failing RFC1035 cases (try to cover most branches) #size", function ()
+                  local function try_message_encode(o)
+                     local b = dns_message:encode(o)
+                     return b
+                  end
+                  failing_encode_cases = mst.array_map(failing_encode_cases,
+                                                       function (o)
+                                                          return {o, nil}
+                                                       end)
+                  mst_test.test_list(failing_encode_cases, try_message_encode)
                    end)
 end)
