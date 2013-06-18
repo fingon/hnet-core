@@ -84,6 +84,10 @@ as the DNS-SD zone to look for browse domain lists).
 As it's additional complexity, and not obvious if it's desirable, it hasn't
 been implemented yet.
 
+Additionally, if someone else uses _our_ zone, there can be transitive
+import which may not be desirable. So perhaps this is non-feature after
+all?
+
 * PA - Bugs to fix
 
 ** Ensure first-hop routability of our address at border to ISP
