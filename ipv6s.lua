@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Tue May 21 14:23:26 2013 mstenber
--- Edit time:     184 min
+-- Last modified: Wed Jun 19 15:00:39 2013 mstenber
+-- Edit time:     186 min
 --
 
 require 'mst'
@@ -79,6 +79,11 @@ function address_cleanup(s)
       address_cleanup_sub(nl, 1, #nl, r)
    end
    return table.concat(r, ":")
+end
+
+function address_is_ipv4(s)
+   local b = address_to_binary_address(s)
+   return binary_address_is_ipv4(b)
 end
 
 function binary_address_to_address(b)
