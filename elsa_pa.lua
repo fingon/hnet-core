@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Jun 19 14:29:06 2013 mstenber
--- Edit time:     915 min
+-- Last modified: Wed Jun 19 15:04:15 2013 mstenber
+-- Edit time:     928 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -895,9 +895,15 @@ function elsa_pa:run_handle_skv_publish()
    local zones = mst.table_copy(self.skv:get(STATIC_HP_ZONES_KEY) or {})
    self:iterate_ac_lsa_tlv(function (o, lsa)
                               local n = dns_db.ll2name(o.zone)
+                              local a = o.address
+                              -- zeroed out => no IP -> use global resolving
+                              if a == '::'
+                              then
+                                 a = nil
+                              end
                               table.insert(zones,
                                            {
-                                              ip=o.address,
+                                              ip=a,
                                               name=n,
                                               search=o.s,
                                               browse=o.b,

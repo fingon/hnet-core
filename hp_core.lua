@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Tue Jun 18 11:52:35 2013 mstenber
--- Edit time:     457 min
+-- Last modified: Wed Jun 19 15:03:18 2013 mstenber
+-- Edit time:     460 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -213,8 +213,8 @@ end
 function hybrid_proxy:create_remote_zone(root, zone)
    local fcs = root.find_or_create_subtree
    local ip = zone.ip
-   self:a(ip, 'no ip address for the zone', zone)
-   self:a(not string.find(ip, '/'), 'ip should not be prefix', ip)
+   --self:a(ip, 'no ip address for the zone', zone)
+   self:a(not ip or not string.find(ip, '/'), 'ip should not be prefix', ip)
    self:a(zone.name, 'no name for zone?!?', zone)
 
    local ll = dns_db.name2ll(zone.name)
@@ -223,7 +223,11 @@ function hybrid_proxy:create_remote_zone(root, zone)
                  function (o)
                     local n = dns_tree.create_node_callback(o)
                     function n:get_default()
-                       return RESULT_FORWARD_INT, ip
+                       if ip
+                       then
+                          return RESULT_FORWARD_INT, ip
+                       end
+                       return RESULT_FORWARD_EXT
                     end
                     return n
                  end,
