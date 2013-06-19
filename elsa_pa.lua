@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Jun 19 13:53:39 2013 mstenber
--- Edit time:     897 min
+-- Last modified: Wed Jun 19 14:04:36 2013 mstenber
+-- Edit time:     907 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -33,6 +33,7 @@ require 'mst'
 require 'mst_skiplist'
 require 'ospf_codec'
 require 'ssloop'
+require 'dns_db' -- for name2ll
 
 local pa = require 'pa'
 
@@ -146,7 +147,6 @@ OSPF_HP_ZONES_KEY='ospf-hp-zones' -- non-local hybrid proxy zones
 
 -- these are used within OSPF
 JSON_HP_ZONES_KEY='hp_zones' -- array of zones
-JSON_HP_DOMAIN_KEY='hp_domain' -- <name>
 
 
 
@@ -629,14 +629,21 @@ function elsa_pa:run()
       -- store the domain; by default, static one, but also one from OSPF
       -- if we don't have static
       local domain = self.skv:get(STATIC_HP_DOMAIN_KEY)
+      local domainrid
       if not domain
       then
-         local m = self:get_json_map(JSON_HP_DOMAIN_KEY)
-         for rid, v in pairs(m)
-         do
-            -- we don't really care about the order..
-            domain = v
-         end
+         self:iterate_ac_lsa_tlv(function (o, lsa)
+                                    self:d('dn', o)
+                                    if not domain or domainrid < lsa.rid
+                                    then
+                                       domain = o.domain
+                                       domainrid = lsa.rid
+                                    end
+                                 end, {type=ospf_codec.AC_TLV_DN})
+
+         self:d('remote domain', domain)
+      else
+         self:d('found local domain', domain)
       end
       self.hp_domain = domain
 
@@ -1296,7 +1303,14 @@ function elsa_pa:generate_ac_lsa(use_relative_timestamps)
    end
 
    -- local domain preference (if any)
-   t[JSON_HP_DOMAIN_KEY] = self.skv:get(STATIC_HP_DOMAIN_KEY)
+   local local_domain = self.skv:get(STATIC_HP_DOMAIN_KEY)
+   if local_domain
+   then
+      -- if it's not in ll form, convert it
+      local_domain = dns_db.name2ll(local_domain)
+      a:insert(ospf_codec.dn_ac_tlv:encode{domain=local_domain})
+      self:d(' dn', local_domain)
+   end
 
    -- local zones (if any)
    local z1 = self.skv:get(STATIC_HP_ZONES_KEY)

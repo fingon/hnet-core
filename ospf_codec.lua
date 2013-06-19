@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:07:43 2012 mstenber
--- Last modified: Wed Jun 19 13:49:44 2013 mstenber
--- Edit time:     72 min
+-- Last modified: Wed Jun 19 14:05:33 2013 mstenber
+-- Edit time:     74 min
 --
 
 require 'codec'
@@ -303,10 +303,7 @@ function dn_ac_tlv:try_decode(cur, context)
    local zone, err = dns_name.try_decode_name(cur)
    if not zone then return nil, err end
 
-   o.body = nil
-   o.length = nil
-
-   return {domain=zone}
+   return {domain=zone, type=o.type}
 end
 
 function dn_ac_tlv:do_encode(o, context)

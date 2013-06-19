@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Thu Jun 13 12:52:58 2013 mstenber
--- Edit time:     453 min
+-- Last modified: Wed Jun 19 13:59:47 2013 mstenber
+-- Edit time:     454 min
 --
 
 require 'mst'
@@ -538,7 +538,7 @@ describe("elsa_pa 2-node", function ()
                           )
 
                   -- set the static domain here
-                  local DUMMYDOMAIN='xxxdomain'
+                  local DUMMYDOMAIN={'xxx', 'domain'}
                   skv1:set(elsa_pa.STATIC_HP_DOMAIN_KEY, DUMMYDOMAIN)
 
                   local STATICZONE={name='bar.com',
@@ -595,9 +595,11 @@ describe("elsa_pa 2-node", function ()
                   -- make sure the 'hp-domain' for both nodes is 
                   -- what we set by hand
                   local v = skv1:get(elsa_pa.OSPF_HP_DOMAIN_KEY)
-                  mst.a(mst.repr_equal(v, DUMMYDOMAIN), 'not same')
+                  mst.a(mst.repr_equal(v, DUMMYDOMAIN), 
+                        'not same domain (local)')
                   local v = skv2:get(elsa_pa.OSPF_HP_DOMAIN_KEY)
-                  mst.a(mst.repr_equal(v, DUMMYDOMAIN), 'not same', v, DUMMYDOMAIN)
+                  mst.a(mst.repr_equal(v, DUMMYDOMAIN), 
+                        'not same domain (remote)', v, DUMMYDOMAIN)
 
                   local v = skv1:get(elsa_pa.OSPF_HP_ZONES_KEY)
                   local e = {STATICZONE}
