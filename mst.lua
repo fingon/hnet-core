@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Jun  3 16:07:03 2013 mstenber
+-- Last modified: Wed Jun 19 13:31:40 2013 mstenber
 -- Edit time:     725 min
 --
 
@@ -767,7 +767,7 @@ function table_contains(t, t1)
       if not repr_equal(v1, v)
       then
          --mst.d('difference in key', k, v1, v)
-         return false
+         return nil, k
       end
    end
    return true

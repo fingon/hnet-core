@@ -8,11 +8,13 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:07:43 2012 mstenber
--- Last modified: Thu May  2 13:16:17 2013 mstenber
--- Edit time:     31 min
+-- Last modified: Wed Jun 19 13:49:44 2013 mstenber
+-- Edit time:     72 min
 --
 
 require 'codec'
+require 'dns_name'
+
 local vstruct = require 'vstruct'
 local json = require "dkjson"
 
@@ -21,12 +23,21 @@ module(..., package.seeall)
 local abstract_data = codec.abstract_data
 local cursor_has_left = codec.cursor_has_left
 
--- from acee autoconfig draft
+-- from draft-ietf-ospfv3-autoconfig
 AC_TLV_RHF=1
 
--- from arkko prefix assignment draft
+-- from draft-arkko-homenet-prefix-assignment
 AC_TLV_USP=2
 AC_TLV_ASP=3
+
+-- from draft-stenberg-hybrid-proxy-and-ospf
+AC_TLV_DDZ=4 -- DNS Delegated Zone
+DDZ_BIT_B=1 -- bit #'s (starting at idx 1)
+DDZ_BIT_S=2
+
+AC_TLV_DN=5 -- Domain Name
+AC_TLV_RN=6 -- Router Name
+AC_TLV_DS=7 -- DNS Server
 
 -- own proprietary state synchronization data (there can be 0-1 of
 -- these, and they contain single JSON-encoded table of arbitrary data
@@ -216,6 +227,138 @@ asp_ac_tlv = prefix_ac_tlv:new{class='asp_ac_tlv',
                                header_default={type=AC_TLV_ASP, 
                                                length=0, iid=0}}
 
+-- ddz_ac_tlv
+
+ddz_ac_tlv = ac_tlv:new{class='ddz_ac_tlv',
+                        tlv_type=AC_TLV_DDZ}
+
+function ddz_ac_tlv:try_decode(cur, context)
+   local o, err = ac_tlv.try_decode(self, cur)
+   if not o then return nil, err end
+
+   -- o.body should contain 16 bytes of IPv6 address, 1 byte of
+   -- options, and rest DNS label list (minimum length 1, for null
+   -- label).
+   if o.length < (16 + 1 + 1)
+   then
+      return nil, 'invalid ddz_ac_tlv - too short'
+   end
+
+   local rawaddr = string.sub(o.body, 1, 16)
+   local flags = string.sub(o.body, 17, 17)
+   local lls = string.sub(o.body, 18)
+   
+   local cur = vstruct.cursor(lls)
+
+   local zone, err = dns_name.try_decode_name(cur)
+   if not zone then return nil, err end
+
+   o.address = ipv6s.binary_address_to_address(rawaddr)
+   o.zone = zone
+   local bf = string.byte(flags)
+   o.b = mst.bitv_is_set_bit(bf, DDZ_BIT_B) and true or false
+   o.s = mst.bitv_is_set_bit(bf, DDZ_BIT_S) and true or false
+
+   -- clear out base fields - they can be recomputed when encoding
+   o.body = nil
+   o.length = nil
+
+   return o
+end
+
+function ddz_ac_tlv:do_encode(o, context)
+   local bf = 0
+   if o.b
+   then
+      bf = mst.bitv_set_bit(bf, DDZ_BIT_B)
+   end
+   if o.s
+   then
+      bf = mst.bitv_set_bit(bf, DDZ_BIT_S)
+   end
+   
+   local t, err = dns_name.try_encode_name(o.zone, context)
+   if not t then return nil, err end
+
+   local rawaddr = ipv6s.address_to_binary_address(o.address)
+   mst.a(#rawaddr == 16)
+
+   local b = rawaddr .. string.char(bf) .. table.concat(t)
+   mst.a(#b >= (16 + 1 + 1))
+   o.body = b 
+
+   return ac_tlv.do_encode(self, o)
+end
+
+-- dn_ac_tlv
+
+dn_ac_tlv = ac_tlv:new{class='dn_ac_tlv',
+                       tlv_type=AC_TLV_DN}
+
+function dn_ac_tlv:try_decode(cur, context)
+   local o, err = ac_tlv.try_decode(self, cur)
+   if not o then return nil, err end
+
+   local cur = vstruct.cursor(o.body)
+   local zone, err = dns_name.try_decode_name(cur)
+   if not zone then return nil, err end
+
+   o.body = nil
+   o.length = nil
+
+   return {domain=zone}
+end
+
+function dn_ac_tlv:do_encode(o, context)
+   local t, err = dns_name.try_encode_name(o.domain, context)
+   if not t then return nil, err end
+
+   o.body = table.concat(t)
+   return ac_tlv.do_encode(self, o)
+end
+
+-- rn_ac_tlv
+
+rn_ac_tlv = ac_tlv:new{class='rn_ac_tlv',
+                       tlv_type=AC_TLV_RN}
+
+function rn_ac_tlv:try_decode(cur, context)
+   local o, err = ac_tlv.try_decode(self, cur)
+   if not o then return nil, err end
+
+   return {name=o.body, type=o.type}
+end
+
+function rn_ac_tlv:do_encode(o, context)
+   o.body = o.name
+   return ac_tlv.do_encode(self, o)
+end
+
+
+-- ds_ac_tlv
+
+ds_ac_tlv = ac_tlv:new{class='ds_ac_tlv',
+                       tlv_type=AC_TLV_DS}
+
+function ds_ac_tlv:try_decode(cur, context)
+   local o, err = ac_tlv.try_decode(self, cur)
+   if not o then return nil, err end
+
+   if not o.body or #o.body ~= 16
+   then
+      return nil, 'invalid body length ' .. (o.body and #o.body or '')
+   end
+   local address = ipv6s.binary_address_to_address(o.body)
+
+   return {address=address, type=o.type}
+end
+
+function ds_ac_tlv:do_encode(o, context)
+   o.body = ipv6s.address_to_binary_address(o.address)
+   return ac_tlv.do_encode(self, o)
+end
+
+
 -- json_ac_tlv
 
 json_ac_tlv = ac_tlv:new{class='json_ac_tlv', tlv_type=AC_TLV_JSONBLOB}
@@ -239,7 +382,10 @@ end
 
 -- tlv list decoding
 
-local _tlv_decoders = {rhf_ac_tlv, usp_ac_tlv, asp_ac_tlv, json_ac_tlv}
+local _tlv_decoders = {rhf_ac_tlv, 
+                       usp_ac_tlv, asp_ac_tlv, 
+                       ddz_ac_tlv, dn_ac_tlv, rn_ac_tlv, ds_ac_tlv,
+                       json_ac_tlv}
 
 function decode_ac_tlvs(s, decoders)
 

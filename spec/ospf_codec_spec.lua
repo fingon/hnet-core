@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 18:34:49 2012 mstenber
--- Last modified: Thu May  2 13:15:58 2013 mstenber
--- Edit time:     48 min
+-- Last modified: Wed Jun 19 13:40:06 2013 mstenber
+-- Edit time:     54 min
 --
 
 require "busted"
@@ -34,6 +34,13 @@ local tests = {
    {ospf_codec.json_ac_tlv, {table={foo='bar'}}},
    {ospf_codec.json_ac_tlv, {table={'foo'}}},
    {ospf_codec.json_ac_tlv, {table={'foo'}}},
+   {ospf_codec.ddz_ac_tlv, {s=true, address='1.2.3.4', zone={'foo', 'com'}}},
+   {ospf_codec.ddz_ac_tlv, {s=true, address='2001::1', zone={'foo', 'com'}}},
+   {ospf_codec.ddz_ac_tlv, {b=true, address='2001::1', zone={'foo', 'com'}}},
+   {ospf_codec.dn_ac_tlv, {domain={'foo', 'com'}}},
+   {ospf_codec.rn_ac_tlv, {name='foo'}},
+   {ospf_codec.ds_ac_tlv, {address='1.2.3.4'}},
+   {ospf_codec.ds_ac_tlv, {address='2001::1'}},
 }
 
 describe("test the ac endecode",
@@ -64,7 +71,8 @@ describe("test the ac endecode",
                      local r1 = mst.repr(l2[1])
                      local r2 = mst.repr(o2)
                      mst.a(r1 == r2, 'changed', r1, r2)
-                     mst.a(mst.table_contains(o2, orig), "something missing", cl.class, o2, orig)
+                     local r, k = mst.table_contains(o2, orig)
+                     mst.a(r, "something missing", cl.class, k, o2, orig)
                   end
                                                 end)
             it("can handle list of tlvs", function()
