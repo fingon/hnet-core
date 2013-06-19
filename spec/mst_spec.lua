@@ -8,12 +8,13 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Tue Jun 11 12:14:34 2013 mstenber
--- Edit time:     225 min
+-- Last modified: Wed Jun 19 15:49:33 2013 mstenber
+-- Edit time:     226 min
 --
 
 require "busted"
 require "mst"
+require 'mst_test'
 require "mst_skiplist"
 require "mst_cache"
 require "mst_eventful"
@@ -716,6 +717,17 @@ describe("array_randlist", function ()
                         end)
 
                            end)
+
+describe("array_unique", function ()
+            it("works", function ()
+                  local a1 = {1, 2, 3, 2, 1, 4}
+                  mst_test.assert_repr_equal(mst.array_unique(a1), {1, 2, 3, 4})
+
+                  mst_test.assert_repr_equal(mst.array_unique(), nil)
+
+                   end)
+             end)
+
 describe("hash_set", function ()
             it("works", function ()
                   mst.array.__eq = function (o1, o2)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Jun 19 13:31:40 2013 mstenber
--- Edit time:     725 min
+-- Last modified: Wed Jun 19 15:39:44 2013 mstenber
+-- Edit time:     726 min
 --
 
 -- data structure abstractions provided:
@@ -462,6 +462,22 @@ function array_repr(t, shown)
    end
    table.insert(s, "}")
    return table.concat(s)
+end
+
+-- order-preserving unique array creation
+function array_unique(a)
+   if not a then return end
+   local n = array:new{}
+   local seen = {}
+   for i, v in ipairs(a)
+   do
+      if not seen[v]
+      then
+         seen[v] = true
+         n:insert(v)
+      end
+   end
+   return n
 end
 
 -- transform array to table, with default value v if provided
