@@ -90,6 +90,11 @@ all?
 
 * PA - Bugs to fix
 
+** Make the search domain handling match the hybrid-and-ospf draft
+
+Currently we transport search domain inside JSONBLOB. However, using the
+draft-compatible zone definition would be probably more elegant.
+
 ** Ensure first-hop routability of our address at border to ISP
 
 ping6 -r <default gateway-link-local>%interface <own global address from
