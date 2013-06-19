@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Jun 19 15:04:15 2013 mstenber
--- Edit time:     928 min
+-- Last modified: Wed Jun 19 15:52:27 2013 mstenber
+-- Edit time:     965 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -173,21 +173,15 @@ ORIGINATE_MAX_INTERVAL=300 -- even without changes
 elsa_lap = pa.lap:new_subclass{class='elsa_lap',
                               }
 
-local json_sources={[JSON_DNS_KEY]={prefix=PD_SKVPREFIX, 
-                                    key=DNS_KEY, 
-                                    ospf=OSPF_DNS_KEY},
-                    [JSON_DNS_SEARCH_KEY]={prefix=PD_SKVPREFIX, 
-                                           key=DNS_SEARCH_KEY, 
-                                           ospf=OSPF_DNS_SEARCH_KEY},
+local json_sources={
+   [JSON_DNS_SEARCH_KEY]={prefix=PD_SKVPREFIX, 
+                          key=DNS_SEARCH_KEY, 
+                          ospf=OSPF_DNS_SEARCH_KEY},
 
-                    [JSON_IPV4_DNS_KEY]={prefix=DHCPV4_SKVPREFIX,
-                                         key=DNS_KEY, 
-                                         ospf=OSPF_IPV4_DNS_KEY},
-                    [JSON_IPV4_DNS_SEARCH_KEY]={prefix=DHCPV4_SKVPREFIX,
-                                                key=DNS_SEARCH_KEY, 
-                                                ospf=OSPF_IPV4_DNS_SEARCH_KEY},
+   [JSON_IPV4_DNS_SEARCH_KEY]={prefix=DHCPV4_SKVPREFIX,
+                               key=DNS_SEARCH_KEY, 
+                               ospf=OSPF_IPV4_DNS_SEARCH_KEY},
 }
-
 
 function elsa_lap:start_depracate_timeout()
    self:d('start_depracate_timeout')
@@ -855,6 +849,33 @@ function elsa_pa:run_handle_skv_publish()
       self.skv:set(o.ospf, self:get_field_array(jsonkey, l))
    end
 
+   -- handle name servers
+
+   -- V4+V6
+   local l4, l6 
+   l6 = self:get_local_field_array(PD_SKVPREFIX, DNS_KEY, l6)
+   l6 = self:get_local_field_array(TUNNEL_SKVPREFIX, DNS_KEY, l6)
+   l4 = self:get_local_field_array(DHCPV4_SKVPREFIX, DNS_KEY)
+   self:iterate_ac_lsa_tlv(function (o, lsa)
+                              local is_ipv4 = ipv6s.address_is_ipv4(o.address)
+                              --self:d('see ds', o, is_ipv4)
+                              if is_ipv4
+                              then
+                                 l4 = l4 or {}
+                                 table.insert(l4, o.address)
+                              else
+                                 l6 = l6 or {}
+                                 table.insert(l6, o.address)
+                              end
+                           end, {type=ospf_codec.AC_TLV_DS})
+   l4 = mst.array_unique(l4)
+   l6 = mst.array_unique(l6)
+   self.skv:set(OSPF_DNS_KEY, l6)
+   self.skv:set(OSPF_IPV4_DNS_KEY, l4)
+
+   -- XXX - handle search domains for real (we fallback to
+   -- json_sources for now for search domain)
+
    -- toss in the usp's too
    local t = mst.array:new{}
    local dumped = mst.set:new{}
@@ -1204,8 +1225,7 @@ function elsa_pa:iterate_skvprefix_o(prefix, f, l)
    end
 end
 
-function elsa_pa:get_local_field_array(prefix, field)
-   local t
+function elsa_pa:get_local_field_array(prefix, field, t)
    self:iterate_skvprefix_o(prefix,
                             function (o, ifname)
                                local v = non_empty(o[field])
@@ -1214,7 +1234,7 @@ function elsa_pa:get_local_field_array(prefix, field)
                                then
                                   return
                                end
-                               if not t then t = mst.array:new{} end
+                               t = t or mst.array:new{}
                                t:insert(v)
                             end)
    return t
@@ -1306,6 +1326,24 @@ function elsa_pa:generate_ac_lsa(use_relative_timestamps)
       local l = self:get_local_field_array(o.prefix, o.key)
       t[jsonkey] = l
    end
+
+   local l
+   l = self:get_local_field_array(PD_SKVPREFIX, DNS_KEY, l)
+   l = self:get_local_field_array(TUNNEL_SKVPREFIX, DNS_KEY, l)
+   l = self:get_local_field_array(DHCPV4_SKVPREFIX, DNS_KEY, l)
+   -- OSPF transport of DNS server is address family agnostic (can
+   -- transfer either)
+   if l
+   then
+      for i, v in ipairs(l)
+      do
+         self:d(' ds', v)
+         a:insert(ospf_codec.ds_ac_tlv:encode{address=v})
+      end
+   end
+
+
+   -- assigned IPv4 addresses
    t[JSON_ASA_KEY] = self:get_local_asa_array()
 
    -- router name (if any)

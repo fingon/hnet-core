@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Jun 19 14:33:55 2013 mstenber
--- Edit time:     456 min
+-- Last modified: Wed Jun 19 15:46:45 2013 mstenber
+-- Edit time:     459 min
 --
 
 require 'mst'
@@ -587,7 +587,7 @@ describe("elsa_pa 2-node", function ()
 
                   local v = skv2:get(elsa_pa.OSPF_DNS_KEY)
                   local exp = {FAKE_DNS_ADDRESS}
-                  mst.a(mst.repr_equal(v, exp), 'result not expected', v, exp)
+                  mst_test.assert_repr_equal(v, exp, 'propagated dns key', skv2)
 
                   local v = skv2:get(elsa_pa.OSPF_DNS_SEARCH_KEY)
                   mst.a(mst.repr_equal(v, {FAKE_DNS_SEARCH}))
