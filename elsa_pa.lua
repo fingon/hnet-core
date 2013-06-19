@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Jun 19 14:04:36 2013 mstenber
--- Edit time:     907 min
+-- Last modified: Wed Jun 19 14:15:37 2013 mstenber
+-- Edit time:     914 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -102,7 +102,7 @@ OSPF_IPV4_DNS_SEARCH_KEY='ospf-v4-dns-search'
 PA_CONFIG_SKV_KEY='pa-config'
 
 -- JSON fields within jsonblob AC TLV
-JSON_ASA_KEY='asa'
+JSON_ASA_KEY='asa' -- assigned IPv4 address
 JSON_DNS_KEY='dns'
 JSON_DNS_SEARCH_KEY='dns_search'
 JSON_IPV4_DNS_KEY='ipv4_dns'
@@ -144,12 +144,6 @@ HP_SEARCH_LIST_KEY='hp-search' -- to be published via DHCP*/RA
 -- these are provided by OSPF _to_ hybrid proxy
 OSPF_HP_DOMAIN_KEY='ospf-hp-domain' -- <name>
 OSPF_HP_ZONES_KEY='ospf-hp-zones' -- non-local hybrid proxy zones
-
--- these are used within OSPF
-JSON_HP_ZONES_KEY='hp_zones' -- array of zones
-
-
-
 
 -- from the draft; time from boot to wait iff no other routers around
 -- before starting new assignments
@@ -898,7 +892,18 @@ function elsa_pa:run_handle_skv_publish()
 
    -- also provide the hybrid proxy zones as a list
    -- (who they are from shouldn't matter, they should be self-contained)
-   self.skv:set(OSPF_HP_ZONES_KEY, self:get_field_array(JSON_HP_ZONES_KEY, self.skv:get(STATIC_HP_ZONES_KEY)))
+   local zones = mst.table_copy(self.skv:get(STATIC_HP_ZONES_KEY) or {})
+   self:iterate_ac_lsa_tlv(function (o, lsa)
+                              table.insert(zones,
+                                           {
+                                              ip=o.address,
+                                              name=o.zone,
+                                              search=o.s,
+                                              browse=o.b,
+                                           })
+                           end,
+                           {type=ospf_codec.AC_TLV_DDZ})
+   self.skv:set(OSPF_HP_ZONES_KEY, zones)
 end
 
 function elsa_pa:iterate_ac_lsa(f, criteria)
@@ -1318,11 +1323,19 @@ function elsa_pa:generate_ac_lsa(use_relative_timestamps)
    local z = z1 or z2
    if z1 and z2
    then
-      -- expensive
+      -- expensive; oh well
       z = mst.table_copy(z1)
       mst.array_extend(z, z2)
    end
-   t[JSON_HP_ZONES_KEY] = z
+   for i, o in ipairs(z or {})
+   do
+      -- convert to ll if not already
+      local z = dns_db.name2ll(o.name)
+      a:insert(ospf_codec.ddz_ac_tlv:encode{b=o.browse,
+                                            s=o.search,
+                                            zone=z,
+                                            address=o.ip})
+   end
 
    -- bonus USP prefix option list 
    local h

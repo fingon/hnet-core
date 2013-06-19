@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:08:37 2013 mstenber
--- Last modified: Tue Jun 18 17:37:57 2013 mstenber
+-- Last modified: Wed Jun 19 14:14:31 2013 mstenber
 -- Edit time:     45 min
 --
 
@@ -150,6 +150,7 @@ end
 
 function try_encode_name(n, h)
    mst.a(n, 'trying to encode nil name')
+   mst.a(type(n) == 'table', 'wrong type name', type(n), n)
 
    -- XXX - RFC1035 is not very clear about interaction between name
    -- compression and maximum name length. here we check

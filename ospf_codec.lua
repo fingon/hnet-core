@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:07:43 2012 mstenber
--- Last modified: Wed Jun 19 14:05:33 2013 mstenber
--- Edit time:     74 min
+-- Last modified: Wed Jun 19 14:16:33 2013 mstenber
+-- Edit time:     75 min
 --
 
 require 'codec'
@@ -256,8 +256,8 @@ function ddz_ac_tlv:try_decode(cur, context)
    o.address = ipv6s.binary_address_to_address(rawaddr)
    o.zone = zone
    local bf = string.byte(flags)
-   o.b = mst.bitv_is_set_bit(bf, DDZ_BIT_B) and true or false
-   o.s = mst.bitv_is_set_bit(bf, DDZ_BIT_S) and true or false
+   o.b = mst.bitv_is_set_bit(bf, DDZ_BIT_B) and true or nil
+   o.s = mst.bitv_is_set_bit(bf, DDZ_BIT_S) and true or nil
 
    -- clear out base fields - they can be recomputed when encoding
    o.body = nil

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Jun 19 13:59:47 2013 mstenber
--- Edit time:     454 min
+-- Last modified: Wed Jun 19 14:17:04 2013 mstenber
+-- Edit time:     456 min
 --
 
 require 'mst'
@@ -541,9 +541,9 @@ describe("elsa_pa 2-node", function ()
                   local DUMMYDOMAIN={'xxx', 'domain'}
                   skv1:set(elsa_pa.STATIC_HP_DOMAIN_KEY, DUMMYDOMAIN)
 
-                  local STATICZONE={name='bar.com',
+                  local STATICZONE={name={'bar', 'com'},
                                     ip='1.2.3.4'}
-                  local DUMMYZONE={name='r2.foo.com',
+                  local DUMMYZONE={name={'r2', 'foo', 'com'},
                                    ip='1.2.3.4'}
                   skv1:set(elsa_pa.STATIC_HP_ZONES_KEY, {STATICZONE})
                   skv1:set(elsa_pa.HP_MDNS_ZONES_KEY, {DUMMYZONE}) 
