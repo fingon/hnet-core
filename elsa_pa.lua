@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Jun 12 15:57:29 2013 mstenber
--- Edit time:     894 min
+-- Last modified: Wed Jun 19 13:53:39 2013 mstenber
+-- Edit time:     897 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -106,7 +106,6 @@ JSON_DNS_KEY='dns'
 JSON_DNS_SEARCH_KEY='dns_search'
 JSON_IPV4_DNS_KEY='ipv4_dns'
 JSON_IPV4_DNS_SEARCH_KEY='ipv4_dns_search'
-JSON_RNAME_KEY='rname'
 
 -- extra USP information
 JSON_USP_INFO_KEY='usp_info'
@@ -945,7 +944,10 @@ end
 --  iterate_rid(rid, f) => callback with rid
 function elsa_pa:iterate_rid(rid, f)
    -- get a map of rid => rname
-   local rid2rname = self:get_json_map(JSON_RNAME_KEY)
+   local rid2rname = {}
+   self:iterate_ac_lsa_tlv(function (o, lsa)
+                              rid2rname[lsa.rid] = o.name
+                           end, {type=ospf_codec.AC_TLV_RN})
 
    -- we're always reachable (duh), but no next-hop/if
    f{rid=rid, rname=self.pa.rname}
@@ -1288,7 +1290,10 @@ function elsa_pa:generate_ac_lsa(use_relative_timestamps)
    t[JSON_ASA_KEY] = self:get_local_asa_array()
 
    -- router name (if any)
-   t[JSON_RNAME_KEY] = self.pa.rname
+   if self.pa.rname
+   then
+      a:insert(ospf_codec.rn_ac_tlv:encode{name=self.pa.rname})
+   end
 
    -- local domain preference (if any)
    t[JSON_HP_DOMAIN_KEY] = self.skv:get(STATIC_HP_DOMAIN_KEY)
