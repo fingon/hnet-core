@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Wed Jun 12 12:01:16 2013 mstenber
--- Edit time:     55 min
+-- Last modified: Thu Jun 20 18:09:54 2013 mstenber
+-- Edit time:     59 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -29,6 +29,10 @@ require 'scb'
 require 'dns_proxy'
 require 'per_ip_server'
 require 'skv'
+
+-- we re-use pm's memory handler just for the tick() call it provides
+require 'pm_memory'
+local memory_handler = pm_memory.pm_memory:new{pm={}}
 
 _TEST = false -- required by cliargs + strict
 
@@ -123,6 +127,16 @@ local pis = per_ip_server.per_ip_server:new{
                                      process_callback=cb}
    end}
 
+if mst.enable_debug
+then
+   -- start memory debugging if and only if we're running in debug
+   -- mode
+   ssloop.repeat_every_timedelta(10,
+                                 function ()
+                                    memory_handler:tick()
+                                 end)
+end
+
 if args.ospf
 then
    local s = skv.skv:new{long_lived=false}
@@ -152,6 +166,7 @@ else
    ifset[''] = nil
    setmetatable(ifset, mst.set)
    iflist = ifset:keys()
+   mst.d(' iflist', iflist)
 
    mst.a(ifset)
    mst.d(' calling set_if_joined_set', ifset)
@@ -163,8 +178,7 @@ else
    function hp:iterate_lap(f)
       for i, v in ipairs(iflist)
       do
-         f{ifname=v,
-           iid=v}
+         f{ifname=v, iid=v}
       end
    end
    mst.d('-- STATIC MODE!--')
