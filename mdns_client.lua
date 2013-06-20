@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Thu Jun 13 16:57:25 2013 mstenber
--- Edit time:     91 min
+-- Last modified: Thu Jun 20 19:02:46 2013 mstenber
+-- Edit time:     97 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -67,10 +67,19 @@ function mdns_client_request:init()
 end
 
 function mdns_client_request:uninit()
+   _eventful.init(self)
    if self.to
    then
       self.to:done()
    end
+end
+
+function mdns_client_request:repr_data()
+   return mst.repr{
+      ifo=self.ifo,
+      q=self.q,
+      timeout=self.timeout,
+                  }
 end
 
 function mdns_client_request:inserted_cache_rr(rr)
@@ -156,10 +165,12 @@ function mdns_client:run_request(ifo, q, timeout)
    end
    -- nothing readily available => have to create new request
    local o = mdns_client_request:new{ifo=ifo, q=q, timeout=timeout}
+   self:d('start request', o)
    self.requests:insert(o)
    o:wait_done()
    o:done()
    self.requests:remove(o)
+   self:d('end request', o, mst.table_count(self.requests))
    return o.had_cf
 end
 
