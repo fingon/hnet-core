@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Thu Jun 13 10:04:47 2013 mstenber
--- Edit time:     987 min
+-- Last modified: Thu Jun 20 20:28:19 2013 mstenber
+-- Edit time:     988 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -83,6 +83,14 @@ function mdns:uninit()
    -- (it would try to detach skv, while not attached - we play with
    -- skv from superclass, not in mcj)
    _eventful.uninit(self)
+
+   -- call uninit for each interface object (intentionally after us,
+   -- as we are connected _to_ interface object)
+
+   for ifname, ifo in pairs(self.ifname2if)
+   do
+      ifo:done()
+   end
 
 end
 

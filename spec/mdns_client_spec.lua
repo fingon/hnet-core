@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 14:45:24 2013 mstenber
--- Last modified: Thu Jun 13 17:04:57 2013 mstenber
--- Edit time:     83 min
+-- Last modified: Thu Jun 20 20:22:50 2013 mstenber
+-- Edit time:     89 min
 --
 
 require 'busted'
@@ -100,12 +100,24 @@ local N2_IPV4=2
 local N2_IPV6=2
 local N2_IP=N2_IPV4+N2_IPV6
 
+local observers = 0
+mst_test.inject_snitch(mst_eventful.event, 'add_observer',
+function ()
+observers = observers + 1
+end)
+
+mst_test.inject_snitch(mst_eventful.event, 'remove_observer',
+function ()
+observers = observers - 1
+end)
+
 describe("mdns_client", function ()
             local c
             local t
             local t_start = 123
             local ifo
             before_each(function ()
+                           observers = 0
                            t = t_start
                            ds = dshell.dshell:new{}
                            c = mdns_client.mdns_client:new{sendto=function (...)
@@ -117,9 +129,13 @@ describe("mdns_client", function ()
                            ifo = c:get_if(ifname)
                         end)
             after_each(function ()
+                          -- at termination, should have no observers
+                          mst.a(#ifo.cache.inserted.observers == 0, ifo.cache.observers)
+
                           c:done()
                           -- no assert, as not _always_ doing this
                           scr.clear_scr()
+                          mst.a(observers == 0, 'observers left', observers)
                        end)
             it("works with prepopulated CF entry [=>sync] #a", function ()
                   ifo.cache:insert_rr(rr_cf)
@@ -159,7 +175,7 @@ describe("mdns_client", function ()
                   mst_test.assert_repr_equal(got1_cf, got2_cf)
                   mst_test.assert_repr_equal(got1, got2)
                   mst_test.assert_repr_equal(cnt, 1)
-                                                       end)
+                                                     end)
             it("works with non-CF #c", function ()
                   local got, got_cf
                   scr.run(function ()

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Thu Jun 20 19:02:46 2013 mstenber
--- Edit time:     97 min
+-- Last modified: Thu Jun 20 20:26:14 2013 mstenber
+-- Edit time:     101 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -64,14 +64,21 @@ function mdns_client_request:init()
    
    -- store the objects for later use
    self.t, self.to = scr.get_timeout(self.timeout)
+
+   self:d('init done')
+
 end
 
 function mdns_client_request:uninit()
-   _eventful.init(self)
    if self.to
    then
       self.to:done()
    end
+
+   -- superclass uninit
+   _eventful.uninit(self)
+
+   self:d('uninit done')
 end
 
 function mdns_client_request:repr_data()
@@ -115,6 +122,7 @@ function mdns_client:uninit()
    do
       r:done()
    end
+   _mdns.uninit(self)
 end
 
 
