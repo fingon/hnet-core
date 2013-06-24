@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Jun 11 11:43:17 2013 mstenber
--- Edit time:     949 min
+-- Last modified: Mon Jun 24 13:12:22 2013 mstenber
+-- Edit time:     960 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -787,16 +787,14 @@ function pa:assign_own(iid, usp)
 
    -- 3. hysteresis (sigh)
    -- first off, apply it only if within 'short enough' period of time from the start of the router
-   if not p and self.new_prefix_assignment > 0 and self:time_since_start() < self.new_prefix_assignment
+   if not p 
+      and self.new_prefix_assignment > 0 
+      and self:time_since_start() < self.new_prefix_assignment 
+      and self:is_only_visible_router()
    then
-      -- look at number of rids we know; if it's 1, don't do anything
-      -- for now
-      if self.ridr:count() == 1
-      then
-         self:busy_until(self.new_prefix_assignment)
-         self:d('hysteresis criteria filled - not assigning anything yet')
-         return
-      end
+      self:busy_until(self.new_prefix_assignment)
+      self:d('hysteresis criteria filled - not assigning anything yet')
+      return
    end
    
    -- 4. assign /64 if possible
@@ -923,6 +921,40 @@ function pa:find_usp_matching(filter)
    return found
 end
 
+function pa:is_only_visible_router()
+   local found
+   for rid, o in pairs(self.ridr)
+   do
+      if o
+      then
+         -- _second_ found one means that there's at least
+         -- 2 reachable routers (=us + someone else) => we're not only
+         -- visible router any more..
+         if found
+         then
+            return false
+         end
+         found = true
+      end
+   end
+   return true
+end
+
+function pa:get_highest_rid()
+   local highest_rid
+   for rid, o in pairs(self.ridr)
+   do
+      if o
+      then
+         if not highest_rid or highest_rid < rid
+         then
+            highest_rid = rid
+         end
+      end
+   end
+   return highest_rid
+end
+
 function pa:generate_ulaish(filter, filter_own, generate_prefix, desc)
    -- i) first off, if we _do_ have usable prefixes from someone else,
    -- use them
@@ -934,14 +966,9 @@ function pa:generate_ulaish(filter, filter_own, generate_prefix, desc)
 
    self:d('generate_ulaish', desc)
 
-   local rids = self.ridr:keys()
-
    -- ii) do we have highest rid? if not, generation isn't our job
-   local highest_rid = mst.max(unpack(rids))
-   --self:d('got rids', rids, highest_rid)
-
    local my_rid = self.rid
-   if my_rid < highest_rid
+   if self.rid < self:get_highest_rid()
    then
       self:d(' higher rid exists, skipping')
       return
@@ -969,13 +996,12 @@ function pa:generate_ulaish(filter, filter_own, generate_prefix, desc)
    -- we don't
 
    -- handle hysteresis - if we have booted up recently, skip
-   if #rids == 1
+   if self.new_ula_prefix > 0 
+      and self:time_since_start() < self.new_ula_prefix 
+      and self:is_only_visible_router()
    then
-      if self.new_ula_prefix > 0 and self:time_since_start() < self.new_ula_prefix
-      then
-         self:busy_until(self.new_ula_prefix)
-         return
-      end
+      self:busy_until(self.new_ula_prefix)
+      return
    end
 
    -- generate usp
@@ -1127,7 +1153,7 @@ function pa:run(d)
    -- (laps have their own lifecycle governed via timeouts etc)
    self.vsu:clear_all_valid()
    self.vsa:clear_all_valid()
-   self.ridr:keys():map(function (k) self.ridr[k]=false end)
+   self.ridr:keys():foreach(function (k) self.ridr[k]=false end)
 
    -- get the rid reachability
    local rname_valid = rname ~= nil
