@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 14:45:24 2013 mstenber
--- Last modified: Mon Jun 24 12:02:48 2013 mstenber
--- Edit time:     98 min
+-- Last modified: Mon Jun 24 18:13:50 2013 mstenber
+-- Edit time:     116 min
 --
 
 require 'busted'
@@ -51,6 +51,8 @@ local rr_cf = {name={'foo', 'com'},
 
 local ifname = 'dummy'             
 
+local N_IF=1 + 2 -- dummy + 2 in ip4_addr_get
+
 local ip4_addr_get = {
    'ip -4 addr', 
    [[
@@ -63,6 +65,8 @@ local ip4_addr_get = {
 ]]
 }
 
+local N_IPV4=2 -- 2 globals (we should ignore loopback)
+
 local ip6_addr_get = {
    "ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary",
    [[1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 
@@ -74,6 +78,9 @@ local ip6_addr_get = {
     ]],
 }
 
+local N_IPV6=2 -- 6rd one should not show up
+
+local N_IP=N_IPV4+N_IPV6
 
 local ip4_addr_get2 = {
    'ip -4 addr', 
@@ -93,12 +100,6 @@ local ip6_addr_get2 = {
     ]],
 }
 
-
-local N_IF=4 -- dummy + 3 in ip4_addr_get
-
-local N_IPV4=3
-local N_IPV6=2
-local N_IP=N_IPV4+N_IPV6
 
 local N2_IPV4=2
 local N2_IPV6=2
@@ -226,8 +227,11 @@ describe("mdns_client", function ()
                                ip6_addr_get}
                   c:update_own_records('foo')
                   -- add eth2, lo, 6rd
-                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), N_IF,
-                                             'after foo')
+                  local nif = mst.table_count(c.ifname2if)
+                  --mst.a(nif and N_IF)
+                  --mst.d(nif, N_IF, mst.table_keys(c.ifname2if))
+                  mst_test.assert_repr_equal(nif, N_IF, '#if after foo')
+
                   local ifo = c:get_if('eth2')
                   function run_until_ifo_count(n)
                      while true
@@ -257,13 +261,10 @@ describe("mdns_client", function ()
 
                   -- second foo, should be nop
                   c:update_own_records('foo')
-                  mst_test.assert_repr_equal(mst.table_count(c.ifname2if), 
-                                             N_IF,
-                                             'after foo')
+                  local nif = mst.table_count(c.ifname2if)
+                  mst_test.assert_repr_equal(nif, N_IF, '#if after foo')
                   local cnt = ifo.own:count()
-                  mst_test.assert_repr_equal(cnt, 
-                                             N_IP * 2,
-                                             'after foo (cnt)')
+                  mst_test.assert_repr_equal(cnt, N_IP * 2, 'cnt after foo')
 
                   -- now change name to bar
                   c:update_own_records('bar')

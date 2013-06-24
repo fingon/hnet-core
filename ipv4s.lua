@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Jan  8 12:54:54 2013 mstenber
--- Last modified: Tue Jan  8 13:06:22 2013 mstenber
--- Edit time:     4 min
+-- Last modified: Mon Jun 24 17:59:02 2013 mstenber
+-- Edit time:     5 min
 --
 
 -- Minimalist mirror image of ipv6s, with similar API. This should
@@ -18,6 +18,14 @@
 -- standalone..
 
 module(..., package.seeall)
+
+function address_is_loopback(s)
+   local l = mst.string_split(s, '.')
+   if l[1] == '127'
+   then
+      return true
+   end
+end
 
 function address_to_binary_address(s)
    -- IPv4 address most likely

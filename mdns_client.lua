@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Mon Jun 24 11:59:38 2013 mstenber
--- Edit time:     104 min
+-- Last modified: Mon Jun 24 17:59:26 2013 mstenber
+-- Edit time:     109 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -242,15 +242,17 @@ function mdns_client:get_a_addrs(map)
    for ifname, o in pairs(map)
    do
       local found
-      addr = o.ipv4
+      local addr = o.ipv4
       if addr
       then
          -- eliminate /x
          addr = mst.string_split(addr, '/')[1]
+
          addrs[addr] = true
          -- if we have address on device, we _should_ care about it
          -- enough to have own data structure for it too. this should
          -- make sure of that.
+         self:d('found v4', addr, ifname)
          self:get_if(ifname)
       end
    end
@@ -274,6 +276,7 @@ function mdns_client:get_aaaa_addrs(map)
          -- eliminate /64
          addr = mst.string_split(addr, '/')[1]
          addrs[addr] = true
+         self:d('found v6', addr, ifname)
       end
 
       if found

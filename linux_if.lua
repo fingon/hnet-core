@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  8 13:11:02 2012 mstenber
--- Last modified: Tue Jun  4 18:49:33 2013 mstenber
--- Edit time:     122 min
+-- Last modified: Mon Jun 24 17:12:45 2013 mstenber
+-- Edit time:     123 min
 --
 
 
@@ -160,7 +160,10 @@ function if_table:read_ip_ipv4()
                           -- case 2: <spaces> inet <addr>/<mask>
                           '^%s+inet (%S+/%d+)%s',
                           function (addr)
-                             ifo.ipv4 = addr
+                             if not ipv4s.address_is_loopback(addr)
+                             then
+                                ifo.ipv4 = addr
+                             end
                           end,
                           -- case 3: lifetime stuff (ignored)
                           '^%s+valid_lft.*',
