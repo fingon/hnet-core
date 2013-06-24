@@ -90,6 +90,12 @@ all?
 
 * PA - Bugs to fix
 
+** Adding new tunnel interface should work faster.
+
+skvtool 'tunnel.ula=[{"prefix":"fd00::/48"}]'
+
+==> propagation takes a loong while. Reason is probably simple - 
+
 ** pa-config does not work
 
 skvtool cannot set pa-config after the fact; other variables _do_ work, so
