@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 14:45:24 2013 mstenber
--- Last modified: Thu Jun 20 20:22:50 2013 mstenber
--- Edit time:     89 min
+-- Last modified: Mon Jun 24 10:55:58 2013 mstenber
+-- Edit time:     94 min
 --
 
 require 'busted'
@@ -37,13 +37,17 @@ local q = {name={'foo', 'com'},
 local rr = {name={'foo', 'com'},
             rtype=dns_const.TYPE_A,
             rclass=dns_const.CLASS_IN,
-            rdata_a='2.3.4.5'}
+            rdata_a='2.3.4.5',
+            valid=12345,
+}
 
 local rr_cf = {name={'foo', 'com'},
                rtype=dns_const.TYPE_A,
                rclass=dns_const.CLASS_IN,
                rdata_a='1.2.3.4',
-               cache_flush=true}
+               cache_flush=true,
+               valid=12345,
+}
 
 local ifname = 'dummy'             
 
@@ -140,7 +144,9 @@ describe("mdns_client", function ()
             it("works with prepopulated CF entry [=>sync] #a", function ()
                   ifo.cache:insert_rr(rr_cf)
                   local r, got_cf = c:resolve_ifname_q(ifname, q, 0.1)
-                  mst.a(mst.repr_equal(r, {rr_cf}), 'not same')
+                  mst.a(r and #r == 1, 'not 1 result', r)
+                  mst.a(dns_db.rr.equals(r[1], rr_cf), 
+                        'not rr-equal', r[1], rr_cf)
                   mst.a(got_cf)
                                                                end)
             it("works with CF that shows up later #b", function ()
@@ -170,10 +176,14 @@ describe("mdns_client", function ()
                                                         return got1 and got2
                                                      end, 1)
                   mst.a(r, 'timed out')
-                  mst_test.assert_repr_equal(got1, {rr_cf})
+                  mst.a(#got1 == 1)
+                  mst.a(dns_db.rr.equals(got1[1], rr_cf), 
+                        'not rr-equal', got1[1], rr_cf)
                   mst.a(got1_cf)
+                  mst.a(#got2 == 1)
+                  mst.a(dns_db.rr.equals(got2[1], rr_cf), 
+                        'not rr-equal', got2[1], rr_cf)
                   mst_test.assert_repr_equal(got1_cf, got2_cf)
-                  mst_test.assert_repr_equal(got1, got2)
                   mst_test.assert_repr_equal(cnt, 1)
                                                      end)
             it("works with non-CF #c", function ()
@@ -188,7 +198,9 @@ describe("mdns_client", function ()
                           end)
                   local r = ssloop.loop():loop_until(function () return got end, 1)
                   mst.a(r, 'timed out')
-                  mst.a(mst.repr_equal(got, {rr}), 'not same', got, {rr})
+                  mst.a(#got == 1)
+                  mst.a(dns_db.rr.equals(got[1], rr), 
+                        'not rr-equal', got[1], rr)
                   mst.a(not got_cf)
 
                                        end)

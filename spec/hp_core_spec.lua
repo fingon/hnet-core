@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Tue Jun 18 16:24:46 2013 mstenber
--- Edit time:     338 min
+-- Last modified: Mon Jun 24 11:31:13 2013 mstenber
+-- Edit time:     359 min
 --
 
 require 'busted'
@@ -77,7 +77,7 @@ local dns_dummy_q = {name={'name', 'foo', 'com'},
                      qclass=dns_const.CLASS_ANY}
 
 local mdns_rrs_to_dns_reply_material = {
-   -- nothing found => name error
+   -- 1 nothing found => name error
    {{},
     {h={id=123, qr=true, ra=true, rcode=dns_const.RCODE_NXDOMAIN}, 
      qd={dns_dummy_q},
@@ -85,7 +85,7 @@ local mdns_rrs_to_dns_reply_material = {
     },
    },
    
-   -- nothing _matching_ found => name error
+   -- 2 nothing _matching_ found => name error
    {{
        -- one fake-RR, but with wrong name
        {name={'blarg', 'local'}},
@@ -96,7 +96,7 @@ local mdns_rrs_to_dns_reply_material = {
     },
    },
 
-   -- normal case - match
+   -- 3 normal case - match
    {{
        -- matching ones
        {name={'name', 'local'}, cache_flush=true,
@@ -120,7 +120,7 @@ local mdns_rrs_to_dns_reply_material = {
     },
    },
 
-   -- check that PTR and SRV work as advertised
+   -- 4 check that PTR and SRV work as advertised
    {{
        -- matching one
        {name={'name', 'local'}, rtype=dns_const.TYPE_PTR,
@@ -138,7 +138,7 @@ local mdns_rrs_to_dns_reply_material = {
     },
    },
 
-   -- check that no rewriting happens for arpa stuff (provide
+   -- 5 check that no rewriting happens for arpa stuff (provide
    -- additional record with arpa name, and main record with field
    -- with arpa name)
    {{
@@ -267,7 +267,7 @@ local rr_x_reverse = {name=n_x_reverse, rtype=dns_const.TYPE_PTR, rdata_ptr=n_x_
 
 local rr_x_reverse_local = mst.table_copy(rr_x_reverse)
 rr_x_reverse_local.rdata_ptr = {'x', 'local'}
-
+rr_x_reverse_local.ttl = 123
 
 
 local msg_x_mine_result = {
@@ -291,9 +291,11 @@ local msg_x_reverse_result = {
 
 local rr_x_local = mst.table_copy(rr_x_mine)
 rr_x_local.name = {'x', 'local'}
+rr_x_local.ttl = 234
 
 local rr_y_local = mst.table_copy(rr_y_mine)
 rr_y_local.name = {'y', 'local'}
+rr_y_local.ttl = 345
 
 local hp_process_dns_results = {
    -- first case - forward ext, fails
@@ -333,7 +335,7 @@ local hp_process_mdns_results = {
 
          rr_x_local,
          rr_y_local,
-         {name={'bar', 'com'}, rtype=dns_const.TYPE_A, rdata_a="1.2.3.4", rclass=dns_const.TYPE_IN},
+         {name={'bar', 'com'}, rtype=dns_const.TYPE_A, rdata_a="1.2.3.4", rclass=dns_const.CLASS_IN, ttl=123},
       }
    },
    -- ok, with ip
@@ -413,6 +415,15 @@ function assert_dns_result_equals(exp, got)
    mst.a(mst.repr_equal(gmsg, exp[2]), 'not same - exp/got', exp[2][1], gmsg)
 end
 
+function clear_msg_ttls(msg)
+   for i, f in ipairs{'an', 'ar'}
+   do
+      for i, rr in ipairs(msg[f] or {})
+      do
+         rr.ttl = nil
+      end
+   end
+end
 
 function assert_cmsg_result_equals(exp, got)
    if exp == got
@@ -420,7 +431,8 @@ function assert_cmsg_result_equals(exp, got)
       return 
    end
    mst.a(got and got.get_msg, 'no got/get_msg', exp, got)
-
+   clear_msg_ttls(exp)
+   clear_msg_ttls(got:get_msg())
    mst.a(mst.repr_equal(exp, got:get_msg()), 'not same - exp/got', exp, got)
 end
 
@@ -547,7 +559,7 @@ describe("hybrid_proxy", function ()
                                end
                               )
                                                         end)
-            it("mdns->dns conversion works", function ()
+            it("mdns->dns conversion works #m2d", function ()
                   local msg = {
                      h={id=123},
                      qd={
@@ -559,6 +571,16 @@ describe("hybrid_proxy", function ()
                   mst.a(q)
                   _t.test_list(mdns_rrs_to_dns_reply_material,
                                function (rrs)
+                                  -- code assumes that the rrs are
+                                  -- copied due to e.g. ttls or
+                                  -- whatnot
+                                  rrs = mst.table_deep_copy(rrs)
+                                  -- fill in some fake ttls too
+                                  for i, rr in ipairs(rrs)
+                                  do
+                                     -- perhaps not - easier comparison without
+                                     rr.ttl = 123
+                                  end
                                   return hp:rewrite_rrs_from_mdns_to_reply_msg(req, q, rrs, DOMAIN_LL)
                                end,
                                assert_cmsg_result_equals)
@@ -572,7 +594,7 @@ describe("hybrid_proxy", function ()
                   dns.array:extend(hp_process_dns_results)
 
                   mdns.array:extend(hp_process_mdns_results)
-                  mdns.array:extend(hp_process_mdns_results)
+                  mdns.array:extend(mst.table_deep_copy(hp_process_mdns_results))
 
                   local is_tcp = false
 
@@ -598,6 +620,10 @@ describe("hybrid_proxy", function ()
                         end
                         mst.a(r.h, 'no header', r)
                         mst.a(r.h.id == msg.h.id)
+
+                        -- get rid of ttls
+                        clear_msg_ttls(r)
+
                         -- convert result to binary, and then back
                         -- (=normalize it)
                         mst.d('normalizing', r)
@@ -619,13 +645,17 @@ describe("hybrid_proxy", function ()
                      return {input, output}
                   end
 
-                  local l = mst.array_map(hp_process_tests,
-                                          canonize_output)
+                  local ol = mst.array_map(hp_process_tests,
+                                           canonize_output)
 
                   -- first via UDP
+                  mst.d('running udp tests')
+                  l = mst.table_deep_copy(ol)
                   _t.test_list(l, test_one)
                   -- then via TCP
+                  mst.d('running tcp tests')
                   is_tcp = true
+                  l = mst.table_deep_copy(ol)
                   _t.test_list(l, test_one)
 
                                                     end)

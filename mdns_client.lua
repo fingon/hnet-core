@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Thu Jun 20 20:26:14 2013 mstenber
--- Edit time:     101 min
+-- Last modified: Mon Jun 24 10:45:00 2013 mstenber
+-- Edit time:     102 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -153,6 +153,17 @@ function mdns_client:resolve_ifo_q(ifo, q, cache_flush)
                                     table.insert(r, rr)
                                  end
                               end)
+   if r
+   then
+      -- refresh TTLs
+      r = ifo:copy_rrs_with_updated_ttl(r, true)
+      -- if none of them were valid, return nil
+      -- (copy_rrs_with_updated_ttl returns empty list in that case)
+      if #r == 0
+      then
+         return
+      end
+   end
    return r
 end
 

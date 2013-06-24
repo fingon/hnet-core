@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Wed Jun 19 15:03:18 2013 mstenber
--- Edit time:     460 min
+-- Last modified: Mon Jun 24 11:27:49 2013 mstenber
+-- Edit time:     470 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -77,6 +77,11 @@ IIDPREFIX='i-'
 RESULT_FORWARD_EXT='forward_ext' -- forward to the real external resolver
 RESULT_FORWARD_INT='forward_int' -- forward using in-home topology
 RESULT_FORWARD_MDNS='forward_mdns' -- forward via mDNS
+
+-- mdns depends on POOF to some degree -> it has hour-long TTLs for
+-- some entries. We cannot do that, though, and therefore we force TTL
+-- to be relatively short no matter what.
+MAXIMUM_TTL=120
 
 hybrid_proxy = _dns_server:new_subclass{class='hybrid_proxy',
                                         mandatory={'rid', 'domain', 
@@ -428,34 +433,37 @@ function hybrid_proxy:rewrite_dns_req_to_mdns_q(dns_req, ll)
 end
 
 function hybrid_proxy:rewrite_mdns_rr_to_dns(rr, ll)
-   local nrr = mst.table_copy(rr)
+   -- this should not be necessary; resolve_ifname_q should already
+   -- perform copy of the resulting rr's, so we can do what we want
+   -- with them here..
+   --rrr = mst.table_copy(rr)
 
    -- there is no cache flush in dns-land
-   nrr.cache_flush = nil
+   rr.cache_flush = nil
 
    -- rewrite name
    local n, err = replace_dns_ll_tail_with_another(rr.name, mdns_const.LL, ll)
    if not n then return nil, err end
-   nrr.name = n
+   rr.name = n
    
    -- manually rewrite the relevant bits.. sigh SRV, PTR are only
    -- types we really care about; NS shouldn't happen
    if rr.rtype == dns_const.TYPE_SRV
    then
       local srv = mst.table_copy(rr.rdata_srv)
-      nrr.rdata_srv = srv
+      rr.rdata_srv = srv
       local n, err = replace_dns_ll_tail_with_another(srv.target, mdns_const.LL, ll)
       if not n then return nil, err end
       srv.target = n
-      return nrr
+      return rr
    end
 
    if rr.rtype == dns_const.TYPE_PTR
    then
       local n, err = replace_dns_ll_tail_with_another(rr.rdata_ptr, mdns_const.LL, ll)
       if not n then return nil, err end
-      nrr.rdata_ptr = n
-      return nrr
+      rr.rdata_ptr = n
+      return rr
    end
 
    if rr.rtype == dns_const.TYPE_AAAA
@@ -469,7 +477,7 @@ function hybrid_proxy:rewrite_mdns_rr_to_dns(rr, ll)
 
    -- XXX - what to do with nsec?
 
-   return nrr
+   return rr
 end
 
 -- Rewrite the mDNS-oriented RR list to a reply message that can be
@@ -485,11 +493,16 @@ function hybrid_proxy:rewrite_rrs_from_mdns_to_reply_msg(req, mdns_q,
    
    for i, rr in ipairs(mdns_rrs)
    do
+      local matches_q = mdns_if.match_q_rr(mdns_q, rr)
+      self:a(rr.ttl, 'no ttl set in record from mdns?!?', rr)
       local nrr, err = self:rewrite_mdns_rr_to_dns(rr, ll)
       if nrr
       then
-
-         if mdns_if.match_q_rr(mdns_q, rr)
+         if nrr.ttl > MAXIMUM_TTL
+         then
+            nrr.ttl = MAXIMUM_TTL
+         end
+         if matches_q
          then
             self:d('adding to an', nrr)
             r.an:insert(nrr)

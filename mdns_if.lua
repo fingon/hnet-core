@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu Jun 13 16:56:51 2013 mstenber
--- Edit time:     828 min
+-- Last modified: Mon Jun 24 10:46:58 2013 mstenber
+-- Edit time:     831 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -646,7 +646,7 @@ end
 
 function mdns_if:get_cache_rr_current_ttl(rr, now)
    self:a(not rr.is_own)
-   self:a(rr.valid, 'entries in cache MUST have valid set (and therefore also set ttl)')
+   self:a(rr.valid, 'entries in cache MUST have valid set (and therefore also set ttl)', rr)
    return self:get_valid_rr_current_ttl(rr, now)
 end
 
