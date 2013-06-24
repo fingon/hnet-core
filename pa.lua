@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Mon Jun 24 13:12:22 2013 mstenber
--- Edit time:     960 min
+-- Last modified: Mon Jun 24 14:36:06 2013 mstenber
+-- Edit time:     963 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -1228,8 +1228,8 @@ function pa:run(d)
          function ()
             local hwf = self:get_hwf()
             local bits = mst.create_hash(hwf)
-            -- create binary prefix - first one 0xFC, 5 bytes from bits => /48
-            local bp = ipv6s.ula_prefix .. string.sub(bits, 1, 5)
+            -- create binary prefix - first one 0xFD, 5 bytes from bits => /48
+            local bp = ipv6s.ula_local_prefix .. string.sub(bits, 1, 5)
             local p = ipv6s.new_prefix_from_binary(bp)
             return p
          end,

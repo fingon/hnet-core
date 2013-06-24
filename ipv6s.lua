@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Wed Jun 19 15:00:39 2013 mstenber
--- Edit time:     186 min
+-- Last modified: Mon Jun 24 14:35:54 2013 mstenber
+-- Edit time:     187 min
 --
 
 require 'mst'
@@ -18,7 +18,9 @@ require 'ipv4s'
 module(..., package.seeall)
 
 -- ULA addresses are just fcXX:*
-ula_prefix = string.char(0xFC)
+-- (first bit is L bit, which is set for locally assigned prefixes)
+ula_global_prefix = string.char(0xFC)
+ula_local_prefix = string.char(0xFD)
 
 local _null = string.char(0)
 
@@ -389,8 +391,11 @@ function ipv6_prefix:get_binary_bits()
 end
 
 function binary_address_is_ula(b)
-   return string.sub(b, 1, #ula_prefix) == ula_prefix
-
+   local c = string.sub(b, 1, 1)
+   if c == ula_local_prefix or c == ula_global_prefix
+   then
+      return true
+   end
 end
 
 function ipv6_prefix:is_ula()
