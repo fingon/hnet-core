@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Tue Jun 18 17:14:32 2013 mstenber
+-- Last modified: Mon Jun 24 10:53:10 2013 mstenber
 -- Edit time:     219 min
 --
 
@@ -198,7 +198,7 @@ function rr:equals(o)
    return self.rtype == o.rtype 
       and self.rclass == (o.rclass or dns_const.CLASS_IN)
       and ll_equal(self.name, o.name)
-      and self:rdata_equals(o) 
+      and rr.rdata_equals(self, o) 
       and not self.cache_flush == not o.cache_flush
 end
 
