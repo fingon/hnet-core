@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Mar 25 18:27:04 2013 mstenber
--- Last modified: Tue Mar 26 15:26:46 2013 mstenber
--- Edit time:     19 min
+-- Last modified: Mon Jun 24 14:03:41 2013 mstenber
+-- Edit time:     20 min
 --
 
 require "busted"
@@ -71,7 +71,7 @@ describe("odhcp6c_handler_core", function ()
                   mst.a(not v or #v == 0)
                    end)
             it("rdnss", function ()
-                  env[odhcp6c_handler_core.ENV_PREFIXES] = '2001::/16,1,1,0 dead::/16,1,1 beef::/32,2,3,42'
+                  env[odhcp6c_handler_core.ENV_PREFIXES] = '2001::/16,1,1 dead::/16,1,1 beef::/32,2,3,class=42'
                   env[odhcp6c_handler_core.ENV_RDNSS] = '1.2.3.4 dead:beef::1'
                   h:run()
                   local v = o[ok]
@@ -79,7 +79,7 @@ describe("odhcp6c_handler_core", function ()
                   mst.a(v and #v == 2+3)
                    end)
             it("domain", function ()
-                  env[odhcp6c_handler_core.ENV_PREFIXES] = '2001::/16,1,1,0 dead::/16,1,1 beef::/32,2,3,42'
+                  env[odhcp6c_handler_core.ENV_PREFIXES] = '2001::/16,1,1 dead::/16,1,1 beef::/32,2,3,class=42'
                   env[odhcp6c_handler_core.ENV_DOMAINS] = 'foo.com bar.com'
                   h:run()
                   local v = o[ok]
@@ -87,7 +87,7 @@ describe("odhcp6c_handler_core", function ()
                   mst.a(v and #v == 2+3)
                    end)
             it("prefixes", function ()
-                  env[odhcp6c_handler_core.ENV_PREFIXES] = '2001::/16,1,1,0 dead::/16,1,1 beef::/32,2,3,42'
+                  env[odhcp6c_handler_core.ENV_PREFIXES] = '2001::/16,1,1 dead::/16,1,1 beef::/32,2,3,class=42'
                   h:run()
                   local v = o[ok]
                   -- should have one entry each

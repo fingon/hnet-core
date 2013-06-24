@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Mar 25 18:25:10 2013 mstenber
--- Last modified: Tue Mar 26 15:25:16 2013 mstenber
--- Edit time:     24 min
+-- Last modified: Mon Jun 24 14:03:26 2013 mstenber
+-- Edit time:     28 min
 --
 
 -- This is rather minimal core handling code, which takes (using
@@ -65,14 +65,23 @@ function ohc:create_skv_prefix_array(state)
 
    for i, v in ipairs(self:split_from_env(ENV_PREFIXES, ' '))
    do
-      local l = mst.string_split(v, ',')
-      mst.a(#l <= 4)
-      local prefix, pref, valid, pclass = unpack(l)
-      -- convert pclass to number, and keep it only if it's >0
-      if pclass
+      local l = mst.string_split(v, ',', 4)
+      mst.a(#l >= 3 and #l <= 4)
+      local prefix, pref, valid, rest = unpack(l)
+      -- first 3 parts are mandatory; last one isn't
+      local pclass
+      if rest and #rest > 0
       then
-         pclass = tonumber(pclass)
-         pclass = pclass>0 and pclass
+         for i, s in ipairs(mst.string_split(rest, ','))
+         do
+            local sl = mst.string_split(s, '=', 2)
+            self:a(#sl == 2, 'invalid optional argument', s)
+            k, v = unpack(sl)
+            if k == 'class'
+            then
+               pclass = tonumber(v)
+            end
+         end
       end
       pref = tonumber(pref)
       valid = tonumber(valid)
