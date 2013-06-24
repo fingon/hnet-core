@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Mon Jun 24 10:45:00 2013 mstenber
--- Edit time:     102 min
+-- Last modified: Mon Jun 24 11:59:38 2013 mstenber
+-- Edit time:     104 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -216,7 +216,7 @@ function mdns_client:resolve_ifname_q(ifname, q, timeout)
    r = self:resolve_ifo_q(ifo, q)
    self:d('found in cache', r)
 
-   return r, had_cf
+   return r or {}, had_cf
 end
 
 function mdns_client:update_own_records_if(myname, ns, o, rrs, rtype)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 14:45:24 2013 mstenber
--- Last modified: Mon Jun 24 10:55:58 2013 mstenber
--- Edit time:     94 min
+-- Last modified: Mon Jun 24 12:02:48 2013 mstenber
+-- Edit time:     98 min
 --
 
 require 'busted'
@@ -211,7 +211,7 @@ describe("mdns_client", function ()
                                                          ifname, 
                                                          q,
                                                          0.1)
-                  mst.a(not r, 'no timeout(?)')
+                  mst.a(r and #r == 0, 'should return empty list even if timeout', r)
                              end)
             it("can populate it's own entries if called for #own", function ()
                   -- by default, dummy if should be there
