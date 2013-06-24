@@ -90,6 +90,11 @@ all?
 
 * PA - Bugs to fix
 
+** pa-config does not work
+
+skvtool cannot set pa-config after the fact; other variables _do_ work, so
+something weird going on in the handling there.
+
 ** Make the search domain handling match the hybrid-and-ospf draft
 
 Currently we transport search domain inside JSONBLOB. However, using the
