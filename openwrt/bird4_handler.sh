@@ -8,7 +8,7 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Mon Jun  3 12:56:19 2013 mstenber
+# Last modified: Tue Jun 25 10:05:09 2013 mstenber
 # Edit time:     18 min
 #
 
@@ -33,8 +33,8 @@ start() {
     RID=$1
 cat > $CONF <<EOF
 
-log "/tmp/bird4.log" all;
-#log syslog all;
+#log "/tmp/bird4.log" all;
+log syslog all;
 
 debug protocols {states, routes, filters, interfaces, events, packets};
 
