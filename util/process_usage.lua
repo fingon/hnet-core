@@ -8,13 +8,19 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jun 24 07:26:52 2013 mstenber
--- Last modified: Mon Jun 24 09:55:08 2013 mstenber
--- Edit time:     26 min
+-- Last modified: Tue Jun 25 11:23:09 2013 mstenber
+-- Edit time:     32 min
 --
 
 -- This is ~deterministic way to kill _everything_ related to homenet
 -- on a router, and to check the memory usage during every
 -- intermediate step.
+
+-- NOTE: Doing this with busybox leads to false conclusions. Busybox
+-- doesn't show cached memory as free -> typically as cached grows
+-- during system lifetime, the results are .. weird. Therefore, if
+-- using this on OWRT box, make sure 'ps' and 'free' map to procps
+-- ones, not busybox built-ins!
 
 require 'mst'
 require 'socket'
@@ -49,7 +55,6 @@ function create_cli()
 
    cli:set_name('process_usage.lua')
    cli:add_flag('-r', 'kill in reverse order')
-   cli:add_flag('-l', 'use normal style cmds (as opposed to busybox-ish ones)')
    return cli
 end
 
@@ -66,13 +71,21 @@ then
 end
 
 function print_mem()
-   local s = mst.execute_to_string('free | grep buffers')
+   -- run collectgarbage just before print_mem -> as we don't have
+   -- really much state in memory, the results should be fairly exact
+   -- (+ the small overhead of the lua script with mst+socket
+   -- dependencies, of course)
+   collectgarbage('collect')
+
+   local s = mst.execute_to_string('free | grep buffers/cache')
    local cnt = string.match(s, '%d+')
+   cnt = tonumber(cnt)
+   mst.a(cnt, 'unable to find used memory - are you really using procps?', s)
    print('mem', cnt)
 end
 
 print_mem()
-local pss = mst.execute_to_string(args.l and 'ps axw' or 'ps w')
+local pss = mst.execute_to_string('ps axw')
 local psl = mst.string_split(pss, '\n')
 for i, t in ipairs(targets)
 do
