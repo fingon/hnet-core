@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Jun 19 15:49:33 2013 mstenber
--- Edit time:     226 min
+-- Last modified: Wed Jun 26 19:09:56 2013 mstenber
+-- Edit time:     230 min
 --
 
 require "busted"
@@ -798,4 +798,18 @@ describe("mst_eventful", function ()
                      end
                   end
                end)
+end)
+
+describe("table", function ()
+            it("table_sorted_keys works", function ()
+                  local t = {i=1, b=true, s='z'}
+                  local keys = mst.table_sorted_keys(t)
+                  mst_test.assert_repr_equal(keys, {'b', 'i', 's'})
+                  local keys2 = {}
+                  for k, v in mst.table_sorted_pairs(t)
+                  do
+                     table.insert(keys2, k)
+                  end
+                  mst_test.assert_repr_equal(keys2, {'b', 'i', 's'})
+                   end)
 end)
