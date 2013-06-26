@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Mon Jun 24 10:46:58 2013 mstenber
--- Edit time:     831 min
+-- Last modified: Wed Jun 26 16:30:11 2013 mstenber
+-- Edit time:     832 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -686,6 +686,9 @@ function mdns_if:copy_rrs_with_updated_ttl(rrl, unicast, legacy, force)
       if ttl > 0
       then
          local n = mst.table_copy(rr)
+         -- remove any skiplist data within object if need be
+         self.cache_sl:clear_object_fields(n)
+         self.own_sl:clear_object_fields(n)
          n.ttl = ttl
          if legacy
          then
