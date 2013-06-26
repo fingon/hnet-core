@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Wed Jun 26 14:31:44 2013 mstenber
--- Edit time:     471 min
+-- Last modified: Wed Jun 26 17:24:47 2013 mstenber
+-- Edit time:     479 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -271,7 +271,7 @@ function hybrid_proxy:recreate_tree()
                       -- intermediate node
                       create_default_forward_ext_node_callback)
    function localz:get_value(req)
-      self:d('returning nxdomain')
+      self:d('returning nxdomain [local zone]')
       return dns_server.RESULT_NXDOMAIN
    end
 
@@ -524,6 +524,7 @@ function hybrid_proxy:rewrite_rrs_from_mdns_to_reply_msg(req, mdns_q,
    then
       r.ar = {}
       r.h.rcode = dns_const.RCODE_NXDOMAIN
+      self:d('no matches, returning nxdomain')
    end
    return rm
 end

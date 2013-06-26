@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 12:29:52 2013 mstenber
--- Last modified: Wed Jun 12 14:58:19 2013 mstenber
+-- Last modified: Wed Jun 26 17:24:17 2013 mstenber
 -- Edit time:     34 min
 --
 
@@ -122,7 +122,7 @@ end
 function create_default_nxdomain_node_callback(o)
    local n = dns_tree.create_node_callback(o)
    function n:get_default(req)
-      self:d('returning nxdomain')
+      self:d('returning nxdomain [create_default_nxdomain_node_callback]')
       return RESULT_NXDOMAIN
    end
    mst.d('created default nxdomain node', n)
