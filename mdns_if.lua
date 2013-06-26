@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Wed Jun 26 16:30:11 2013 mstenber
--- Edit time:     832 min
+-- Last modified: Wed Jun 26 17:49:55 2013 mstenber
+-- Edit time:     836 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -313,7 +313,7 @@ function mdns_if:iterate_matching_query(is_own, q, kas, f)
    -- if no match, _but_ we own the name
    -- => look up for negative NSEC 
    -- (assuming this wasn't already NSEC query, of course)
-   if found_cf and not matched 
+   if found_cf and not matched and is_own
       and q.qtype ~= dns_const.TYPE_NSEC
    then
       self:iterate_matching_query(is_own, 
