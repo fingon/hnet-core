@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Wed Jun 26 14:26:33 2013 mstenber
--- Edit time:     182 min
+-- Last modified: Wed Jun 26 16:04:13 2013 mstenber
+-- Edit time:     183 min
 --
 
 -- DNS channels is an abstraction between two entities that speak DNS,
@@ -65,7 +65,12 @@ function msg:repr_data()
                    port=self.port,
                    tcp=self.tcp,
                    binary=(self.binary and true or nil),
-                   msg=(self.msg and true or nil),
+                   msg=self.msg,
+
+                   -- we probably want to show full message;
+                   -- otherwise debugging is hard.
+                   -- alternative is to show if it's just present, like below
+                   --self.msg and true or nil,
                   }
 end
 
