@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Mon Jun 24 11:27:49 2013 mstenber
--- Edit time:     470 min
+-- Last modified: Wed Jun 26 14:31:44 2013 mstenber
+-- Edit time:     471 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -69,6 +69,9 @@ module(..., package.seeall)
 -- processing delay can be <250ms (otherwise probe could be horribly broken
 -- => let's guess 1 second and hope it's accurate enough
 MDNS_TIMEOUT=1
+
+-- has to be more than MDNS_TIMEOUT; preferably significantly more
+FORWARD_TIMEOUT=2
 
 DOMAIN='home'
 RIDPREFIX='r-'
@@ -339,7 +342,7 @@ function hybrid_proxy:iterate_usable_prefixes(f)
 end
 
 function hybrid_proxy:forward(req, server)
-   local timeout = 1
+   local timeout = FORWARD_TIMEOUT
    local nreq = dns_channel.msg:new{binary=req:get_binary(),
                                     ip=server,
                                     tcp=req.tcp}
