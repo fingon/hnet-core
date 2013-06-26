@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb 25 12:21:09 2013 mstenber
--- Last modified: Wed Mar 13 11:50:00 2013 mstenber
--- Edit time:     60 min
+-- Last modified: Wed Jun 26 19:24:11 2013 mstenber
+-- Edit time:     64 min
 --
 
 -- this is the 'utility' functionality of skvtool, which is used by
@@ -144,9 +144,9 @@ function stc:decode_value_from_string(v)
    return o
 end
 
-function stc:encode_value_to_string(v)
-   --return mst.repr(v)
-   return json.encode(v)
+function stc:encode_value_to_string(v, encode_callback)
+   encode_callback = encode_callback or self.encode_callback or json.encode
+   return encode_callback(v)
 end
 
 -- get, set, wait_in_sync - responsibility of the caller, but

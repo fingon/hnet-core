@@ -8,14 +8,15 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb 25 12:31:27 2013 mstenber
--- Last modified: Tue Mar 12 14:15:13 2013 mstenber
--- Edit time:     39 min
+-- Last modified: Wed Jun 26 19:25:54 2013 mstenber
+-- Edit time:     51 min
 --
 
 
 require "busted"
 require "skvtool_core"
 require "skv"
+require 'mst_test'
 
 lua2output = {
    {
@@ -26,7 +27,8 @@ lua2output = {
       {stringi='s',
        intti=1,
        booli=true},
-      '{"intti":1,"stringi":"s","booli":true}',
+      -- results should be in alphabetical order
+      '{"booli":true,"intti":1,"stringi":"s"}',
    },
    {
       {[1]=1,
@@ -50,7 +52,13 @@ describe("skvtool_core", function ()
                               skv.skv.set(self, k, v)
                               updates = updates + 1
                            end
-                           stc = skvtool_core.stc:new{skv=s}
+                           -- note: we can't ensure contents are same, as
+                           -- json ordering is arbitrary. we COULD make sure
+                           -- that with repr, results _are_ same as they're
+                           -- always sorted.. but oh well, too lazy, for
+                           -- now.
+                           stc = skvtool_core.stc:new{skv=s,
+                                                      encode_callback=mst.repr}
                            t = {}
                            waited = false
                            function stc:wait_in_sync()
@@ -120,14 +128,18 @@ describe("skvtool_core", function ()
                   -- check that lua => print output works
                   for i, v in ipairs(lua2output)
                   do
-                     local luao, exps = unpack(v)
+                     local luao, json = unpack(v)
                      t = {}
                      s:set('test', luao)
                      stc:process_key('test')
-                     local exp = 'test=' .. exps
+                     local exp = 'test=' .. mst.repr(luao)
                      mst.a(#t == 1)
+                     mst_test.assert_repr_equal(t[1], exp)
 
-                     mst.a(t[1] == exp, 'mismatch', exp, t[1])
+                     -- make sure we can encode it also with json
+                     -- encoder; however, we can't really check it's sanity
+                     local s = stc:encode_value_to_string(luao, json.encode)
+                     mst.a(s)
                   end
                   -- and inverse - set => lua
                   for i, v in ipairs(lua2output)
