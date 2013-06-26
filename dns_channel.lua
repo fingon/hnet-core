@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Wed Jun 26 16:04:13 2013 mstenber
--- Edit time:     183 min
+-- Last modified: Wed Jun 26 17:22:12 2013 mstenber
+-- Edit time:     187 min
 --
 
 -- DNS channels is an abstraction between two entities that speak DNS,
@@ -77,6 +77,7 @@ end
 function msg:get_binary()
    if not self.binary
    then
+      self:d('encoding to binary')
       self:a(self.msg, 'no msg either?!')
       local b, err = dns_codec.dns_message:encode(self.msg)
       self.binary = b
@@ -88,6 +89,7 @@ end
 function msg:get_msg()
    if not self.msg
    then
+      self:d('decoding from binary')
       self:a(self.binary, 'no binary')
       local r, err = dns_codec.dns_message:decode(self.binary)
       self.msg = r
@@ -117,8 +119,8 @@ function msg:resolve_udp(timeout)
       local got, err = c:receive(timeout)
       self:d('got reply', got, err)
       if not got then return nil, err end
-      local msg2, err2 = got:get_msg()
       local ip, port = got.ip, got.port
+      local msg2, err2 = got:get_msg()
       -- if not, it's bogon
       if ip == server and (not msg2 or (msg2.h and msg2.h.id == msg.h.id))
       then
