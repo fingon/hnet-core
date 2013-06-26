@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:13:25 2013 mstenber
--- Last modified: Mon May 27 09:27:35 2013 mstenber
--- Edit time:     151 min
+-- Last modified: Wed Jun 26 14:34:23 2013 mstenber
+-- Edit time:     158 min
 --
 
 -- coroutine event reactor - coroutine based handling of file
@@ -228,11 +228,15 @@ function scrsocket:io_with_timeout(fun, readable, timeout)
    self.to = to
    local rr, rt = coroutine.yield(r, t)
    self:clear_ssloop()
-   if rt
+   -- if we're busy _and_ we have result, it's probably more sensible
+   -- to process the result than the timeout (hopefully this logic is
+   -- sensible). otherwise, someone may re-send request to us again..
+   if not rr
    then
+      self:d('io timed out', timeout)
       return nil, 'timeout[io]'
    end
-   self:a(rr)
+   self:d('io finished')
    return fun()
 end
 
@@ -319,7 +323,7 @@ function scrsocket:receivefrom(timeout)
 end
 
 function scrsocket:sendto(...)
-   self:d('sendto', ...)
+   --self:d('sendto', ...)
    return self.s:sendto(...)
 end
 
