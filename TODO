@@ -62,6 +62,12 @@ also should never proactively maintain any cache records due to that..
 
 * HP/DNS - Improvements
 
+** HP - profile why it's such CPU hog
+
+*** get rid of double decode in inbound packet processing 
+
+*** make sure there isn't too many extra table copy or other operations
+
 ** HP - publish router addresses bit better
 
 - on individual links, should publish link-specific link-local addresses
