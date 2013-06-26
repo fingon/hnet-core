@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Tue Jun 18 17:54:49 2013 mstenber
+-- Last modified: Wed Jun 26 14:26:33 2013 mstenber
 -- Edit time:     182 min
 --
 
@@ -59,6 +59,15 @@ module(..., package.seeall)
 -- get_binary() - get binary encoded message
 
 msg = mst.create_class{class='msg'}
+
+function msg:repr_data()
+   return mst.repr{ip=self.ip,
+                   port=self.port,
+                   tcp=self.tcp,
+                   binary=(self.binary and true or nil),
+                   msg=(self.msg and true or nil),
+                  }
+end
 
 function msg:get_binary()
    if not self.binary
