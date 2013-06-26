@@ -57,6 +57,15 @@ again (which is minute currently).
 
 * HP/DNS - Improvements
 
+** HP - publish router addresses bit better
+
+- on individual links, should publish link-specific link-local addresses
+  too (facilitates debugging if and when addressing is borked otherwise)
+
+- on individual links, if have addresses of valid type, shouldn't
+  necessarily publish any _other_ addresses as they cause just extra load,
+  and we can assume stuff on homenet winds up being routed correctly anyway
+
 ** HP - Use IPv6 addresses for internal zone lookups
 
 => need to have them in OSPF too! (right now have only v4)
