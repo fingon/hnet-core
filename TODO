@@ -55,6 +55,11 @@ I don't know yet why; possibly the re-send-LSA code is a culprit, we try to
 resend it, it fails, and we resend it only after force resend interval
 again (which is minute currently).
 
+** HP - make sure the mdns cache is 'short' too
+
+Due to lack of POOF etc, we should constrain the TTL in the MDNS cache;
+also should never proactively maintain any cache records due to that..
+
 * HP/DNS - Improvements
 
 ** HP - publish router addresses bit better
