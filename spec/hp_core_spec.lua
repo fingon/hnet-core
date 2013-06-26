@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Mon Jun 24 11:31:13 2013 mstenber
--- Edit time:     359 min
+-- Last modified: Wed Jun 26 16:04:38 2013 mstenber
+-- Edit time:     368 min
 --
 
 require 'busted'
@@ -76,9 +76,13 @@ local dns_dummy_q = {name={'name', 'foo', 'com'},
                      qtype=dns_const.TYPE_ANY,
                      qclass=dns_const.CLASS_ANY}
 
+local dnssd_dummy_q = {name={'name', '_example', '_udp', 'foo', 'com'},
+                       qtype=dns_const.TYPE_ANY,
+                       qclass=dns_const.CLASS_ANY}
+
 local mdns_rrs_to_dns_reply_material = {
    -- 1 nothing found => name error
-   {{},
+   {{dns_dummy_q, {}},
     {h={id=123, qr=true, ra=true, rcode=dns_const.RCODE_NXDOMAIN}, 
      qd={dns_dummy_q},
      an={}, ar={}, 
@@ -87,9 +91,13 @@ local mdns_rrs_to_dns_reply_material = {
    
    -- 2 nothing _matching_ found => name error
    {{
-       -- one fake-RR, but with wrong name
-       {name={'blarg', 'local'}},
+       dns_dummy_q, 
+       {
+          -- one fake-RR, but with wrong name
+          {name={'blarg', 'local'}},
+       },
     },
+
     {h={id=123, qr=true, ra=true, rcode=dns_const.RCODE_NXDOMAIN}, 
      qd={dns_dummy_q},
      an={}, ar={}, 
@@ -98,17 +106,21 @@ local mdns_rrs_to_dns_reply_material = {
 
    -- 3 normal case - match
    {{
-       -- matching ones
-       {name={'name', 'local'}, cache_flush=true,
-        rtype=dns_const.TYPE_A, rdata_a='1.2.3.4'},
-       {name={'name', 'local'}, cache_flush=true,
-        rtype=dns_const.TYPE_AAAA, rdata_aaaa='dead::1'},
-       -- v6 linklocal should be omitted
-       {name={'name', 'local'}, cache_flush=true,
-        rtype=dns_const.TYPE_AAAA, rdata_aaaa='fe80::1'},
-       -- additional record one
-       {name={'blarg', 'local'}},
+       dns_dummy_q,
+       {
+          -- matching ones
+          {name={'name', 'local'}, cache_flush=true,
+           rtype=dns_const.TYPE_A, rdata_a='1.2.3.4'},
+          {name={'name', 'local'}, cache_flush=true,
+           rtype=dns_const.TYPE_AAAA, rdata_aaaa='dead::1'},
+          -- v6 linklocal should be omitted
+          {name={'name', 'local'}, cache_flush=true,
+           rtype=dns_const.TYPE_AAAA, rdata_aaaa='fe80::1'},
+          -- additional record one
+          {name={'blarg', 'local'}},
+       },
     },
+
     {h={id=123, qr=true, ra=true}, 
      qd={dns_dummy_q},
      an={{name={'name', 'foo', 'com'}, 
@@ -121,20 +133,23 @@ local mdns_rrs_to_dns_reply_material = {
    },
 
    -- 4 check that PTR and SRV work as advertised
+   -- (assume we have _example._udp service under foo.com, and
+   -- that instance of it exists on name (we got ptr to it))
    {{
-       -- matching one
-       {name={'name', 'local'}, rtype=dns_const.TYPE_PTR,
-        rdata_ptr={'x', 'local'}},
-       -- additional record one
-       {name={'blarg', 'local'}, rtype=dns_const.TYPE_SRV,
-        rdata_srv={target={'y', 'local'}}},
+       dnssd_dummy_q,
+       {
+          -- matching one
+          {name={'name', '_example', '_udp', 'local'}, 
+           rtype=dns_const.TYPE_SRV,
+           rdata_srv={target={'name', 'local'}}},
+       },
     },
     {h={id=123, qr=true, ra=true}, 
-     qd={dns_dummy_q},
-     an={{name={'name', 'foo', 'com'}, rtype=dns_const.TYPE_PTR,
-          rdata_ptr={'x', 'foo', 'com'}}}, 
-     ar={{name={'blarg', 'foo', 'com'}, rtype=dns_const.TYPE_SRV,
-          rdata_srv={target={'y', 'foo', 'com'}}}}, 
+     qd={dnssd_dummy_q},
+     an={{name={'name', '_example', '_udp', 'foo', 'com'},
+          rtype=dns_const.TYPE_SRV,
+          rdata_srv={target={'name', 'foo', 'com'}}}},
+     ar={}, 
     },
    },
 
@@ -142,12 +157,15 @@ local mdns_rrs_to_dns_reply_material = {
    -- additional record with arpa name, and main record with field
    -- with arpa name)
    {{
-       -- matching one
-       {name={'name', 'local'}, rtype=dns_const.TYPE_PTR,
-        rdata_ptr={'x', 'ip6', 'arpa'}},
-       -- additional record one
-       {name={'blarg', 'in-addr', 'arpa'}, rtype=dns_const.TYPE_SRV,
-        rdata_srv={target={'y', 'local'}}},
+       dns_dummy_q,
+       {
+          -- matching one
+          {name={'name', 'local'}, rtype=dns_const.TYPE_PTR,
+           rdata_ptr={'x', 'ip6', 'arpa'}},
+          -- additional record one
+          {name={'blarg', 'in-addr', 'arpa'}, rtype=dns_const.TYPE_SRV,
+           rdata_srv={target={'y', 'local'}}},
+       },
     },
     {h={id=123, qr=true, ra=true}, 
      qd={dns_dummy_q},
@@ -548,7 +566,7 @@ describe("hybrid_proxy", function ()
                                              end)
                   mst.a(ran)
 
-                   end)
+                                                              end)
             it("dns req->mdns q conversion works #d2m", function ()
                   _t.test_list(dns_q_to_mdns_material,
                                function (q)
@@ -560,17 +578,19 @@ describe("hybrid_proxy", function ()
                               )
                                                         end)
             it("mdns->dns conversion works #m2d", function ()
-                  local msg = {
-                     h={id=123},
-                     qd={
-                        dns_dummy_q,
-                     }
-                  }
-                  local req = dns_channel.msg:new{msg=msg}
-                  local q, err = hp:rewrite_dns_req_to_mdns_q(req, DOMAIN_LL)
-                  mst.a(q)
                   _t.test_list(mdns_rrs_to_dns_reply_material,
-                               function (rrs)
+                               function (i)
+                                  local oq, rrs = unpack(i)
+                                  local msg = {
+                                     h={id=123},
+                                     qd={
+                                        oq,
+                                     }
+                                  }
+                                  local req = dns_channel.msg:new{msg=msg}
+                                  local q, err = hp:rewrite_dns_req_to_mdns_q(req, DOMAIN_LL)
+
+
                                   -- code assumes that the rrs are
                                   -- copied due to e.g. ttls or
                                   -- whatnot
@@ -584,7 +604,7 @@ describe("hybrid_proxy", function ()
                                   return hp:rewrite_rrs_from_mdns_to_reply_msg(req, q, rrs, DOMAIN_LL)
                                end,
                                assert_cmsg_result_equals)
-                                             end)
+                                                  end)
             it("dns->mdns->reply flow works #flow", function ()
                   -- these are most likely the most complex samples -
                   -- full message interaction 
