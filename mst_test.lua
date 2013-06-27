@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Thu Jun 13 12:51:58 2013 mstenber
--- Edit time:     10 min
+-- Last modified: Thu Jun 27 17:12:53 2013 mstenber
+-- Edit time:     11 min
 --
 
 -- testing related utilities
@@ -108,6 +108,7 @@ function fake_callback:__call(...)
    local got = {...}
    local exp, r = unpack(self.array[self.i])
    self.assert_equals(exp, got)
+   self:d('returning', r)
    return r
 end
 
