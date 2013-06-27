@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Wed Jun 26 17:24:47 2013 mstenber
--- Edit time:     479 min
+-- Last modified: Thu Jun 27 17:21:57 2013 mstenber
+-- Edit time:     507 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -349,12 +349,18 @@ function hybrid_proxy:forward(req, server)
    local got = nreq:resolve(timeout)
    if got
    then
+      -- make sure it's message
+      mst.a(mst.get_class(got) == dns_channel.msg,
+            'wrong class (non-msg) from resolve', got)
+      --mst.d('resolved to', got)
+
       -- copy some bits so that we forward response to right address
       got.ip = req.ip
       got.port = req.port
       got.tcp = req.tcp
+      return got
    end
-   return got
+   self:d('forward timed out')
 end
 
 function ll_tail_matches(ll, tail)
@@ -435,6 +441,10 @@ function hybrid_proxy:rewrite_dns_req_to_mdns_q(dns_req, ll)
    return nq
 end
 
+function hybrid_proxy:filter_outgoing_dns_rr(rr)
+   return rr
+end
+
 function hybrid_proxy:rewrite_mdns_rr_to_dns(rr, ll)
    -- this should not be necessary; resolve_ifname_q should already
    -- perform copy of the resulting rr's, so we can do what we want
@@ -449,6 +459,13 @@ function hybrid_proxy:rewrite_mdns_rr_to_dns(rr, ll)
    if not n then return nil, err end
    rr.name = n
    
+   -- first, outgoing rr filtering hook; we do it on DNS rr's
+   rr = self:filter_outgoing_dns_rr(rr)
+   if not rr
+   then
+      return
+   end
+
    -- manually rewrite the relevant bits.. sigh SRV, PTR are only
    -- types we really care about; NS shouldn't happen
    if rr.rtype == dns_const.TYPE_SRV
@@ -570,7 +587,29 @@ function hybrid_proxy:process_match(req, r, o)
       if o
       then
          -- server specified
-         return self:forward(req, o)
+         local reply = self:forward(req, o)
+         if not reply
+         then
+            return
+         end
+         self:a(reply.get_msg, 'no get_msg', reply)
+         local msg = reply:get_msg()
+         -- invalidate binary version - we're doing re-encode here as we
+         -- alter the answers
+         msg.binary = nil
+         local myfilter = function (rr)
+            return self:filter_outgoing_dns_rr(rr)
+         end
+         for i, f in ipairs{'an', 'ar', 'ns'}
+         do
+            local l = msg[f]
+            if l
+            then
+               self:d('filtering field', f)
+               msg[f] = mst.array_map(l, myfilter)
+            end
+         end
+         return reply
       end
       -- by default, if we don't know about the server, it's NXDOMAIN time!
       -- log it just in case we care
