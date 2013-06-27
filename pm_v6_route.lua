@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:48:34 2012 mstenber
--- Last modified: Mon May 27 08:16:06 2013 mstenber
+-- Last modified: Thu Jun 27 11:02:41 2013 mstenber
 -- Edit time:     20 min
 --
 
@@ -30,6 +30,21 @@ function pm_v6_route:ready()
    return self.pm.ospf_lap and self.pm.ospf_usp
 end
 
+local function laplist_to_map(l)
+   local t = mst.map:new{}
+   for i, v in ipairs(l)
+   do
+      local ov = t[v.prefix]
+
+      -- if we don't have old value, or old one is 
+      -- depracated, we clearly prefer the new one
+      if not ov or ov.depracate
+      then
+         t[v.prefix] = v
+      end
+   end
+   return t
+end
 
 function pm_v6_route:run()
    local valid_end='::/64'
@@ -40,22 +55,6 @@ function pm_v6_route:run()
    --
    -- convert them to single table
    -- (prefixes should be unique, interfaces not necessarily)
-   function laplist_to_map(l)
-      local t = mst.map:new{}
-      for i, v in ipairs(l)
-      do
-         local ov = t[v.prefix]
-
-         -- if we don't have old value, or old one is 
-         -- depracated, we clearly prefer the new one
-
-         if not ov or ov.depracate
-         then
-            t[v.prefix] = v
-         end
-      end
-      return t
-   end
    local ospf_lap = laplist_to_map(lap)
    local real_lap = laplist_to_map(rlap)
    local ospf_keys = ospf_lap:keys():to_set()

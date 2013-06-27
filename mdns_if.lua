@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Wed Jun 26 17:49:55 2013 mstenber
+-- Last modified: Thu Jun 27 10:59:56 2013 mstenber
 -- Edit time:     836 min
 --
 
@@ -187,6 +187,10 @@ mdns_if = _eventful:new_subclass{class='mdns_if',
                                  mandatory={'ifname', 'parent'},
                                  events={'queue_check_propagate_rr'}}
 
+local function next_is_less(o1, o2)
+   return o1.next < o2.next
+end
+
 function mdns_if:init()
    _eventful.init(self)
 
@@ -202,9 +206,6 @@ function mdns_if:init()
    -- when querying active records
    self.qofs = mst.randint(0, 20)
 
-   function next_is_less(o1, o2)
-      return o1.next < o2.next
-   end
    self.cache_sl = mst_skiplist.ipi_skiplist:new{p=2,
                                                  prefix='cache_sl',
                                                  lt=next_is_less,
@@ -539,7 +540,7 @@ function mdns_if:split_qd_to_qu_nqu(msg)
    local nqu = {}
    local now = self:time()
    local ns = self.own
-   function is_qu(q)
+   local function is_qu(q)
       if not q.qu
       then
          return false
@@ -710,7 +711,7 @@ function mdns_if:determine_ar(an, kas)
    do
       all:insert_rr(a)
    end
-   function push(t1, t2)
+   local function push(t1, t2)
       for i, a in ipairs(an)
       do
          local cand = {name=a.name, rtype=t2, rclass=a.rclass, ttl=a.ttl}
@@ -864,7 +865,7 @@ function mdns_if:send_delayed_multicast_queries(ql)
    self:d('send_delayed_multicast_queries', #ql)
    -- note: we _shouldn't_ have duplicate queries, and even if
    -- we do, it doesn't really _matter_.. 
-   function maybe_insert_kas(rr)
+   local function maybe_insert_kas(rr)
       -- if too much time has expired, don't bother
       if rr.valid_kas and rr.valid_kas < now
       then
@@ -894,6 +895,13 @@ function mdns_if:send_delayed_multicast_queries(ql)
    self:send_multicast_query(qd, kas, nil)
 end
 
+local function _extend_set(s, l)
+   for i, v in ipairs(l)
+   do
+      s:insert(v)
+   end
+end
+
 function mdns_if:send_delayed_multicast_replies(q)
    if #q == 0 then return end
    self:d('send_delayed_multicast_replies', #q)
@@ -904,13 +912,6 @@ function mdns_if:send_delayed_multicast_replies(q)
    local kas 
    local full_an = mst.set:new{}
    local full_ar = mst.set:new{}
-
-   function _extend_set(s, l)
-      for i, v in ipairs(l)
-      do
-         s:insert(v)
-      end
-   end
 
    for i, e in ipairs(q)
    do
@@ -1420,7 +1421,7 @@ function mdns_if:next_time()
    end
 
    local best, bestsrc
-   function maybe(t, src, o)
+   local function maybe(t, src, o)
       if not t then return end
       if not best or t < best
       then

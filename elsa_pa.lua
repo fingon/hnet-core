@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Jun 19 15:52:27 2013 mstenber
--- Edit time:     965 min
+-- Last modified: Thu Jun 27 10:57:54 2013 mstenber
+-- Edit time:     966 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -270,6 +270,10 @@ function elsa_pa:init_own()
    self.last_body = ''
 end
 
+local function timeout_is_less(o1, o2)
+   return o1.timeout < o2.timeout
+end
+
 function elsa_pa:init_pa(o)
    local args = mst.table_copy(self.pa_args)
    
@@ -291,9 +295,6 @@ function elsa_pa:init_pa(o)
    -- (create shallow copy of args, so that we don't wind up re-using
    -- the object)
    self.pa = pa.pa:new(mst.table_copy(args))
-   function timeout_is_less(o1, o2)
-      return o1.timeout < o2.timeout
-   end
    self.pa.timeouts = mst_skiplist.ipi_skiplist:new{p=2,
                                                     lt=timeout_is_less}
 end
@@ -395,7 +396,7 @@ function elsa_pa:check_conflict(bonus_lsa)
    local other_hwf = nil
    local lsas = 0
    local tlvs = 0
-   function consider_lsa(lsa)
+   local function consider_lsa(lsa)
       lsas = lsas + 1
       if lsa.rid ~= self.rid then return end
       local found = nil
@@ -948,7 +949,7 @@ function elsa_pa:iterate_ac_lsa(f, criteria)
 end
 
 function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
-   function inner_f(lsa) 
+   local function inner_f(lsa) 
       -- don't bother with own rid
       if lsa.rid == self.rid
       then
@@ -1125,8 +1126,8 @@ function elsa_pa:get_skvp()
 end
 
 function elsa_pa:iterate_all_skv_prefixes(f)
-   function create_metric_callback(metric)
-      function g(o, ifname)
+   local function create_metric_callback(metric)
+      local function g(o, ifname)
          -- enter to the fallback lottery - the interface set we check
          -- should NOT decrease in size
          self:add_seen_if(ifname)

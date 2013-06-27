@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Mon Jun 24 14:35:54 2013 mstenber
+-- Last modified: Thu Jun 27 10:58:44 2013 mstenber
 -- Edit time:     187 min
 --
 
@@ -30,13 +30,15 @@ local mapped_ipv4_prefix = string.rep(_null, 10) .. string.rep(string.char(0xFF)
 
 
 -- ipv6 handling stuff
-function address_cleanup(s)
-   function address_cleanup_sub(nl, si, ei, r)
-      for i=si,ei
-      do
-         table.insert(r, string.format("%x", nl[i]))
-      end
+
+local function _address_cleanup_sub(nl, si, ei, r)
+   for i=si,ei
+   do
+      table.insert(r, string.format("%x", nl[i]))
    end
+end
+
+function address_cleanup(s)
 
    local sl = mst.string_split(s, ':')
    local nl = mst.array_map(sl, function (x) return tonumber(x, 16) end)
@@ -66,7 +68,7 @@ function address_cleanup(s)
    then
       if best[2] >= 2
       then
-         address_cleanup_sub(nl, 1, best[2]-1, r)
+         _address_cleanup_sub(nl, 1, best[2]-1, r)
       else
          table.insert(r, '')
       end
@@ -75,10 +77,10 @@ function address_cleanup(s)
       then
          table.insert(r, '')
       else
-         address_cleanup_sub(nl, best[1]+best[2], #nl, r)
+         _address_cleanup_sub(nl, best[1]+best[2], #nl, r)
       end
    else
-      address_cleanup_sub(nl, 1, #nl, r)
+      _address_cleanup_sub(nl, 1, #nl, r)
    end
    return table.concat(r, ":")
 end
@@ -246,7 +248,7 @@ function binary_prefix_contains(b1, bits1, b2, bits2)
 
    --mst.d('binary_prefix_contains', #b1, bits1, #b2, bits2)
 
-   function contains_rec(ofs)
+   local function contains_rec(ofs)
       -- already processed bit count = bo
       local bo = (ofs - 1) * 8
       if bo >= bits1

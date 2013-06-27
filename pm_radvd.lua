@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:51:43 2012 mstenber
--- Last modified: Fri Mar 15 10:58:48 2013 mstenber
+-- Last modified: Thu Jun 27 11:01:55 2013 mstenber
 -- Edit time:     43 min
 --
 
@@ -71,7 +71,7 @@ function pm_radvd:write_radvd_conf(fpath)
    local t = mst.array:new{}
    local ext_set = self.pm:get_external_if_set()
 
-   function rec(ifname)
+   local function rec(ifname)
       -- We ignore interface if we try to dump it multiple times (just
       -- one entry is enough), or if it's external interface; running
       -- radvd on interface we also listen on results in really,

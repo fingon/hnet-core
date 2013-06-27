@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Jun 19 15:39:44 2013 mstenber
--- Edit time:     726 min
+-- Last modified: Thu Jun 27 11:03:14 2013 mstenber
+-- Edit time:     737 min
 --
 
 -- data structure abstractions provided:
@@ -542,7 +542,7 @@ function array_filter2(a, fun)
 end
 
 function array_slice(a, i1, i2)
-   function convert_real(i)
+   local function convert_real(i)
       if i < 0
       then
          i = 1 + #a + i
@@ -1561,14 +1561,15 @@ end
 
 function visit_table(t, f, g, seen)
    local seen = seen or {}
-   function visit_table_rec(t, ...)
+   local visit_one_rec
+   local function visit_table_rec(t, ...)
       mst.a(type(t) == 'table')
       for k, v in pairs(t)
       do
          visit_one_rec(v, k, ...)
       end
    end
-   function visit_one_rec(t, ...)
+   visit_one_rec = function (t, ...)
       local type_name = type(t)
       if type_name == 'table'
       then
@@ -1598,7 +1599,7 @@ end
 
 function count_all_types(...)
    local counts = {}
-   function count_one(o)
+   local function count_one(o)
       local tn = class_or_type_name(o)
       mst.a(type(tn) == 'string', 'wierd type', tn)
       local ov = counts[tn] or 0

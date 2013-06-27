@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov 21 17:13:32 2012 mstenber
--- Last modified: Wed Jun 12 14:47:09 2013 mstenber
--- Edit time:     108 min
+-- Last modified: Thu Jun 27 11:01:49 2013 mstenber
+-- Edit time:     109 min
 --
 
 require 'pm_handler'
@@ -59,7 +59,7 @@ end
 
 function pm_dnsmasq:write_dnsmasq_conf_dns_raw(t, dns4, search4, dns6, search6)
    -- first off, handle normal DNS option
-   function dump_list(l, format)
+   local function dump_list(l, format)
       for i, v in ipairs(l)
       do
          t:insert(string.format(format, v))

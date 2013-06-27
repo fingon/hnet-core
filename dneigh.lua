@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Oct 12 14:54:48 2012 mstenber
--- Last modified: Wed Dec 19 13:27:05 2012 mstenber
--- Edit time:     32 min
+-- Last modified: Thu Jun 27 11:03:39 2013 mstenber
+-- Edit time:     34 min
 --
 
 -- structure is:
@@ -81,11 +81,11 @@ function dneigh:iterate_all_connected_rid(rid, f)
    -- recursively list all nodes that are connected to the node,
    -- including self
    local seen = mst.set:new{}
-   function dump(rid)
+   local function dump(rid)
       seen:insert(rid)
       f(rid)
    end
-   function rec(rid)
+   local function rec(rid)
       for k, v in pairs(self.neigh[rid] or {})
       do
          for rid2, iid2 in pairs(v)
@@ -103,21 +103,23 @@ function dneigh:iterate_all_connected_rid(rid, f)
    rec(rid)
 end
 
+local function _goe(h, k)
+   if not h[k]
+   then
+      h[k] = {}
+   end
+   return h[k]
+end
+
 -- perform single bidirectional connection
 function dneigh:raw_handle_neigh_one(r1, i1, r2, i2, f)
    self:a(r1 and i1 and r2 and i2, r1, i1, r2, i2)
-   function _goe(h, k)
-      if not h[k]
-      then
-         h[k] = {}
-      end
-      return h[k]
-   end
 
-   function _conn(r1, i1, r2, i2)
+   local function _conn(r1, i1, r2, i2)
       local h = _goe(_goe(self.neigh, r1), i1)
       f(h, r2, i2)
    end
+
    _conn(r1, i1, r2, i2)
    _conn(r2, i2, r1, i1)
 end

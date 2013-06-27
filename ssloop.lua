@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 20 11:24:12 2012 mstenber
--- Last modified: Thu Jun 13 13:09:12 2013 mstenber
+-- Last modified: Thu Jun 27 11:01:24 2013 mstenber
 -- Edit time:     183 min
 --
 
@@ -447,7 +447,7 @@ function repeat_every_timedelta(delta, callback)
       reschedule()
    end
 
-   function reschedule()
+   reschedule = function()
       if t
       then
          t:done()

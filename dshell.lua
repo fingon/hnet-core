@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct 29 16:06:24 2012 mstenber
--- Last modified: Sun Mar 10 16:50:01 2013 mstenber
+-- Last modified: Thu Jun 27 10:55:41 2013 mstenber
 -- Edit time:     3 min
 --
 
@@ -31,7 +31,7 @@ function dshell:set_array(a)
 end
 
 function dshell:get_shell()
-   function fakeshell(s)
+   local function fakeshell(s)
       mst.d('fakeshell#', s)
       self.arri = self.arri + 1
       self:a(self.arri <= #self.arr, 'tried to consume with array empty', s)
