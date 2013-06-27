@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Thu Jun 27 17:21:57 2013 mstenber
--- Edit time:     507 min
+-- Last modified: Thu Jun 27 17:25:35 2013 mstenber
+-- Edit time:     509 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -606,7 +606,8 @@ function hybrid_proxy:process_match(req, r, o)
             if l
             then
                self:d('filtering field', f)
-               msg[f] = mst.array_map(l, myfilter)
+               -- map to results of myfilter + eliminate nils
+               msg[f] = mst.array_map(l, myfilter):filter()
             end
          end
          return reply
