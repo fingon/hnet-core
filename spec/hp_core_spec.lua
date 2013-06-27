@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Wed Jun 26 16:04:38 2013 mstenber
--- Edit time:     368 min
+-- Last modified: Thu Jun 27 17:17:45 2013 mstenber
+-- Edit time:     379 min
 --
 
 require 'busted'
@@ -532,7 +532,13 @@ describe("hybrid_proxy", function ()
                               end
                            end
                            function hp:forward(req, server)
-                              return dns(server, req)
+                              local reply = dns(server, req)
+                              if not reply then return end
+                              local got = dns_channel.msg:new{msg=reply}
+                              got.ip = req.ip
+                              got.port = req.port
+                              got.tcp = req.tcp
+                              return got
                            end
                         end)
             after_each(function ()
@@ -624,20 +630,28 @@ describe("hybrid_proxy", function ()
                                 qclass=oq.qclass or dns_const.CLASS_IN}
                      local msg = {qd={q}, h={id=TEST_ID}}
                      local cmsg = dns_channel.msg:new{msg=msg, ip=TEST_SRC, tcp=is_tcp}
-                     local r, src = hp:process(cmsg)
+                     mst.d('calling process', cmsg)
+                     local r, err = hp:process(cmsg)
+                     mst.d('response', r, err)
                      if r
                      then
-                        if r.get_msg
-                        then
-                           -- sanity check that tcp/ip fields
-                           -- propagate correctly
-                           mst.a(r.tcp == cmsg.tcp)
-                           local ip = r.ip
-                           mst.a(ip, 'no ip?!?', r)
-                           mst.a(ip == TEST_SRC, 'wrong ip', ip)
+                        -- result HAS to be message
+                        mst.a(mst.get_class(r) == dns_channel.msg, 
+                              'non-msg result', r)
 
-                           r = r:get_msg()
-                        end
+                        -- sanity check that tcp/ip fields
+                        -- propagate correctly
+                        mst.a(not r.tcp == not cmsg.tcp, 
+                              'tcp changed', r.tcp, cmsg.tcp)
+
+                        local ip = r.ip
+                        mst.a(ip, 'no ip?!?', r)
+                        mst.a(ip == TEST_SRC, 'wrong ip', ip)
+                        
+                        -- ok, no longer interested about the cmsg
+                        -- => get dns_message
+                        r = r:get_msg()
+
                         mst.a(r.h, 'no header', r)
                         mst.a(r.h.id == msg.h.id)
 
