@@ -15,6 +15,15 @@ all: test
 clean:
 	rm -f luacov.stats.out luacov.report.out $(LUA_SMS)
 
+check: check_nested_global_functions
+
+check_nested_global_functions:
+	! egrep '^\s+function\s*[a-z0-9_]+\s*\(' *.lua
+
+
+callgrind: clean test
+	lua -lcallgrind `which busted_bootstrap`
+
 cov: clean test
 	busted -l "./run_lua_with_luacov.sh" spec
 	./run_luacov.sh
@@ -33,7 +42,7 @@ mems:
 
 stress: .stressed
 
-test: .tested
+test: check .tested
 
 # Figure how far we are from checking every SHOULD/MUST in the
 # draft - based on doc/mdns_test.txt (assume that mdns test spec

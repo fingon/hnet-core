@@ -1,4 +1,5 @@
 *~
+lua-callgrind.txt
 luacov.stats.out
 luacov.report.out
 luacov.report.fixed
