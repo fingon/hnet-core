@@ -1,0 +1,121 @@
+-*- outline -*-
+
+* Current status quo (07/2013)
+
+** Logic 
+
+*** [1] External = 
+
+Where we get PD result
+
+*** [2] Internal = 
+
+.. anything else
+
+** Services
+
+We explicitly configure almost everything to happen only on the internal
+interfaces. And we fire up IPv4 dhclient only on external interface, and
+configure NAT accordingly. 
+
+** Problems
+
+Zeroconf, we don't work correctly in 6rd v6-enabled homes. Nor do we
+automatically tunnel if there is no v6 connectivity available (just having
+v4 up should be better than having no connectivity whatsoever).
+
+* Kline draft (03/2013)
+
+Basic idea: 
+- learn _routing protocol_ next hops on each link
+
+- done by active probing
+ - RS + PD (request+renew) + ...
+
+- results
+ - homenet adjacency => MUST be internal
+ - non-homenet, but no routes => SHOULD be internal
+ - non-homenet, routes => MUST be external
+
+Questions:
+- IPv4?
+
+* Opportunistic bridging model
+
+Extend Kline draft s.t. it will also do dynamic bridging setup. 
+
+Basic idea:
+
+- you want to have minimal (=routed) topology; reasons to do it
+
+ - if and when media favors routed (=wireless), or
+
+ - link is external
+
+=> any external link is routed
+=> any wireless link is routed
+
+==> trivially, only problem is wired internal<>external
+determination. basically, internal wired links can be kept in one huge
+bridged bundle.
+
+Only underlying problem being how to do transitions between the bridged
+and routed, technically, probably simplest and least fail-worthy case is
+always if something external detected on internal link 'nuke it from orbit,
+routed only', for few minutes, then do bridging for internal lan links once
+we're aware of those.
+
+How should L2 detection tie in to here? Or should it?
+
+In general, we can do nuke-it-from-orbit approach, it will certainly
+disrupt local addressing, but that's life; beyond that, we should probably
+remember the previous conf, try to resume that by default, and (at some
+point) very conservatively merge back in external links to internal bridge,
+if possible. 
+
+Obviously, the routability should be also an option; the L2 may have
+characteristis that require minimization of multicast traffic (among other
+things) and therefore things can just work(tm) for some reasonable default
+case, and for non-reasonable manual configuration can be used.
+
+Ideally, I'd like to see
+
+lan.mydomain
+and
+wlan.mydomain
+
+(or possibly various per-router per-ssid wlans.. siigh.)
+
+For trivial use cases, merging of info from N subdomains to the <mydomain>
+still seems very tempting. Wonder how bad a 'lossy' approach would be;
+convert things there by default, keep them up to date using some mechanism,
+and just ignore conflicts? As this is DNS-SD and not mDNS, clients should
+not go berserk, it would just be a form of proxy registeration that host
+does not need to know about.
+
+* Hipnet compatibility thoughts
+
+** Hipnet closer to ISP from us
+
+- nothing needs to be done; hipnet can be external for all we care
+  (certainly, the bridging behavior could be perhaps better with that, but
+  who cares)
+
+** Hipnet 'in the middle' / connected below homenet router
+
+- if we're homenet-aware of a usable prefix, we should NOT consider someone
+  offering it external if it's part of that (=> hipnet stuff would no
+  longer break things)
+
+
+* Fallback mode
+
+If we get only SLAAC address (or insufficient # of prefixes) and nothing
+better is available? V6 approach would be to go to completely bridging
+mode, pretending hnet router doesn't exist.
+
+V4 in this case could still be natted or bridged depending on what we feel
+like; however, pf-specific bridging or not sounds broken by design, so we'd
+want to bridge V4 too in that case. And then V4 would break horribly if
+upstream DHCP server provides only for one (or too few) addresses.. *sigh*
+
