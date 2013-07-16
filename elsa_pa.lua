@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Jul 16 15:50:47 2013 mstenber
--- Edit time:     1034 min
+-- Last modified: Tue Jul 16 16:52:25 2013 mstenber
+-- Edit time:     1047 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -169,6 +169,13 @@ ORIGINATE_MAX_INTERVAL=300 -- even without changes
 -- probably good thing (and the individual interface-assigned prefixes
 -- will be depracated => will disappear soon anyway)
 
+-- what do we mirror ~directly to OSPF?
+skv_to_ospf_set = mst.array_to_table{
+   STATIC_HP_DOMAIN_KEY,
+   STATIC_HP_ZONES_KEY,
+   HP_SEARCH_LIST_KEY,
+                                    }
+
 -- elsa specific lap subclass
 elsa_lap = pa.lap:new_subclass{class='elsa_lap',
                               }
@@ -266,6 +273,7 @@ function elsa_pa:init_own()
    -- set various things to their default values
    self.ac_changes = 0
    self.lsa_changes = 0
+   self.skv_changes = 0
 
    -- when did we consider originate/publish last
    self.last_publish = 0
@@ -321,6 +329,12 @@ function elsa_pa:kv_changed(k, v)
       self:reconfigure_pa(v)
       return
    end
+   
+   if skv_to_ospf_set[k]
+   then
+      self.skv_changes = self.skv_changes + 1
+   end
+
    -- implicitly add the tunnel interfaces to the all_seen_if_names
    -- (someone plays with stuff that starts with TUNNEL_SKVPREFIX ->
    -- stuff happens)
@@ -333,6 +347,7 @@ function elsa_pa:kv_changed(k, v)
       end
    end
 
+   -- TODO - determine which cases should actually do this?
    -- invalidate caches that have if info
    self.skvp = nil
    self.ext_set = nil
@@ -545,14 +560,6 @@ function elsa_pa:should_publish(d)
       self:d('should publish, skvp_repr changed')
    end
 
-   -- if the publish state representation has changed, we should
-   -- (these are get_mutable_publish_state results)
-   if d.s and d.s ~= self.s 
-   then 
-      self:d('should publish state due to state repr change')
-      r = r or {}
-   end
-   
    -- if ac LSA changed we should
    if d.ac_changes and d.ac_changes > 0 
    then 
@@ -566,6 +573,13 @@ function elsa_pa:should_publish(d)
       r = r or {}
    end
    
+   if self.skv_changes > 0
+   then
+      self:d('should publish state due to skv_changes > 0')
+      r = r or {}
+      r.skv_changes = 0
+   end
+
    -- finally, if the FORCE_SKV_AC_CHECK_INTERVAL was passed, we do
    -- this (but this is paranoia, shouldn't be necessary)
    if  (self.time() - self.last_publish) > FORCE_SKV_AC_CHECK_INTERVAL 
