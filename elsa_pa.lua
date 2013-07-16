@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Jul 16 15:44:53 2013 mstenber
--- Edit time:     1029 min
+-- Last modified: Tue Jul 16 15:50:47 2013 mstenber
+-- Edit time:     1034 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -479,6 +479,15 @@ function elsa_pa:should_run_pa()
       self:d('should_run_pa, ac_changes > 0')
       return true
    end
+
+   -- skvp change indicates we should also run PA
+   local _, skvp_repr = self:get_skvp()
+   if skvp_repr ~= self.pa_skvp_repr
+   then
+      self:d('should_run_pa, skvp changed')
+      return true
+   end
+
    -- then the pa itself (second argument is checked_should)
    if self.pa:should_run()
    then
@@ -631,6 +640,8 @@ function elsa_pa:run()
       r = self.pa:run{checked_should=checked_should}
       self:d('pa.run result', r)
       self.ridr_repr = mst.repr(self.pa.ridr)
+      local _, skvp_repr = self:get_skvp()
+      self.pa_skvp_repr = skvp_repr
    end
 
    local now = self.time()
