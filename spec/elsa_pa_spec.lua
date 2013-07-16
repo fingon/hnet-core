@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Jun 19 15:46:45 2013 mstenber
--- Edit time:     459 min
+-- Last modified: Tue Jul 16 13:23:16 2013 mstenber
+-- Edit time:     465 min
 --
 
 require 'mst'
@@ -121,6 +121,8 @@ describe("elsa_pa [one node]", function ()
                            inject_snitches()
                         end)
             after_each(function ()
+                          mst.a(not asp_added, 'no rempte ASPs with 1 node?')
+
                           -- make sure that the ospf-usp looks sane
                           local uspl = s:get(elsa_pa.OSPF_USP_KEY) or {}
                           mst.a(not usp_added or #uspl>0, 
@@ -161,7 +163,6 @@ describe("elsa_pa [one node]", function ()
                   -- in the beginning, should only get nothing
                   ep:run()
                   mst.a(not usp_added)
-                  mst.a(not asp_added)
 
                   -- make sure 'static' flag was propagated to eth0
                   mst.a(ep.pa.ifs[42].disable == 1)
@@ -174,14 +175,11 @@ describe("elsa_pa [one node]", function ()
 
                   ep:run()
                   mst.a(usp_added)
-                  mst.a(not asp_added)
 
                   -- and then we should get our own asp back too
-                  asp_added = false
                   usp_added = false
                   ep:run()
                   mst.a(usp_added)
-                  -- XXX mst.a(asp_added)
 
                   -- make sure reconfigure operation also works
                   ep:reconfigure_pa{disable_ula=true}
@@ -222,7 +220,6 @@ describe("elsa_pa [one node]", function ()
                   end
 
                   usp_added = false
-                  asp_added = false
                   
                   -- now locally assigned prefixes should be gone too
                   mst.a(ep.pa.lap:count() == 0)
@@ -246,7 +243,6 @@ describe("elsa_pa [one node]", function ()
                   -- add
                   ep:run()
                   mst.a(usp_added)
-                  mst.a(not asp_added)
 
                   ensure_skv_usp_has_nh(s, false)
 
@@ -280,7 +276,6 @@ describe("elsa_pa [one node]", function ()
                   -- in the beginning, should only get nothing
                   ep:run()
                   mst.a(not usp_added)
-                  mst.a(not asp_added)
 
                   -- now we fake it that we got prefix from pd
                   -- (skv changes - both interface list, and pd info)
@@ -300,13 +295,10 @@ describe("elsa_pa [one node]", function ()
                   -- make sure it's recognized as usp
                   ep:run()
                   mst.a(usp_added, 'no USP added')
-                  mst.a(not asp_added, 'asp was added?!?')
 
                   -- but without ifs, no asp assignment
                   ep:run()
-                  --mst.a(not asp_added)
                   -- (even the PD IF should get a prefix now 11/04)
-                  -- XXX mst.a(asp_added)
 
                   -- make sure DNS gets set IF we have DNS info
                   local v = s:get(elsa_pa.OSPF_DNS_KEY)
@@ -322,7 +314,6 @@ describe("elsa_pa [one node]", function ()
                   -- in the beginning, should only get nothing
                   ep:run()
                   mst.a(not usp_added)
-                  mst.a(not asp_added)
 
                   local rel_pref = 300
                   local rel_valid = 600
@@ -342,13 +333,10 @@ describe("elsa_pa [one node]", function ()
                   -- make sure it's recognized as usp
                   ep:run()
                   mst.a(usp_added, 'no USP added')
-                  mst.a(not asp_added)
 
                   -- and then we should get our own asp back too
-                  asp_added = false
                   usp_added = false
                   ep:run(ep)
-                  -- XXX mst.a(asp_added, 'asp not added?!?')
                   mst.a(usp_added)
 
                   -- local usp -> should NOT have nh (if not configured to SKV)
@@ -383,7 +371,6 @@ describe("elsa_pa [one node]", function ()
                   -- in the beginning, should only get nothing
                   ep:run()
                   mst.a(not usp_added)
-                  mst.a(not asp_added)
 
                   -- now we fake it that we got prefix from pd
                   -- (skv changes - both interface list, and pd info)
@@ -400,7 +387,8 @@ describe("elsa_pa [one node]", function ()
                   -- make sure it's recognized as usp
                   ep:run()
                   mst.a(usp_added, 'no USP added in 6rd config')
-                  mst.a(not asp_added)
+                  mst_test.assert_repr_equal(ep.pa.usp:count(), 1)
+
                                                              end)
 
             it("duplicate detection works - dupe smaller", function ()
@@ -409,7 +397,6 @@ describe("elsa_pa [one node]", function ()
                   ep:ospf_changed()
                   ep:run()
                   mst.a(usp_added)
-                  mst.a(not asp_added)
                   mst.a(not e.rid_changed)
 
                                                            end)
@@ -421,7 +408,6 @@ describe("elsa_pa [one node]", function ()
                   ep:run()
                   mst.a(e.rid_changed)
                   mst.a(not usp_added)
-                  mst.a(not asp_added)
                                                                  end)
 
             it("duplicate detection works - greater, oob lsa", function ()
