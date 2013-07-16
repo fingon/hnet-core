@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Jun 27 10:57:54 2013 mstenber
--- Edit time:     966 min
+-- Last modified: Tue Jul 16 14:58:01 2013 mstenber
+-- Edit time:     1017 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -258,8 +258,8 @@ end
 
 function elsa_pa:init_own()
    -- set various things to their default values
-   self.ac_changes = 1
-   self.lsa_changes = 1
+   self.ac_changes = 0
+   self.lsa_changes = 0
 
    -- when did we consider originate/publish last
    self.last_publish = 0
@@ -452,15 +452,31 @@ end
 -- is mostly useful for unit testing)
 function elsa_pa:should_run()
    local lap = self.pa.timeouts:get_first()
-   if lap and lap.timeout <= self.time() then return true end
-   if self.ac_changes > 0 or self.pa:should_run()
+   if lap and lap.timeout <= self.time() 
+   then 
+      self:d('should run due to lap.timeout')
+      return true 
+   end
+   if self:should_run_pa()
    then
       return true
    end
-   local s = self:get_mutable_state()
-   return self:should_publish{s=s,
-                              ac_changes=self.ac_changes, 
+   return self:should_publish{ac_changes=self.ac_changes, 
                               lsa_changes=self.lsa_changes}
+end
+
+function elsa_pa:should_run_pa()
+   -- first local reasons we know of
+   if self.ac_changes > 0
+   then
+      self:d('should_run_pa, ac_changes > 0')
+      return true
+   end
+   -- then the pa itself (second argument is checked_should)
+   if self.pa:should_run()
+   then
+      return true, true
+   end
 end
 
 function elsa_pa:next_time()
@@ -490,30 +506,48 @@ end
 
 function elsa_pa:should_publish(d)
    local r
+
    -- if pa.run() said there's changes, yep, we should
    if d.r 
    then 
       self:d('should publish due to d.r')
-      r = true 
+      r = r or {}
+   end
+
+   if self.ridr_repr ~= self.publish_ridr_repr
+   then
+      r = r or {}
+      r.publish_ridr_repr = self.ridr_repr
+      self:d('should publish, ridr_repr changed')
+   end
+
+   local _, skvp_repr = self:get_skvp()
+   if skvp_repr ~= self.publish_skvp_repr
+   then
+      r = r or {}
+      r.publish_skvp_repr = skvp_repr
+      self:d('should publish, skvp_repr changed')
    end
 
    -- if the publish state representation has changed, we should
+   -- (these are get_mutable_publish_state results)
    if d.s and d.s ~= self.s 
    then 
       self:d('should publish state due to state repr change')
-      r = true
+      r = r or {}
    end
    
-   -- if ac or lsa changed, we should
+   -- if ac LSA changed we should
    if d.ac_changes and d.ac_changes > 0 
    then 
       self:d('should publish state due to ac_changes > 0')
-      r = true
+      r = r or {}
    end
+   -- also if non-ac LSA changes, we should
    if d.lsa_changes and d.lsa_changes > 0 
    then 
       self:d('should publish state due to lsa_changes > 0')
-      r = true
+      r = r or {}
    end
    
    -- finally, if the FORCE_SKV_AC_CHECK_INTERVAL was passed, we do
@@ -522,7 +556,7 @@ function elsa_pa:should_publish(d)
    then 
       self:d(' should publish state due to FORCE_SKV_AC_CHECK_INTERVAL exceeded', self.time(), self.last_publish)
 
-      r = true
+      r = r or {}
    end
 
    if r
@@ -538,21 +572,11 @@ function elsa_pa:should_publish(d)
             self:d(' .. but avoidin publish due to spam limitations')
             self.last_publish = 0
          end
-         r = false
+         r = nil
       end
    end
 
-
-
    return r
-end
-
-function elsa_pa:get_mutable_state()
-   local s = table.concat{mst.repr{self.pa.ridr}, 
-                          self.skvp_repr,
-                         }
-   s = mst.create_hash_if_fast(s)
-   return s
 end
 
 function elsa_pa:run()
@@ -582,7 +606,8 @@ function elsa_pa:run()
    else
       if self:check_conflict() then return end
    end
-   
+
+   local run_pa, checked_should = self:should_run_pa()
    local ac_changes = self.ac_changes
    local lsa_changes = self.lsa_changes
    self.ac_changes = 0
@@ -594,24 +619,27 @@ function elsa_pa:run()
    -- consider if either ospf change occured (we got callback), pa
    -- itself is in turbulent state, or the if state changed
    local r
-   if self.pa:should_run() or ac_changes > 0
+   if run_pa
    then
-      r = self.pa:run{checked_should=true}
+      r = self.pa:run{checked_should=checked_should}
       self:d('pa.run result', r)
+      self.ridr_repr = mst.repr(self.pa.ridr)
    end
 
    local now = self.time()
 
-   local s = self:get_mutable_state()
-
-   if self:should_publish{s=s, r=r, ac_changes=ac_changes, lsa_changes=lsa_changes}
+   local sp = self:should_publish{r=r, ac_changes=ac_changes, lsa_changes=lsa_changes}
+   if sp
    then
       self.last_publish = self.time()
       
       self:d('run doing skv/lsa update',  r)
 
-      -- store the current local state
-      self.s = s
+      -- store the changed local state
+      for k, v in pairs(sp)
+      do
+         self[k] = v
+      end
 
       self:run_handle_new_lsa()
 
@@ -1122,7 +1150,7 @@ function elsa_pa:get_skvp()
       self.skvp = skvp
       self.skvp_repr = mst.repr(self.skvp)
    end
-   return self.skvp
+   return self.skvp, self.skvp_repr
 end
 
 function elsa_pa:iterate_all_skv_prefixes(f)

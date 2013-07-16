@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Jul 16 13:23:16 2013 mstenber
--- Edit time:     465 min
+-- Last modified: Tue Jul 16 15:22:08 2013 mstenber
+-- Edit time:     481 min
 --
 
 require 'mst'
@@ -389,6 +389,32 @@ describe("elsa_pa [one node]", function ()
                   mst.a(usp_added, 'no USP added in 6rd config')
                   mst_test.assert_repr_equal(ep.pa.usp:count(), 1)
 
+                  -- advance time quite a bit - otherwise, busylooping
+                  -- may call run, while we want to make sure that
+                  -- just adding the artificial interface will in and
+                  -- of itself cause call of pa:run()
+                  t = t + 1234
+                  ep:run()
+                  ep:run()
+                  -- ULA, IPv4 should show up too
+                  mst_test.assert_repr_equal(ep.pa.usp:count(), 3,
+                                             ep.pa.usp)
+
+                  t = t + 10
+                  -- ok, let's add _second_ one. we should have 2 usps then.
+                  -- now we fake it that we got prefix from pd
+                  -- (skv changes - both interface list, and pd info)
+                  s:set(elsa_pa.TUNNEL_SKVPREFIX .. SIXRD_DEV .. '-2',
+                        {
+                           {prefix='beef::/16'},
+                        }
+                       )
+                  mst.d('calling run with second tunnel')
+                  ep:run()
+                  mst_test.assert_repr_equal(ep.pa.usp:count(), 4,
+                                             ep.pa.usp)
+                  
+
                                                              end)
 
             it("duplicate detection works - dupe smaller", function ()
@@ -673,7 +699,7 @@ describe("elsa_pa bird7-ish", function ()
 
             it("delayed connection #delay", function ()
                   
-                  mst.a(sm:run_nodes(3, dsm_run_with_clear_busy_callback), 
+                  mst.a(sm:run_nodes(4, dsm_run_with_clear_busy_callback), 
                         'did not halt in time')
 
                   connect_nodes()
@@ -688,7 +714,7 @@ describe("elsa_pa bird7-ish", function ()
 
 
             it("survive net burps #burp", function ()
-                  mst.a(sm:run_nodes(3, dsm_run_with_clear_busy_callback), 
+                  mst.a(sm:run_nodes(4, dsm_run_with_clear_busy_callback), 
                         'did not halt in time')
 
                   for i=1,3
