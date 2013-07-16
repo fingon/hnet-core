@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Wed Jun 26 17:24:47 2013 mstenber
--- Edit time:     479 min
+-- Last modified: Tue Jul 16 18:26:35 2013 mstenber
+-- Edit time:     491 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -85,6 +85,14 @@ RESULT_FORWARD_MDNS='forward_mdns' -- forward via mDNS
 -- some entries. We cannot do that, though, and therefore we force TTL
 -- to be relatively short no matter what.
 MAXIMUM_TTL=120
+
+-- We enforce this on the results we provide; ttl=0 may cause trouble
+-- in various places, and in general it seems like nonsensical
+-- answer. Note: This TTL is applied _only_ to DNS responses generated
+-- locally. It is NOT applied to forwarded ones (hopefully the other
+-- end knows what they're doing). But it IS applied to mdns->dns
+-- proxied results.
+MINIMUM_TTL=30
 
 hybrid_proxy = _dns_server:new_subclass{class='hybrid_proxy',
                                         mandatory={'rid', 'domain', 
@@ -501,6 +509,10 @@ function hybrid_proxy:rewrite_rrs_from_mdns_to_reply_msg(req, mdns_q,
       local nrr, err = self:rewrite_mdns_rr_to_dns(rr, ll)
       if nrr
       then
+         if nrr.ttl < MINIMUM_TTL
+         then
+            nrr.ttl = MINIMUM_TTL
+         end
          if nrr.ttl > MAXIMUM_TTL
          then
             nrr.ttl = MAXIMUM_TTL
@@ -590,6 +602,18 @@ function hybrid_proxy:process_match(req, r, o)
    if r == RESULT_FORWARD_MDNS
    then
       return self:mdns_forward(req, unpack(o))
+   end
+   -- if it's list of rrs, overwrite ttls if any
+   if type(r) == 'table'
+   then
+      for i, rr in ipairs(r)
+      do
+         if not rr.ttl or rr.ttl < MINIMUM_TTL
+         then
+            self:d('setting rr ttl to minimum', rr)
+            rr.ttl = MINIMUM_TTL
+         end
+      end
    end
    return _dns_server.process_match(self, req, r, o)
 end
