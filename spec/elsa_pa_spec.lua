@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Jul 16 15:43:36 2013 mstenber
--- Edit time:     481 min
+-- Last modified: Tue Jul 16 16:56:41 2013 mstenber
+-- Edit time:     484 min
 --
 
 require 'mst'
@@ -552,6 +552,7 @@ describe("elsa_pa 2-node", function ()
 
                   -- set the static domain here
                   local DUMMYDOMAIN={'xxx', 'domain'}
+                  local DUMMYDOMAIN2={'yyy', 'domain'}
                   skv1:set(elsa_pa.STATIC_HP_DOMAIN_KEY, DUMMYDOMAIN)
 
                   local STATICZONE={name='bar.com',
@@ -622,6 +623,17 @@ describe("elsa_pa 2-node", function ()
                   local e = {STATICZONE, DUMMYZONE}
                   mst.a(mst.repr_equal(v, e), 'not same', v, e)
 
+                  -- make sure that just changing hp-domain will also
+                  -- propagate it 'fast'
+                  skv1:set(elsa_pa.STATIC_HP_DOMAIN_KEY, DUMMYDOMAIN2)
+                  mst.a(sm:run_nodes(3), 'did not halt in time')
+                  
+                  local v = skv1:get(elsa_pa.OSPF_HP_DOMAIN_KEY)
+                  mst_test.assert_repr_equal(v, DUMMYDOMAIN2,
+                                             'not same domain (local)')
+                  local v = skv2:get(elsa_pa.OSPF_HP_DOMAIN_KEY)
+                  mst_test.assert_repr_equal(v, DUMMYDOMAIN2, 
+                                             'not same domain (remote)')
                                       end)
                            end)
 
