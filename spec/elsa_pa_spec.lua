@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Jul 16 15:22:08 2013 mstenber
+-- Last modified: Tue Jul 16 15:43:36 2013 mstenber
 -- Edit time:     481 min
 --
 
@@ -108,6 +108,7 @@ describe("elsa_pa [one node]", function ()
                            s = skv.skv:new{long_lived=true, port=31337}
                            s:set(elsa_pa.DISABLE_SKVPREFIX .. 'eth0', 1)
                            s:set(elsa_pa.DISABLE_V4_SKVPREFIX .. 'eth0', 2)
+                           s:set(elsa_pa.PA_CONFIG_SKV_KEY, {[pa.CONFIG_DISABLE_IPV4]=true})
                            t = 1234
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid='myrid',
                                                     originate_min_interval=0,
@@ -396,8 +397,8 @@ describe("elsa_pa [one node]", function ()
                   t = t + 1234
                   ep:run()
                   ep:run()
-                  -- ULA, IPv4 should show up too
-                  mst_test.assert_repr_equal(ep.pa.usp:count(), 3,
+                  -- ULA should show up too
+                  mst_test.assert_repr_equal(ep.pa.usp:count(), 2,
                                              ep.pa.usp)
 
                   t = t + 10
@@ -411,7 +412,7 @@ describe("elsa_pa [one node]", function ()
                        )
                   mst.d('calling run with second tunnel')
                   ep:run()
-                  mst_test.assert_repr_equal(ep.pa.usp:count(), 4,
+                  mst_test.assert_repr_equal(ep.pa.usp:count(), 3,
                                              ep.pa.usp)
                   
 

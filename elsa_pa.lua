@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Jul 16 15:33:48 2013 mstenber
--- Edit time:     1023 min
+-- Last modified: Tue Jul 16 15:44:53 2013 mstenber
+-- Edit time:     1029 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -256,9 +256,10 @@ function elsa_pa:init()
    self:reconfigure_pa()
 end
 
-function elsa_pa:reconfigure_pa(o)
+function elsa_pa:reconfigure_pa()
+   self:d('reconfigure_pa')
    self:init_own()
-   self:init_pa(o)
+   self:init_pa()
 end
 
 function elsa_pa:init_own()
@@ -279,16 +280,17 @@ local function timeout_is_less(o1, o2)
    return o1.timeout < o2.timeout
 end
 
-function elsa_pa:init_pa(o)
+function elsa_pa:init_pa()
    local args = mst.table_copy(self.pa_args)
-   
+
    -- copy over rid
    args.rid=self.rid
 
-   -- then, use 'o' to override those
-   if o
+   -- check if the skv has and updates to the whole config
+   local skv_config = self.skv:get(PA_CONFIG_SKV_KEY)
+   if skv_config
    then
-      mst.table_copy(o, args)
+      mst.table_copy(skv_config, args)
    end
 
    -- these are always hardcoded - nobody should be able to change them
