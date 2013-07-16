@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Jun 27 10:57:54 2013 mstenber
--- Edit time:     966 min
+-- Last modified: Tue Jul 16 15:32:55 2013 mstenber
+-- Edit time:     1022 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -235,6 +235,11 @@ function elsa_pa:init()
    local args = {new_prefix_assignment=NEW_PREFIX_ASSIGNMENT,
                  new_ula_prefix=NEW_ULA_PREFIX,
    }
+
+   for i, v in ipairs(pa.CONFIGS)
+   do
+      args[v] = false
+   end
 
    -- check if class has updates on any of the keys..
    for k, v in pairs(args)

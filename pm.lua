@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Mon May 27 13:05:04 2013 mstenber
--- Edit time:     35 min
+-- Last modified: Tue Jul 16 15:31:00 2013 mstenber
+-- Edit time:     37 min
 --
 
 -- 'prefix manager' (name still temporary)
@@ -46,9 +46,9 @@ function create_cli()
    cli:add_flag("-m, --dnsmasq", 
       "use dnsmasq instead of ISC dhcpd + radvd")
    cli:add_flag('-h, --use_hp_ospf', 'use hybrid DNS proxy instead of dnsmasq for DNS (requires --dnsmasq to be present too)')
-   cli:add_flag('--disable_ula', 'disable ULA generation altogether')
-   cli:add_flag('--disable_always_ula', 'disable ULAs if global addresses present')
-   cli:add_flag('--disable_ipv4', 'disable generation of NATted IPv4 sub-prefixes')
+   cli:add_flag('--' .. pa.CONFIG_DISABLE_ULA, 'disable ULA generation altogether')
+   cli:add_flag('--' .. pa.CONFIG_DISABLE_ALWAYS_ULA, 'disable ULAs if global addresses present')
+   cli:add_flag('--' .. pa.CONFIG_DISABLE_IPV4, 'disable generation of NATted IPv4 sub-prefixes')
    cli:optarg('skv', 'SKV values to set (key=value style)', '', 10)
    return cli
 end
@@ -71,7 +71,7 @@ end
 
 -- set up the pa configuration
 local config = {}
-for _, k in ipairs{'disable_ula', 'disable_always_ula', 'disable_ipv4'}
+for _, k in ipairs(pa.CONFIGS)
 do
    if args[k]
    then

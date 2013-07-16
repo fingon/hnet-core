@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Mon Jun 24 14:36:06 2013 mstenber
--- Edit time:     963 min
+-- Last modified: Tue Jul 16 15:30:11 2013 mstenber
+-- Edit time:     981 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -72,6 +72,12 @@ IPV4_PA_LAST_ROUTER=64
 -- search space; therefore, they should be ~correct - that is, 
 -- 2^IPV4_PA_ROUTER_BITS =~ IPV4_PA_LAST_ROUTER
 IPV4_PA_ROUTER_BITS=math.floor(math.log(IPV4_PA_LAST_ROUTER) / math.log(2))
+
+CONFIG_DISABLE_ULA='disable_ula'
+CONFIG_DISABLE_ALWAYS_ULA='disable_always_ula'
+CONFIG_DISABLE_IPV4='disable_ipv4'
+
+CONFIGS={CONFIG_DISABLE_IPV4, CONFIG_DISABLE_ULA, CONFIG_DISABLE_ALWAYS_ULA}
 
 local _null = string.char(0)
 
@@ -1147,7 +1153,7 @@ function pa:run(d)
    end
 
    -- must have interfaces present
-   mst.a(self.ifs)
+   mst.a(self.ifs, 'no interfaces present')
 
    -- mark existing data invalid
    -- (laps have their own lifecycle governed via timeouts etc)
@@ -1186,7 +1192,7 @@ function pa:run(d)
    end
 
    -- generate ULA prefix if necessary
-   if not self.disable_ula
+   if not self[CONFIG_DISABLE_ULA]
    then
       self:generate_ulaish(
          -- what prevents ula from happening?
@@ -1198,7 +1204,7 @@ function pa:run(d)
             end
             
             -- we ignore non-v4 non-ULA, if we're in generate always mode
-            if not self.disable_always_ula
+            if not self[CONFIG_DISABLE_ALWAYS_ULA]
             then
                if not usp.prefix:is_ula()
                then
@@ -1236,7 +1242,7 @@ function pa:run(d)
          'ULA')
    end
 
-   if not self.disable_ipv4
+   if not self[CONFIG_DISABLE_IPV4]
    then
 
       -- generate IPv4 prefix if necessary
@@ -1314,7 +1320,7 @@ function pa:run(d)
       end
    end
 
-   if not self.disable_ipv4
+   if not self[CONFIG_DISABLE_IPV4]
    then
       -- sanity check - make sure we don't have multiple IPv4
       -- prefixes on interface active at any point in time
