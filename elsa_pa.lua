@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Jul 17 13:55:01 2013 mstenber
--- Edit time:     1055 min
+-- Last modified: Wed Jul 17 17:13:58 2013 mstenber
+-- Edit time:     1059 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -222,7 +222,7 @@ end
 -- actual elsa_pa itself, which controls pa (and interfaces with
 -- skv/elsa-wrapper
 elsa_pa = mst.create_class{class='elsa_pa', 
-                           mandatory={'skv', 'elsa'},
+                           mandatory={'skv', 'elsa', 'if_table'},
                            time=ssloop.time,
                            originate_min_interval=ORIGINATE_MIN_INTERVAL,
                           }
@@ -392,6 +392,14 @@ function elsa_pa:get_rname_base()
    n = mst.string_strip(n)
    self:d('get_rname_base', n)
    return n
+end
+
+function elsa_pa:get_hwaddr(rid, ifname)
+   local ifo = self.if_table:get_if(ifname)
+   if ifo
+   then
+      return ifo:get_hwaddr()
+   end
 end
 
 function elsa_pa:get_hwf(rid)

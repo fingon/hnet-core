@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:14:12 2012 mstenber
--- Last modified: Wed Nov 21 18:37:53 2012 mstenber
--- Edit time:     3 min
+-- Last modified: Wed Jul 17 17:25:57 2013 mstenber
+-- Edit time:     6 min
 --
 
 require 'pm_handler'
@@ -31,8 +31,13 @@ function pm_v4_addr:run()
    do
       if lap.address
       then
-         -- just store address, no mask (we assume it's sane)
-         if2a[lap.ifname] = mst.string_split(lap.address, '/')[1]
+         local ab = mst.string_split(lap.address, '/')[1]
+         if ipv6s.address_is_ipv4(ab)
+         then
+            -- just store address, no mask (we assume it's sane)
+            if2a[lap.ifname] = ab
+
+         end
       end
    end
 

@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Mon Jun  3 15:54:12 2013 mstenber
+-- Last modified: Wed Jul 17 17:21:52 2013 mstenber
 -- Edit time:     245 min
 --
 
@@ -30,7 +30,8 @@ local TEMP_DHCPD6_CONF='/tmp/t-dhcpd6.conf'
 local TEMP_DNSMASQ_CONF='/tmp/t-dnsmasq.conf'
 
 local _delsa = require 'delsa'
-delsa = _delsa.delsa
+local delsa = _delsa.delsa
+local dummy_if_table = _delsa.dummy_if_table
 
 require 'dshell'
 
@@ -253,7 +254,8 @@ describe("pm", function ()
                                          assume_connected=true,
                                         }
 
-                           ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid=myrid}
+                           ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid=myrid,
+                                                    if_table=dummy_if_table}
                            e:add_node(ep)
                            s:set(elsa_pa.OSPF_RID_KEY, myrid)
                            s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.IFLIST_KEY, 

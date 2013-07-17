@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Wed Jul 17 14:15:14 2013 mstenber
--- Edit time:     990 min
+-- Last modified: Wed Jul 17 17:19:47 2013 mstenber
+-- Edit time:     994 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -132,7 +132,7 @@ function lap:init()
       -- generate IPv6 address to be assigned here; that way it's
       -- available elsewhere as required
       local hwaddr = self.pa:get_hwaddr(self.ifname)
-      self.address = ipv6s.prefix_hwaddr_to_eui64(self.ascii_prefix, hwaddr)
+      self.address = ipv6s.new_prefix_from_ascii(ipv6s.prefix_hwaddr_to_eui64(self.ascii_prefix, hwaddr))
    end
 
    -- insert to pa's lap list

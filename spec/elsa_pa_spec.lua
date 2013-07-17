@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Tue Jul 16 16:56:41 2013 mstenber
--- Edit time:     484 min
+-- Last modified: Wed Jul 17 17:21:06 2013 mstenber
+-- Edit time:     488 min
 --
 
 require 'mst'
@@ -27,6 +27,7 @@ local dsm = _dsm.dsm
 
 local _delsa = require 'delsa'
 local delsa = _delsa.delsa
+local dummy_if_table = _delsa.dummy_if_table
 
 local usp_dead_tlv = ospf_codec.usp_ac_tlv:encode{prefix='dead::/16'}
 local json_dead_lifetime_tlv = ospf_codec.json_ac_tlv:encode{table={[elsa_pa.JSON_USP_INFO_KEY]={{prefix='dead::/16', [elsa_pa.PREFERRED_KEY]=300, [elsa_pa.VALID_KEY]=600}}}}
@@ -63,7 +64,8 @@ end
 
 function create_elsa_callback(o)
    return elsa_pa.elsa_pa:new{elsa=o.sm.e, skv=o.skv, rid=o.rid,
-                              time=o.time}
+                              time=o.time, if_table=dummy_if_table,
+                             }
 end
 
 function ensure_dsm_same(self)
@@ -115,7 +117,9 @@ describe("elsa_pa [one node]", function ()
                                                     new_prefix_assignment=0,
                                                     time=function ()
                                                        return t
-                                                    end}
+                                                    end,
+                                                    if_table=dummy_if_table,
+                                                   }
                            e:add_node(ep)
                            mst.a(ep.time() == t)
                            mst.a(ep.pa.time() == t)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Thu Jun 27 10:58:44 2013 mstenber
--- Edit time:     187 min
+-- Last modified: Wed Jul 17 17:24:51 2013 mstenber
+-- Edit time:     188 min
 --
 
 require 'mst'
@@ -181,6 +181,7 @@ function address_to_binary_address(b)
          -- empty ones should be handled by now? (by the padding code)
          mst.a(#v > 0)
          local n, err = tonumber(v, 16)
+         mst.a(n, 'no n?', v, t)
          local b1 = string.char(math.floor(n / 256))
          local b2 = string.char(n % 256)
          table.insert(t,  b1 .. b2)

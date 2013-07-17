@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Oct  5 00:09:17 2012 mstenber
--- Last modified: Wed Dec 19 13:24:27 2012 mstenber
--- Edit time:     53 min
+-- Last modified: Wed Jul 17 17:21:38 2013 mstenber
+-- Edit time:     54 min
 --
 
 -- this is variant with the neighbor topology + various pieces of
@@ -21,6 +21,17 @@ require 'elsa_pa'
 require 'dneigh'
 
 module(..., package.seeall)
+
+
+dummy_if_table = {
+   get_if=function (ifname)
+      return {
+         get_hwaddr=function ()
+            return '00:11:22:33:44:55'
+         end
+             }
+   end
+}
 
 delsa = dneigh.dneigh:new_subclass{class='delsa', mandatory={'hwf'}}
 
