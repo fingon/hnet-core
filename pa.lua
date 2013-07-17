@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Wed Jul 17 17:19:47 2013 mstenber
--- Edit time:     994 min
+-- Last modified: Wed Jul 17 19:26:28 2013 mstenber
+-- Edit time:     1000 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -1473,7 +1473,9 @@ function pa:add_or_update_usp(prefix, rid)
          -- remote ones are valid if we see them
          -- local ones are typically, unless they're ULA/IPv4
          -- (those have to be validated later on)
-         if rid ~= self.rid or (not o.prefix:is_ula() and not o.prefix.ipv4)
+
+         -- (if disable ula is on here, we treat it just like any other prefix)
+         if rid ~= self.rid or ((not o.prefix:is_ula() or self[CONFIG_DISABLE_ULA]) and not o.prefix.ipv4)
          then
             self:d(' updated old usp')
             self.vsu:set_valid(o)
