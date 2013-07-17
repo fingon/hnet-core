@@ -1,8 +1,5 @@
 Included source code
 --------------------
-thirdparty/cliargs
-MIT license - https://github.com/amireh/lua_cliargs
-
 thirdparty/dkjson
 MIT license - http://chiselapp.com/user/dhkolf/repository/dkjson/home
 (See dkjson.lua head for license text)
