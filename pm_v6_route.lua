@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:48:34 2012 mstenber
--- Last modified: Thu Jun 27 11:02:41 2013 mstenber
--- Edit time:     20 min
+-- Last modified: Wed Jul 17 18:09:50 2013 mstenber
+-- Edit time:     22 min
 --
 
 -- pm_v6_route is responsible for syncing the real state to
@@ -130,14 +130,10 @@ end
 
 function pm_v6_route:handle_ospf_prefix(prefix, po)
    self:a(po.ifname, 'no ifname in lap', po)
-   local hwaddr = self.pm.if_table:get_if(po.ifname):get_hwaddr()
-   local addr = ipv6s.prefix_hwaddr_to_eui64(prefix, hwaddr)
+   self:a(po.address)
    self:d('handle_ospf_prefix', po)
-   self:a(addr)
-   local ifname = po.ifname
-   self:a(ifname)
-   local ifo = self.pm.if_table:get_if(ifname)
-   return ifo:add_ipv6(addr)
+   local ifo = self.pm.if_table:get_if(po.ifname)
+   return ifo:add_ipv6(po.address .. '/64')
 end
 
 
