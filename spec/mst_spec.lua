@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Jun 26 19:09:56 2013 mstenber
--- Edit time:     230 min
+-- Last modified: Wed Jul 17 15:58:07 2013 mstenber
+-- Edit time:     231 min
 --
 
 require "busted"
@@ -18,6 +18,7 @@ require 'mst_test'
 require "mst_skiplist"
 require "mst_cache"
 require "mst_eventful"
+require "mst_cliargs"
 require "dint"
 
 module("mst_spec", package.seeall)
