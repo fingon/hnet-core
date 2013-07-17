@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Tue Jul 16 15:31:00 2013 mstenber
--- Edit time:     37 min
+-- Last modified: Wed Jul 17 18:37:49 2013 mstenber
+-- Edit time:     40 min
 --
 
 -- 'prefix manager' (name still temporary)
@@ -23,6 +23,7 @@
 -- later on)
 
 require 'mst'
+require 'mst_cliargs'
 require 'pm_core'
 require 'skv'
 require 'ssloop'
@@ -37,33 +38,35 @@ local loop = ssloop.loop()
 
 _TEST = false
 
-function create_cli()
-   local cli = require "cliargs"
-
-   cli:set_name('pm.lua')
-   cli:add_flag("-f, --fakedhcpv6d", 
-      "use fakedhcpv6d to respond to DHCPv6 queries")
-   cli:add_flag("-m, --dnsmasq", 
-      "use dnsmasq instead of ISC dhcpd + radvd")
-   cli:add_flag('-h, --use_hp_ospf', 'use hybrid DNS proxy instead of dnsmasq for DNS (requires --dnsmasq to be present too)')
-   cli:add_flag('--' .. pa.CONFIG_DISABLE_ULA, 'disable ULA generation altogether')
-   cli:add_flag('--' .. pa.CONFIG_DISABLE_ALWAYS_ULA, 'disable ULAs if global addresses present')
-   cli:add_flag('--' .. pa.CONFIG_DISABLE_IPV4, 'disable generation of NATted IPv4 sub-prefixes')
-   cli:optarg('skv', 'SKV values to set (key=value style)', '', 10)
-   return cli
-end
-
-
-local args = create_cli():parse()
-if not args 
-then
-   -- something wrong happened and an error was printed
-   return
-end
+local args = mst_cliargs.parse{
+   options={
+      {name='fakedhcpv6d',
+       desc="use fakedhcpv6d to respond to DHCPv6 queries",
+       flag=1},
+      {name='dnsmasq', alias='m',
+       desc="use dnsmasq instead of ISC dhcpd + radvd",
+       flag=1},
+      {alias='h', name='use_hp_ospf', 
+       desc='use hybrid DNS proxy instead of dnsmasq for DNS (requires --dnsmasq to be present too)',
+       flag=1},
+      {name=pa.CONFIG_DISABLE_ULA, 
+       desc='disable ULA generation altogether',
+       flag=1},
+      {name=pa.CONFIG_DISABLE_ALWAYS_ULA, 
+       desc='disable ULAs if global addresses present',
+       flag=1},
+      {name=pa.CONFIG_DISABLE_IPV4, 
+       desc='disable generation of NATted IPv4 sub-prefixes',
+       flag=1},
+      {value='skv', 
+       desc='SKV values to set (key=value style)', 
+       max=10},
+   }
+                              }
 
 mst.d('initializing skv')
 local s = skv.skv:new{long_lived=true}
-if args.skv and #args.skv
+if args.skv 
 then
    -- handle setting of key=values as appropriate
    skvtool_core.stc:new{skv=s, disable_wait=true}:process_keys(args.skv)
@@ -86,9 +89,9 @@ end
 mst.d('initializing pm')
 local pm = pm_core.pm:new{shell=mst.execute_to_string, skv=s,
                           radvd='radvd -m logfile',
-                          use_dnsmasq=args.m,
-                          use_fakedhcpv6d=args.f,
-                          use_hp_ospf=args.h,
+                          use_dnsmasq=args.dnsmasq,
+                          use_fakedhcpv6d=args.fakedhcpv6d,
+                          use_hp_ospf=args.use_hp_ospf,
                          }
 
 function pm:schedule_run()

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Thu Jun 20 18:09:54 2013 mstenber
--- Edit time:     59 min
+-- Last modified: Wed Jul 17 18:51:16 2013 mstenber
+-- Edit time:     67 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -29,41 +29,38 @@ require 'scb'
 require 'dns_proxy'
 require 'per_ip_server'
 require 'skv'
+require 'mst_cliargs'
 
 -- we re-use pm's memory handler just for the tick() call it provides
 require 'pm_memory'
 local memory_handler = pm_memory.pm_memory:new{pm={}}
 
-_TEST = false -- required by cliargs + strict
-
-function create_cli()
-   local cli = require "cliargs"
-
-   cli:set_name('hp.lua')
-   cli:add_flag('--ospf', 
-                'maintain configuration via OSPF (applies to --server, --listen, --rid and interfaces)')
-   cli:add_opt("--server=SERVER", 
-               "address of upstream DNS server", 
-               dns_const.GOOGLE_IPV6)
-   cli:add_opt('--listen=LISTEN',
-               'listen on these addresses (comma separated)',
-               '*')
-   cli:add_opt("--domain=DOMAIN", "the domain 'own' to provide results for", 'home')
-   cli:add_opt("--rid=RID", "the id of the router", 'router')
-   cli:optarg("interface","interface(s) to listen proxy for", '', 10)
-   return cli
-end
-
-
-local args = create_cli():parse()
-if not args 
-then
-   -- something wrong happened and an error was printed
-   return
-end
-
+local args = mst_cliargs.parse{
+   options={
+      {name='ospf',
+       desc='maintain configuration via OSPF (applies to --server, --listen, --rid and interfaces',
+       flag=1,
+      },
+      {name='server',
+       desc="address of upstream DNS server", 
+       default=dns_const.GOOGLE_IPV6},
+      {name='listen',
+       desc='listen on these addresses (comma separated)',
+       default={'*'},
+       max=10},
+      {name='domain',
+       desc='the domain to provide results for',
+       default='home'},
+      {name='rid',
+       desc="the id of the router", 
+       default='router'},
+      -- ! this has to be last
+      {value='interface',
+       desc="interface(s) to listen proxy for", 
+       max=10},
+   }
+                              }
 local loop = ssloop.loop()
-
 
 mst.d('initializing socket')
 local o, err = scb.new_udp_socket{ip='*', 
@@ -173,7 +170,7 @@ else
    mdns:set_if_joined_set(ifset)
 
    -- also set where DNS server listens
-   pis:set_ips(mst.string_split(args.listen, ','))
+   pis:set_ips(args.listen or {})
 
    function hp:iterate_lap(f)
       for i, v in ipairs(iflist)

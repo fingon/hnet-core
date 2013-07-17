@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jul 17 15:15:29 2013 mstenber
--- Last modified: Wed Jul 17 16:45:26 2013 mstenber
--- Edit time:     62 min
+-- Last modified: Wed Jul 17 18:57:29 2013 mstenber
+-- Edit time:     41 min
 --
 
 -- My variant on CLI argument parsing.
@@ -43,6 +43,11 @@
 -- [,max=N]}...}
     
 -- note: All options should have name, except for one. 
+
+-- TODO:
+
+-- value-only option should be sorted to be last s.t. it is used as default
+-- (and presence of only one should be checked)
 
 require 'mst'
 
@@ -192,26 +197,35 @@ function parse(o)
       end
    end
 
+   -- create a prefix list. it is ordered in the inverse length of the
+   -- original option match, so that the default 'value' options
+   -- (nothing to match) are handled last.
+   local pl = {}
+   for i, opt in ipairs(opts)
+   do
+      local p1 = option_to_prefix_i(opt, opt.name)
+      local p2 = option_to_prefix_i(opt, opt.alias)
+      table.insert(pl, {p1, opt})
+      if #p2 > 0
+      then
+         table.insert(pl, {p2, opt})
+      end
+   end
+   table.sort(pl, function (o1, o2)
+                 return #o1[1] > #o2[1]
+                  end)
+
    local r = {}
 
    local had_error
    for i, arg in ipairs(args)
    do
       local found
-      -- XXX - this is O(n^2) but who cares?
-      for i, opt in ipairs(opts)
+      for i, v in ipairs(pl)
       do
-         local p1 = option_to_prefix_i(opt, opt.name)
-         local p2 = option_to_prefix_i(opt, opt.alias)
-         if #p2 > 0 
-         then
-            found = mst.string_startswith(arg, p2)
-         end
-         if not found
-         then
-            found = mst.string_startswith(arg, p1)
-         end
-         mst.d('considering', arg, p1, p2, opt)
+         local p, opt = unpack(v)
+         found = mst.string_startswith(arg, p)
+         mst.d('considering', arg, p, opt)
          if found
          then
             mst.d('matched', arg, opt, found)

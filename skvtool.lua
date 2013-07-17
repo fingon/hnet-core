@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 13:18:34 2012 mstenber
--- Last modified: Tue Mar 12 13:45:32 2013 mstenber
--- Edit time:     71 min
+-- Last modified: Wed Jul 17 18:49:19 2013 mstenber
+-- Edit time:     76 min
 --
 
 -- minimalist tool for playing with SKV
@@ -21,38 +21,39 @@
 -- -w wait for server to go up (forever)
 
 require 'mst'
+require 'mst_cliargs'
 require 'skv'
 require 'skvtool_core'
 require 'socket'
 local json = require "dkjson"
 
-_TEST = false
-
-function create_cli()
-   local cli = require "cliargs"
-
-   cli:set_name('skvtool.lua')
-
-   cli:optarg('KEYS', 'list of keys, or key=value pairs (=set)', '', 999)
-
-   cli:add_flag('-d', 'enable debugging (spammy)')
-   cli:add_flag('-l, --list-lua', 'list all key-value pairs [Lua]')
-   cli:add_flag('-L, --list-json', 'list all key-value pairs [json]')
-   cli:add_flag("-v, --version", "prints the program's version and exits")
-   cli:add_flag('-w', 'wait for other end to go up')
-   cli:add_flag('-r', 'read key=value pairs from stdin, in -l format')
-   return cli
-end
-
-
-local args = create_cli():parse()
-if not args 
-then
-   -- something wrong happened and an error was printed
-   return
-end
-
-
+local args = mst_cliargs.parse{
+   options={
+      {name='d', 
+       flag=1,
+       desc='enable debugging (spammy)'},
+      {name='l',
+       flag=1,
+       alias='list-lua',
+       desc='list all key-value pairs [Lua]'},
+      {name='L',
+       flag=1,
+       alias='list-json',
+       desc='list all key-value pairs [json]'},
+      {name='version',
+       flag=1, desc="prints the program's version and exits"},
+      {name='w',
+       flag=1,
+       desc='wait for other end to go up'},
+      {name='r', 
+       flag=1, 
+       desc='read key=value pairs from stdin, in -l format'},
+      -- ! this has to be last
+      {value='keys', 
+       desc='list of keys, or key=value pairs (=set)', 
+       max=999},
+   }
+                              }
 if args.d
 then
    mst.enable_debug = true
@@ -65,16 +66,6 @@ then
 end
 
 local setted = false
-if type(args.KEYS) == 'string'
-then
-   keys = {args.KEYS}
-else
-   keys = args.KEYS
-end
-if #keys == 1 and #keys[1] == 0
-then
-   keys = {}
-end
 
 -- ok, we're on a mission. get skv to ~stable state
 local s
@@ -121,4 +112,4 @@ then
    stc:wait_in_sync()
 end
 
-stc:process_keys(keys)
+stc:process_keys(args.keys or {})

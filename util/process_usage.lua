@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jun 24 07:26:52 2013 mstenber
--- Last modified: Tue Jun 25 11:23:09 2013 mstenber
--- Edit time:     32 min
+-- Last modified: Wed Jul 17 18:44:57 2013 mstenber
+-- Edit time:     33 min
 --
 
 -- This is ~deterministic way to kill _everything_ related to homenet
@@ -23,6 +23,7 @@
 -- ones, not busybox built-ins!
 
 require 'mst'
+require 'mst_cliargs'
 require 'socket'
 
 targets = {
@@ -48,22 +49,11 @@ targets = {
    'telnetd',
 }   
 
-_TEST = false -- required by cliargs + strict
-
-function create_cli()
-   local cli = require "cliargs"
-
-   cli:set_name('process_usage.lua')
-   cli:add_flag('-r', 'kill in reverse order')
-   return cli
-end
-
-local args = create_cli():parse()
-if not args 
-then
-   -- something wrong happened and an error was printed
-   return
-end
+local args = mst_cliargs.parse{
+   options={
+      {name='r', desc='kill in reverse order', flag=1},
+   }
+                              }
 
 if args.r
 then

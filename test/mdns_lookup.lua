@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 29 17:43:23 2013 mstenber
--- Last modified: Wed May 29 18:40:57 2013 mstenber
--- Edit time:     29 min
+-- Last modified: Wed Jul 17 18:43:40 2013 mstenber
+-- Edit time:     31 min
 --
 
 -- This is minimal utility which can be used to send mdns query, and
@@ -20,27 +20,18 @@ require 'dns_const'
 require 'mdns_client'
 require 'ssloop'
 require 'scb'
+require 'mst_cliargs'
 
-_TEST = false -- required by cliargs + strict
-
-function create_cli()
-   local cli = require "cliargs"
-
-   cli:set_name('mdns_lookup.lua')
-   cli:add_opt('--timeout=TIMEOUT', 'timeout for mdns lookup', '2')
-   cli:add_opt('--type=RTYPE', 'only loop up specific rtype', tostring(dns_const.TYPE_ANY))
-   cli:add_opt('--class=RCLASS', 'only look up specific rclass', tostring(dns_const.CLASS_IN))
-   cli:add_opt('--interface=INTERFACE', 'look up on specific interface', 'eth2')
-   cli:optarg('name', 'name(s) to look up', '', 10)
-   return cli
-end
-
-local args = create_cli():parse()
-if not args 
-then
-   -- something wrong happened and an error was printed
-   return
-end
+local args = mst_cliargs.parse{
+   options={
+      {name='timeout', desc='timeout for mdns lookup', default='2'},
+      {name='type', desc='only loop up specific rtype', 
+       default=tostring(dns_const.TYPE_ANY)},
+      {name='class', desc='only look up specific rclass', 
+       default=tostring(dns_const.CLASS_IN)},
+      {name='interface', desc='look up on specific interface', default='eth2'},
+      {value='name', desc='name(s) to look up', min=1, max=10},
+}}
 
 local o, err = scb.new_udp_socket{ip='*', 
                                   port=mdns_const.PORT,
