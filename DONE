@@ -2,6 +2,16 @@
 
 * 15.7.2013+
 
+** Enable spaces in domain search strings
+
+Right now, the shell scripts that deal with skvtool don't escape them
+appropriately => things probably blow up horribly. Is this a real problem,
+though?
+
+=> We ignore them now; search domain is not really relevant with home being
+separate administrative domain (according to Ole, but in violation of
+RFC6204)
+
 ** Adding new tunnel interface should work faster.
 
 skvtool 'tunnel.ula=[{"prefix":"fd00::/48"}]'

@@ -130,24 +130,12 @@ delegated prefix>
 
 ** Should depracate addresses for which we don't have egress route
 
-** Enable spaces in domain search strings
-
-Right now, the shell scripts that deal with skvtool don't escape them
-appropriately => things probably blow up horribly. Is this a real problem,
-though?
-
 ** BIRD - dridd p#2
 
 Duplicate rid detected correctly even if router connected to ~self. But
 problem is, it won't behave consistently (=form neigh's with other
 routers), as the packets coming with different LL address using same RID on
 same link confuse the other party. 
-
-** rhf bit flaky
-
-- sometimes eth0, sometimes eth1 too.. depending on which if is up. correct
-  approach is to check _all_ interfaces that are configured, regardless of
-  addresses present (right now we seed it with IPv6)
 
 * PA - Things to do
 
@@ -439,25 +427,4 @@ It joins ipv6 linklocal multicast groups with non-linklocal addresses, and
 also uses those as default source addresses when talking with other
 hosts. That's just broken.
 
-
-** Improve SKV <> OSPF sync for MDNS
-
-[2] define new AC TLV, gzipped-jsonblob, and squeeze in the RR there? (much
-more efficient in terms of space usage, but even harder to push through the
-IETF process)
-
-[3] correct approach would be to define e.g. MDNS-CACHE-RR TLV, and put
-  those in there? no name compression though => relatively large entries =>
-  perhaps MDNS-CACHE-STATE TLV, which contains list of DNS RR's with shared
-  name compression?
-
-- name compression + binary =~ half size
-- gzip = quarter
-
-
-*** Consult Arkko/OT about shared problem
-
-- problem: what if LSA size (2^16-1 = 64k) is exceeded?
-
-- answer: need to do multiple lsid's worth?
 
