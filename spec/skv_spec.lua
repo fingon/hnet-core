@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Sep 18 12:25:32 2012 mstenber
--- Last modified: Thu Jun 13 12:52:22 2013 mstenber
--- Edit time:     184 min
+-- Last modified: Wed Jul 17 12:16:42 2013 mstenber
+-- Edit time:     190 min
 --
 
 require "busted"
@@ -51,6 +51,12 @@ end
 
 local CLIENT_STATE_NAME = 'Client.WaitUpdates'
 local SERVER_STATE_NAME = 'Server.WaitConnections'
+
+local DUMMY_KEY11 = 'foo1'
+local DUMMY_KEY21 = 'bar1'
+local DUMMY_KEY12 = 'foo2'
+local DUMMY_KEY22 = 'bar2'
+
 
 describe("class init", 
          function()
@@ -138,34 +144,39 @@ local function ensure_sane(s)
    end
 end
 
-local function test_state_propagation(src, dst, st1, st2, st3)
+local function test_state_propagation_int(src, dst, k1, k2, st1, st2, st3)
    st1 = st1 or "bar"
    st2 = st2 or "baz"
    st3 = st3 or "bazinga"
    mst.a(src and dst)
-   src:set("foo", st1)
+   src:set(k1, st1)
    run_loop_until(
       function ()
          --ensure_sane(src)
          --ensure_sane(dst)
-         return dst:get("foo") == st1
+         return dst:get(k1) == st1
       end)
 
-   src:set("bar", st3)
+   src:set(k2, st3)
    run_loop_until(
       function ()
          --ensure_sane(src)
          --ensure_sane(dst)
-         return dst:get("bar") == st3
+         return dst:get(k2) == st3
       end)
 
-   src:set("foo", st2)
+   src:set(k1, st2)
    run_loop_until(
       function ()
          --ensure_sane(src)
          --ensure_sane(dst)
-         return dst:get("foo") == st2
+         return dst:get(k1) == st2
       end)
+end
+
+function test_state_propagation(o1, o2, st1, st2, st3)
+   test_state_propagation_int(o1, o2, DUMMY_KEY11, DUMMY_KEY21, st1, st2, st3)
+   test_state_propagation_int(o2, o1, DUMMY_KEY21, DUMMY_KEY22, st1, st2, st3)
 end
 
 describe("class working (ignoring setup)", function()
@@ -262,30 +273,30 @@ describe("class working (post setup) #clear", function()
                   local calls = {0, 0}
                   -- this occurs twice
                   local fun1 = function (k, v)
-                     mst.a(k == "foo")
+                     mst.a(k == DUMMY_KEY11)
                      calls[2] = calls[2] + 1
                   end
                   local fun3 = function (k, v)
-                     mst.a(k == "foo")
+                     mst.a(k == DUMMY_KEY11)
                      calls[2] = calls[2] + 1
                   end
                   local fun2 = function (k, v)
                      calls[1] = calls[1] + 1
                   end
 
-                  s:add_change_observer(fun1, 'foo')
-                  s:add_change_observer(fun3, 'foo')
+                  s:add_change_observer(fun1, DUMMY_KEY11)
+                  s:add_change_observer(fun3, DUMMY_KEY11)
                   -- these occur 2x each (due to foo changing twice)
 
                   s:add_change_observer(fun2)
-                  -- this occurs 3 times (2x foo, 1x bar)
+                  -- this occurs 3 times (2x foo, 1x bar) *2 (both ways)
 
                   test_state_propagation(c, s)
-                  mst.a(calls[1] == 3)
-                  mst.a(calls[2] == 4)
+                  mst_test.assert_repr_equal(calls[1], 3 * 2)
+                  mst_test.assert_repr_equal(calls[2], 4)
                   s:remove_change_observer(fun2)
-                  s:remove_change_observer(fun1, 'foo')
-                  s:remove_change_observer(fun3, 'foo')
+                  s:remove_change_observer(fun1, DUMMY_KEY11)
+                  s:remove_change_observer(fun3, DUMMY_KEY11)
                   mst.enable_assert = false
                   assert.error(function ()
                                   s:remove_change_observer(fun1)
