@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Tue Jun 11 13:49:24 2013 mstenber
--- Edit time:     164 min
+-- Last modified: Wed Jul 17 19:32:17 2013 mstenber
+-- Edit time:     166 min
 --
 
 -- individual handler tests
@@ -511,6 +511,7 @@ describe("pm_v6_route", function ()
                                              prefix='beef::/64'},
                                             {prefix='beef::/64',
                                              ifname='eth0',
+                                             address='beef::21c:42ff:fea7:f1d9',
                                             },
                                             {depracate=true,
                                              ifname='eth1',
@@ -521,8 +522,6 @@ describe("pm_v6_route", function ()
                   local o = pm_v6_route.pm_v6_route:new{pm=pm}
                   pm.ds:set_array{
                      {"ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary", ''},
-                     {'ifconfig eth0 | grep HWaddr', 
-                      'eth0      Link encap:Ethernet  HWaddr 00:1c:42:a7:f1:d9  '},
                      {'ip -6 addr add beef::21c:42ff:fea7:f1d9/64 dev eth0', ''},
 
                                  }
@@ -583,7 +582,7 @@ describe("pm_dnsmasq", function ()
                                                        depracate=true},
                                                       {ifname='eth0',
                                                        prefix='10.1.42.0/24',
-                                                       address='10.1.42.1/32',
+                                                       address='10.1.42.1',
                                                        owner=true},
                                                      },
                                             dnsmasq_conf_filename=conf,

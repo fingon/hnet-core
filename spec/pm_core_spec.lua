@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Wed Jul 17 17:21:52 2013 mstenber
--- Edit time:     245 min
+-- Last modified: Wed Jul 17 19:28:53 2013 mstenber
+-- Edit time:     247 min
 --
 
 -- testsuite for the pm_core
@@ -149,9 +149,7 @@ local v6_route_start = {
   inet6 ::192.168.100.100/128 scope global 
 ]]},
    {'ip -6 addr del dead:2c26:f4e4:0:21c:42ff:fea7:f1d9/64 dev eth2', ''},
-   {'ifconfig eth2 | grep HWaddr',
-    'eth2      Link encap:Ethernet  HWaddr 00:1c:42:a7:f1:d9  '},
-   {'ip -6 addr add dead:fa5:c92f:74db:21c:42ff:fea7:f1d9/64 dev eth2', ''},
+   {'ip -6 addr add dead:fa5:c92f:74db:211:22ff:fe33:4455/64 dev eth2', ''},
 }
 
 local v6_route_stop = {
