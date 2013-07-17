@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 17:40:20 2013 mstenber
--- Last modified: Thu Jun 13 09:34:51 2013 mstenber
--- Edit time:     67 min
+-- Last modified: Wed Jul 17 17:30:07 2013 mstenber
+-- Edit time:     68 min
 --
 
 require 'busted'
@@ -34,7 +34,6 @@ local ASP1 = 'dead:beef::/64'
 local RID1 = 'rid1'
 local IID1 = 'iid1'
 local IP1 = '1.2.3.4'
-local IP1_MASK = IP1 .. '/32'
 
 local ASP2 = 'dead:bee0::/64'
 local RID2 = 123
@@ -103,7 +102,7 @@ describe("hybrid_ospf", function ()
                      iid=IID1,
                      ifname=IFNAME,
                      prefix=ASP1,
-                     address=IP1_MASK,
+                     address=IP1,
                   }
 
                   s:set(elsa_pa.OSPF_LAP_KEY, 

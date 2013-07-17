@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Thu Jun 13 09:37:27 2013 mstenber
+-- Last modified: Wed Jul 17 17:28:56 2013 mstenber
 -- Edit time:     115 min
 --
 
@@ -243,7 +243,9 @@ function hybrid_ospf:get_ip()
       if ip
       then
          -- strip prefix, just in case
-         ip = mst.string_split(ip, '/')[1]
+         --ip = mst.string_split(ip, '/')[1]
+         self:a(not ip or not string.find(ip, '/'), 
+                'ip should not be prefix', ip)
          self:d('got ip', ip)
          return ip
       end

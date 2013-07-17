@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Jul 17 17:13:58 2013 mstenber
--- Edit time:     1059 min
+-- Last modified: Wed Jul 17 17:27:31 2013 mstenber
+-- Edit time:     1060 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -883,7 +883,7 @@ function elsa_pa:run_handle_skv_publish()
                  iid=iid,
                  depracate=lap.depracated and 1 or nil,
                  owner=lap.owner,
-                 address=lap.address and lap.address:get_ascii() or nil,
+                 address=lap.address and mst.string_split(lap.address:get_ascii(), '/')[1] or nil,
                  external=ifo.external,
       } 
       local usp = self:find_usp_for_ascii_prefix(p, iid)
