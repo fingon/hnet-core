@@ -8,13 +8,14 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Tue Jun 11 11:37:42 2013 mstenber
--- Edit time:     248 min
+-- Last modified: Wed Jul 17 14:14:31 2013 mstenber
+-- Edit time:     250 min
 --
 
 require "busted"
 local _pa = require "pa"
 require 'mst'
+require 'mst_test'
 require 'dneigh'
 
 module("pa_spec", package.seeall)
@@ -51,6 +52,16 @@ end
 
 function ospf:get_hwf(rid)
    return rid
+end
+
+function ospf:get_hwaddr(rid, ifname)
+   for i, o in ipairs(self.iif[rid] or {})
+   do
+      if o.name == ifname
+      then
+         return o.hwaddr or '11:22:33:44:55:66'
+      end
+   end
 end
 
 function ospf:get_rname_base(rid)
@@ -444,8 +455,7 @@ describe("pa-nobody-else", function ()
                   local c = timeout_laps(pa, function (lap)
                                             return lap.depracated==true
                                              end)
-                  mst.a(c == 3, c)
-                  
+                  mst_test.assert_repr_equal(c, 3, 'timeout_laps (dep)')
 
                   pa:run()
                   mst.a(pa.usp:count() == 1, "usp mismatch")

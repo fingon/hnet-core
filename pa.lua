@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Wed Jul 17 13:59:32 2013 mstenber
--- Edit time:     986 min
+-- Last modified: Wed Jul 17 14:15:14 2013 mstenber
+-- Edit time:     990 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -19,6 +19,7 @@
 
 -- client is expected to provide:
 --  get_hwf(rid) => hardware fingerprint in string
+--  get_hwaddr(ifname) => hardware MAC address
 --  iterate_rid(rid, f) => callback f with {rid=[, ifname=, nh=][, rname=]}
 --  iterate_usp(rid, f) => callback f with {prefix=, rid=}
 --  iterate_asp(rid, f) => callback f with {prefix=, iid=, rid=}
@@ -121,10 +122,23 @@ function lap:init()
    -- superclass init
    ph.init(self)
 
+   -- set up the local fields
    local ifo = self.pa.ifs[self.iid]
    self:a(ifo, 'non-existent interface iid', self.iid)
    self.ifname = ifo.name
+
+   if not self.ipv4
+   then
+      -- generate IPv6 address to be assigned here; that way it's
+      -- available elsewhere as required
+      local hwaddr = self.pa:get_hwaddr(self.ifname)
+      self.address = ipv6s.prefix_hwaddr_to_eui64(self.ascii_prefix, hwaddr)
+   end
+
+   -- insert to pa's lap list
    self.pa.lap:insert(self.iid, self)
+
+   -- start the state machine
    self.sm = lap_sm:new{owner=self}
    self.sm.debugFlag = true
    self.sm.debugStream = {write=function (f, s)
@@ -850,7 +864,7 @@ function pa:eliminate_other_lap(iid, usp, asp, lap)
       -- Only one IPv4 prefix can be active per-interface =>
       -- when adding something new, old one disappears off the map immediately
       -- anyway regardless of USP match
-      if ((is_ipv4 and lap2.address) 
+      if ((is_ipv4 and lap2.ipv4 and lap2.address) 
           or (usp and usp.prefix:contains(lap2.prefix))) and lap2 ~= lap
       then
          self:d(' matched -> depracate')
@@ -1092,6 +1106,10 @@ function pa:should_run()
       self:d('should run - changes > 0 (timeouts)')
       return true
    end
+end
+
+function pa:get_hwaddr(ifname)
+   return self.client:get_hwaddr(self.rid, ifname)
 end
 
 function pa:get_hwf()
