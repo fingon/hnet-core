@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Feb 21 11:47:15 2013 mstenber
--- Last modified: Thu May 16 11:24:04 2013 mstenber
--- Edit time:     49 min
+-- Last modified: Wed Jul 17 16:48:09 2013 mstenber
+-- Edit time:     71 min
 --
 
 -- This is very, very minimal fake DHCPv6 PD server; what it does, is
@@ -20,34 +20,26 @@ require 'dhcpv6_codec'
 require 'scb'
 require 'ssloop'
 require 'dns_db'
+require 'mst_cliargs'
 
 local dhcpv6_message = dhcpv6_codec.dhcpv6_message
 local loop = ssloop.loop()
 
-_TEST = false -- required by cliargs + strict
 
-function create_cli()
-   local cli = require "cliargs"
+local args = mst_cliargs.parse{
+   options={
+      {name='dns', desc='IPv6 DNS server', max=10, default={}},
+      {name='search', desc='IPv6 search path', max=10, default={}},
+      {name='join', desc='interface to join multicast group on', min=1, max=10},
+      {name='port', desc='specify port to use', 
+       default=tostring(dhcpv6_const.SERVER_PORT)},
+      {name='pref', desc='set preferred lifetime', default='123'},
+      {name='valid', desc='set valid lifetime', default='234'},
+      {value='prefix', desc='IPv6 prefix to provide to PD requests (static) with = used as separator for class (if any)', max=10, default={}},
+      }
+                              }
 
-   cli:set_name('fakedhcpv6d.lua')
-   cli:add_opt("--dns=DNSADDRESS", "address of (IPv6) DNS server")
-   cli:add_opt("--search=SEARCHPATH", "search path for IPv6 DNS")
-   cli:add_opt("-j, --join=IFLIST","join multicast group on given (comma-separated) interfaces", nil)
-   cli:add_opt('--port=PORT', 'use non-standard server port', tostring(dhcpv6_const.SERVER_PORT))
-   cli:add_opt('--pref=PREFERRED', 'set explicitly preferred lifetime')
-   cli:add_opt('--valid=VALIDT', 'set explicitly valid lifetime')
-   cli:optarg("prefix","IPv6 prefix to provide to PD requests (static) with = used as separator for class (if any)", '', 10)
-   return cli
-end
-
-local args = create_cli():parse()
-if not args 
-then
-   -- something wrong happened and an error was printed
-   return
-end
-
-local port = args.port
+local port = tonumber(args.port)
 local o, err = scb.new_udp_socket{ip='*', 
                                   port=port,
                                   callback=true,
@@ -61,9 +53,7 @@ local _mcj = mcastjoiner.mcj
 local j = _mcj:new{mcast6=dhcpv6_const.ALL_RELAY_AGENTS_AND_SERVERS_ADDRESS,
                    mcasts=s,
                   }
-local tojoin = #args.join>0 and mst.string_split(args.join,",") or mst.array:new{}
-mst.a(tojoin:count()>0, 'have to join at least one interface multicast group')
-local joinset = tojoin:to_table()
+local joinset = mst.array_to_table(args.join)
 
 
 mst.d(' calling set_if_joined_set', joinset)
@@ -107,7 +97,7 @@ function o.callback(data, src, srcport)
                type=(o.type == dhcpv6_const.MT_SOLICIT 
                      and dhcpv6_const.MT_ADVERTISE -- only to solicits
                      or dhcpv6_const.MT_REPLY -- otherwise
-                    ),
+               ),
                -- transaction id
                xid=o.xid,
                -- server id
@@ -149,14 +139,13 @@ function o.callback(data, src, srcport)
       end
    end
    -- add DNS parameters if any
-   if args.dns
-   then
-      table.insert(o2, {option=dhcpv6_const.O_DNS_RNS, [1]=args.dns})
+   for i, v in ipairs(args.dns)
+   do
+      table.insert(o2, {option=dhcpv6_const.O_DNS_RNS, [1]=v})
    end
-   if args.search
-   then
-      local search = args.search
-      search = dns_db.name2ll(search)
+   for i, v in ipairs(args.search)
+   do
+      local search = dns_db.name2ll(v)
       table.insert(o2, {option=dhcpv6_const.O_DOMAIN_SEARCH, [1]=search})
    end
    

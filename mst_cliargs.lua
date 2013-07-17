@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jul 17 15:15:29 2013 mstenber
--- Last modified: Wed Jul 17 16:29:52 2013 mstenber
--- Edit time:     57 min
+-- Last modified: Wed Jul 17 16:45:26 2013 mstenber
+-- Edit time:     62 min
 --
 
 -- My variant on CLI argument parsing.
@@ -69,7 +69,7 @@ end
 function option_to_prefix(opt)
    if opt.alias
    then
-      return option_to_prefix_i(opt, opt.alias, '') .. ',' ..
+      return option_to_prefix_i(opt, opt.alias, '') .. '/' ..
          option_to_prefix_i(opt, opt.name)
    end
    return option_to_prefix_i(opt, opt.name)
@@ -104,6 +104,21 @@ function option_to_desc(opt)
    if opt.desc
    then
       table.insert(l, opt.desc)
+   end
+   if opt.default
+   then
+      table.insert(l, string.format('[default=%s]', 
+                                    mst.repr(opt.default)))
+   end
+   if opt.min and opt.max
+   then
+      table.insert(l, string.format('[%d-%d]', opt.min, opt.max))
+   elseif opt.min
+   then
+      table.insert(l, string.format('[>=%d]', opt.min))
+   elseif opt.max
+   then
+      table.insert(l, string.format('[<=%d]', opt.max))
    end
    if opt.default
    then
@@ -178,6 +193,7 @@ function parse(o)
    end
 
    local r = {}
+
    local had_error
    for i, arg in ipairs(args)
    do
@@ -261,6 +277,18 @@ function parse(o)
       error()
       -- in case error is nonfatal, we return nil
       return
+   end
+   -- set default values based on options
+   for i, opt in ipairs(opts)
+   do
+      if opt.default
+      then
+         local n = opt.name or opt.value
+         if not r[n]
+         then
+            r[n] = opt.default
+         end
+      end
    end
    return r
 end

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Jul 17 16:30:55 2013 mstenber
--- Edit time:     242 min
+-- Last modified: Wed Jul 17 16:50:40 2013 mstenber
+-- Edit time:     247 min
 --
 
 require "busted"
@@ -896,6 +896,48 @@ local cliargs_tests = {
       -- should result in error message + help + exit
       {ERR+3+1},
    },
+
+   {
+      -- invalid input (multivalue, too few)
+      {
+         arg={[0]='dummy', '--asdf=x'},
+         options={{name='asdf', min=2}},
+      },
+      {ERR+3+1},
+   },
+
+
+   {
+      -- invalid input (multivalue, too many)
+      {
+         arg={[0]='dummy', '--asdf=x', '--asdf=y'},
+         options={{name='asdf', max=1}},
+      },
+      {ERR+3+1},
+   },
+
+
+   {
+      -- default (no args)
+      {
+         arg={[0]='dummy'},
+         options={{name='asdf', default=123}},
+      },
+      {0, {asdf=123}},
+   },
+
+
+   {
+      -- default (with args)
+      {
+         arg={[0]='dummy', '--asdf=x'},
+         options={{name='asdf', default=123}},
+      },
+      {0, {asdf='x'}},
+   },
+
+   -- XXX - add a lot more tests!
+   -- desc?
 }
 
 describe("mst_cliargs", function ()
