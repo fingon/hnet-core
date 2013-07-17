@@ -1,5 +1,27 @@
 -*- outline -*-
 
+* 15.7.2013+
+
+** Adding new tunnel interface should work faster.
+
+skvtool 'tunnel.ula=[{"prefix":"fd00::/48"}]'
+
+==> propagation takes a loong while. Reason is probably simple - 
+
+===> refactored things in elsa_pa.lua; now prefix assignment algorithm is
+always run when available prefixes change (duh), and the handling in
+general should have less timeouts.
+
+** pa-config does not work
+
+skvtool cannot set pa-config after the fact; other variables _do_ work, so
+something weird going on in the handling there.
+
+==> there was some weird logic about local and remote state not being of
+equal value ('local' information preferred). in practise, 'the most recent'
+information is always most valuable => use whatever we get (=> do not drop
+remote updates if we have local state, but instead drop local state).
+
 * 17.6.2013+
 
 ** dns library in general

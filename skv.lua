@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Sep 18 12:23:19 2012 mstenber
--- Last modified: Thu May 16 11:26:40 2013 mstenber
--- Edit time:     384 min
+-- Last modified: Wed Jul 17 12:21:42 2013 mstenber
+-- Edit time:     389 min
 --
 
 require 'mst'
@@ -359,10 +359,16 @@ function skv:client_remote_update(json, k, v)
    local lv = self.local_state[k]
    if lv ~= nil and not mst.repr_equal(lv, v)
    then
-      mst.d('remote server attempted to update with old value - sending back', k)
+      -- this is the original behavior; however, it prevents setting
+      -- things that have been set initially locally => not good idea,
+      -- I think. the unit tests are agnostic over this, so..
+
+      --mst.d('remote server attempted to update with old value - sending back', k)
       -- local just overrides remote provided value
-      self:send_update{[k]=lv}
-      return
+      --self:send_update{[k]=lv}
+      --return
+
+      self.local_state[k] = nil
    end
    if not mst.repr_equal(ov, v)
    then
@@ -385,13 +391,14 @@ function skv:server_remote_update(json, k, v)
    then
       -- if local state is different than what we got from remote,
       -- update remote
-      if not mst.repr_equal(lv, v)
-      then
-         mst.d('remote client attempted to update with old value - sending back', k)
-         json:write{[MSG_UPDATE] = {[k] = lv}}
-      end
-      self.remote_state[k] = nil
-      return
+      --if not mst.repr_equal(lv, v)
+      --then
+      --mst.d('remote client attempted to update with old value - sending back', k)
+      --json:write{[MSG_UPDATE] = {[k] = lv}}
+      --end
+      --self.remote_state[k] = nil
+      --return
+      self.local_state[k] = nil
    end
 
    if not mst.repr_equal(ov, v)
