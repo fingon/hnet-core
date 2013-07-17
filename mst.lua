@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Thu Jun 27 11:03:14 2013 mstenber
+-- Last modified: Wed Jul 17 12:01:42 2013 mstenber
 -- Edit time:     737 min
 --
 
@@ -34,7 +34,7 @@ end
 local socket = socket
 
 local assert = assert
-local collectgarbage = collectgarbage
+--local collectgarbage = collectgarbage
 local error = error
 local getmetatable = getmetatable
 local ipairs = ipairs
@@ -1647,5 +1647,9 @@ end
 -- memory waste is the most we want to deal with
 -- given 2x stepmul (assumed), that means ~1,1 multiplier
 -- (given the ~cap memory waste is stepmul * pause orso?)
-collectgarbage('setpause', 110)
+--collectgarbage('setpause', 110)
+
+-- not THAT constrained; additionally, we seem to be more CPU than
+-- memory bound on current hardware we use => leave it at default for
+-- now (07/2013)
 
