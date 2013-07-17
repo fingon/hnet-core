@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Jul 17 18:58:19 2013 mstenber
--- Edit time:     234 min
+-- Last modified: Wed Jul 17 19:02:36 2013 mstenber
+-- Edit time:     249 min
 --
 
 require "busted"
@@ -846,7 +846,7 @@ local cliargs_tests = {
       -- no input =>
       {
          arg={[0]='dummy', '--help'},
-         options={value='foo'},
+         options={{value='foo'}},
       },
       -- should result in nop
       {ERR + 3},

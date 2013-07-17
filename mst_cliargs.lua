@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jul 17 15:15:29 2013 mstenber
--- Last modified: Wed Jul 17 18:57:29 2013 mstenber
--- Edit time:     41 min
+-- Last modified: Wed Jul 17 19:01:22 2013 mstenber
+-- Edit time:     59 min
 --
 
 -- My variant on CLI argument parsing.
@@ -165,6 +165,7 @@ function parse(o)
                       })
 
    -- insert auto-generated one-letter aliases
+   mst.d('generating aliases')
    for i, opt in ipairs(opts)
    do
       if opt.name and #opt.name == 1

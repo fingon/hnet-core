@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Wed Jul 17 18:51:16 2013 mstenber
--- Edit time:     67 min
+-- Last modified: Wed Jul 17 19:03:22 2013 mstenber
+-- Edit time:     59 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -54,7 +54,6 @@ local args = mst_cliargs.parse{
       {name='rid',
        desc="the id of the router", 
        default='router'},
-      -- ! this has to be last
       {value='interface',
        desc="interface(s) to listen proxy for", 
        max=10},

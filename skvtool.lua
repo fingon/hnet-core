@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 13:18:34 2012 mstenber
--- Last modified: Wed Jul 17 18:49:19 2013 mstenber
--- Edit time:     76 min
+-- Last modified: Wed Jul 17 19:03:32 2013 mstenber
+-- Edit time:     74 min
 --
 
 -- minimalist tool for playing with SKV
@@ -48,7 +48,6 @@ local args = mst_cliargs.parse{
       {name='r', 
        flag=1, 
        desc='read key=value pairs from stdin, in -l format'},
-      -- ! this has to be last
       {value='keys', 
        desc='list of keys, or key=value pairs (=set)', 
        max=999},
