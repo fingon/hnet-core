@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Tue Jul 16 15:30:11 2013 mstenber
--- Edit time:     981 min
+-- Last modified: Wed Jul 17 13:59:32 2013 mstenber
+-- Edit time:     986 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -108,6 +108,7 @@ function ph:init()
 
    self.ascii_prefix = self.prefix:get_ascii()
    self.binary_prefix = self.prefix:get_binary()
+   self.ipv4 = self.prefix:is_ipv4() and true or nil
 end
 
 -- local assigned prefix
@@ -227,7 +228,10 @@ function lap:do_depracate()
    self.pa:changed()
    self.assigned = false
    self.depracated = true
-   self.address = nil -- clear ipv4 address, if any
+   if self.ipv4
+   then
+      self.address = nil -- clear ipv4 address, if any
+   end
    self.sm:Done()
 end
 
@@ -235,7 +239,10 @@ function lap:do_unassign()
    self:a(not self._is_done, 'called when done')
    self.pa:changed()
    self.assigned = false
-   self.address = nil -- clear ipv4 address, if any
+   if self.ipv4
+   then
+      self.address = nil -- clear ipv4 address, if any
+   end
    -- (hopefully we have something better to replace it with)
    self.sm:Done()
 end
@@ -512,7 +519,7 @@ function usp:repr_data()
 end
 
 function usp:get_desired_bits()
-   if self.prefix:is_ipv4()
+   if self.ipv4
    then
       return 96 + 24 -- /24
    else
@@ -649,7 +656,7 @@ function pa:run_if_usp(iid, neigh, usp)
    end
 
    -- skip if it's IPv4 prefix + interface is disabled for v4
-   if usp.prefix:is_ipv4() and ifo.disable_v4 
+   if usp.ipv4 and ifo.disable_v4 
    then
       self:d(' v4 PA disabled')
       return
@@ -833,7 +840,7 @@ function pa:eliminate_other_lap(iid, usp, asp, lap)
 
    -- depracate immediately any other prefix that is on this iid,
    -- with same USP as us 
-   local is_ipv4 = not usp or usp.prefix:is_ipv4()
+   local is_ipv4 = not usp or usp.ipv4
    local lap = lap or (asp and asp:find_lap())
    
    -- (nondeterministic) test case for this in elsa_pa_stress.lua
@@ -1198,7 +1205,7 @@ function pa:run(d)
          -- what prevents ula from happening?
          function (usp)
             -- we ignore ipv4 usps 
-            if usp.prefix:is_ipv4()
+            if usp.ipv4
             then
                return
             end
@@ -1252,7 +1259,7 @@ function pa:run(d)
             -- XXX - consider if we should implement _real_ priority
             -- ordering here, or just stick to 'someone publishes one ->
             -- life is good'
-            if usp.rid ~= self.rid and usp.prefix:is_ipv4() 
+            if usp.rid ~= self.rid and usp.ipv4
             then
                return true
             end
@@ -1260,7 +1267,7 @@ function pa:run(d)
 
          -- filter own v4 prefixes
          function (usp)
-            return usp.rid == self.rid and usp.prefix:is_ipv4()
+            return usp.rid == self.rid and usp.ipv4
          end,
 
          -- produce a new prefix
@@ -1328,7 +1335,7 @@ function pa:run(d)
       -- handle local IPv4 address assignment algorithm
       for i, lap in ipairs(self.lap:values())
       do
-         if lap.assigned and lap.prefix:is_ipv4()
+         if lap.assigned and lap.ipv4
          then
             local prev = done[lap.ifname]
             self:a(not prev,
@@ -1448,7 +1455,7 @@ function pa:add_or_update_usp(prefix, rid)
          -- remote ones are valid if we see them
          -- local ones are typically, unless they're ULA/IPv4
          -- (those have to be validated later on)
-         if rid ~= self.rid or (not o.prefix:is_ula() and not o.prefix:is_ipv4())
+         if rid ~= self.rid or (not o.prefix:is_ula() and not o.prefix.ipv4)
          then
             self:d(' updated old usp')
             self.vsu:set_valid(o)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Jul 16 16:52:25 2013 mstenber
--- Edit time:     1047 min
+-- Last modified: Wed Jul 17 13:55:01 2013 mstenber
+-- Edit time:     1055 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -862,7 +862,7 @@ function elsa_pa:run_handle_skv_publish()
          self:d('zombie interface', lap)
          ifo = {}
       end
-      if lap.address
+      if lap.ipv4 and lap.address
       then
          self:a(not dumped_if_ipv4[lap.ifname],
                 'system state somehow screwed up [>1 v4 address per if] ',
@@ -1306,7 +1306,9 @@ function elsa_pa:get_local_asa_array()
    -- => what we do, is look at what's within the lap, and toss
    -- non-empty addresses
    local t = mst.array:new{}
-   local laps = self.pa.lap:values():filter(function (lap) return lap.address end)
+   local laps = self.pa.lap:values():filter(function (lap) 
+                                               return lap.ipv4 and lap.address 
+                                            end)
    self:ph_list_sorted(laps)
 
    for i, lap in ipairs(laps)
