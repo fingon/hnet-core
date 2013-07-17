@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jul 17 15:15:29 2013 mstenber
--- Last modified: Wed Jul 17 15:57:38 2013 mstenber
--- Edit time:     37 min
+-- Last modified: Wed Jul 17 16:29:52 2013 mstenber
+-- Edit time:     57 min
 --
 
 -- My variant on CLI argument parsing.
@@ -59,11 +59,8 @@ function option_to_prefix_i(opt, n, eqsign)
    then
       eqsign = eqsign or '='
       local eq = opt.flag and "" or eqsign
-      if #n == 1
-      then
-         return '-%s%s':format(n,eq)
-      end
-      return '--%s%s':format(n,eq)
+      local prefix = #n == 1 and '' or '-'
+      return string.format('-%s%s%s', prefix, n, eq)
    end
    -- default argument
    return ''
@@ -72,7 +69,7 @@ end
 function option_to_prefix(opt)
    if opt.alias
    then
-      return option_to_prefix_i(opt, opt.alias, '/') ..
+      return option_to_prefix_i(opt, opt.alias, '') .. ',' ..
          option_to_prefix_i(opt, opt.name)
    end
    return option_to_prefix_i(opt, opt.name)
@@ -97,34 +94,34 @@ function option_to_sdesc(opt)
    end
    if optional
    then
-      return '[%s]' % p
+      return string.format('[%s]', p)
    end
    return p
 end
 
 function option_to_desc(opt)
-   local l = {option_to_desc(opt)}
+   local l = {option_to_sdesc(opt)}
    if opt.desc
    then
-      table.insert(l, desc)
+      table.insert(l, opt.desc)
    end
    if opt.default
    then
-      table.insert(l, '[default=%s]':format(mst.repr(opt.default)))
+      table.insert(l, string.format('[default=%s]', 
+                                    mst.repr(opt.default)))
    end
    return table.concat(l, ' ')
 end
 
-function show_help(o)
+function show_help(o, opts)
    local args = o.arg or arg
-   local process = o.process or arg[0]
-   local opts = o.options or {}
+   local process = o.process or args[0] or "?"
+   local print = o.print or print
 
-   print('%s %s':format(process,
-                        table.concat(mst.array_map(opts,
-                                                   option_to_desc)
-                                    )))
-   for i, v in ipairs(opts)
+   print(string.format('%s %s', process,
+                       table.concat(mst.array_map(opts,
+                                                  option_to_sdesc), ' ')))
+   for i, opt in ipairs(opts)
    do
       print('', option_to_desc(opt))
    end
@@ -132,11 +129,22 @@ end
 
 function parse(o)
    local args = o.arg or arg
+   mst.d('parsing arguments', args)
    local opts = o.options or {}
-   opts = mst.table_deepcopy(opts)
-   local seen = {}
+   opts = mst.table_deep_copy(opts)
+   mst.d('opts', opts)
 
-   -- first off, insert auto-generated one-letter aliases
+   local seen = {}
+   local print = o.print or print
+
+   -- add help handler
+   table.insert(opts, {
+                   name='help',
+                   flag=1,
+                   desc='Show help for the program',
+                      })
+
+   -- insert auto-generated one-letter aliases
    for i, opt in ipairs(opts)
    do
       if opt.name and #opt.name == 1
@@ -155,10 +163,11 @@ function parse(o)
          if not opt.alias
          then
             -- auto-generate alias _if possible_
-            for i, v in ipairs(opt.name)
+            for i, v in mst.string_ipairs(opt.name)
             do
                if not seen[v]
                then
+                  mst.d('added alias', v, opt)
                   seen[v] = 1
                   opt.alias = v
                   break
@@ -168,12 +177,6 @@ function parse(o)
       end
    end
 
-   -- then, add help handler
-   table.insert(opts, {
-                   name='help',
-                   flag=1,
-                   desc='Show help for the program',
-                      })
    local r = {}
    local had_error
    for i, arg in ipairs(args)
@@ -190,22 +193,32 @@ function parse(o)
          end
          if not found
          then
-            found = mst.string_startswith(arg, p2)
+            found = mst.string_startswith(arg, p1)
          end
+         mst.d('considering', arg, p1, p2, opt)
          if found
          then
+            mst.d('matched', arg, opt, found)
             -- store the value, if applicable
             local n = opt.name or opt.value
             if opt.flag
             then
                r[n] = true
-            end
-            if opt.min or opt.max
+            elseif opt.min or opt.max
             then
                local l = r[n] or {}
                r[n] = l
                table.insert(l, found)
+            else
+               if r[n]
+               then
+                  print('multiple instances of option', n)
+                  had_error = true
+               else
+                  r[n] = found
+               end
             end
+            break
          end
       end
       if not found
@@ -238,15 +251,16 @@ function parse(o)
          end
       end
    end
+   local error = o.error or function ()
+      os.exit(1)
+                            end
    if r.help or had_error
    then
-      show_help(o)
-      if o.error
-      then
-         o.error()
-      else
-         os.exit(1)
-      end
+      mst.d('showing help', r.help, had_error)
+      show_help(o, opts)
+      error()
+      -- in case error is nonfatal, we return nil
+      return
    end
    return r
 end

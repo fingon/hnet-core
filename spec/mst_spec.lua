@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Jul 17 15:58:07 2013 mstenber
--- Edit time:     231 min
+-- Last modified: Wed Jul 17 16:30:55 2013 mstenber
+-- Edit time:     242 min
 --
 
 require "busted"
@@ -812,5 +812,108 @@ describe("table", function ()
                      table.insert(keys2, k)
                   end
                   mst_test.assert_repr_equal(keys2, {'b', 'i', 's'})
+                   end)
+end)
+
+local ERR = -42
+
+local cliargs_tests = {
+   {
+      -- no input =>
+      {
+         arg={[0]='dummy'},
+      },
+      -- should result in nop
+      {0, {}},
+   },
+   {
+      -- help =>
+      {
+         arg={[0]='dummy', '-h'},
+      },
+      -- should result in nop (start line + -h = help)
+      {ERR + 2},
+   },
+   {
+      -- no input =>
+      {
+         arg={[0]='dummy', '--help'},
+      },
+      -- should result in nop
+      {ERR + 2},
+   },
+   {
+      -- erroneous input =>
+      {
+         arg={[0]='dummy', '--asdf'},
+      },
+      -- should result in error message + help + exit
+      {ERR + 3},
+   },
+
+   {
+      -- valid input (flag)
+      {
+         arg={[0]='dummy', '--asdf'},
+         options={{name='asdf', flag=1}},
+      },
+      {0, {asdf=true}},
+   },
+
+
+   {
+      -- valid input (value)
+      {
+         arg={[0]='dummy', '--asdf=x'},
+         options={{name='asdf'}},
+      },
+      {0, {asdf='x'}},
+   },
+
+   {
+      -- valid input (multivalue)
+      {
+         arg={[0]='dummy', '--asdf=x'},
+         options={{name='asdf', max=123}},
+      },
+      {0, {asdf={'x'}}},
+   },
+
+   {
+      -- valid input (default arg, 1 allowed)
+      {
+         arg={[0]='dummy', 'x'},
+         options={{value='asdf'}},
+      },
+      {0, {asdf='x'}},
+   },
+   {
+      -- invalid input (default arg, 1 allowed)
+      {
+         arg={[0]='dummy', 'x', 'y'},
+         options={{value='asdf'}},
+      },
+      -- should result in error message + help + exit
+      {ERR+3+1},
+   },
+}
+
+describe("mst_cliargs", function ()
+            it("works #cli", function ()
+                  
+                  mst_test.test_list(cliargs_tests, function (o)
+                                        local err = 0
+                                        function o.error()
+                                           -- nop
+                                           err = ERR
+                                        end
+                                        local l = {}
+                                        function o.print(...)
+                                           mst.d('<print>', ...)
+                                           table.insert(l, {...})
+                                        end
+                                        local r = mst_cliargs.parse(o)
+                                        return {#l + err, r}
+                                        end)
                    end)
 end)
