@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov 21 17:13:32 2012 mstenber
--- Last modified: Thu Jun 27 11:01:49 2013 mstenber
--- Edit time:     109 min
+-- Last modified: Wed Jul 17 17:53:39 2013 mstenber
+-- Edit time:     114 min
 --
 
 require 'pm_handler'
@@ -98,46 +98,48 @@ function pm_dnsmasq:write_dnsmasq_conf_dns(t)
       -- addresses (it doesn't really matter which one, but we provide
       -- whole list just in case the addresses change over the
       -- lifetime of the DHCP lease, and it doesn't get refreshed)
-      
-      -- For IPv6 nameserver, we should provide our own loopback ULA
-      -- address (fc00::/128 one)?
+
+      -- For IPv6 we do the same thing too.
       
       -- Perhaps using the dnsmasq for a forwarder would be nicer, and
       -- then just run the hp_ospf stuff _without_ forwarding on
       -- different ports or something? Food for thought.
 
-      -- Anyway. For the time being, just provide V4 DNS server..
-      dns6 = {}
-      search6 = {}
+      -- Based on discussions with Ole, we override search domain as this
+      -- is different administrative domain
 
-      -- (We provide V6 addresses + V6 DNS-SD + whatever over V4 too
-      -- so it isn't _that_ great problem, just annoying)
-
-      -- for search list, we tack 'home' to the end (XXX - make this
-      -- configuratble; we have to make copy of the list, so we don't
-      -- wind up adding more and more of these as we re-use the same
-      -- field (that is originally from SKV) whenever dnsmasq
-      -- reconfigure happens)
+      search6 = self.pm.hp_search or {}
       search4 = self.pm.hp_search or {}
+
+      dns6 = {}
       dns4 = {}
 
-      local l = {}
+      local l4 = {}
+      local l6 = {}
       for i, lap in ipairs(self.pm.ospf_lap or {})
       do
          local a = lap.address
          mst.d('considering', lap, a)
-         if a
+         if a and not lap.depracate
          then
-            a = mst.string_split(a, '/')[1]
-            mst.d('rewrote to', a)
-            table.insert(l, a)
+            table.insert(ipv6s.address_is_ipv4(a) and l4 or l6, a)
          end
       end
-      if #l > 0
+      if #l4 > 0
       then
-         local s = table.concat(l, ',')
+         local s = table.concat(l4, ',')
          mst.d('adding dns-server option', s)
          t:insert('dhcp-option=option:dns-server,' .. s)
+      end
+      if #l6 > 0
+      then
+         -- add []s around addresses
+         local s = table.concat(mst.array_map(l6,
+                                              function (s)
+                                                 return string.format('[%s]', s)
+                                              end), ',')
+         mst.d('adding DHCPv6 dns-server option', s)
+         t:insert('dhcp-option=option6:dns-server,' .. s)
       end
       -- disable DNS
       t:insert('port=0')
