@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Thu Jul 18 15:37:55 2013 mstenber
--- Edit time:     117 min
+-- Last modified: Thu Jul 18 15:51:42 2013 mstenber
+-- Edit time:     120 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -367,9 +367,11 @@ function mdns_client:update_own_records(myname)
 end
 
 function mdns_client:update_own_records_from_ospf_lap(myname, lapl)
+   self:d('update_own_records_from_ospf_lap')
    -- if we don't know things, yet, let's wait until we do
-   if not self.myname or not lapl
+   if not myname or not lapl
    then
+      self:d(' no myname/lapl', myname, lapl)
       return
    end
    -- this is unconditional; we do it always (hopefully we KNOW when
@@ -378,11 +380,13 @@ function mdns_client:update_own_records_from_ospf_lap(myname, lapl)
       local m = {}
       for i, lap in ipairs(lapl)
       do
-         if lap.address and not lap.dep and not lap.external
+         local addr = lap.address
+         if addr and not lap.dep and not lap.external
          then
-            if not ipv6s.address_is_ipv4(lap.address) == not is_ipv4
+            if not ipv6s.address_is_ipv4(addr) == not is_ipv4
             then
-               m[lap_address] = true
+               self:d(' ', addr)
+               m[addr] = true
                self:get_if(lap.ifname)
             end
          end
