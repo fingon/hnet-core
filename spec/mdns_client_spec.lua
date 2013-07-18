@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 14:45:24 2013 mstenber
--- Last modified: Thu Jul 18 15:40:54 2013 mstenber
--- Edit time:     119 min
+-- Last modified: Thu Jul 18 15:58:31 2013 mstenber
+-- Edit time:     121 min
 --
 
 require 'busted'
@@ -287,11 +287,18 @@ describe("mdns_client", function ()
 
                                                                    end)
             it("can get own records from lap too #lap", function ()
+                  local ifo = c:get_if('eth2')
+                   local cnt = ifo.own:count()
+                   mst.a(cnt==0)
                   c:update_own_records_from_ospf_lap('foo', 
                                        {
-                                          {address='1.2.3.4'},
-                                          {address='dead:beef::1'},
+                                          {ifname='eth2', address='1.2.3.4'},
+                                          {ifname='eth2', address='dead:beef::1'},
                                        })
+                   local cnt = ifo.own:count()
+                   mst.a(cnt>0)
+
+
                    end)
             it("can generate list of local binary prefixes", function ()
                   ds:set_array{ip6_addr_get}
