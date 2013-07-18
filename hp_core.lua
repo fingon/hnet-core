@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Tue Jul 16 18:26:35 2013 mstenber
--- Edit time:     491 min
+-- Last modified: Thu Jul 18 15:28:07 2013 mstenber
+-- Edit time:     493 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -97,7 +97,9 @@ MINIMUM_TTL=30
 hybrid_proxy = _dns_server:new_subclass{class='hybrid_proxy',
                                         mandatory={'rid', 'domain', 
                                                    'mdns_resolve_callback',
-                                        }}
+                                        },
+                                        events={'rid_changed'},
+                                       }
 
 function create_default_forward_ext_node_callback(o)
    local n = dns_tree.create_node_callback(o)
@@ -128,6 +130,15 @@ end
 function hybrid_proxy:get_rid()
    self:a(self.rid, 'no rid?!?')
    return self.rid
+end
+
+function hybrid_proxy:set_rid(rid)
+   if self.rid == rid
+   then
+      return
+   end
+   self.rid = rid
+   self.rid_changed()
 end
 
 function hybrid_proxy:repr_data()

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Thu Jul 18 11:44:53 2013 mstenber
--- Edit time:     121 min
+-- Last modified: Thu Jul 18 15:27:54 2013 mstenber
+-- Edit time:     124 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -47,11 +47,12 @@ hybrid_ospf = _hp:new_subclass{name='hybrid_ospf',
                                           'mdns_resolve_callback',
                                },
                                lap_filter=valid_lap_filter,
+                               events={'rid_changed', 'lap_changed'},
                               }
 
 function hybrid_ospf:init()
    self:d('init')
-
+   _hp.init(self)
 end
 
 function hybrid_ospf:uninit()
@@ -159,7 +160,7 @@ function hybrid_ospf:attach_skv(skv)
       self:d('skv notification', k)
       if k == elsa_pa.OSPF_RID_KEY
       then
-         self.rid = v
+         self:set_rid(v)
       elseif k == elsa_pa.OSPF_RNAME_KEY
       then
          self.rname = v
@@ -187,6 +188,7 @@ function hybrid_ospf:attach_skv(skv)
       elseif k == elsa_pa.OSPF_LAP_KEY 
       then
          self.lap = v
+         self:lap_changed()
       else
          -- unknown key => no need to invalidate tree, hopefully ;-)
          return

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:26:36 2013 mstenber
--- Last modified: Mon Jun 24 17:59:26 2013 mstenber
--- Edit time:     109 min
+-- Last modified: Thu Jul 18 15:37:55 2013 mstenber
+-- Edit time:     117 min
 --
 
 -- This is purely read-only version of mdns code. It leverages
@@ -366,3 +366,32 @@ function mdns_client:update_own_records(myname)
    self.myname = myname
 end
 
+function mdns_client:update_own_records_from_ospf_lap(myname, lapl)
+   -- if we don't know things, yet, let's wait until we do
+   if not self.myname or not lapl
+   then
+      return
+   end
+   -- this is unconditional; we do it always (hopefully we KNOW when
+   -- the lap changes)
+   local function _get_map(is_ipv4)
+      local m = {}
+      for i, lap in ipairs(lapl)
+      do
+         if lap.address and not lap.dep and not lap.external
+         then
+            if not ipv6s.address_is_ipv4(lap.address) == not is_ipv4
+            then
+               m[lap_address] = true
+               self:get_if(lap.ifname)
+            end
+         end
+      end
+      return m
+   end
+   local m = _get_map(true)
+   self:update_own_records_addrs(myname, dns_const.TYPE_A, m)
+
+   local m = _get_map(false)
+   self:update_own_records_addrs(myname, dns_const.TYPE_AAAA, m)
+end

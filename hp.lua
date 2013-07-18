@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Wed Jul 17 19:03:22 2013 mstenber
--- Edit time:     59 min
+-- Last modified: Thu Jul 18 15:38:34 2013 mstenber
+-- Edit time:     65 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -135,25 +135,25 @@ end
 
 if args.ospf
 then
+   local function _update_mdns_records_from_lap()
+      local label = hp:rid2label(hp.rid)
+      mdns:update_own_records_from_ospf_lap(label, hp.lap)
+   end
    local s = skv.skv:new{long_lived=false}
    mdns:attach_skv(s, hp_ospf.valid_lap_filter)
    hp:attach_skv(s)
    pis:attach_skv(s, hp_ospf.valid_lap_filter)
-   
-   -- Rather brute force approach: update the local IP information
-   -- every 10 seconds if it's relevant (in practise, once every
-   -- minute most likely)
-   ssloop.repeat_every_timedelta(10, 
-                                 function ()
-                                    if hp.rid
-                                    then
-                                       local label = hp:rid2label(hp.rid)
-                                       mdns:update_own_records(label)
-                                    end
-                                 end)
+
+   mdns:connect(hp.rid_changed, _update_mdns_records_from_lap)
+   mdns:connect(hp.lap_changed, _update_mdns_records_from_lap)
 
    mst.d('-- OSPF MODE!--')
 else
+   local function _update_mdns_records()
+      local label = hp:rid2label(hp.rid)
+      mdns:update_own_records(label)
+   end
+
    -- produce interface list and set for later use, and eliminate ''
    -- interface if any (thanks, cliargs, optargs handling is not so
    -- clever :p)
@@ -177,6 +177,12 @@ else
          f{ifname=v, iid=v}
       end
    end
+
+   -- Rather brute force approach: update the local IP information
+   -- every 10 seconds if it's relevant (in practise, once every
+   -- minute most likely)
+   ssloop.repeat_every_timedelta(10,  _update_mdns_records)
+
    mst.d('-- STATIC MODE!--')
 end
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 12:29:52 2013 mstenber
--- Last modified: Wed Jun 26 17:24:17 2013 mstenber
--- Edit time:     34 min
+-- Last modified: Thu Jul 18 15:22:31 2013 mstenber
+-- Edit time:     35 min
 --
 
 -- This is VERY minimalist DNS server. It abstracts away dns_tree
@@ -21,11 +21,14 @@
 -- labels in label list. 
 
 require 'mst'
+require 'mst_eventful'
 require 'dns_tree'
 
 module(..., package.seeall)
 
-dns_server = mst.create_class{class='dns_server'}
+local _eventful = mst_eventful.eventful
+
+dns_server = _eventful:new_subclass{class='dns_server'}
 
 RESULT_NXDOMAIN='nxdomain'
 

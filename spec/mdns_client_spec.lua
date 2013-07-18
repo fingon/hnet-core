@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 14:45:24 2013 mstenber
--- Last modified: Mon Jun 24 18:13:50 2013 mstenber
--- Edit time:     116 min
+-- Last modified: Thu Jul 18 15:40:54 2013 mstenber
+-- Edit time:     119 min
 --
 
 require 'busted'
@@ -286,6 +286,13 @@ describe("mdns_client", function ()
                   run_until_ifo_count(N2_IP * 2 + (1 + N2_IP))
 
                                                                    end)
+            it("can get own records from lap too #lap", function ()
+                  c:update_own_records_from_ospf_lap('foo', 
+                                       {
+                                          {address='1.2.3.4'},
+                                          {address='dead:beef::1'},
+                                       })
+                   end)
             it("can generate list of local binary prefixes", function ()
                   ds:set_array{ip6_addr_get}
                   local m = c:get_local_binary_prefix_set()
