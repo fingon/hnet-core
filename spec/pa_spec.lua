@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:49:11 2012 mstenber
--- Last modified: Wed Jul 17 14:14:31 2013 mstenber
--- Edit time:     250 min
+-- Last modified: Thu Jul 18 15:03:59 2013 mstenber
+-- Edit time:     275 min
 --
 
 require "busted"
@@ -476,19 +476,23 @@ describe("pa-nobody-else", function ()
 
 describe("pa-net", function ()
             it("simple 3 pa #net", function ()
-
-
+                  local usp_uninits 
+                  mst_test.inject_snitch(_pa.usp, 'uninit',
+                                         function ()
+                                            usp_uninits = usp_uninits + 1
+                                         end)
                   -- few different variants
                   -- bit1 = connect the routers after awhile
                   -- bit2 = connect the LSAdbs after awhile
                   -- bit3 = use conflicting if #'s
+                  -- bit4 = use custom ULAs
 
                   -- bit1 implies bit2 as well
 
-                  for j=0,7
+                  for j=0,15
                   do
                      mst.d('net-iter', j)
-                     
+                     usp_uninits = 0
                      local _n
                      if mst.bitv_is_set_bit(j, 3)
                      then
@@ -521,35 +525,44 @@ describe("pa-net", function ()
 
                      -- XXX - add same/different ifindex variants
                      -- to bit 2
-                     o = ospf:new{usp={{prefix='dead::/16', rid='rid1'},
-                                      },
-                                  iif={n1={{index=_n(1, 2),name='if1'}, 
-                                           {index=_n(1, 3),name='if2'}, 
-                                           {index=_n(1, 1),name='if0'}},
-                                       n2={{index=_n(2, 3),name='if2'}, 
-                                           {index=_n(2, 4),name='if3'}, 
-                                           {index=_n(2, 1),name='if0'}},
-                                       n3={{index=_n(3, 4),name='if3'}, 
-                                           {index=_n(3, 5),name='if4'}, 
-                                           {index=_n(3, 1),name='if0'}},
+                     local usps = {{prefix='dead::/16', rid='n1'}}
+                     local pa_config = {}
+
+                     if mst.bitv_is_set_bit(j, 4)
+                     then
+                        -- we're strange and want to use ULA address
+                        -- for our own nefarious purposes!
+                        usps = {{prefix='fd00:cafe::/32', rid='n1'}}
+                     end
+                     pa_config = {disable_ula=true, disable_ipv4=true}
+
+
+                     o = ospf:new{usp=usps,
+                                  iif={n1={{index=_n(1, 1),name='if1'}, 
+                                           {index=_n(1, 2),name='if2'}, 
+                                           {index=_n(1, 3),name='if3'}},
+                                       n2={{index=_n(2, 1),name='if1'}, 
+                                           {index=_n(2, 2),name='if2'}, 
+                                           {index=_n(2, 3),name='if3'}},
+                                       n3={{index=_n(3, 1),name='if1'}, 
+                                           {index=_n(3, 2),name='if2'}, 
+                                           {index=_n(3, 3),name='if3'}},
                                   },
-                                  ridr={{rid='rid1'},
-                                        {rid='rid2'},
-                                        {rid='rid3'},
+                                  ridr={{rid='n1'},
+                                        {rid='n2'},
+                                        {rid='n3'},
                                   },
                                  }
                      local neighs = o.neigh
 
-                     -- individual toy nets 
-                     o:connect_neigh('n1', _n(1, 3), 'n2', _n(2, 3))
-                     o:connect_neigh('n2', _n(2, 4), 'n3', _n(3, 4))
+                     -- point-to-point connections between each router
+                     o:connect_neigh('n1', _n(1, 2), 'n2', _n(2, 2))
+                     o:connect_neigh('n2', _n(2, 3), 'n3', _n(3, 3))
 
-                     -- nets 2, 5 have zero connectivity (2 == n1, 5 == n3)
-
-                     -- mgmt net - connect all
+                     -- mgmt net - connect all (port #1 on all)
                      o:connect_neigh('n1', _n(1, 1), 'n2', _n(2, 1))
-                     o:connect_neigh('n1', _n(1, 1), 'n3', _n(3, 1))
                      o:connect_neigh('n2', _n(2, 1), 'n3', _n(3, 1))
+                     o:connect_neigh('n1', _n(1, 1), 'n3', _n(3, 1))
                      
 
                      mst.d('simple 3 pa iter', j)
@@ -566,7 +579,14 @@ describe("pa-net", function ()
                                            rid='n3',
                                            lap_class=dummy_lap,
                                           }
+
                      local nl = mst.array:new{n1, n2, n3}
+
+                     -- copy the pa_config (if any) to the nodes
+                     for i, n in ipairs(nl)
+                     do
+                        mst.table_copy(pa_config, n)
+                     end
 
                      if connect_routers_slowly
                      then
@@ -610,18 +630,13 @@ describe("pa-net", function ()
                      end
 
                      -- make sure there's local assignments
+                     mst.a(find_pa_lap(n1, {iid=_n(1, 1)}))
                      mst.a(find_pa_lap(n1, {iid=_n(1, 2)}))
-                     mst.a(find_pa_lap(n1, {iid=_n(1, 3)}))
-                     mst.a(not find_pa_lap(n1, {iid=_n(1, 4)}))
 
-                     mst.a(not find_pa_lap(n2, {iid=_n(2, 2)}))
+                     mst.a(find_pa_lap(n2, {iid=_n(2, 2)}))
                      mst.a(find_pa_lap(n2, {iid=_n(2, 3)}))
-                     mst.a(find_pa_lap(n2, {iid=_n(2, 4)}))
 
-                     mst.a(not find_pa_lap(n3, {iid=_n(3, 2)}))
-                     mst.a(not find_pa_lap(n3, {iid=_n(3, 3)}))
-                     mst.a(find_pa_lap(n3, {iid=_n(3, 4)}))
-                     mst.a(find_pa_lap(n3, {iid=_n(3, 5)}))
+                     mst.a(find_pa_lap(n3, {iid=_n(3, 3)}))
 
                      -- make sure mgmt if is everywhere
                      mst.a(find_pa_lap(n1, {iid=_n(1, 1)}))
@@ -643,15 +658,17 @@ describe("pa-net", function ()
                      -- regardless of the configuration, 
                      -- due to how rules work, the n3 should have overriding
                      -- preference
-                     mst.a(#ls[1] == 1)
-                     mst.a(#ls[2] == 1)
-                     mst.a(#ls[3] == 3)
+                     mst_test.assert_repr_equal(#ls[1], 1)
+                     mst_test.assert_repr_equal(#ls[2], 1)
+                     mst_test.assert_repr_equal(#ls[3], 3)
 
                      -- finally clear up things
                      for i, v in ipairs(nl)
                      do
                         v:done()
                      end
+                     
+                     mst_test.assert_repr_equal(usp_uninits, 3)
 
                   end
 
