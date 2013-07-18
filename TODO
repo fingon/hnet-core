@@ -60,6 +60,7 @@ again (which is minute currently).
 Due to lack of POOF etc, we should constrain the TTL in the MDNS cache;
 also should never proactively maintain any cache records due to that..
 
+
 * HP/DNS - Improvements
 
 ** HP - profile why it's such CPU hog
@@ -249,6 +250,16 @@ TODO codereview
    .. make sure every now and then that the design assertions hold,
    e.g. one IP address per interface per device, one prefix per link per USP
  [ done, stress/elsa_pa_stress.lua ]
+
+* Test topology - Bugs to fix
+
+** Search domain not visible in V6 
+
+After adding the V6 name server support, it seems search domain is not
+getting populated. 
+
+The answer is rdnssd; there is currently no _release_ version which has
+RFC6106(?) support, it's just in git there. *sigh*
 
 * Things to do if I have time (hah)
 
