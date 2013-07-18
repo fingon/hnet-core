@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Jul 17 19:02:36 2013 mstenber
--- Edit time:     249 min
+-- Last modified: Thu Jul 18 15:10:54 2013 mstenber
+-- Edit time:     252 min
 --
 
 require "busted"
@@ -846,7 +846,7 @@ local cliargs_tests = {
       -- no input =>
       {
          arg={[0]='dummy', '--help'},
-         options={{value='foo'}},
+         options={{value='foo', desc='default'}},
       },
       -- should result in nop
       {ERR + 3},
@@ -943,6 +943,20 @@ local cliargs_tests = {
          options={{name='asdf', default=123}},
       },
       {0, {asdf='x'}},
+   },
+
+   {
+      -- ordering check (should check longest to shortest -> these
+      -- options should all work correctly)
+      {
+         arg={'-a', '--ab', '--abc', 'x'},
+         options={{name='a', flag=1},
+                  {name='ab', flag=1},
+                  {name='abc', flag=1},
+                  {value='v'},
+         },
+      },
+      {0, {a=true, ab=true, abc=true, v='x'}},
    },
 
    -- XXX - add a lot more tests!
