@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Wed Jul 17 17:28:56 2013 mstenber
--- Edit time:     115 min
+-- Last modified: Thu Jul 18 11:44:53 2013 mstenber
+-- Edit time:     121 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -115,7 +115,7 @@ function hybrid_ospf:create_local_forward_node(router, o)
    local o2 = {
       name=n:get_fqdn(),
       ip=ip,
-      browse=1,
+      browse=self:is_owner_of_iid(o.iid) and 1 or nil,
    }
    table.insert(self.local_zones, o2)
 end
@@ -278,6 +278,19 @@ function hybrid_ospf:rid2label(rid)
    if n then return n end
    -- if no luck, fallback to parent
    return _hp.rid2label(self, rid)
+end
+
+function hybrid_ospf:is_owner_of_iid(iid)
+   for i, lap in ipairs(self.lap or {})
+   do
+      if lap.iid == iid
+      then
+         if lap.owner
+         then
+            return true
+         end
+      end
+   end
 end
 
 function hybrid_ospf:iid2label(iid)

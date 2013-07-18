@@ -2,6 +2,11 @@
 
 * 15.7.2013+
 
+** HP - Announce only links if _owner_ (can provide service on others, too)
+
+(to browse domain that is; browse is set by ownership, and the links are
+announced regardless. whether that is sensible or not is another matter I suppose..)
+
 ** Enable spaces in domain search strings
 
 Right now, the shell scripts that deal with skvtool don't escape them

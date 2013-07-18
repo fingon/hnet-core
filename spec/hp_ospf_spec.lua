@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 17:40:20 2013 mstenber
--- Last modified: Wed Jul 17 17:30:07 2013 mstenber
--- Edit time:     68 min
+-- Last modified: Thu Jul 18 11:55:18 2013 mstenber
+-- Edit time:     83 min
 --
 
 require 'busted'
@@ -30,22 +30,25 @@ local DOMAIN_LL={'foo', 'com'}
 -- hp_core uses.
 
 local USP = 'dead::/16'
-local ASP1 = 'dead:beef::/64'
 local RID1 = 'rid1'
+
+local ASP1 = 'dead:beef::/64'
 local IID1 = 'iid1'
+local IFNAME1 = 'if.name'
+local IFNAME1_ESCAPED = 'if_name'
 local IP1 = '1.2.3.4'
 
-local ASP2 = 'dead:bee0::/64'
-local RID2 = 123
-local RNAME2 = 'rid2'
+local ASP2 = 'dead:cafe::/64'
 local IID2 = 23
+local IFNAME2 = 'if2.name'
+local IFNAME2_ESCAPED = 'if2_name'
+
+
+local RNAME2 = 'rid2'
 local IP2 = '2.3.4.5'
 
 local NAME3 = 'bar.com'
 local IP3 = '3.4.5.6'
-
-local IFNAME = 'if.name'
-local IFNAME_ESCAPED = 'if_name'
 
 describe("hybrid_ospf", function ()
             after_each(function ()
@@ -85,7 +88,7 @@ describe("hybrid_ospf", function ()
                   mst.d('added fake remote zone', n)
                   s:set(elsa_pa.OSPF_HP_ZONES_KEY,
                         {
-                           -- inetrnally learnt one -> should be in browse path
+                           -- internally learnt one -> should be in browse path
                            {name=n,
                             ip=IP2,
                             browse=1,
@@ -100,13 +103,22 @@ describe("hybrid_ospf", function ()
 
                   local lap1 = {
                      iid=IID1,
-                     ifname=IFNAME,
+                     ifname=IFNAME1,
                      prefix=ASP1,
                      address=IP1,
+                     owner=true,
+                  }
+
+                  local lap2 = {
+                     iid=IID2,
+                     ifname=IFNAME2,
+                     prefix=ASP2,
+                     address=IP2,
                   }
 
                   s:set(elsa_pa.OSPF_LAP_KEY, 
-                        {lap1
+                        {lap1,
+                         lap2
                         })
                   
                   hp:iterate_usable_prefixes(f)
@@ -116,10 +128,11 @@ describe("hybrid_ospf", function ()
                      {USP},
 
                      -- lap
-                     {lap1},
+                     {lap1}, 
+                     {lap2},
                   }
                   
-                  mst.a(mst.repr_equal(l, e), 'not same', l, e)
+                  mst_test.assert_repr_equal(l, e)
 
                   -- make sure this works too
                   local root = hp:get_root()
@@ -135,7 +148,7 @@ describe("hybrid_ospf", function ()
                   mst.a(srv == dns_const.GOOGLE_IPV4)
 
                   local V6 = 'dead:beef::1'
-                  local V4 = '1.2.3.4'
+                  local V4 = '3.4.5.6'
                   s:set(elsa_pa.OSPF_IPV4_DNS_KEY, {V4})
                   s:set(elsa_pa.OSPF_DNS_KEY, {V6})
 
@@ -185,15 +198,18 @@ describe("hybrid_ospf", function ()
 
                   local v = s:get(elsa_pa.HP_MDNS_ZONES_KEY)
                   local e = {
-                     {browse=1, ip="1.2.3.4", name=IFNAME_ESCAPED .. ".r-rid1.foo.com"}, 
-                     {ip="1.2.3.4", 
+                     {browse=1, ip=IP1, name=IFNAME1_ESCAPED .. ".r-rid1.foo.com"}, 
+                     {ip=IP1, name=IFNAME2_ESCAPED .. ".r-rid1.foo.com"}, 
+                     {ip=IP1, 
                       name="0.0.0.0.0.0.0.0.f.e.e.b.d.a.e.d.ip6.arpa"},
+                     {ip=IP1, 
+                      name="0.0.0.0.0.0.0.0.e.f.a.c.d.a.e.d.ip6.arpa"},
                   }
-                  mst.a(mst.repr_equal(v, e), 'not same', v, e)
+                  mst_test.assert_repr_equal(v, e)
 
                   local v = s:get(elsa_pa.HP_SEARCH_LIST_KEY)
                   local e = {'foo.com', NAME3}
-                  mst.a(mst.repr_equal(v, e), 'not same', v, e)
+                  mst_test.assert_repr_equal(v, e)
 
                   local b_dns_sd_ll = mst.table_copy(dns_const.B_DNS_SD_LL)
                   mst.array_extend(b_dns_sd_ll, DOMAIN_LL)
