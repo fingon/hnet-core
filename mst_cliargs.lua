@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jul 17 15:15:29 2013 mstenber
--- Last modified: Wed Jul 17 19:01:22 2013 mstenber
--- Edit time:     59 min
+-- Last modified: Thu Jul 18 15:13:46 2013 mstenber
+-- Edit time:     60 min
 --
 
 -- My variant on CLI argument parsing.
@@ -74,8 +74,12 @@ end
 function option_to_prefix(opt)
    if opt.alias
    then
-      return option_to_prefix_i(opt, opt.alias, '') .. '/' ..
-         option_to_prefix_i(opt, opt.name)
+      -- show shorter first; the longer later
+      local shorter = #opt.name > #opt.alias and opt.alias or opt.name
+      local longer = #opt.name <= #opt.alias and opt.alias or opt.name
+
+      return option_to_prefix_i(opt, shorter, '') .. '/' ..
+         option_to_prefix_i(opt, longer)
    end
    return option_to_prefix_i(opt, opt.name)
 end
