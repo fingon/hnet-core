@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Thu Jun 27 17:12:53 2013 mstenber
--- Edit time:     11 min
+-- Last modified: Thu Jul 18 11:53:52 2013 mstenber
+-- Edit time:     12 min
 --
 
 -- testing related utilities
@@ -31,7 +31,7 @@ function assert_repr_equal(o1, o2, ...)
    local r1 = mst.repr(o1)
    local r2 = mst.repr(o2)
    mst.a(r1 == r2, 
-         'assert_repr_equal failure got', r1, 'expected', r2, ...)
+         'assert_repr_equal failure \ngot:    ', r1, '\nexpected:', r2, ...)
 end
 
 
