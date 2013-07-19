@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:03:28 2013 mstenber
--- Last modified: Tue Jun 18 17:12:30 2013 mstenber
+-- Last modified: Fri Jul 19 10:16:47 2013 mstenber
 -- Edit time:     12 min
 --
 
@@ -81,3 +81,4 @@ GOOGLE_IPV4='8.8.8.8'
 GOOGLE_IPV6='2001:4860:4860::8888'
 
 B_DNS_SD_LL={'b', '_dns-sd', '_udp'}
+LB_DNS_SD_LL={'lb', '_dns-sd', '_udp'}

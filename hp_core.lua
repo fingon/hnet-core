@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Thu Jul 18 15:28:07 2013 mstenber
+-- Last modified: Fri Jul 19 10:17:42 2013 mstenber
 -- Edit time:     493 min
 --
 
@@ -158,16 +158,20 @@ function hybrid_proxy:get_local_ifname_for_prefix(prefix)
 end
 
 function hybrid_proxy:add_browse(n)
-   local b_dns_sd_ll = mst.table_copy(dns_const.B_DNS_SD_LL)
-   mst.array_extend(b_dns_sd_ll, self.domain_ll)
+   for i, d in ipairs{dns_const.B_DNS_SD_LL,
+                      dns_const.LB_DNS_SD_LL}
+   do
+      local b_dns_sd_ll = mst.table_copy(d)
+      mst.array_extend(b_dns_sd_ll, self.domain_ll)
 
-   local d = {
-      name=b_dns_sd_ll,
-      rtype=dns_const.TYPE_PTR,
-      rclass=dns_const.CLASS_IN,
-      rdata_ptr=n:get_ll(),
-   }
-   self:add_rr(d)
+      local d = {
+         name=b_dns_sd_ll,
+         rtype=dns_const.TYPE_PTR,
+         rclass=dns_const.CLASS_IN,
+         rdata_ptr=n:get_ll(),
+      }
+      self:add_rr(d)
+   end
 end
 
 function hybrid_proxy:create_local_forward_node(router, o)
