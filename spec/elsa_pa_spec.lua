@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Fri Jul 19 19:50:06 2013 mstenber
--- Edit time:     489 min
+-- Last modified: Fri Jul 19 20:19:11 2013 mstenber
+-- Edit time:     491 min
 --
 
 require 'mst'
@@ -83,6 +83,21 @@ function ensure_dsm_same(self)
       --mst.a(pa.lap:count() == pa1.lap:count(), 'lap', pa, pa1)
    end
 end
+
+describe("elsa_pa [one node, no config]", function ()
+            local ep
+            local s
+            it("does not do much w/o pa_config", function ()
+                  s = skv.skv:new{long_lived=true, port=31399}
+                  ep = elsa_pa.elsa_pa:new{elsa=true, if_table=true, 
+                                           skv=s,
+                                           rid='myrid'}
+                  ep:run()
+                  mst.a(not ep.pa)
+                  ep:done()
+                  s:done()
+                   end)
+             end)
 
 describe("elsa_pa [one node]", function ()
             local e, s, ep, usp_added, asp_added
