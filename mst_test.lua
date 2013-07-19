@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Thu Jul 18 11:53:52 2013 mstenber
--- Edit time:     12 min
+-- Last modified: Fri Jul 19 19:49:47 2013 mstenber
+-- Edit time:     13 min
 --
 
 -- testing related utilities
@@ -64,6 +64,7 @@ function create_storing_iterator_and_list()
 end
 
 function inject_snitch(o, n, sf)
+   mst.a(o and n and sf, 'invalid arguments')
    local f = o[n]
    o[n] = function (...)
       sf(...)

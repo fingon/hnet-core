@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Wed Jul 17 17:21:06 2013 mstenber
--- Edit time:     488 min
+-- Last modified: Fri Jul 19 19:50:06 2013 mstenber
+-- Edit time:     489 min
 --
 
 require 'mst'
@@ -65,6 +65,7 @@ end
 function create_elsa_callback(o)
    return elsa_pa.elsa_pa:new{elsa=o.sm.e, skv=o.skv, rid=o.rid,
                               time=o.time, if_table=dummy_if_table,
+                              pa_config={},
                              }
 end
 

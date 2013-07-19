@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Wed Jul 17 19:28:53 2013 mstenber
+-- Last modified: Fri Jul 19 19:51:16 2013 mstenber
 -- Edit time:     247 min
 --
 
@@ -253,7 +253,8 @@ describe("pm", function ()
                                         }
 
                            ep = elsa_pa.elsa_pa:new{elsa=e, skv=s, rid=myrid,
-                                                    if_table=dummy_if_table}
+                                                    if_table=dummy_if_table,
+                                                    pa_config={}}
                            e:add_node(ep)
                            s:set(elsa_pa.OSPF_RID_KEY, myrid)
                            s:set(elsa_pa.PD_SKVPREFIX .. elsa_pa.IFLIST_KEY, 

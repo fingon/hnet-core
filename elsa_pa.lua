@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Jul 17 17:27:31 2013 mstenber
--- Edit time:     1060 min
+-- Last modified: Fri Jul 19 19:50:41 2013 mstenber
+-- Edit time:     1069 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -260,11 +260,21 @@ function elsa_pa:init()
 
    self.pa_args = args
 
+   -- this should not be done before we actually have pa_config from skv
+   -- however, someone may have supplied us pa_config as argument
+   self.pa_config = self.pa_config or self.skv:get(PA_CONFIG_SKV_KEY)
    self:reconfigure_pa()
 end
 
-function elsa_pa:reconfigure_pa()
+function elsa_pa:reconfigure_pa(v)
    self:d('reconfigure_pa')
+   v = v or self.pa_config
+   if not v
+   then
+      self:d(' skipped, no config yet')
+      return 
+   end
+   self.pa_config = v
    self:init_own()
    self:init_pa()
 end
@@ -291,17 +301,11 @@ end
 function elsa_pa:init_pa()
    local args = mst.table_copy(self.pa_args)
 
-   -- copy over rid
-   args.rid=self.rid
-
-   -- check if the skv has and updates to the whole config
-   local skv_config = self.skv:get(PA_CONFIG_SKV_KEY)
-   if skv_config
-   then
-      mst.table_copy(skv_config, args)
-   end
+   -- update with whatever we have in pa_config
+   mst.table_copy(self.pa_config, args)
 
    -- these are always hardcoded - nobody should be able to change them
+   args.rid=self.rid
    args.client = self
    args.lap_class = elsa_lap
    args.time = self.time
@@ -317,9 +321,12 @@ end
 function elsa_pa:uninit()
    self.skv:remove_change_observer(self.f)
 
-   -- we don't 'own' skv or 'elsa', so we don't do anything here,
-   -- except clean up our own state, which is basically the pa object
-   self.pa:done()
+   if self.pa
+   then
+      -- we don't 'own' skv or 'elsa', so we don't do anything here,
+      -- except clean up our own state, which is basically the pa object
+      self.pa:done()
+   end
 end
 
 function elsa_pa:kv_changed(k, v)
@@ -481,6 +488,12 @@ end
 -- elsa stuff, we typically call it in tick() functions or so so this
 -- is mostly useful for unit testing)
 function elsa_pa:should_run()
+   -- no pa? no point
+   if not self.pa
+   then
+      return
+   end
+
    local lap = self.pa.timeouts:get_first()
    if lap and lap.timeout <= self.time() 
    then 
@@ -519,6 +532,10 @@ function elsa_pa:should_run_pa()
 end
 
 function elsa_pa:next_time()
+   if not self.pa
+   then
+      return
+   end
    if self:should_run()
    then
       return 0
@@ -619,6 +636,12 @@ end
 
 function elsa_pa:run()
    self:d('run starting')
+
+   -- without pa, there is no point
+   if not self.pa
+   then
+      return
+   end
 
    local now = self.time()
    while true

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Wed Jul 17 18:37:49 2013 mstenber
--- Edit time:     40 min
+-- Last modified: Fri Jul 19 19:39:38 2013 mstenber
+-- Edit time:     43 min
 --
 
 -- 'prefix manager' (name still temporary)
@@ -81,10 +81,11 @@ do
       config[k] = args[k]
    end
 end
-if mst.table_count(config)
-then
-   s:set(elsa_pa.PA_CONFIG_SKV_KEY, config)
-end
+
+-- pa_config means that prefix assignment should even run; without it,
+-- nothing happens. so we have to send it, even if it's empty (this is
+-- meaningful only on very constrained machines).
+s:set(elsa_pa.PA_CONFIG_SKV_KEY, config)
 
 mst.d('initializing pm')
 local pm = pm_core.pm:new{shell=mst.execute_to_string, skv=s,
