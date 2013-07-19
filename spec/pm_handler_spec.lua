@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Wed Jul 17 19:32:17 2013 mstenber
--- Edit time:     166 min
+-- Last modified: Fri Jul 19 20:12:33 2013 mstenber
+-- Edit time:     168 min
 --
 
 -- individual handler tests
@@ -27,6 +27,7 @@ require 'pm_led'
 require 'pm_fakedhcpv6d'
 require 'dhcpv6_codec'
 require 'dshell'
+require 'mst_test'
 
 module("pm_handler_spec", package.seeall)
 
@@ -109,6 +110,7 @@ describe("pm_v6_rule", function ()
 
                   -- not used really, but just to pretend to be ready
                   pm.ospf_usp = true
+                  pm.ospf_lap = true
 
                   -- really returned by get_ipv6_usp
                   pm.ipv6_usps = mst.array:new{
@@ -246,6 +248,7 @@ describe("pm_fakedhcpv6d", function ()
 
                   -- after adding the lap, we should join the owner
                   -- interface, but not non-owner one
+                  pm.ospf_usp = true -- not used but 'ready'
                   pm.ospf_lap = {
                      {ifname='eth0',
                       prefix='dead::/64',
@@ -264,7 +267,7 @@ describe("pm_fakedhcpv6d", function ()
                   pm.ospf_dns_search = {'example.com', 'sometimes.ends.with.dot.'}
                   o:maybe_run()
                   local exp = {{'eth0', true}}
-                  mst.a(mst.repr_equal(mcastlog, exp), 'non-expected mcast log', mcastlog)
+                  mst_test.assert_repr_equal(mcastlog, exp)
 
                   -- let's synthesize a completely fake DHCPv6 message
                   -- and send it in - see what comes out. first info
@@ -383,7 +386,7 @@ describe("pm_radvd", function ()
                      {ifname='eth1', prefix=dummy_prefix1, 
                       valid=123456, pref=-123},
                   }
-
+                  pm.ospf_usp = true -- not used but 'ready'
                   pm.ospf_lap = explicit_ok_lap
                   local restart_array = {
                      {'killall -9 radvd'},
