@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:48:34 2012 mstenber
--- Last modified: Wed Jul 17 18:09:50 2013 mstenber
+-- Last modified: Fri Jul 19 20:08:43 2013 mstenber
 -- Edit time:     22 min
 --
 
@@ -24,11 +24,7 @@ module(..., package.seeall)
 
 local ipv4_end='/24' -- as it's really v4 looking string
 
-pm_v6_route = pm_handler.pm_handler:new_subclass{class='pm_v6_route'}
-
-function pm_v6_route:ready()
-   return self.pm.ospf_lap and self.pm.ospf_usp
-end
+pm_v6_route = pm_handler.pm_handler_with_pa:new_subclass{class='pm_v6_route'}
 
 local function laplist_to_map(l)
    local t = mst.map:new{}

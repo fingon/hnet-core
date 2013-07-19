@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Feb 26 18:35:40 2013 mstenber
--- Last modified: Thu May 16 11:24:24 2013 mstenber
+-- Last modified: Fri Jul 19 20:07:33 2013 mstenber
 -- Edit time:     43 min
 --
 
@@ -37,7 +37,7 @@ require 'pm_radvd'
 
 module(..., package.seeall)
 
-local _pmh = pm_handler.pm_handler
+local _pmh = pm_handler.pm_handler_with_pa
 
 pm_fakedhcpv6d = _pmh:new_subclass{class='pm_fakedhcpv6d',
                                    port=dhcpv6_const.SERVER_PORT}
@@ -66,10 +66,6 @@ function pm_fakedhcpv6d:init_socket()
    local s = o.s
    self.mcj = mcastjoiner.mcj:new{mcast6=dhcpv6_const.ALL_RELAY_AGENTS_AND_SERVERS_ADDRESS, mcasts=s}
    self.o = o
-end
-
-function pm_fakedhcpv6d:ready()
-   return self.pm.ospf_lap
 end
 
 function pm_fakedhcpv6d:update_master_set()

@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:17:26 2012 mstenber
--- Last modified: Mon Jun  3 16:07:22 2013 mstenber
+-- Last modified: Fri Jul 19 20:08:19 2013 mstenber
 -- Edit time:     4 min
 --
 
@@ -19,7 +19,7 @@ module(..., package.seeall)
 DHCLIENT_SCRIPT='/usr/share/hnet/dhclient_handler.sh'
 DHCLIENT_PID_PREFIX='pm-pid-dhclient-'
 
-pm_v4_dhclient = pm_handler.pm_handler:new_subclass{class='pm_v4_dhclient'}
+pm_v4_dhclient = pm_handler.pm_handler_with_pa:new_subclass{class='pm_v4_dhclient'}
 
 function pm_v4_dhclient:run()
    -- oddly enough, we actually trust the OS (to a point); therefore,

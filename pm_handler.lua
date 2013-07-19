@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov  7 19:33:20 2012 mstenber
--- Last modified: Thu May  9 12:53:07 2013 mstenber
--- Edit time:     15 min
+-- Last modified: Fri Jul 19 20:06:24 2013 mstenber
+-- Edit time:     16 min
 --
 
 -- single pm handler prototype
@@ -111,4 +111,10 @@ function pm_handler:write_to_file(fpath, t0, comment_prefix)
    -- close the file
    io.close(f)
    return true
+end
+
+pm_handler_with_pa = pm_handler:new_subclass{class='pm_handler_with_pa'}
+
+function pm_handler_with_pa:ready()
+   return self.pm.ospf_usp and self.pm.ospf_lap
 end

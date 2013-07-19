@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov 21 17:13:32 2012 mstenber
--- Last modified: Wed Jul 17 17:53:39 2013 mstenber
+-- Last modified: Fri Jul 19 20:07:16 2013 mstenber
 -- Edit time:     114 min
 --
 
@@ -19,16 +19,12 @@ module(..., package.seeall)
 
 local _null=string.char(0)
 
-pm_dnsmasq = pm_handler.pm_handler:new_subclass{class='pm_dnsmasq'}
+pm_dnsmasq = pm_handler.pm_handler_with_pa:new_subclass{class='pm_dnsmasq'}
 
 DEFAULT_V4_LEASE="10m"
 DEFAULT_V6_LEASE="10m"
 
 SCRIPT='/usr/share/hnet/dnsmasq_handler.sh'
-
-function pm_dnsmasq:ready()
-   return self.pm.ospf_lap
-end
 
 function pm_dnsmasq:run()
    local fpath = self.pm.dnsmasq_conf_filename

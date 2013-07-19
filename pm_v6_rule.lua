@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:12:11 2012 mstenber
--- Last modified: Tue Jun 11 12:49:26 2013 mstenber
--- Edit time:     82 min
+-- Last modified: Fri Jul 19 20:08:55 2013 mstenber
+-- Edit time:     83 min
 --
 
 require 'pm_handler'
@@ -23,7 +23,7 @@ RULE_PREF_MIN=1000
 RULE_PREF_MAX=RULE_PREF_MIN + 128 
 MAIN_TABLE='main'
 
-pm_v6_rule = pm_handler.pm_handler:new_subclass{class='pm_v6_rule'}
+pm_v6_rule = pm_handler.pm_handler_with_pa:new_subclass{class='pm_v6_rule'}
 
 function pm_v6_rule:init()
    pm_handler.pm_handler.init(self)
@@ -44,10 +44,6 @@ function pm_v6_rule:init()
       end
       rt:remove(rule)
    end
-end
-
-function pm_v6_rule:ready()
-   return self.pm.ospf_usp
 end
 
 function pm_v6_rule:removed_default(table)

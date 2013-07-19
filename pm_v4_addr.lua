@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:14:12 2012 mstenber
--- Last modified: Wed Jul 17 17:27:47 2013 mstenber
+-- Last modified: Fri Jul 19 20:08:09 2013 mstenber
 -- Edit time:     7 min
 --
 
@@ -16,11 +16,7 @@ require 'pm_handler'
 
 module(..., package.seeall)
 
-pm_v4_addr = pm_handler.pm_handler:new_subclass{class='pm_v4_addr'}
-
-function pm_v4_addr:ready()
-   return self.pm.ospf_lap
-end
+pm_v4_addr = pm_handler.pm_handler_with_pa:new_subclass{class='pm_v4_addr'}
 
 function pm_v4_addr:run()
    local m = self.pm.if_table:read_ip_ipv4()

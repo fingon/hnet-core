@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:54:56 2012 mstenber
--- Last modified: Wed Mar 13 09:10:32 2013 mstenber
+-- Last modified: Fri Jul 19 20:07:03 2013 mstenber
 -- Edit time:     12 min
 --
 
@@ -20,7 +20,7 @@ local _null=string.char(0)
 
 DHCPD_SCRIPT='/usr/share/hnet/dhcpd_handler.sh'
 
-pm_dhcpd = pm_handler.pm_handler:new_subclass{class='pm_dhcpd'}
+pm_dhcpd = pm_handler.pm_handler_with_pa:new_subclass{class='pm_dhcpd'}
 
 function pm_dhcpd:run()
    local fpath = self.pm.dhcpd_conf_filename

@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Mar 13 09:38:57 2013 mstenber
--- Last modified: Wed Mar 13 10:32:19 2013 mstenber
+-- Last modified: Fri Jul 19 20:07:45 2013 mstenber
 -- Edit time:     16 min
 --
 
@@ -27,7 +27,7 @@ LED_SCRIPT='/usr/share/hnet/led_handler.sh'
 
 module(..., package.seeall)
 
-local _pmh = pm_handler.pm_handler
+local _pmh = pm_handler.pm_handler_with_pa
 pm_led = _pmh:new_subclass{class='pm_led'}
 
 function pm_led:init()

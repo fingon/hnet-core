@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:51:43 2012 mstenber
--- Last modified: Thu Jun 27 11:01:55 2013 mstenber
--- Edit time:     43 min
+-- Last modified: Fri Jul 19 20:07:56 2013 mstenber
+-- Edit time:     44 min
 --
 
 require 'pm_handler'
@@ -19,7 +19,7 @@ module(..., package.seeall)
 DEFAULT_PREFERRED_LIFETIME=1800
 DEFAULT_VALID_LIFETIME=3600
 
-pm_radvd = pm_handler.pm_handler:new_subclass{class='pm_radvd'}
+pm_radvd = pm_handler.pm_handler_with_pa:new_subclass{class='pm_radvd'}
 
 function pm_radvd:run()
    local fpath = self.pm.radvd_conf_filename
@@ -39,10 +39,6 @@ function pm_radvd:run()
       self.shell(radvd .. ' -C ' .. fpath)
    end
    return 1
-end
-
-function pm_radvd:ready()
-   return self.pm.ospf_lap
 end
 
 function abs_to_delta(now, t, def)
