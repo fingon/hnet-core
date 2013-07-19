@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jul 17 15:15:29 2013 mstenber
--- Last modified: Thu Jul 18 15:13:46 2013 mstenber
--- Edit time:     60 min
+-- Last modified: Fri Jul 19 10:29:09 2013 mstenber
+-- Edit time:     68 min
 --
 
 -- My variant on CLI argument parsing.
@@ -58,7 +58,7 @@ module(..., package.seeall)
 -- --name=
 -- --flag
 -- VALUE
-function option_to_prefix_i(opt, n, eqsign)
+local function option_to_prefix_i(opt, n, eqsign)
    -- specific option
    if n
    then
@@ -71,7 +71,7 @@ function option_to_prefix_i(opt, n, eqsign)
    return ''
 end
 
-function option_to_prefix(opt)
+local function option_to_prefix(opt)
    if opt.alias
    then
       -- show shorter first; the longer later
@@ -85,7 +85,7 @@ function option_to_prefix(opt)
 end
 
 -- this wraps prefix[=VALUE] with optionality constraints
-function option_to_sdesc(opt)
+local function option_to_sdesc(opt)
    local p = option_to_prefix(opt)
    local optional
    if opt.flag
@@ -108,7 +108,7 @@ function option_to_sdesc(opt)
    return p
 end
 
-function option_to_desc(opt)
+local function option_to_desc(opt)
    local l = {option_to_sdesc(opt)}
    if opt.desc
    then
@@ -137,29 +137,17 @@ function option_to_desc(opt)
    return table.concat(l, ' ')
 end
 
-function show_help(o, opts)
-   local args = o.arg or arg
-   local process = o.process or args[0] or "?"
-   local print = o.print or print
+cli = mst.create_class{class='cli'}
 
-   print(string.format('%s %s', process,
-                       table.concat(mst.array_map(opts,
-                                                  option_to_sdesc), ' ')))
-   for i, opt in ipairs(opts)
-   do
-      print('', option_to_desc(opt))
-   end
-end
-
-function parse(o)
-   local args = o.arg or arg
-   mst.d('parsing arguments', args)
-   local opts = o.options or {}
+function cli:init()
+   self.args = self.arg or arg
+   self.process = self.process or self.args[0] or '?'
+   self.print = self.print or print
+   local opts = self.options or {}
    opts = mst.table_deep_copy(opts)
    mst.d('opts', opts)
 
    local seen = {}
-   local print = o.print or print
 
    -- add help handler
    table.insert(opts, {
@@ -220,13 +208,36 @@ function parse(o)
                  return #o1[1] > #o2[1]
                   end)
 
+   self.opts = opts
+   self.pl = pl
+end
+
+function cli:print_help()
+   local print = self.print
+   print(string.format('%s %s', self.process,
+                       table.concat(mst.array_map(self.opts,
+                                                  option_to_sdesc), ' ')))
+   for i, opt in ipairs(self.opts)
+   do
+      print('', option_to_desc(opt))
+   end
+end
+
+function cli:print_help_and_exit()
+   self:print_help()
+   self:error()
+end
+
+function cli:parse()
+   local print = self.print
+   mst.d('parsing arguments', self.args)
    local r = {}
 
    local had_error
-   for i, arg in ipairs(args)
+   for i, arg in ipairs(self.args)
    do
       local found
-      for i, v in ipairs(pl)
+      for i, v in ipairs(self.pl)
       do
          local p, opt = unpack(v)
          found = mst.string_startswith(arg, p)
@@ -262,7 +273,7 @@ function parse(o)
          had_error = true
       end
    end
-   for i, opt in ipairs(opts)
+   for i, opt in ipairs(self.opts)
    do
       local n = opt.name or opt.value
       if opt.min or opt.max
@@ -286,19 +297,15 @@ function parse(o)
          end
       end
    end
-   local error = o.error or function ()
-      os.exit(1)
-                            end
    if r.help or had_error
    then
       mst.d('showing help', r.help, had_error)
-      show_help(o, opts)
-      error()
+      self:print_help_and_exit()
       -- in case error is nonfatal, we return nil
       return
    end
    -- set default values based on options
-   for i, opt in ipairs(opts)
+   for i, opt in ipairs(self.opts)
    do
       if opt.default
       then
@@ -310,4 +317,18 @@ function parse(o)
       end
    end
    return r
+end
+
+function cli:error()
+   os.exit(1)
+end
+
+function parse(o)
+   -- backwards compatible API (woah, the legacy starts early! ;-)
+   local c = new(o)
+   return c:parse()
+end
+
+function new(...)
+   return cli:new(...)
 end

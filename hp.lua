@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Thu Jul 18 15:38:34 2013 mstenber
--- Edit time:     65 min
+-- Last modified: Fri Jul 19 10:30:30 2013 mstenber
+-- Edit time:     68 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -35,7 +35,7 @@ require 'mst_cliargs'
 require 'pm_memory'
 local memory_handler = pm_memory.pm_memory:new{pm={}}
 
-local args = mst_cliargs.parse{
+local cli = mst_cliargs.new{
    options={
       {name='ospf',
        desc='maintain configuration via OSPF (applies to --server, --listen, --rid and interfaces',
@@ -59,6 +59,7 @@ local args = mst_cliargs.parse{
        max=10},
    }
                               }
+local args = cli:parse()
 local loop = ssloop.loop()
 
 mst.d('initializing socket')
@@ -158,6 +159,11 @@ else
    -- interface if any (thanks, cliargs, optargs handling is not so
    -- clever :p)
    local iflist = args.interface 
+   if not iflist
+   then
+      print('You have to specify at least one interface for non-OSPF mode.')
+      cli:print_help_and_exit()
+   end
    local ifset = mst.array_to_table(iflist)
    ifset[''] = nil
    setmetatable(ifset, mst.set)
