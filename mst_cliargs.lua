@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jul 17 15:15:29 2013 mstenber
--- Last modified: Fri Jul 19 10:29:09 2013 mstenber
--- Edit time:     68 min
+-- Last modified: Fri Jul 19 17:08:37 2013 mstenber
+-- Edit time:     76 min
 --
 
 -- My variant on CLI argument parsing.
@@ -41,7 +41,7 @@
 -- [,default='default value']
 -- [,min=N]
 -- [,max=N]}...}
-    
+
 -- note: All options should have name, except for one. 
 
 -- TODO:
@@ -199,9 +199,17 @@ function cli:init()
       local p1 = option_to_prefix_i(opt, opt.name)
       local p2 = option_to_prefix_i(opt, opt.alias)
       table.insert(pl, {p1, opt})
+      if not opt.flag
+      then
+         table.insert(pl, {option_to_prefix_i(opt, opt.name, ''), opt})
+      end
       if #p2 > 0
       then
          table.insert(pl, {p2, opt})
+         if not opt.flag
+         then
+            table.insert(pl, {option_to_prefix_i(opt, opt.alias, '', opt)})
+         end
       end
    end
    table.sort(pl, function (o1, o2)
@@ -234,44 +242,72 @@ function cli:parse()
    local r = {}
 
    local had_error
-   for i, arg in ipairs(self.args)
-   do
-      local found
-      for i, v in ipairs(self.pl)
-      do
-         local p, opt = unpack(v)
-         found = mst.string_startswith(arg, p)
-         mst.d('considering', arg, p, opt)
-         if found
+   local topt
+   local function _to_opt(found, opt)
+      local n = opt.name or opt.value
+      if opt.min or opt.max
+      then
+         local l = r[n] or {}
+         r[n] = l
+         table.insert(l, found)
+      else
+         if r[n]
          then
-            mst.d('matched', arg, opt, found)
-            -- store the value, if applicable
-            local n = opt.name or opt.value
-            if opt.flag
-            then
-               r[n] = true
-            elseif opt.min or opt.max
-            then
-               local l = r[n] or {}
-               r[n] = l
-               table.insert(l, found)
-            else
-               if r[n]
-               then
-                  print('multiple instances of option', n)
-                  had_error = true
-               else
-                  r[n] = found
-               end
-            end
-            break
+            print('multiple instances of option', n)
+            had_error = true
+         else
+            r[n] = found
          end
       end
-      if not found
+   end
+   for i, arg in ipairs(self.args)
+   do
+      if topt
       then
-         print('unable to parse', arg)
-         had_error = true
+         _to_opt(arg, topt)
+         topt = nil
+      else
+         local found
+         for i, v in ipairs(self.pl)
+         do
+            local p, opt = unpack(v)
+            found = mst.string_startswith(arg, p)
+            mst.d('considering', arg, p, opt)
+            if found
+            then
+               mst.d('matched', arg, opt, found)
+               -- store the value, if applicable
+               local n = opt.name or opt.value
+               if opt.flag
+               then
+                  r[n] = true
+               else
+                  -- there are 3 forms for non opt.flag ones
+                  -- "--flag=value"
+                  -- "--flag" "value"
+                  -- and "value"
+                  if opt.name and string.sub(p, #p) ~= '='
+                  then
+                     topt = opt
+                     found = true
+                     break
+                  end
+                  _to_opt(found, opt)
+               end
+               break
+            end
+         end
+         if not found
+         then
+            print('unable to parse', arg)
+            had_error = true
+         end
       end
+   end
+   if topt
+   then
+      print('trailing option', topt.name)
+      had_error = true
    end
    for i, opt in ipairs(self.opts)
    do
