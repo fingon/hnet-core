@@ -63,6 +63,12 @@ also should never proactively maintain any cache records due to that..
 
 * HP/DNS - Improvements
 
+** DNS server - LLQ support
+
+Currently as Apple allows for it only if and only if IPv4 global is
+available (either directly, or via NAT-PMP), I don't personally need
+it. However, it would be nice to have at some point.
+
 ** HP - profile why it's such CPU hog
 
 *** get rid of double decode in inbound packet processing 
