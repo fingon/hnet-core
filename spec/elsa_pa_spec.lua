@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Fri Jul 19 20:19:11 2013 mstenber
--- Edit time:     491 min
+-- Last modified: Sat Jul 20 21:06:49 2013 mstenber
+-- Edit time:     493 min
 --
 
 require 'mst'
@@ -93,6 +93,10 @@ describe("elsa_pa [one node, no config]", function ()
                                            skv=s,
                                            rid='myrid'}
                   ep:run()
+                  ep:lsa_changed{rid=ep.rid, type=1}
+                  ep:lsa_changed{rid=false, type=1}
+                  ep:lsa_changed{rid=ep.rid, type=elsa_pa.AC_TYPE}
+                  ep:lsa_changed{rid=false, type=elsa_pa.AC_TYPE}
                   mst.a(not ep.pa)
                   ep:done()
                   s:done()
