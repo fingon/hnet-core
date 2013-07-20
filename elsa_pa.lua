@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Fri Jul 19 19:50:41 2013 mstenber
--- Edit time:     1069 min
+-- Last modified: Sat Jul 20 21:02:39 2013 mstenber
+-- Edit time:     1070 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -269,13 +269,13 @@ end
 function elsa_pa:reconfigure_pa(v)
    self:d('reconfigure_pa')
    v = v or self.pa_config
+   self.pa_config = v
+   self:init_own()
    if not v
    then
       self:d(' skipped, no config yet')
       return 
    end
-   self.pa_config = v
-   self:init_own()
    self:init_pa()
 end
 
