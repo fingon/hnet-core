@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 16 14:06:16 2013 mstenber
--- Last modified: Wed Jul 24 22:59:26 2013 mstenber
--- Edit time:     24 min
+-- Last modified: Wed Jul 24 23:12:33 2013 mstenber
+-- Edit time:     29 min
 --
 
 -- This is a server instance controller, which maintains per-ip
@@ -39,6 +39,10 @@ per_ip_server = mst.create_class{class='per_ip_server',
 
 function per_ip_server:init()
    self.servers = {}
+end
+
+function per_ip_server:repr_data()
+   return mst.repr{servers=mst.table_count(self.servers)}
 end
 
 function per_ip_server:uninit()
@@ -76,9 +80,10 @@ function per_ip_server:set_ips(l)
    if fails
    then
       self:d('failures', fails, 'retrying in a second')
-      local t = ss:new_timeout_delta(1, function ()
-                                        self:set_ips(l)
-                                        end)
+      local t = ssloop.loop():new_timeout_delta(1, function ()
+                                                   self:d('retry callback')
+                                                   self:set_ips(l)
+                                                   end)
       t:start()
    end
 
