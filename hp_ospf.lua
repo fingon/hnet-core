@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Thu Jul 18 16:01:03 2013 mstenber
--- Edit time:     126 min
+-- Last modified: Wed Jul 24 22:36:36 2013 mstenber
+-- Edit time:     132 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -239,6 +239,22 @@ end
 
 function hybrid_ospf:get_ip()
    -- find _one_ ip that matches us
+   local found
+   -- IPv6 address
+   for i, lap in ipairs(self.lap or {})
+   do
+      local ip = lap.address
+      if ip and not ipv6s.address_is_ipv4(ip) and self.lap_filter(lap)
+      then
+         -- strip prefix, just in case
+         --ip = mst.string_split(ip, '/')[1]
+         self:a(not ip or not string.find(ip, '/'), 
+                'ip should not be prefix', ip)
+         self:d('got ip', ip)
+         return ip
+      end
+   end
+   -- any address if no IPv6 available
    for i, lap in ipairs(self.lap or {})
    do
       local ip = lap.address
