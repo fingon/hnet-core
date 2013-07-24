@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 16 14:06:16 2013 mstenber
--- Last modified: Wed Jul 24 23:12:33 2013 mstenber
--- Edit time:     29 min
+-- Last modified: Wed Jul 24 23:18:35 2013 mstenber
+-- Edit time:     30 min
 --
 
 -- This is a server instance controller, which maintains per-ip
@@ -42,7 +42,7 @@ function per_ip_server:init()
 end
 
 function per_ip_server:repr_data()
-   return mst.repr{servers=mst.table_count(self.servers)}
+   return mst.repr{servers=self.servers and mst.table_count(self.servers) or nil}
 end
 
 function per_ip_server:uninit()
