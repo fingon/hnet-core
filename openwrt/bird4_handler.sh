@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Tue Jun 25 10:05:09 2013 mstenber
-# Edit time:     18 min
+# Last modified: Wed Jul 24 22:38:12 2013 mstenber
+# Edit time:     19 min
 #
 
 # Start or stop bird4 (for 'home' routing)
@@ -34,9 +34,8 @@ start() {
 cat > $CONF <<EOF
 
 #log "/tmp/bird4.log" all;
-log syslog all;
-
-debug protocols {states, routes, filters, interfaces, events, packets};
+#log syslog all;
+#debug protocols {states, routes, filters, interfaces, events, packets};
 
 router id $RID;
 
