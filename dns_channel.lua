@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Wed Jun 26 17:22:12 2013 mstenber
--- Edit time:     187 min
+-- Last modified: Wed Jul 24 22:58:29 2013 mstenber
+-- Edit time:     188 min
 --
 
 -- DNS channels is an abstraction between two entities that speak DNS,
@@ -304,7 +304,10 @@ function get_udp_channel(self)
    self.port = self.port or dns_const.PORT 
    mst.d('creating udp socket [get_udp_channel]', self)
    local udp_s, err = scb.create_udp_socket(self)
-   mst.a(udp_s, 'unable to create udp socket', err)
+   if not udp_s
+   then
+      return nil, 'unable to create udp socket ' .. mst.repr(err)
+   end
    return udp_channel:new{s=udp_s}
 end
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 16 14:06:16 2013 mstenber
--- Last modified: Thu May 30 14:42:36 2013 mstenber
--- Edit time:     21 min
+-- Last modified: Wed Jul 24 22:59:26 2013 mstenber
+-- Edit time:     24 min
 --
 
 -- This is a server instance controller, which maintains per-ip
@@ -54,6 +54,7 @@ function per_ip_server:set_ips(l)
 
    -- convert to a set
    local s = mst.array_to_table(l)
+   local fails
    mst.sync_tables(self.servers, s,
                    -- remove
                    function (k, o)
@@ -62,9 +63,24 @@ function per_ip_server:set_ips(l)
                    end,
                    -- add
                    function (k, o)
-                      self.servers[k] = self.create_callback(k)
+                      local s = self.create_callback(k)
+                      if s
+                      then
+                         self.servers[k] = s
+                      else
+                         fails = fails or 0
+                         fails = fails + 1
+                      end
                    end
                   )
+   if fails
+   then
+      self:d('failures', fails, 'retrying in a second')
+      local t = ss:new_timeout_delta(1, function ()
+                                        self:set_ips(l)
+                                        end)
+      t:start()
+   end
 
 end
 

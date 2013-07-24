@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Apr 29 18:16:53 2013 mstenber
--- Last modified: Mon May 20 20:49:21 2013 mstenber
+-- Last modified: Wed Jul 24 22:56:32 2013 mstenber
 -- Edit time:     124 min
 --
 
@@ -114,6 +114,10 @@ function dns_proxy:init()
    -- create UDP channel
    local udp_c = dns_channel.get_udp_channel{ip=self.ip, 
                                              port=self:get_udp_port()}
+   if not udp_c
+   then
+      return
+   end
    -- and then associate handler with it
    self.udp = handler:new{c=udp_c, process_callback=self.process_callback, tcp=false}
    self.udp:start()

@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Fri Jul 19 10:30:30 2013 mstenber
+-- Last modified: Wed Jul 24 22:56:38 2013 mstenber
 -- Edit time:     68 min
 --
 
@@ -120,8 +120,10 @@ end
 
 local pis = per_ip_server.per_ip_server:new{
    create_callback=function (ip)
-      return dns_proxy.dns_proxy:new{ip=ip, 
-                                     process_callback=cb}
+      local o = dns_proxy.dns_proxy:new{ip=ip, 
+                                        process_callback=cb}
+      if not o.udp then return end
+      return o
    end}
 
 if mst.enable_debug
