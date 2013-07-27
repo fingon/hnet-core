@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Wed Jul 24 22:56:38 2013 mstenber
--- Edit time:     68 min
+-- Last modified: Sat Jul 27 21:16:21 2013 mstenber
+-- Edit time:     69 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -142,7 +142,7 @@ then
       local label = hp:rid2label(hp.rid)
       mdns:update_own_records_from_ospf_lap(label, hp.lap)
    end
-   local s = skv.skv:new{long_lived=false}
+   local s = skv.skv:new{long_lived=false, auto_retry=true}
    mdns:attach_skv(s, hp_ospf.valid_lap_filter)
    hp:attach_skv(s)
    pis:attach_skv(s, hp_ospf.valid_lap_filter)
