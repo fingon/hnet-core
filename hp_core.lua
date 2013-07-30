@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Fri Jul 19 10:17:42 2013 mstenber
--- Edit time:     493 min
+-- Last modified: Tue Jul 30 13:50:26 2013 mstenber
+-- Edit time:     504 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -100,6 +100,16 @@ hybrid_proxy = _dns_server:new_subclass{class='hybrid_proxy',
                                         },
                                         events={'rid_changed'},
                                        }
+
+function hybrid_proxy:init()
+   -- superclass init
+   _dns_server.init(self)
+
+   -- currently pending list of operations; they're indexed with
+   -- mst.repr of {q, is_tcp} and resulting array contains done-flag +
+   -- result value (may be nil)
+   self.forward_ops = {}
+end
 
 function create_default_forward_ext_node_callback(o)
    local n = dns_tree.create_node_callback(o)
@@ -365,13 +375,28 @@ function hybrid_proxy:iterate_usable_prefixes(f)
 end
 
 function hybrid_proxy:forward(req, server)
-   local timeout = FORWARD_TIMEOUT
-   local nreq = dns_channel.msg:new{binary=req:get_binary(),
-                                    ip=server,
-                                    tcp=req.tcp}
-   local got = nreq:resolve(timeout)
+   local key = mst.repr{qd=req:get_msg().qd, 
+                        tcp=req.tcp, 
+                        ip=server}
+   local v = self.forward_ops[key]
+   if not v
+   then
+      v = {false, nil}
+      self.forward_ops[key] = v
+      local timeout = FORWARD_TIMEOUT
+      local nreq = dns_channel.msg:new{binary=req:get_binary(),
+                                       ip=server,
+                                       tcp=req.tcp}
+      v[2] = nreq:resolve(timeout)
+      v[1] = true
+      self.forward_ops[key] = nil
+   end
+   -- yield the coroutine; eventually we should be done
+   coroutine.yield(function () return v[1] end)
+   local got = v[2]
    if got
    then
+      got = mst.table_copy(v[2])
       -- copy some bits so that we forward response to right address
       got.ip = req.ip
       got.port = req.port
