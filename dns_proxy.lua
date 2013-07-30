@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Apr 29 18:16:53 2013 mstenber
--- Last modified: Wed Jul 24 22:56:32 2013 mstenber
--- Edit time:     124 min
+-- Last modified: Tue Jul 30 16:22:41 2013 mstenber
+-- Edit time:     129 min
 --
 
 -- This is minimalist DNS proxy implementation.
@@ -74,11 +74,13 @@ function handler:loop()
    while true
    do
       -- subclass responsibility
-      local r, src = self:read_request()
+      local r, err = self:read_request()
       if self.stopped then return end
       if r
       then
-         scr.run(self.handle_request, self, r, src)
+         scr.run(self.handle_request, self, r)
+      else
+         self:d('error reading', err)
       end
    end
 end
@@ -87,16 +89,15 @@ function handler:handle_request(msg, src)
    self:d('handle_request', msg, src)
 
    -- call the callback
-   local reply, dst = self.process_callback(msg, src, self.tcp)
-   dst = dst or src
+   local reply = self.process_callback(msg, src, self.tcp)
 
    if self.stopped then return end
    if reply
    then
-      self:d('sending reply', reply, dst)
-      self.c:send(reply, dst)
+      self:d('sending reply', reply)
+      self.c:send(reply)
    else
-      self:d('error occurred?', dst)
+      self:d('error occurred?')
    end
 end
 

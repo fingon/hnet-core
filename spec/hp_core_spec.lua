@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Thu Jun 27 17:17:45 2013 mstenber
--- Edit time:     379 min
+-- Last modified: Tue Jul 30 16:47:55 2013 mstenber
+-- Edit time:     406 min
 --
 
 require 'busted'
@@ -611,6 +611,95 @@ describe("hybrid_proxy", function ()
                                end,
                                assert_cmsg_result_equals)
                                                   end)
+            it("forward is sane #forward", function ()
+                  -- few different cases here, I'm sure; however, try
+                  -- to test them out anyway.
+
+                  -- stick in N requests, get M forwarded, get N
+                  -- replies (with corrent ids and qd)
+
+                  -- use default forward instead of the fake forward
+                  hp.forward = hp_core.hybrid_proxy.forward
+
+                  local rid = 0
+                  local pending = 0
+                  local results = {}
+                  function _test_one(name, server, tcp)
+                     pending = pending + 1
+                     rid = rid + 1
+                     local myrid = rid
+                     scr.run(function ()
+                                local dummy_msg = dns_channel.msg:new_subclass{class='dummy_msg'}
+                                function dummy_msg:resolve()
+                                   coroutine.yield(function ()
+                                                      mst.d('waiting rid', myrid)
+                                                      return results[myrid]
+                                                   end)
+                                   return results[myrid]
+                                end
+                                function nreq_callback(o)
+                                   return dummy_msg:new(o)
+                                end
+                                local msg = {h={id=myrid},
+                                             qd={{name={name}}}
+                                }
+                                local req = dns_channel.msg:new{port=123,
+                                                                ip=myrid,
+                                                                msg=msg,
+                                                                tcp=tcp,
+                                                               }
+                                local reply = hp:forward(req, server, nreq_callback)
+                                mst.a(reply, 'no response from hp:forward')
+
+                                mst.a(reply.ip == req.ip, 
+                                      'ip mismatch', req.ip, reply.ip)
+                                mst.a(reply.port == req.port, 
+                                      'port mismatch', req.ip, reply.ip)
+                                mst.a(reply:get_msg().h.id == req:get_msg().h.id)
+                                pending = pending - 1
+                             end)
+                  end
+
+                  -- twice same
+                  _test_one('foo', '1.2.3.4', false) -- 1
+                  scr.get_scr():poll()
+                  _test_one('foo', '1.2.3.4', false) -- 2
+
+
+                  -- different q
+                  _test_one('bar', '1.2.3.4', false) -- 3
+                  scr.get_scr():poll()
+                  
+
+                  -- different ip
+                  _test_one('foo', '1.2.3.5', false) -- 4
+                  scr.get_scr():poll()
+
+                  -- different tcp flag
+                  _test_one('bar', '1.2.3.4', true) -- 5
+                  scr.get_scr():poll()
+
+                  -- third same
+                  _test_one('foo', '1.2.3.4', false) -- 6
+
+                  -- 1, 3, 4, 5 should occur, the rest not
+                  -- (2, 6 = duplicates)
+                  for i, v in ipairs{1,3,4,5}
+                  do
+                     results[v] = dns_channel.msg:new{msg={h={id=v}}}
+                  end
+
+                  mst.d('entering wait')
+                  
+                  local iter = 0
+                  while pending > 0
+                  do
+                     scr.get_scr():poll()
+                     iter = iter + 1
+                     mst.a(iter < 100, 'stalled')
+                  end
+                  
+                   end)
             it("dns->mdns->reply flow works #flow", function ()
                   -- these are most likely the most complex samples -
                   -- full message interaction 

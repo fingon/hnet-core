@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Tue Jul 30 15:24:53 2013 mstenber
--- Edit time:     509 min
+-- Last modified: Tue Jul 30 16:50:01 2013 mstenber
+-- Edit time:     522 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -374,7 +374,12 @@ function hybrid_proxy:iterate_usable_prefixes(f)
                     end)
 end
 
-function hybrid_proxy:forward(req, server)
+local function default_nreq_callback(o)
+   return dns_channel.msg:new{o}
+end
+
+function hybrid_proxy:forward(req, server, nreq_callback)
+   nreq_callback = nreq_callback or default_nreq_callback
    local key = mst.repr{qd=req:get_msg().qd, 
                         tcp=req.tcp, 
                         ip=server}
@@ -382,29 +387,32 @@ function hybrid_proxy:forward(req, server)
    local got
    if not v
    then
-      v = {false, nil}
+      self:d('no op key', key)
+      v = {false}
       self.forward_ops[key] = v
       local timeout = FORWARD_TIMEOUT
-      local nreq = dns_channel.msg:new{binary=req:get_binary(),
-                                       ip=server,
-                                       tcp=req.tcp}
+      local nreq 
+      nreq = nreq_callback{binary=req:get_binary(),
+                           ip=server,
+                           tcp=req.tcp}
       got = nreq:resolve(timeout)
       if got
       then
-         v[2] = got.binary
+         v[2] = got:get_binary()
+      else
+         self:d('request failed for op key', key)
       end
       v[1] = true
       self.forward_ops[key] = nil
    else
+      self:d('waiting for op key', key)
+
       -- yield the coroutine; eventually we should be done
       coroutine.yield(function () return v[1] end)
       local got_binary = v[2]
       if got_binary
       then
-         got = dns_channel.msg:new{binary=got_binary,
-                                   ip=req.ip,
-                                   port=req.port,
-                                   tcp=req.tcp}
+         got = nreq_callback{binary=got_binary}
          -- change the id
          local msg = got:get_msg()
 
@@ -412,13 +420,22 @@ function hybrid_proxy:forward(req, server)
          -- request and handle the binary payload response only
          if not msg
          then
-            return self:forward(req, server)
+            self:d('unable to decode message', msg)
+            return self:forward(req, server, nreq_callback)
          end
          -- copy the id
          self:a(msg.h.id, 'no id in msg?!?', msg)
          msg.h.id = req:get_msg().h.id
          got.binary = nil
+      else
+         self:d('request failed for op key', key, v)
       end
+   end
+   if got
+   then
+      got.ip=req.ip
+      got.port=req.port
+      got.tcp=req.tcp
    end
    return got
 end
