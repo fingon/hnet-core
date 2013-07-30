@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov 21 17:13:32 2012 mstenber
--- Last modified: Fri Jul 19 20:07:16 2013 mstenber
--- Edit time:     114 min
+-- Last modified: Tue Jul 30 13:31:10 2013 mstenber
+-- Edit time:     117 min
 --
 
 require 'pm_handler'
@@ -123,12 +123,20 @@ function pm_dnsmasq:write_dnsmasq_conf_dns(t)
       end
       if #l4 > 0
       then
+         -- just use one address, arbitrarily chosen (XXX - better
+         -- heuristic) a lot of addresses just causes clients to
+         -- bombard us needlessly
+         l4 = {l4[1]}
          local s = table.concat(l4, ',')
          mst.d('adding dns-server option', s)
          t:insert('dhcp-option=option:dns-server,' .. s)
       end
       if #l6 > 0
       then
+         -- just use one address, arbitrarily chosen (XXX - better
+         -- heuristic) a lot of addresses just causes clients to
+         -- bombard us needlessly
+         l6 = {l6[1]}
          -- add []s around addresses
          local s = table.concat(mst.array_map(l6,
                                               function (s)
