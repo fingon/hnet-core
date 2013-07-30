@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Tue Jul 30 16:50:01 2013 mstenber
--- Edit time:     522 min
+-- Last modified: Tue Jul 30 16:58:12 2013 mstenber
+-- Edit time:     524 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -375,7 +375,7 @@ function hybrid_proxy:iterate_usable_prefixes(f)
 end
 
 local function default_nreq_callback(o)
-   return dns_channel.msg:new{o}
+   return dns_channel.msg:new(o)
 end
 
 function hybrid_proxy:forward(req, server, nreq_callback)
