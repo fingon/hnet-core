@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Tue Jul 30 16:47:55 2013 mstenber
--- Edit time:     406 min
+-- Last modified: Tue Jul 30 16:54:17 2013 mstenber
+-- Edit time:     407 min
 --
 
 require 'busted'
@@ -698,7 +698,9 @@ describe("hybrid_proxy", function ()
                      iter = iter + 1
                      mst.a(iter < 100, 'stalled')
                   end
-                  
+
+                  scr.clear_scr()
+
                    end)
             it("dns->mdns->reply flow works #flow", function ()
                   -- these are most likely the most complex samples -
