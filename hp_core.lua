@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Tue Jul 30 13:50:26 2013 mstenber
--- Edit time:     504 min
+-- Last modified: Tue Jul 30 14:53:41 2013 mstenber
+-- Edit time:     506 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -397,6 +397,8 @@ function hybrid_proxy:forward(req, server)
    if got
    then
       got = mst.table_copy(v[2])
+      -- copy the metatable to the new table too
+      setmetatable(got, getmetatable(v[2]))
       -- copy some bits so that we forward response to right address
       got.ip = req.ip
       got.port = req.port
