@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Tue Jul 30 14:53:41 2013 mstenber
--- Edit time:     506 min
+-- Last modified: Tue Jul 30 15:24:53 2013 mstenber
+-- Edit time:     509 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -379,6 +379,7 @@ function hybrid_proxy:forward(req, server)
                         tcp=req.tcp, 
                         ip=server}
    local v = self.forward_ops[key]
+   local got
    if not v
    then
       v = {false, nil}
@@ -387,22 +388,37 @@ function hybrid_proxy:forward(req, server)
       local nreq = dns_channel.msg:new{binary=req:get_binary(),
                                        ip=server,
                                        tcp=req.tcp}
-      v[2] = nreq:resolve(timeout)
+      got = nreq:resolve(timeout)
+      if got
+      then
+         v[2] = got.binary
+      end
       v[1] = true
       self.forward_ops[key] = nil
-   end
-   -- yield the coroutine; eventually we should be done
-   coroutine.yield(function () return v[1] end)
-   local got = v[2]
-   if got
-   then
-      got = mst.table_copy(v[2])
-      -- copy the metatable to the new table too
-      setmetatable(got, getmetatable(v[2]))
-      -- copy some bits so that we forward response to right address
-      got.ip = req.ip
-      got.port = req.port
-      got.tcp = req.tcp
+   else
+      -- yield the coroutine; eventually we should be done
+      coroutine.yield(function () return v[1] end)
+      local got_binary = v[2]
+      if got_binary
+      then
+         got = dns_channel.msg:new{binary=got_binary,
+                                   ip=req.ip,
+                                   port=req.port,
+                                   tcp=req.tcp}
+         -- change the id
+         local msg = got:get_msg()
+
+         -- decode failure; due to transparency, we should just re-do
+         -- request and handle the binary payload response only
+         if not msg
+         then
+            return self:forward(req, server)
+         end
+         -- copy the id
+         self:a(msg.h.id, 'no id in msg?!?', msg)
+         msg.h.id = req:get_msg().h.id
+         got.binary = nil
+      end
    end
    return got
 end
