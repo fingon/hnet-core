@@ -1,0 +1,150 @@
+-*- outline -*-
+
+Created:       Mon Sep  2 12:16:05 2013 mstenber
+Last modified: Mon Sep  2 15:09:37 2013 mstenber
+Edit time:     50 min
+
+(File best viewed in Emacs outline mode.. ;>)
+
+This is a brief note (201309..) about what we need to change in a system,
+what state we need to pass among the participating daemons, and what we
+should be notified about if it changes in the system.
+
+Pretty much all of the data we handle is ~dynamic, that is, it changes per
+boot of the system, if not more often (received usable prefixes, assigned
+prefixes, etc).
+
+* Current architecture
+
+We have bird6-ext-lsa, which has external LSA handling code support in
+Lua. That communicates with pm.lua, central daemon for doing 'stuff', and
+then there's also hp.lua which implements assorted hybrid proxy drafts (and
+works as DNS forwarder as hybrid proxy and DNS forwarder seem fairly
+closely interrelated).
+
+Communication _within_ hnet is done via 'skv', very simple (distributed)
+key-value store I wrote for this effort. It could be replaced with
+something else (the contents are just string key = JSON object value after
+all).
+
+* Interactions with rest of system
+
+Ideally, pm.lua would not exist at all; instead, routing daemon would call
+some utility scripts or use IPC such as ubus, which would do
+platform-dependant bits. 
+
+** Changing the system state (all within pm.lua)
+
+*** start/stop bird4 (pm_bird4.lua / bird4_handler.sh)
+
+We don't do IPv4 routing always. I guess we _could_ assume someone sets up
+routing on their own, though. (We set it up once we detect v4 available in
+local network's OSPFv3 AC.)
+
+*** configure/start/stop dnsmasq (pm_dnsmasq.lua)
+
+We provide dynamic configuration for following things (based on
+bird6/hybrid proxy information):
+
+- IPv4/IPv6 DNS search path list (dhcp-option=option:domain-search{,6},..)
+
+- IPv4/IPv6 DNS servers (dhcp-option=option:dns-server{,6},..)
+
+- prefixes 
+
+ prefix classes (dhcp-prefix-class=..)
+
+ IPv4 prefix (typically 10.*/8) (dhcp-range=... )
+
+ IPv6 prefix(es) (dhcp-range=... )
+
+*** play with leds (pm_led.lua)
+
+Currently based on pd state / global IPv6 address being available we fire
+up led handling script
+
+*** set up IPv4 addresses on interfaces (pm_v4_addr.lua)
+
+Using linux_if.lua, we wind up calling just 'ifconfig' to set up IPv4
+address on interfaces. 
+
+
+*** start/stop IPv4 dhclient (pm_v4_dhclient.lua / dhclient_handler.sh)
+
+If and only if we detect PD assignment on interface, we also start IPv4
+dhclient there.
+
+*** start(/stop) IPv6 dhcp (pm_v6_dhclient.lua / dhclient6_handler.sh)
+
+By default, we keep odhcp6c running on every (running) interface.
+
+*** listen/do not listen to router advertisements (pm_v6_listen_ra.lua / listen_ra_handler.sh)
+
+We set accept_ra for _external_ interfaces to 2, and 1 to others. If
+forwarding is enabled on interfaces, 1 does nothing. 
+
+Without RA, we don't know about default routes available in the external
+world. 
+
+*** set up IPv6 addresses on interfaces (pm_v6_route.lua)
+
+*** do the source-dest-routing thing with rules+routes (pm_v6_rule.lua)
+
+*** (ommitted - we don't use ISC dhcpd anymore) (pm_dhcpd.lua)
+*** (historic - deal with radvd - we use dnsmasq now) (pm_radvd.lua)
+
+
+** Getting notified about system state (bird6/pm.lua)
+
+*** DHCPv4 lease (+- 6rd)
+
+We provide our own handler script to ISC dhclient, which we use for DHCPv4
+case, which then updates skv (and then bird6 uses the information).
+
+DNS server, DNS domain search list, etc. is also handled here for
+per-interface information.
+
+*** DHCPv6 lease
+
+We provide our own handler script to odhcp6c, which we use for DHCPv6 case,
+which then updates skv (and then bird6 uses the information).
+
+DNS server, DNS domain search list, etc. is also handled here for
+per-interface information.
+
+*** interfaces' status
+
+.. we learn it mostly via BIRD anyway -> no need for anything here I think
+
+*** determine next hops learned from external RAs (pm_v6_nh.lua)
+
+We poll(!) external default routes that are received from the prevoius step
+every now and then. 
+
+
+* In-hnet code communication
+
+** bird6 -> hybrid proxy
+
+- router id (ospf 1.2.3.4)
+
+(prefix assignment draft)
+- usable prefixes
+- (locally) assigned prefixes
+
+ (hybrid proxy draft)
+- router name
+- (remote) hybrid proxy domain name
+- (remote) hybrid proxy zones
+- IPv{4,6} (external) DNS server address
+
+** hybrid proxy -> bird6
+
+ (hybrid proxy draft)
+- (local) hybrid proxy zones
+
+** hybrid proxy -> pm
+
+Hybrid proxy provides DNS domain search list to pm.lua, which is then
+provided to the clients using the configured dnsmasq.
+
