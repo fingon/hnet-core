@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Tue Jul 30 16:54:17 2013 mstenber
--- Edit time:     407 min
+-- Last modified: Tue Sep 24 16:52:19 2013 mstenber
+-- Edit time:     423 min
 --
 
 require 'busted'
@@ -413,6 +413,13 @@ local hp_process_tests = {
    }
 }
 
+function normalize_dns_message(m)
+   -- nil == nil
+   if not m then return end
+   -- otherwise, run it through encode+decode cycle
+   local b = dns_codec.dns_message:encode(m)
+   return dns_codec.dns_message:decode(b)
+end
 
 
 function assert_dns_result_equals(exp, got)
@@ -429,8 +436,11 @@ function assert_dns_result_equals(exp, got)
    mst.a(#got == 2, 'wrong #got', got)
    local gcmsg = got[2]
    mst.a(gcmsg and gcmsg.get_msg, 'missing cmsg', got)
-   local gmsg = gcmsg:get_msg()
-   mst.a(mst.repr_equal(gmsg, exp[2]), 'not same - exp/got', exp[2][1], gmsg)
+   local gmsg, err = gcmsg:get_msg()
+   local emsg = exp[2]
+   gmsg = normalize_dns_message(gmsg)
+   emsg = normalize_dns_message(emsg)
+   mst_test.assert_repr_equal(gmsg, emsg)
 end
 
 function clear_msg_ttls(msg)
@@ -451,7 +461,7 @@ function assert_cmsg_result_equals(exp, got)
    mst.a(got and got.get_msg, 'no got/get_msg', exp, got)
    clear_msg_ttls(exp)
    clear_msg_ttls(got:get_msg())
-   mst.a(mst.repr_equal(exp, got:get_msg()), 'not same - exp/got', exp, got)
+   mst_test.assert_repr_equal(exp, got:get_msg())
 end
 
 describe("hybrid_proxy", function ()
@@ -749,24 +759,16 @@ describe("hybrid_proxy", function ()
                         -- get rid of ttls
                         clear_msg_ttls(r)
 
-                        -- convert result to binary, and then back
-                        -- (=normalize it)
                         mst.d('normalizing', r)
-                        local b = dns_codec.dns_message:encode(r)
-                        r = dns_codec.dns_message:decode(b)
                      end
+                     r = normalize_dns_message(r)
                      return r
                   end
 
                   function canonize_output(o)
                      mst.a(#o <= 2, 'wrong o', o)
                      local input, output = unpack(o)
-                     if output
-                     then
-                        mst.d('converting', output)
-                        local b = dns_codec.dns_message:encode(output)
-                        output = dns_codec.dns_message:decode(b)
-                     end
+                     output = normalize_dns_message(output)
                      return {input, output}
                   end
 
