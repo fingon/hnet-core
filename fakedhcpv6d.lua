@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Feb 21 11:47:15 2013 mstenber
--- Last modified: Wed Jul 17 16:48:09 2013 mstenber
--- Edit time:     71 min
+-- Last modified: Wed Sep 25 11:15:49 2013 mstenber
+-- Edit time:     73 min
 --
 
 -- This is very, very minimal fake DHCPv6 PD server; what it does, is
@@ -110,11 +110,10 @@ function o.callback(data, src, srcport)
       then
          -- - copy O_CLIENTID
          table.insert(o2, v)
-      end
-      if v.option == dhcpv6_const.O_IA_PD
+      elseif v.option == dhcpv6_const.O_IA_PD
       then
-         local pref = args.pref or v.t1
-         local valid = args.valid or v.t2
+         local pref = tonumber(args.pref) or v.t1
+         local valid = tonumber(args.valid) or v.t2
          local v2 = {option=v.option,
                      iaid=v.iaid,
                      t1=pref / 2,
