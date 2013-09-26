@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:43:00 2013 mstenber
--- Last modified: Thu May  9 13:10:17 2013 mstenber
--- Edit time:     13 min
+-- Last modified: Thu Sep 26 17:30:59 2013 mstenber
+-- Edit time:     17 min
 --
 
 -- eventful class which provides concept of 'events' (ripped out of
@@ -54,19 +54,25 @@ function event:has_observers()
    return not mst.table_is_empty(self.observers)
 end
 
-function event:add_observer(o)
-   self.observers[o] = true
+function event:add_observer(f, o)
+   o = o or false
+   self.observers[f] = o
 end
 
-function event:remove_observer(o)
-   self:a(self.observers[o], 'observer missing', o)
-   self.observers[o] = nil
+function event:remove_observer(f)
+   self:a(self.observers[f] ~= nil, 'observer missing', f)
+   self.observers[f] = nil
 end
 
 function event:update(...)
-   for k, _ in pairs(self.observers)
+   for f, o in pairs(self.observers)
    do
-      k(...)
+      if o
+      then
+         f(o, ...)
+      else
+         f(...)
+      end
    end
 end
 
@@ -110,7 +116,7 @@ function eventful:uninit()
    end
 end
 
-function eventful:connect(ev, fun)
+function eventful:connect(ev, fun, o)
    self:a(ev, 'null event')
    self:a(fun, 'null fun')
    self:a(type(ev) == 'table', 'event not table', type(ev), ev, fun)
@@ -128,13 +134,10 @@ function eventful:connect(ev, fun)
    table.insert(t, fun)
 
    -- then call the event itself to add the observer
-   ev:add_observer(fun)
+   ev:add_observer(fun, o)
 end
 
 function eventful:connect_method(ev, fun)
-   local f = function (...)
-      fun(self, ...)
-   end
-   self:connect(ev, f)
+   self:connect(ev, fun, self)
 end
 
