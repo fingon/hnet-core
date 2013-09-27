@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Wed Jun 12 14:46:13 2013 mstenber
--- Edit time:     573 min
+-- Last modified: Fri Sep 27 12:19:23 2013 mstenber
+-- Edit time:     594 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -146,15 +146,6 @@ function pm:init()
    end
 
    -- post-init activities
-
-   if self.disable_led
-   then
-      -- disable led updates (but run rest of logic so we hit bugs, if any)
-      local o = self:service_name_to_service('led')
-      self:a(o, 'no led service?')
-      self:a(o.enabled)
-      o.enabled = false
-   end
 
    self:connect_changed('v6_route', 'radvd')
    self:connect_changed('v6_nh', 'v6_rule')
