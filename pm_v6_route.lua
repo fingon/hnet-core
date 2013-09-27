@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:48:34 2012 mstenber
--- Last modified: Fri Jul 19 20:08:43 2013 mstenber
--- Edit time:     22 min
+-- Last modified: Thu Sep 26 17:55:28 2013 mstenber
+-- Edit time:     24 min
 --
 
 -- pm_v6_route is responsible for syncing the real state to
@@ -24,7 +24,17 @@ module(..., package.seeall)
 
 local ipv4_end='/24' -- as it's really v4 looking string
 
-pm_v6_route = pm_handler.pm_handler_with_pa:new_subclass{class='pm_v6_route'}
+local _phwpa = pm_handler.pm_handler_with_pa
+
+pm_v6_route = _phwpa:new_subclass{class='pm_v6_route'}
+
+function pm_v6_route:init()
+   -- superclass init
+   _phwpa.init(self)
+   
+   -- connect our changed to v6_addr_changed
+   self.pm:connect_event(self.changed, self.pm.v6_addr_changed)
+end
 
 local function laplist_to_map(l)
    local t = mst.map:new{}

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Wed Jun 12 14:46:13 2013 mstenber
--- Edit time:     573 min
+-- Last modified: Fri Sep 27 12:17:56 2013 mstenber
+-- Edit time:     594 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -30,7 +30,6 @@ require 'linux_if'
 require 'os'
 require 'pa'
 
-
 module(..., package.seeall)
 
 PID_DIR='/var/run'
@@ -45,6 +44,17 @@ DEFAULT_FILENAMES={radvd_conf_filename='radvd.conf',
 
 pm = mst.create_class{class='pm',
                       mandatory={'skv', 'shell'},
+                      events={'usp_changed', -- usp info blob
+                              'lap_changed', -- lap info blob
+                              'skv_changed', -- key, value (some other one)
+                              'config_changed', -- config info blob
+
+                              -- provided by pm_v6_route
+                              'v6_addr_changed', -- (no content?)
+
+                              -- provided by pm_v6_nh
+                              'v6_nh_changed', -- v6_nh dict
+                      },
                       time=os.time}
 
 function pm:service_name_to_service(name)
@@ -98,7 +108,6 @@ function pm:init()
    -- !!! These are in MOSTLY alphabetical order for the time being.
    -- DO NOT CHANGE THE ORDER (at least without fixing the pm_core_spec as well)
    self.handlers = mst.array:new{
-      'bird4',
       'dhcpd',
       'v4_addr',
       'v4_dhclient',
@@ -146,15 +155,6 @@ function pm:init()
    end
 
    -- post-init activities
-
-   if self.disable_led
-   then
-      -- disable led updates (but run rest of logic so we hit bugs, if any)
-      local o = self:service_name_to_service('led')
-      self:a(o, 'no led service?')
-      self:a(o.enabled)
-      o.enabled = false
-   end
 
    self:connect_changed('v6_route', 'radvd')
    self:connect_changed('v6_nh', 'v6_rule')
@@ -214,11 +214,6 @@ function pm:kv_changed(k, v)
       self.ospf_iflist = v
       -- may need to start/stop DHCPv6 PD clients
       self:queue('v6_dhclient')
-   elseif k == elsa_pa.OSPF_RID_KEY
-   then
-      --mst.a(v, 'empty rid not valid')
-      self.rid = v
-      self:queue('bird4')
    elseif k == elsa_pa.OSPF_LAP_KEY
    then
       -- reset cache
@@ -232,8 +227,6 @@ function pm:kv_changed(k, v)
       -- been using address range which is now depracated)
       self:queue('radvd')
       self:queue('dhcpd')
-      self:queue('bird4')
-
       if self.use_fakedhcpv6d
       then
          self:queue('fakedhcpv6d')
