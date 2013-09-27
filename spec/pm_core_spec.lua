@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Fri Jul 19 19:51:16 2013 mstenber
--- Edit time:     247 min
+-- Last modified: Fri Sep 27 12:28:25 2013 mstenber
+-- Edit time:     255 min
 --
 
 -- testsuite for the pm_core
@@ -50,6 +50,14 @@ local bird_start = {
 
 local bird_stop = {
    {'/usr/share/hnet/bird4_handler.sh stop', ''},
+}
+
+local led_pd_on = {
+   {'/usr/share/hnet/led_handler.sh pd 1', ''},
+}
+
+local led_global_on = {
+   {'/usr/share/hnet/led_handler.sh global 1', ''},
 }
 
 local dhcp4_start = {
@@ -268,7 +276,6 @@ describe("pm", function ()
                                                radvd_conf_filename=TEMP_RADVD_CONF,
                                                dhcpd_conf_filename=TEMP_DHCPD_CONF,
                                                dhcpd6_conf_filename=TEMP_DHCPD6_CONF,
-                                               disable_led=true,
                                               }
                         end)
             after_each(function ()
@@ -294,6 +301,8 @@ describe("pm", function ()
                               v6_route_start,
                               v6_rule_start,
                               radvd_restart,
+                              led_pd_on,
+                              led_global_on,
                                  }
                           )
 
@@ -318,7 +327,6 @@ describe("pm", function ()
                   pm = pm_core.pm:new{skv=s, shell=ds:get_shell(),
                                       dnsmasq_conf_filename=TEMP_DNSMASQ_CONF,
                                       use_dnsmasq=true,
-                                      disable_led=true,
                                      }
 
                   d:extend(unpack{
@@ -330,6 +338,8 @@ describe("pm", function ()
                               v6_dhclient_start,
                               v6_route_start,
                               v6_rule_start,
+                              led_pd_on,
+                              led_global_on,
                               dnsmasq_start,
                                  }
                           )
@@ -370,6 +380,8 @@ describe("pm", function ()
                               v6_route_start,
                               v6_rule_flush_no_nh, 
                               radvd_restart,
+                              led_pd_on,
+                              led_global_on,
                                  }
                           )
 
@@ -393,6 +405,8 @@ describe("pm", function ()
                                   v6_route_start,
                                   v6_rule_start,
                                   radvd_restart,
+                                  led_pd_on,
+                                  led_global_on,
                                  }
                           )
 
