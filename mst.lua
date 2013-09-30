@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Jul 17 12:01:42 2013 mstenber
--- Edit time:     737 min
+-- Last modified: Mon Sep 30 17:08:05 2013 mstenber
+-- Edit time:     738 min
 --
 
 -- data structure abstractions provided:
@@ -1537,9 +1537,9 @@ end
 
 -- these are defaults, provided here just so strict.lua is happy
 -- (we override them anyway shortly)
-create_hash=false
-create_hash_type=false
-hash_fast=false
+create_hash=nil
+create_hash_type=nil
+hash_fast=nil
 
 pcall(function ()
          local md5 = require 'md5'

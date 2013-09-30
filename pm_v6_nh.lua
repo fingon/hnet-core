@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:10:48 2012 mstenber
--- Last modified: Tue Jun 11 13:49:43 2013 mstenber
--- Edit time:     23 min
+-- Last modified: Mon Sep 30 17:41:05 2013 mstenber
+-- Edit time:     28 min
 --
 
 -- pm_v6_nh is responsible for maintaining the structure of the pm.nh,
@@ -23,13 +23,13 @@ require 'pm_v6_rule'
 
 module(..., package.seeall)
 
-pm_v6_nh = pm_handler.pm_handler:new_subclass{class='pm_v6_nh'}
+pm_v6_nh = pm_handler.pm_handler_with_pa:new_subclass{class='pm_v6_nh', nh={}}
 
 function pm_v6_nh:calculate_nh()
    -- if we don't have external links, not interested (only external
    -- ones matter)
    local nh = mst.multimap:new{}
-   local ext = self.pm:get_external_if_set()
+   local ext = self.usp:get_external_if_set()
    self:d('calculate_nh got ext ifs', ext)
    if ext and mst.table_count(ext) > 0
    then
@@ -58,15 +58,18 @@ end
 function pm_v6_nh:tick()
    local nh = self:calculate_nh()
 
-   if mst.repr_equal(nh, self.pm.nh)
+   if mst.repr_equal(nh, self.nh)
    then
       return
    end
 
    self:d('pm.nh updated', nh)
 
-   -- ok, a change => we change pm.nh and call changed()
+   self.nh = nh
 
-   self.pm.nh = nh
-   return 1
+   -- ok, a change => we change _pm.nh's method for propagating info
+   -- along (could have been just no-args-signal and some other way of
+   -- finding nh, but this is more readable - we provide the nh along,
+   -- just like in other *_changeds that pm_core provides)
+   self._pm.v6_nh_changed(nh)
 end

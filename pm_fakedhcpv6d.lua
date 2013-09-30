@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Feb 26 18:35:40 2013 mstenber
--- Last modified: Fri Jul 19 20:07:33 2013 mstenber
--- Edit time:     43 min
+-- Last modified: Mon Sep 30 15:35:02 2013 mstenber
+-- Edit time:     46 min
 --
 
 -- This is minimalist-ish DHCPv6 IA_NA handling daemon (and obviously,
@@ -37,14 +37,13 @@ require 'pm_radvd'
 
 module(..., package.seeall)
 
-local _pmh = pm_handler.pm_handler_with_pa
+local _parent = pm_handler.pm_handler_with_pa_dns
 
-pm_fakedhcpv6d = _pmh:new_subclass{class='pm_fakedhcpv6d',
-                                   port=dhcpv6_const.SERVER_PORT}
+pm_fakedhcpv6d = _parent:new_subclass{class='pm_fakedhcpv6d'}
 
 function pm_fakedhcpv6d:init()
    -- call superclass init
-   _pmh.init(self)
+   _parent.init(self)
 
    -- and initialize our listening socket
    self:init_socket()
@@ -55,8 +54,9 @@ function pm_fakedhcpv6d:uninit()
 end
 
 function pm_fakedhcpv6d:init_socket()
+   local port = self.config.dhcpv6_port or dhcpv6_const.SERVER_PORT
    local o, err = scb.new_udp_socket{ip='*', 
-                                     port=self.port,
+                                     port=port,
                                      callback=function (data, src, srcport)
                                         self:recvfrom(data, src, srcport)
                                      end,
@@ -70,7 +70,7 @@ end
 
 function pm_fakedhcpv6d:update_master_set()
    local master_if_set = mst.set:new{}
-   for i, lap in ipairs(self.pm.ospf_lap)
+   for i, lap in ipairs(self.lap)
    do
       if lap.owner and not lap.depracate
       then
@@ -178,7 +178,7 @@ function pm_fakedhcpv6d:recvfrom(data, src, srcport)
 
          -- basically, look at whatever we have on the interface; if
          -- it has prefix class, we provide it
-         for i, lap in ipairs(self.pm.ospf_lap)
+         for i, lap in ipairs(self.lap)
          do
             if lap.ifname == ifname and lap.pclass
             then
@@ -190,7 +190,7 @@ function pm_fakedhcpv6d:recvfrom(data, src, srcport)
                local b = b1 .. b2
                local a = ipv6s.binary_address_to_address(b)
 
-               local now = self.pm.time()
+               local now = self:time()
                local pref = pm_radvd.abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY], na.t1)
                local valid = pm_radvd.abs_to_delta(now, lap[elsa_pa.VALID_KEY], na.t2)
                local v3 = {option=dhcpv6_const.O_IAADDR,
@@ -214,14 +214,14 @@ function pm_fakedhcpv6d:recvfrom(data, src, srcport)
    end
    
    -- add DNS parameters if any
-   local dns = self.pm.ospf_dns 
+   local dns = self.ospf_dns 
    if dns and #dns > 0
    then
       local o3 = {option=dhcpv6_const.O_DNS_RNS}
       mst.array_extend(o3, dns)
       table.insert(o2, o3)
    end
-   local search = self.pm.ospf_dns_search
+   local search = self.ospf_dns_search
    if search and #search > 0
    then
       local o3 = {option=dhcpv6_const.O_DOMAIN_SEARCH}

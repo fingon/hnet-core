@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Fri Jul 19 19:39:38 2013 mstenber
--- Edit time:     43 min
+-- Last modified: Mon Sep 30 17:33:52 2013 mstenber
+-- Edit time:     44 min
 --
 
 -- 'prefix manager' (name still temporary)
@@ -89,7 +89,8 @@ s:set(elsa_pa.PA_CONFIG_SKV_KEY, config)
 
 mst.d('initializing pm')
 local pm = pm_core.pm:new{shell=mst.execute_to_string, skv=s,
-                          radvd='radvd -m logfile',
+                          config={radvd='radvd -m logfile',
+                          },
                           use_dnsmasq=args.dnsmasq,
                           use_fakedhcpv6d=args.fakedhcpv6d,
                           use_hp_ospf=args.use_hp_ospf,

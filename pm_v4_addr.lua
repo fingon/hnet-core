@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:14:12 2012 mstenber
--- Last modified: Fri Jul 19 20:08:09 2013 mstenber
+-- Last modified: Mon Sep 30 17:16:55 2013 mstenber
 -- Edit time:     7 min
 --
 
@@ -19,11 +19,11 @@ module(..., package.seeall)
 pm_v4_addr = pm_handler.pm_handler_with_pa:new_subclass{class='pm_v4_addr'}
 
 function pm_v4_addr:run()
-   local m = self.pm.if_table:read_ip_ipv4()
+   local m = self:get_if_table():read_ip_ipv4()
    local if2a = {}
 
    -- this is what we _want_ (OSPF-based)
-   for i, lap in ipairs(self.pm.ospf_lap)
+   for i, lap in ipairs(self.lap)
    do
       if lap.address
       then
@@ -66,15 +66,7 @@ function pm_v4_addr:run()
                              end,
                              -- add
                              function (ifname, v)
-                                -- don't hinder the -4 dhclient by changing address under it
-                                if self.pm.dhclient_ifnames[ifname]
-                                then
-                                   self:d(' ignoring dhclient interface', ifname)
-
-                                   return
-                                end
-
-                                local ifo = self.pm.if_table:get_if(ifname)
+                                local ifo = self:get_if_table():get_if(ifname)
                                 ifo:set_ipv4(v, '255.255.255.0')
                              end,
                              -- equal

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:43:00 2013 mstenber
--- Last modified: Mon Sep 30 11:19:38 2013 mstenber
--- Edit time:     19 min
+-- Last modified: Mon Sep 30 15:30:23 2013 mstenber
+-- Edit time:     39 min
 --
 
 -- eventful class which provides concept of 'events' (ripped out of
@@ -22,6 +22,7 @@ local table = require 'table'
 local ipairs = ipairs
 local pairs = pairs
 local type = type
+local unpack = unpack
 
 module(...)
 
@@ -55,18 +56,25 @@ function event:has_observers()
 end
 
 function event:add_observer(f, o)
-   o = o or false
-   self.observers[f] = o
+   table.insert(self.observers, {f, o})
 end
 
-function event:remove_observer(f)
-   self:a(self.observers[f] ~= nil, 'observer missing', f)
-   self.observers[f] = nil
+function event:remove_observer(f, o)
+   for i, v in ipairs(self.observers)
+   do
+      if v[1] == f and v[2] == o
+      then
+         table.remove(self.observers, i)
+         return
+      end
+   end
+   self:a(false, 'remove_observer without observer found', f, o)
 end
 
 function event:update(...)
-   for f, o in pairs(self.observers)
+   for i, v in ipairs(self.observers)
    do
+      local f, o = unpack(v)
       if o
       then
          f(o, ...)
@@ -94,16 +102,14 @@ end
 function eventful:uninit()
    -- get rid of observers
    -- they're keyed (event={fun, fun..})
-   if self._observers
+   if self._connected
    then
-      for k, l in pairs(self._observers)
+      for i, v in ipairs(self._connected)
       do
-         for i, v in ipairs(l)
-         do
-            k:remove_observer(v)
-         end
+         local ev, fun, o = unpack(v)
+         ev:remove_observer(fun, o)
       end
-      self._observers = nil
+      self._connected = nil
    end
 
    -- get rid of events
@@ -124,14 +130,9 @@ function eventful:connect(ev, fun, o)
    -- connect event 'ev' to local observer function 'fun'
    -- (and keep the connection up as long as we are)
 
-   -- first, update local _observers
-   if not self._observers
-   then
-      self._observers = {}
-   end
-   local t = self._observers[ev] or {}
-   self._observers[ev] = t
-   table.insert(t, fun)
+   -- first, update local _connected
+   if not self._connected then self._connected = {} end
+   table.insert(self._connected, {ev, fun, o})
 
    -- then call the event itself to add the observer
    ev:add_observer(fun, o)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:12:11 2012 mstenber
--- Last modified: Fri Jul 19 20:08:55 2013 mstenber
--- Edit time:     83 min
+-- Last modified: Mon Sep 30 14:00:39 2013 mstenber
+-- Edit time:     90 min
 --
 
 require 'pm_handler'
@@ -23,11 +23,14 @@ RULE_PREF_MIN=1000
 RULE_PREF_MAX=RULE_PREF_MIN + 128 
 MAIN_TABLE='main'
 
-pm_v6_rule = pm_handler.pm_handler_with_pa:new_subclass{class='pm_v6_rule'}
+local _phwp = pm_handler.pm_handler_with_pa
+
+pm_v6_rule = _phwp:new_subclass{class='pm_v6_rule'}
 
 function pm_v6_rule:init()
-   pm_handler.pm_handler.init(self)
+   _phwp.init(self)
 
+   self.nh = {}
    self.applied_usp = {}
    self.defaults = mst.multimap:new{}
 
@@ -44,6 +47,20 @@ function pm_v6_rule:init()
       end
       rt:remove(rule)
    end
+   self:connect_method(self._pm.v6_nh_changed, self.nh_changed)
+end
+
+function pm_v6_rule:skv_changed(k, v)
+   if k == elsa_pa.OSPF_RID_KEY
+   then
+      self.rid = v
+      self:queue()
+   end
+end
+
+function pm_v6_rule:nh_changed(nh)
+   self.nh = nh
+   self:queue()
 end
 
 function pm_v6_rule:removed_default(table)
@@ -67,7 +84,7 @@ function pm_v6_rule:added_default(table, nh, dev)
 end
 
 function pm_v6_rule:get_usp_nhl(usp)
-   local r = self.pm.nh[usp.ifname] or (usp.nh and {usp.nh}) or {}
+   local r = self.nh[usp.ifname] or (usp.nh and {usp.nh}) or {}
    self:d('get_usp_nhl', usp, r)
    return r
 end
@@ -90,7 +107,7 @@ function pm_v6_rule:run()
    self.vsrt:clear_all_valid()
 
    -- we ignore all USPs without ifname + nh
-   local usps = self.pm:get_ipv6_usp()
+   local usps = self.usp:get_ipv6()
    usps = usps:filter(function (usp) 
                          return usp.ifname 
                             and #self:get_usp_nhl(usp)>0 
@@ -172,7 +189,7 @@ function pm_v6_rule:run()
             self.shell(string.format('ip -6 route add default via %s dev %s table %s',
                                      nh, dev, table))
             -- it should be there already if it's our own
-            if usp.rid ~= self.pm.rid
+            if usp.rid ~= self.rid
             then
                self:added_default(table, nh, dev)
             end

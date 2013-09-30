@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:15:58 2012 mstenber
--- Last modified: Fri Jul 19 20:06:51 2013 mstenber
--- Edit time:     2 min
+-- Last modified: Mon Sep 30 17:26:24 2013 mstenber
+-- Edit time:     3 min
 --
 
 require 'pm_handler'
@@ -20,18 +20,25 @@ BIRD4_SCRIPT='/usr/share/hnet/bird4_handler.sh'
 
 pm_bird4 = pm_handler.pm_handler_with_pa:new_subclass{class='pm_bird4'}
 
+function pm_bird4:skv_changed(k, v)
+   if k == elsa_pa.OSPF_RID_KEY
+   then
+      self.rid = v
+   end
+end
+
 function pm_bird4:run()
    -- just assume that the bird state sticks, and that it's not
    -- running before we start
 
    -- need stop if running, and either pid changed,or ipv4 allocations
    -- disappeared
-   local lap = self.pm.ospf_lap
+   local lap = self.lap
    local v4 = mst.array_filter(lap, function (lap)
                                   local p = ipv6s.ipv6_prefix:new{ascii=lap.prefix}
                                   return p:is_ipv4() and not lap.depracate
                                     end)
-   local rid = self.pm.rid
+   local rid = self.rid
    self:d('check_bird4', rid, v4:count(), self.bird_rid)
 
 

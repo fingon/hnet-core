@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov 21 17:13:32 2012 mstenber
--- Last modified: Tue Jul 30 13:31:10 2013 mstenber
--- Edit time:     117 min
+-- Last modified: Mon Sep 30 14:09:44 2013 mstenber
+-- Edit time:     122 min
 --
 
 require 'pm_handler'
@@ -19,7 +19,9 @@ module(..., package.seeall)
 
 local _null=string.char(0)
 
-pm_dnsmasq = pm_handler.pm_handler_with_pa:new_subclass{class='pm_dnsmasq'}
+local _parent = pm_handler.pm_handler_with_pa_dns
+
+pm_dnsmasq = _parent:new_subclass{class='pm_dnsmasq'}
 
 DEFAULT_V4_LEASE="10m"
 DEFAULT_V6_LEASE="10m"
@@ -27,7 +29,7 @@ DEFAULT_V6_LEASE="10m"
 SCRIPT='/usr/share/hnet/dnsmasq_handler.sh'
 
 function pm_dnsmasq:run()
-   local fpath = self.pm.dnsmasq_conf_filename
+   local fpath = self.config.dnsmasq_conf_filename
    local c = self:write_dnsmasq_conf(fpath)
    -- if 'same', do nothing
    if not c
@@ -83,12 +85,12 @@ function pm_dnsmasq:write_dnsmasq_conf_dns_raw(t, dns4, search4, dns6, search6)
 end
 
 function pm_dnsmasq:write_dnsmasq_conf_dns(t)
-   local dns4 = self.pm.ospf_v4_dns or {}
-   local search4 = self.pm.ospf_v4_dns_search or {}
-   local dns6 = self.pm.ospf_dns or {}
-   local search6 = self.pm.ospf_dns_search or {}
+   local dns4 = self.ospf_v4_dns or {}
+   local search4 = self.ospf_v4_dns_search or {}
+   local dns6 = self.ospf_dns or {}
+   local search6 = self.ospf_dns_search or {}
 
-   if self.pm.use_hp_ospf
+   if self.config.use_hp_ospf
    then
       -- For IPv4 nameserver, we provide one of our own assigned 10.*
       -- addresses (it doesn't really matter which one, but we provide
@@ -104,15 +106,15 @@ function pm_dnsmasq:write_dnsmasq_conf_dns(t)
       -- Based on discussions with Ole, we override search domain as this
       -- is different administrative domain
 
-      search6 = self.pm.hp_search or {}
-      search4 = self.pm.hp_search or {}
+      search6 = self.hp_search or {}
+      search4 = self.hp_search or {}
 
       dns6 = {}
       dns4 = {}
 
       local l4 = {}
       local l6 = {}
-      for i, lap in ipairs(self.pm.ospf_lap or {})
+      for i, lap in ipairs(self.lap)
       do
          local a = lap.address
          mst.d('considering', lap, a)
@@ -156,7 +158,7 @@ end
 function pm_dnsmasq:write_dnsmasq_conf(fpath)
    local t = mst.array:new{}
    local c = 0
-   local ext_set = self.pm:get_external_if_set()
+   local ext_set = self.usp:get_external_if_set()
 
    -- dnsmasq has 'flat' configuration structure
    -- => we can just iterate through lap to produce what we want
@@ -190,7 +192,7 @@ bind-interfaces
    local ifset = mst.set:new{}
    local dumped_pclass = {}
 
-   for i, lap in ipairs(self.pm.ospf_lap or {})
+   for i, lap in ipairs(self.lap)
    do
       local ifname = lap.ifname
       -- we never serve anything outside home -> if in ext set, skip

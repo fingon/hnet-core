@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Fri Sep 27 12:28:58 2013 mstenber
--- Edit time:     594 min
+-- Last modified: Mon Sep 30 17:25:52 2013 mstenber
+-- Edit time:     622 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -24,6 +24,7 @@
 -- simple. hopefully it won't become bottleneck.
 
 require 'mst'
+require 'mst_eventful'
 require 'skv'
 require 'elsa_pa'
 require 'linux_if'
@@ -42,111 +43,126 @@ DEFAULT_FILENAMES={radvd_conf_filename='radvd.conf',
                    dnsmasq_conf_filename='dnsmasq.conf',
 }
 
-pm = mst.create_class{class='pm',
+local function filter_ipv6(l)
+   return mst.array_filter(l, function (usp)
+                              local p = ipv6s.new_prefix_from_ascii(usp.prefix)
+                              return not p:is_ipv4()
+                              end)
+end
+
+usp_blob = mst.create_class{class='usp_blob'}
+
+function usp_blob:get_external_if_set()
+   -- get the set of external interfaces
+   if not self.external_if_set
+   then
+      local s = mst.set:new{}
+      self.external_if_set = s
+      mst.array_foreach(self, 
+                        function (usp)
+                           if usp.ifname and not usp.nh
+                           then
+                              s:insert(usp.ifname)
+                           end
+                        end)
+   end
+   return self.external_if_set
+end
+
+function usp_blob:get_ipv6()
+   if not self.ipv6
+   then
+      self.ipv6 = filter_ipv6(self)
+   end
+   return self.ipv6
+end
+
+lap_blob = mst.create_class{class='lap_blob'}
+
+function lap_blob:get_ipv6()
+   if not self.ipv6
+   then
+      self.ipv6 = filter_ipv6(self)
+   end
+   return self.ipv6
+end
+
+local _e = mst_eventful.eventful
+
+pm = _e:new_subclass{class='pm',
                       mandatory={'skv', 'shell'},
                       events={'usp_changed', -- usp info blob
-                              'lap_changed', -- lap info blob
-                              'skv_changed', -- key, value (some other one)
-                              'config_changed', -- config info blob
+                         'lap_changed', -- lap info blob
+                         'skv_changed', -- key, value (some other one)
+                         --'config_changed', -- config info blob
 
-                              -- provided by pm_v6_route
-                              'v6_addr_changed', -- (no content?)
+                         -- provided by pm_v6_route
+                         'v6_addr_changed', -- (no content?)
 
-                              -- provided by pm_v6_nh
-                              'v6_nh_changed', -- v6_nh dict
+                         -- provided by pm_v6_nh
+                         'v6_nh_changed', -- v6_nh dict
                       },
-                      time=os.time}
-
-function pm:service_name_to_service(name)
-   name = self.rewrite_service[name] or name
-   return self.h[name]
-end
-
-function pm:connect_changed(srcname, dstname)
-   local o = self:service_name_to_service(srcname)
-   local o2 = self:service_name_to_service(dstname)
-   self:a(o, 'missing service (src)', srcname)
-   self:a(o2, 'missing service (dst)', dstname)
-   o2:connect_method(o.changed, o2.queue)
-end
-
-function pm:queue(name)
-   local o = self:service_name_to_service(name)
-   self:a(o, 'missing service', name)
-   if o:queue()
-   then
-      self:d('queued', o)
-   end
-end
-
-function pm:replace_handlers(d)
-   -- first off, create new list of handlers _without_ any in the d src
-   self.handlers = self.handlers:filter(function (x)
-                                           return not d[x]
-                                        end)
-   for k, v in pairs(d)
-   do
-      self.rewrite_service[k] = v
-      if not self.handlers:find(v)
-      then
-         self.handlers:insert(v)
-      end
-   end
-end
-
+                      time=function (...)
+                         return os.time()
+                         end}
 
 function pm:init()
+   _e.init(self)
    self.changes = 0
+   local config = self.config or {}
    self.f = function (k, v) self:kv_changed(k, v) end
    self.h = {}
-   self.rewrite_service = {}
 
    for k, v in pairs(DEFAULT_FILENAMES)
    do
-      self[k] = self[k] or CONF_PREFIX .. v
+      config[k] = config[k] or CONF_PREFIX .. v
    end
    -- !!! These are in MOSTLY alphabetical order for the time being.
    -- DO NOT CHANGE THE ORDER (at least without fixing the pm_core_spec as well)
-   self.handlers = mst.array:new{
-      'dhcpd',
-      'v4_addr',
-      'v4_dhclient',
-      'v6_dhclient',
-      'v6_listen_ra',
-      'v6_nh',
-      'v6_route',
-      'v6_rule',
-      -- radvd depends on v6_route => it is last
-      'radvd',
-      -- this doesn't matter, it just has tick
-      'memory',
-
-      -- this controls the leds
-      'led',
-   }
-   if self.use_dnsmasq
+   if not self.handlers
    then
-      self:replace_handlers{radvd='dnsmasq',
-                            dhcpd='dnsmasq'}
+      self.handlers = mst.array:new{'bird4'}
+      if not self.use_dnsmasq
+      then
+         self.handlers:insert('dhcpd')
+      end
+      self.handlers:extend{
+         'v4_addr',
+         'v4_dhclient',
+         'v6_dhclient',
+         'v6_listen_ra',
+         'v6_nh',
+         'v6_route',
+         'v6_rule',
+                          }
+      if not self.use_dnsmasq
+      then
+         self.handlers:insert('radvd')
+         -- radvd depends on v6_route => it is last
+      end
+      self.handlers:extend{
+         -- this doesn't matter, it just has tick
+         'memory',
+         -- this controls the leds
+         'led',
+                          }
+      if self.use_dnsmasq
+      then
+         self.handlers:insert('dnsmasq')
+      end
+      if self.use_fakedhcpv6d
+      then
+         -- dhcpd will take care of v4 only, and v6 IA_NA replies will be
+         -- provided by fakedhcpv6d
+         self.handlers:insert('fakedhcpv6d')
+      end
    end
-
-   if self.use_fakedhcpv6d
-   then
-      -- dhcpd will take care of v4 only, and v6 IA_NA replies will be
-      -- provided by fakedhcpv6d
-      self.handlers:insert('fakedhcpv6d')
-   end
-
-   -- shared datastructures
-   self.if_table = linux_if.if_table:new{shell=self.shell} 
-   -- IPv6 next hops - ifname => nh-list
-   self.nh = mst.multimap:new{}
 
    for i, v in ipairs(self.handlers)
    do
       local v2 = 'pm_' .. v
       local m = require(v2)
-      local o = m[v2]:new{pm=self}
+      local o = m[v2]:new{_pm=self, config=config}
       self.h[v] = o
       -- make sure it updates self.changes if it changes
       o:connect(o.changed, function ()
@@ -155,11 +171,6 @@ function pm:init()
    end
 
    -- post-init activities
-
-   self:connect_changed('v6_route', 'radvd')
-   self:connect_changed('v6_nh', 'v6_rule')
-
-   self.dhclient_ifnames = mst.set:new{}
 
    -- all  usable prefixes we have been given _some day_; 
    -- this is the domain of prefixes that we control, and therefore
@@ -177,6 +188,10 @@ function pm:init()
 end
 
 function pm:uninit()
+   for k, v in pairs(self.h)
+   do
+      v:done()
+   end
    self.skv:remove_change_observer(self.f)
 end
 
@@ -184,94 +199,25 @@ function pm:kv_changed(k, v)
    self:d('kv_changed', k, v)
    if k == elsa_pa.OSPF_USP_KEY
    then
-      self.ospf_usp = v or {}
+      setmetatable(v, nil)
+      local usp = usp_blob:new(v)
       
-      -- reset caches
-      self.ipv6_ospf_usp = nil
-      self.external_if_set = nil
-
       -- update the all_ipv6_usp
-      for i, v in ipairs(self:get_ipv6_usp())
+      for i, v in ipairs(usp:get_ipv6())
       do
          local p = ipv6s.new_prefix_from_ascii(v.prefix)
          local bp = p:get_binary()
          self.all_ipv6_binary_prefixes[bp] = p
       end
 
-      -- may be relevant to whether we want dhclient on the
-      -- interface or not (border change?)
-      self:queue('v4_dhclient')
-
-      -- obviously v6 routes/rules also change
-      self:queue('v6_route')
-      self:queue('v6_rule')
-
-      -- may need to change if we listen to RAs or not
-      self:queue('v6_listen_ra')
-
-   elseif k == elsa_pa.OSPF_IFLIST_KEY
-   then
-      self.ospf_iflist = v
-      -- may need to start/stop DHCPv6 PD clients
-      self:queue('v6_dhclient')
+      self.usp_changed(usp)
    elseif k == elsa_pa.OSPF_LAP_KEY
    then
-      -- reset cache
-      self.ipv6_ospf_lap = nil
-
-      self.ospf_lap = v or {}
-      self:queue('v6_route')
-      self:queue('v4_addr')
-      -- depracation can cause addresses to become non-relevant
-      -- => rewrite radvd.conf too (and dhcpd.conf - it may have
-      -- been using address range which is now depracated)
-      self:queue('radvd')
-      self:queue('dhcpd')
-      if self.use_fakedhcpv6d
-      then
-         self:queue('fakedhcpv6d')
-      end
-      self:queue('led')
-   elseif k == elsa_pa.OSPF_IPV4_DNS_KEY
-   then
-      self.ospf_v4_dns = v or {}
-      self:queue('dhcpd')
-   elseif k == elsa_pa.OSPF_IPV4_DNS_SEARCH_KEY
-   then
-      self.ospf_v4_dns_search = v or {}
-      self:queue('dhcpd')
-   elseif k == elsa_pa.OSPF_DNS_KEY
-   then
-      self.ospf_dns = v or {}
-      self:queue('dhcpd')
-      self:queue('radvd')
-      -- in theory fakedhcpv6d cares too, but in practise
-      -- it has no state => next one will just have updated naming parameters
-   elseif k == elsa_pa.OSPF_DNS_SEARCH_KEY
-   then
-      self.ospf_dns_search = v or {}
-      self:queue('dhcpd')
-      self:queue('radvd')
-      -- in theory fakedhcpv6d cares too, but in practise
-      -- it has no state => next one will just have updated naming parameters
-   elseif k == elsa_pa.HP_SEARCH_LIST_KEY
-   then
-      self.hp_search = v or {}
-      self:queue('dhcpd')
-      self:queue('radvd')
+      setmetatable(v, nil)
+      local lap = lap_blob:new(v)
+      self.lap_changed(lap)
    else
-      -- if it looks like pd change, we may be also interested
-      if string.find(k, '^' .. elsa_pa.PD_SKVPREFIX) 
-      then 
-         for i, v in ipairs(v)
-         do
-            if v.prefix
-            then
-               self.had_pd = true
-               self:queue('led')
-            end
-         end
-      end
+      self.skv_changed(k, v)
    end
    self:schedule_run()
 end
@@ -315,47 +261,7 @@ function pm:tick()
    end
 end
 
-local function filter_ipv6(l)
-   return mst.array_filter(l, function (usp)
-                              local p = ipv6s.new_prefix_from_ascii(usp.prefix)
-                              return not p:is_ipv4()
-                              end)
-end
-
-function pm:get_ipv6_usp()
-   if not self.ipv6_ospf_usp
-   then
-      self.ipv6_ospf_usp = filter_ipv6(self.ospf_usp)
-   end
-   return self.ipv6_ospf_usp
-end
-
-function pm:get_ipv6_lap()
-   if not self.ipv6_ospf_lap
-   then
-      self.ipv6_ospf_lap = filter_ipv6(self.ospf_lap)
-   end
-   return self.ipv6_ospf_lap
-end
-
 function pm:repr_data()
    return mst.repr{ospf_lap=self.ospf_lap and #self.ospf_lap or 0}
 end
 
-function pm:get_external_if_set()
-   -- get the set of external interfaces
-   if not self.external_if_set
-   then
-      local usps = self.ospf_usp or {}
-      local s = mst.set:new{}
-      self.external_if_set = s
-      mst.array_foreach(usps, 
-                        function (usp)
-                           if usp.ifname and not usp.nh
-                           then
-                              s:insert(usp.ifname)
-                           end
-                        end)
-   end
-   return self.external_if_set
-end

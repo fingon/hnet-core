@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 14:45:24 2013 mstenber
--- Last modified: Thu Jul 18 15:58:31 2013 mstenber
--- Edit time:     121 min
+-- Last modified: Mon Sep 30 17:38:59 2013 mstenber
+-- Edit time:     123 min
 --
 
 require 'busted'
@@ -134,10 +134,11 @@ describe("mdns_client", function ()
                            ifo = c:get_if(ifname)
                         end)
             after_each(function ()
-                          -- at termination, should have no observers
-                          mst.a(#ifo.cache.inserted.observers == 0, ifo.cache.observers)
-
                           c:done()
+                          -- at termination, should have no observers
+                          mst.a(#ifo.cache.inserted.observers == 0, 
+                                'have observers left', ifo.cache.inserted.observers)
+
                           -- no assert, as not _always_ doing this
                           scr.clear_scr()
                           mst.a(observers == 0, 'observers left', observers)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:17:26 2012 mstenber
--- Last modified: Fri Jul 19 20:08:19 2013 mstenber
--- Edit time:     4 min
+-- Last modified: Mon Sep 30 17:18:00 2013 mstenber
+-- Edit time:     6 min
 --
 
 require 'pm_handler'
@@ -20,6 +20,15 @@ DHCLIENT_SCRIPT='/usr/share/hnet/dhclient_handler.sh'
 DHCLIENT_PID_PREFIX='pm-pid-dhclient-'
 
 pm_v4_dhclient = pm_handler.pm_handler_with_pa:new_subclass{class='pm_v4_dhclient'}
+
+function pm_v4_dhclient:skv_changed(k, v)
+   if k == elsa_pa.OSPF_RID_KEY
+   then
+      self.rid = v
+      self:queue()
+   end
+end
+
 
 function pm_v4_dhclient:run()
    -- oddly enough, we actually trust the OS (to a point); therefore,
@@ -38,8 +47,8 @@ function pm_v4_dhclient:run()
 
 
    -- get a list of interfaces with valid PD state
-   local ipv6_usp = self.pm:get_ipv6_usp()
-   local rid = self.pm.rid
+   local ipv6_usp = self.usp:get_ipv6()
+   local rid = self.rid
 
    -- in cleanup, rid may be zeroed already
    --self:a(rid, 'no rid?!?')
@@ -55,14 +64,12 @@ function pm_v4_dhclient:run()
                                 local p = pm_core.PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
                                 local s = string.format('%s stop %s %s', DHCLIENT_SCRIPT, ifname, p)
                                 self.shell(s)
-                                self.pm.dhclient_ifnames:remove(ifname)
                              end,
                              -- add
                              function (ifname)
                                 local p = pm_core.PID_DIR .. '/' .. DHCLIENT_PID_PREFIX .. ifname
                                 local s = string.format('%s start %s %s', DHCLIENT_SCRIPT, ifname, p)
                                 self.shell(s)
-                                self.pm.dhclient_ifnames:insert(ifname)
                              end
                              -- no equality - if it exists, it exists
                             )

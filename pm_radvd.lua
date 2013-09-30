@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:51:43 2012 mstenber
--- Last modified: Fri Jul 19 20:07:56 2013 mstenber
--- Edit time:     44 min
+-- Last modified: Mon Sep 30 15:35:44 2013 mstenber
+-- Edit time:     45 min
 --
 
 require 'pm_handler'
@@ -19,10 +19,12 @@ module(..., package.seeall)
 DEFAULT_PREFERRED_LIFETIME=1800
 DEFAULT_VALID_LIFETIME=3600
 
-pm_radvd = pm_handler.pm_handler_with_pa:new_subclass{class='pm_radvd'}
+local _parent = pm_handler.pm_handler_with_pa_dns
+
+pm_radvd = _parent:new_subclass{class='pm_radvd'}
 
 function pm_radvd:run()
-   local fpath = self.pm.radvd_conf_filename
+   local fpath = self.config.radvd_conf_filename
    local c = self:write_radvd_conf(fpath)
 
    -- no changes in status quo -> do nothing
@@ -35,7 +37,7 @@ function pm_radvd:run()
    -- and then start new one if it's warranted
    if c and c > 0
    then
-      local radvd = self.pm.radvd or 'radvd'
+      local radvd = self.config.radvd or 'radvd'
       self.shell(radvd .. ' -C ' .. fpath)
    end
    return 1
@@ -65,7 +67,7 @@ function pm_radvd:write_radvd_conf(fpath)
 
    local seen = {}
    local t = mst.array:new{}
-   local ext_set = self.pm:get_external_if_set()
+   local ext_set = self.usp:get_external_if_set()
 
    local function rec(ifname)
       -- We ignore interface if we try to dump it multiple times (just
@@ -83,12 +85,12 @@ function pm_radvd:write_radvd_conf(fpath)
       t:insert('  AdvOtherConfigFlag off;')
       -- 5 minutes is max # we want to stay as default router if gone :p
       t:insert('  AdvDefaultLifetime 600;')
-      for i, addr in ipairs(self.pm.ospf_dns or {})
+      for i, addr in ipairs(self.ospf_dns or {})
       do
          -- space-separated addresses are ok here (unlike DHCP)
          t:insert('  RDNSS ' .. addr .. ' {};')
       end
-      for i, suffix in ipairs(self.pm.ospf_dns_search or {})
+      for i, suffix in ipairs(self.ospf_dns_search or {})
       do
          local s = mst.string_strip(suffix)
          if #s > 0
@@ -96,8 +98,8 @@ function pm_radvd:write_radvd_conf(fpath)
             t:insert('  DNSSL ' .. suffix .. ' {};')
          end
       end
-      local now = self.pm.time()
-      for i, lap in ipairs(self.pm.ospf_lap)
+      local now = self:time()
+      for i, lap in ipairs(self.lap)
       do
          if lap.ifname == ifname and not lap[elsa_pa.PREFIX_CLASS_KEY]
          then
@@ -133,7 +135,7 @@ function pm_radvd:write_radvd_conf(fpath)
       end
       t:insert('};')
    end
-   for i, v in ipairs(self.pm.ospf_lap)
+   for i, v in ipairs(self.lap)
    do
       rec(v.ifname)
    end

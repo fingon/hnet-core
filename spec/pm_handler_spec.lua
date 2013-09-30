@@ -8,23 +8,13 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Fri Jul 19 20:12:33 2013 mstenber
--- Edit time:     168 min
+-- Last modified: Mon Sep 30 17:13:19 2013 mstenber
+-- Edit time:     210 min
 --
 
 -- individual handler tests
 require 'busted'
 require 'dpm'
-require 'pm_v6_nh'
-require 'pm_v6_listen_ra'
-require 'pm_v6_route'
-require 'pm_v6_dhclient'
-require 'pm_v6_rule'
-require 'pm_dnsmasq'
-require 'pm_memory'
-require 'pm_radvd'
-require 'pm_led'
-require 'pm_fakedhcpv6d'
 require 'dhcpv6_codec'
 require 'dshell'
 require 'mst_test'
@@ -36,48 +26,54 @@ local loop = ssloop.loop()
 describe("pm_led #led", function ()
             local pm
             local o
-            local st
             before_each(function ()
-                           st = {}
-                           pm = dpm.dpm:new{skv={
-                                               get_combined_state=function ()
-                                                  return st
-                                               end
-                                                }}
-                           o = pm_led.pm_led:new{pm=pm}
+                           pm = dpm.dpm:new{handlers={'led'}}
+                           o = pm.h.led
                         end)
-            it("works", function ()
+            after_each(function ()
+                          pm:done()
+                          local r = loop:clear()
+                          mst.a(not r, 'left after', r)
+                       end)
+            it("works #led", function ()
                   pm.ds:set_array{
                      {'/usr/share/hnet/led_handler.sh pd 0', ''},
                      {'/usr/share/hnet/led_handler.sh global 0', ''},
                                  }
-                  o:run()
+                  mst.a(not o:ready())
+
+                  -- ok, give it usp + lap to chew on
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY, {})
+                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, {})
+                  mst.a(o:ready())
+
+                  o:maybe_run()
                   pm.ds:check_used()
                   
                   -- second run should do nothing
-                  o:run()
+                  o:maybe_run()
 
                   -- had-pd indicator should work
-                  st={
-                     [elsa_pa.PD_SKVPREFIX .. "asdf"] = 
-                        {
-                        {prefix='dead::1'},
-                        }
-                  }
+                  pm.skv:set(elsa_pa.PD_SKVPREFIX .. "asdf",
+                             {
+                                {prefix='dead::1'},
+                             })
                   pm.ds:set_array{
                      {'/usr/share/hnet/led_handler.sh pd 1', ''},
                                  }
-                  o:run()
+                  o:maybe_run()
                   pm.ds:check_used()
 
                   -- and global indicator
-                  pm.ipv6_usps = mst.array:new{
-                     {nh='dead::1', ifname='eth0', prefix='dead::/56'},
-                                              }
+                  mst.a(not o.queued)
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY,
+                             {{nh='dead::1', ifname='eth0', prefix='dead::/56'}}
+                            )
+                  mst.a(o.queued)
                   pm.ds:set_array{
                      {'/usr/share/hnet/led_handler.sh global 1', ''},
                                  }
-                  o:run()
+                  o:maybe_run()
                   pm.ds:check_used()
 
                   
@@ -88,9 +84,14 @@ describe("pm_v6_rule", function ()
             local pm
             local o
             before_each(function ()
-                           pm = dpm.dpm:new{}
-                           o = pm_v6_rule.pm_v6_rule:new{pm=pm}
+                           pm = dpm.dpm:new{handlers={'v6_rule'}}
+                           o = pm.h.v6_rule
                         end)
+            after_each(function ()
+                          pm:done()
+                          local r = loop:clear()
+                          mst.a(not r, 'left after', r)
+                       end)
             it("works #rule", function ()
                   -- pretend something changed
                   o:queue()
@@ -108,16 +109,11 @@ describe("pm_v6_rule", function ()
 
                                  }
 
-                  -- not used really, but just to pretend to be ready
-                  pm.ospf_usp = true
-                  pm.ospf_lap = true
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY, 
+                             {{nh='dead::1', ifname='eth0', prefix='dead::/56'}})
+                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, {})
 
-                  -- really returned by get_ipv6_usp
-                  pm.ipv6_usps = mst.array:new{
-                     {nh='dead::1', ifname='eth0', prefix='dead::/56'},
-                                              }
-
-                  mst.a(o:ready())
+                  mst.a(o:ready(), 'not ready')
                   o:maybe_run()
                   
                   pm.ds:check_used()
@@ -126,9 +122,8 @@ describe("pm_v6_rule", function ()
                   mst.d('- changing next hop')
 
                   o:queue()
-                  pm.ipv6_usps = mst.array:new{
-                     {nh='dead::2', ifname='eth0', prefix='dead::/56'},
-                                              }
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY, 
+                             {{nh='dead::2', ifname='eth0', prefix='dead::/56'}})
                   pm.ds:set_array{
                      {'ip -6 rule', [[
 1000:	from all to dead::/56 lookup main
@@ -147,9 +142,9 @@ describe("pm_v6_rule", function ()
                   -- 1)
                   mst.d('- flapping ifname (1)')
                   o:queue()
-                  pm.ipv6_usps = mst.array:new{
-                     {nh='dead::2', ifname='eth1', prefix='dead::/56'},
-                                              }
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY, 
+                             {
+                                {nh='dead::2', ifname='eth1', prefix='dead::/56'}})
                   pm.ds:set_array{
                      {'ip -6 rule', [[
                                         1000:	from all to dead::/56 lookup main
@@ -166,9 +161,8 @@ describe("pm_v6_rule", function ()
                   -- 2)
                   mst.d('- flapping ifname (2)')
                   o:queue()
-                  pm.ipv6_usps = mst.array:new{
-                     {nh='dead::2', ifname='eth0', prefix='dead::/56'},
-                                              }
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY, 
+                             {{nh='dead::2', ifname='eth0', prefix='dead::/56'}})
                   pm.ds:set_array{
                      {'ip -6 rule', [[
                                         1000:	from all to dead::/56 lookup main
@@ -185,9 +179,8 @@ describe("pm_v6_rule", function ()
                   -- 3)
                   mst.d('- flapping ifname (3)')
                   o:queue()
-                  pm.ipv6_usps = mst.array:new{
-                     {nh='dead::2', ifname='eth1', prefix='dead::/56'},
-                                              }
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY, 
+                             {{nh='dead::2', ifname='eth1', prefix='dead::/56'}})
                   pm.ds:set_array{
                      {'ip -6 rule', [[
                                         1000:	from all to dead::/56 lookup main
@@ -223,9 +216,9 @@ describe("pm_fakedhcpv6d", function ()
             before_each(function ()
                            mcastlog = {}
                            sentlog = {}
-                           pm = dpm.dpm:new{}
-                           o = pm_fakedhcpv6d.pm_fakedhcpv6d:new{pm=pm, 
-                                                                 port=12348}
+                           pm = dpm.dpm:new{handlers={'fakedhcpv6d'},
+                                            config={dhcpv6_port=12348}}
+                           o = pm.h.fakedhcpv6d
                            -- always-succeeding ops, that we just log
                            function o.mcj:try_multicast_op(ifname, is_join)
                               table.insert(mcastlog, {ifname, is_join})
@@ -236,7 +229,7 @@ describe("pm_fakedhcpv6d", function ()
                            end
                         end)
             after_each(function ()
-                          o:done()
+                          pm:done()
                           local r = loop:clear()
                           mst.a(not r, 'left after', r)
                        end)
@@ -248,8 +241,9 @@ describe("pm_fakedhcpv6d", function ()
 
                   -- after adding the lap, we should join the owner
                   -- interface, but not non-owner one
-                  pm.ospf_usp = true -- not used but 'ready'
-                  pm.ospf_lap = {
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY, {})
+                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, 
+                             {
                      {ifname='eth0',
                       prefix='dead::/64',
                       owner=true,
@@ -262,9 +256,10 @@ describe("pm_fakedhcpv6d", function ()
                      {ifname='eth1',
                       prefix='cafe::/64',
                      },
-                  }
-                  pm.ospf_dns = {'dead::1'}
-                  pm.ospf_dns_search = {'example.com', 'sometimes.ends.with.dot.'}
+                             })
+                  pm.skv:set(elsa_pa.OSPF_DNS_KEY,{'dead::1'})
+                  pm.skv:set(elsa_pa.OSPF_DNS_SEARCH_KEY,
+                             {'example.com', 'sometimes.ends.with.dot.'})
                   o:maybe_run()
                   local exp = {{'eth0', true}}
                   mst_test.assert_repr_equal(mcastlog, exp)
@@ -349,12 +344,19 @@ describe("pm_fakedhcpv6d", function ()
                            end)
 
 describe("pm_radvd", function ()
-            it("works", function ()
+            local pm
+            after_each(function ()
+                          pm:done()
+                          local r = loop:clear()
+                          mst.a(not r, 'left after', r)
+                       end)
+            it("works #radvd", function ()
                   local dummy_conf = '/tmp/dummy-radvd.conf'
                   local dummy_prefix1 = 'dead::/64'
                   local dummy_prefix2 = 'beef::/64'
-                  local pm = dpm.dpm:new{radvd_conf_filename=dummy_conf}
-                  local o = pm_radvd.pm_radvd:new{pm=pm}
+                  pm =  dpm.dpm:new{config={radvd_conf_filename=dummy_conf},
+                                         handlers={'radvd'}}
+                  local o = pm.h.radvd
 
                   -- make sure nothing happens if it isn't ready yet
                   pm.ds:set_array{}
@@ -386,8 +388,8 @@ describe("pm_radvd", function ()
                      {ifname='eth1', prefix=dummy_prefix1, 
                       valid=123456, pref=-123},
                   }
-                  pm.ospf_usp = true -- not used but 'ready'
-                  pm.ospf_lap = explicit_ok_lap
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY, {})
+                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, explicit_ok_lap)
                   local restart_array = {
                      {'killall -9 radvd'},
                      {'rm -f /var/run/radvd.pid'},
@@ -407,7 +409,7 @@ describe("pm_radvd", function ()
                         'second prefix present (but should not be, pclass)')
                   
                   -- try #2
-                  pm.ospf_lap = invalid1_lap
+                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, invalid1_lap)
                   pm.ds:set_array(restart_array)
                   o:run()
                   local s = mst.read_filename_to_string(dummy_conf)
@@ -419,7 +421,7 @@ describe("pm_radvd", function ()
                         'no default valid lifetime found')
                   
                   -- try #3
-                  pm.ospf_lap = invalid2_lap
+                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, invalid2_lap)
                   pm.ds:set_array(restart_array)
                   o:run()
                   local s = mst.read_filename_to_string(dummy_conf)
@@ -436,9 +438,15 @@ describe("pm_radvd", function ()
                      end)
 
 describe("pm_v6_nh", function ()
-            it("works #nh", function ()
-                  local pm = dpm.dpm:new{}
-                  local o = pm_v6_nh.pm_v6_nh:new{pm=pm}
+            local pm
+            after_each(function ()
+                          pm:done()
+                          local r = loop:clear()
+                          mst.a(not r, 'left after', r)
+                       end)
+            it("works #v6_nh", function ()
+                  pm =  dpm.dpm:new{handlers={'v6_nh'}}
+                  local o = pm.h.v6_nh
                   -- make sure that it does NOTHING without external
                   -- USP present
                   o:maybe_tick()
@@ -449,7 +457,10 @@ describe("pm_v6_nh", function ()
                   --pm.ospf_usp = {{ifname='eth0'}}
 
                   -- however, dpm doesn't do the real API -> have to just set the external_ifs.
-                  pm.external_ifs={['eth0']=true}
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY,
+                             {{prefix='dead::/16', ifname='eth0'}})
+
+                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, {})
 
                   pm.ds:set_array{
                      {'ip -6 route',[[
@@ -470,24 +481,31 @@ describe("pm_v6_nh", function ()
                   o:maybe_tick()
                   o:maybe_tick()
                   pm.ds:check_used()
-                  mst.a(pm.nh, 'no pm.nh')
-                  mst.a(pm.nh.count, 'no count?!?', pm.nh)
-                  mst.a(pm.nh:count() == 2, pm.nh)
+                  mst.a(o.nh, 'no o.nh')
+                  mst.a(o.nh.count, 'no count?!?', o.nh)
+                  mst.a(o.nh:count() == 2, o.nh)
                             end)
                      end)
 
 describe("pm_v6_listen_ra", function ()
-            it("works", function ()
+            local pm
+            after_each(function ()
+                          pm:done()
+                          local r = loop:clear()
+                          mst.a(not r, 'left after', r)
+                       end)
+            it("works #v6_listen_ra", function ()
                   -- we shouldn't do anything to interfaces with
                   -- explicit next hop managed by OSPFv3,
                   -- or internal interfaces (eth2 not external)
-                  local pm = dpm.dpm:new{ipv6_usps={{ifname='eth0'},
-                                                    {ifname='eth1', nh='1'},
-                                                    {ifname='eth2'},
-                                                   },
-                                         external_ifs={eth0=true},
-                                        }
-                  local o = pm_v6_listen_ra.pm_v6_listen_ra:new{pm=pm}
+                  pm =  dpm.dpm:new{handler='v6_listen_ra'}
+                  local o = pm.h.v6_listen_ra
+                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, {})
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY,
+                             {{ifname='eth0', prefix='dead::/16'},
+                              {ifname='eth1', prefix='dead::/16', nh='1'},
+                              --{ifname='eth2', prefix='dead::/16'},
+                             })
                   pm.ds:set_array{
                      {'/usr/share/hnet/listen_ra_handler.sh start eth0', ''},
                      {'/usr/share/hnet/listen_ra_handler.sh stop eth0', ''},
@@ -496,7 +514,11 @@ describe("pm_v6_listen_ra", function ()
                   -- make sure this is nop
                   o:run()
                   -- then get rid of external interfaces -> should disappear
-                  pm.external_ifs={}
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY,
+                             {--{{ifname='eth0', prefix='dead::/16'},
+                              {ifname='eth1', prefix='dead::/16', nh='1'},
+                              --{ifname='eth2', prefix='dead::/16'},
+                             })
                   o:run()
 
                   pm.ds:check_used()
@@ -504,30 +526,38 @@ describe("pm_v6_listen_ra", function ()
                             end)
 
 describe("pm_v6_route", function ()
-            it("works", function ()
+            local pm
+            after_each(function ()
+                          pm:done()
+                          local r = loop:clear()
+                          mst.a(not r, 'left after', r)
+                       end)
+            it("works #v6_route", function ()
                   -- make sure that in a list with 3 prefixes, middle
                   -- one not deprecated, we get the middle one..
                   -- (found a bug, code review is fun(?))
-                  local pm = dpm.dpm:new{ipv6_laps={
-                                            {depracate=true,
-                                             ifname='eth2',
-                                             prefix='beef::/64'},
-                                            {prefix='beef::/64',
-                                             ifname='eth0',
-                                             address='beef::21c:42ff:fea7:f1d9',
-                                            },
-                                            {depracate=true,
-                                             ifname='eth1',
-                                             prefix='beef::/64'},
-
-                                                   }
-                                        }
-                  local o = pm_v6_route.pm_v6_route:new{pm=pm}
+                  pm = dpm.dpm:new{handlers={'v6_route'}}
+                  local o = pm.h.v6_route
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY, {})
+                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, 
+                             {
+                                {depracate=true,
+                                 ifname='eth2',
+                                 prefix='beef::/64'},
+                                {prefix='beef::/64',
+                                 ifname='eth0',
+                                 address='beef::21c:42ff:fea7:f1d9',
+                                },
+                                {depracate=true,
+                                 ifname='eth1',
+                                 prefix='beef::/64'},
+                             })
                   pm.ds:set_array{
                      {"ip -6 addr | egrep '(^[0-9]| scope global)' | grep -v  temporary", ''},
                      {'ip -6 addr add beef::21c:42ff:fea7:f1d9/64 dev eth0', ''},
 
                                  }
+                  mst.a(o:ready())
                   o:run()
                   pm.ds:check_used()
                   
@@ -536,14 +566,16 @@ describe("pm_v6_route", function ()
 
 
 describe("pm_v6_dhclient", function ()
-            it("works", function ()
-                  local pm = dpm.dpm:new{ospf_iflist={"eth0"},
-                                         skv={get=function ()
-                                                 return 
-                                                  end}
-                                        }
-                  local o = pm_v6_dhclient.pm_v6_dhclient:new{pm=pm}
-                  
+            local pm
+            after_each(function ()
+                          pm:done()
+                          local r = loop:clear()
+                          mst.a(not r, 'left after', r)
+                       end)
+            it("works #v6_dhclient", function ()
+                  pm = dpm.dpm:new{handlers={'v6_dhclient'}}
+                  local o = pm.h.v6_dhclient
+                  pm.skv:set(elsa_pa.OSPF_IFLIST_KEY, {"eth0"})
                   pm.ds:set_array{
                      {'ls -1 /var/run', ''},
                      {'/usr/share/hnet/dhclient6_handler.sh start eth0 /var/run/pm-pid-dhclient6-eth0', ''},
@@ -563,7 +595,7 @@ describe("pm_v6_dhclient", function ()
                   -- 4th start - make sure that getting rid of eth0
                   -- will still not remove the dhclient6 (we have
                   -- 'faith' that it will eventually pop back)
-                  pm.ospf_iflist = nil
+                  pm.skv:set(elsa_pa.OSPF_IFLIST_KEY, {})
                   o:run()
 
                   pm.ds:check_used()
@@ -572,28 +604,36 @@ describe("pm_v6_dhclient", function ()
                            end)
 
 describe("pm_dnsmasq", function ()
+            local pm
             local conf = '/tmp/t-dnsmasq.conf'
             local dns_server_string = 'dhcp-option=option:dns-server,'
             local pm, o
             before_each(function ()
-                           pm = dpm.dpm:new{ospf_lap={{ifname='eth0',
-                                                       prefix='dead::/64',
-                                                       owner=true},
-                                                      {ifname='eth0',
-                                                       prefix='beef::/64',
-                                                       owner=true,
-                                                       depracate=true},
-                                                      {ifname='eth0',
-                                                       prefix='10.1.42.0/24',
-                                                       address='10.1.42.1',
-                                                       owner=true},
-                                                     },
-                                            dnsmasq_conf_filename=conf,
+                           pm = dpm.dpm:new{handlers={'dnsmasq'},
+                                            config={dnsmasq_conf_filename=conf},
                                            }
-                           o = pm_dnsmasq.pm_dnsmasq:new{pm=pm}
+                           o = pm.h.dnsmasq
+                           pm.skv:set(elsa_pa.OSPF_USP_KEY, {})
+                           pm.skv:set(elsa_pa.OSPF_LAP_KEY, 
+                                      {{ifname='eth0',
+                                        prefix='dead::/64',
+                                        owner=true},
+                                       {ifname='eth0',
+                                        prefix='beef::/64',
+                                        owner=true,
+                                        depracate=true},
+                                       {ifname='eth0',
+                                        prefix='10.1.42.0/24',
+                                        address='10.1.42.1',
+                                        owner=true},
+                                      })
                         end)
-            it("works", function ()
-                  mst.a(#pm.ospf_lap == 3)
+            after_each(function ()
+                          pm:done()
+                          local r = loop:clear()
+                          mst.a(not r, 'left after', r)
+                       end)
+            it("works #dnsmasq", function ()
                   pm.ds:set_array{
                      {'/usr/share/hnet/dnsmasq_handler.sh start /tmp/t-dnsmasq.conf', ''},
                      {'/usr/share/hnet/dnsmasq_handler.sh reload /tmp/t-dnsmasq.conf', ''},
@@ -614,7 +654,8 @@ describe("pm_dnsmasq", function ()
                   o:run()
 
                   -- then, we change state => should get called with reload
-                  pm.ospf_lap = {pm.ospf_lap[1]}
+                  pm.skv:set(elsa_pa.OSPF_LAP_KEY,
+                             {pm.skv:get(elsa_pa.OSPF_LAP_KEY)[1]})
                   o:run()
 
                   -- v4 address should be gone as we zapped it
@@ -623,19 +664,17 @@ describe("pm_dnsmasq", function ()
 
 
                   -- get rid of state, make sure cleanup kills dnsmasq
-                  pm.ospf_lap = nil
+                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, {})
                   o:run()
 
                   pm.ds:check_used()
                         end)
-            it("works in ospf mode too #hp", function ()
-                  mst.a(#pm.ospf_lap == 3)
-                  pm.use_hp_ospf = true
+            it("works in ospf mode too #dnsmasq_hp", function ()
+                  o.config.use_hp_ospf = true
                   pm.ds:set_array{
                      {'/usr/share/hnet/dnsmasq_handler.sh start /tmp/t-dnsmasq.conf', ''},
                                  }
                   o:run()
-                  mst.a(#pm.ospf_lap == 3)
                   local s = mst.read_filename_to_string(conf)
                   mst.a(string.find(s, 'port=0'), 'should use hp dns')
                   mst.a(string.find(s, dns_server_string, nil, true),
@@ -644,9 +683,15 @@ describe("pm_dnsmasq", function ()
                        end)
 
 describe("pm_memory", function ()
-            it("does nothing ;)", function ()
-                  local pm = dpm.dpm:new{}
-                  local o = pm_memory.pm_memory:new{pm=pm}
+            local pm
+            after_each(function ()
+                          pm:done()
+                          local r = loop:clear()
+                          mst.a(not r, 'left after', r)
+                       end)
+            it("does nothing ;) #memory", function ()
+                  pm =  dpm.dpm:new{handlers={'memory'}}
+                  local o = pm.h.memory
                   -- run twice, just for fun
                   o:run()
                   o:run()

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov  7 19:33:20 2012 mstenber
--- Last modified: Fri Jul 19 20:06:24 2013 mstenber
--- Edit time:     16 min
+-- Last modified: Mon Sep 30 15:35:23 2013 mstenber
+-- Edit time:     33 min
 --
 
 -- single pm handler prototype
@@ -22,7 +22,7 @@ local _eventful = mst_eventful.eventful
 module(..., package.seeall)
 
 pm_handler = _eventful:new_subclass{class='pm_handler', 
-                                    mandatory={'pm'},
+                                    mandatory={'_pm'},
                                     events={'changed'}}
 
 function pm_handler:repr_data()
@@ -31,8 +31,8 @@ end
 
 function pm_handler:init()
    _eventful.init(self)
-   self.shell = self.pm.shell
    self.file_contents = {}
+   self.shell = self._pm.shell
 end
 
 function pm_handler:queue()
@@ -84,6 +84,10 @@ function pm_handler:run()
    -- REALLY implemented by the children
 end
 
+function pm_handler:time()
+   return self._pm:time()
+end
+
 function pm_handler:write_to_file(fpath, t0, comment_prefix)
    local t = mst.array:new()
    local s0 = table.concat(t0, '\n')
@@ -115,6 +119,75 @@ end
 
 pm_handler_with_pa = pm_handler:new_subclass{class='pm_handler_with_pa'}
 
-function pm_handler_with_pa:ready()
-   return self.pm.ospf_usp and self.pm.ospf_lap
+function pm_handler_with_pa:init()
+   -- parent init first
+   pm_handler.init(self)
+
+   -- then connect to relevant change notifications we're interested about
+   self:connect_method(self._pm.usp_changed, self.usp_changed)
+   self:connect_method(self._pm.lap_changed, self.lap_changed)
+   self:connect_method(self._pm.skv_changed, self.skv_changed)
 end
+
+function pm_handler_with_pa:get_if_table()
+   if not self.if_table
+   then
+      -- shared datastructures
+      self.if_table = linux_if.if_table:new{shell=self.shell} 
+   end
+   return self.if_table
+end
+
+
+function pm_handler_with_pa:usp_changed(usp)
+   self.usp = usp
+   self:queue()
+end
+
+function pm_handler_with_pa:lap_changed(lap)
+   self.lap = lap
+   self:queue()
+end
+
+function pm_handler_with_pa:skv_changed(k, v)
+   -- nop
+end
+
+function pm_handler_with_pa:ready()
+   if not self.usp
+   then
+      self:d('no usp, not ready')
+      return
+   end
+   if not self.lap
+   then
+      self:d('no lap, not ready')
+      return
+   end
+   return true
+end
+
+pm_handler_with_pa_dns = pm_handler_with_pa:new_subclass{class='pm_handler_with_pa_dns'}
+
+function pm_handler_with_pa_dns:skv_changed(k, v)
+   if k == elsa_pa.OSPF_IPV4_DNS_KEY
+   then
+      self.ospf_v4_dns = v or {}
+   elseif k == elsa_pa.OSPF_IPV4_DNS_SEARCH_KEY
+   then
+      self.ospf_v4_dns_search = v or {}
+   elseif k == elsa_pa.OSPF_DNS_KEY
+   then
+      self.ospf_dns = v or {}
+   elseif k == elsa_pa.OSPF_DNS_SEARCH_KEY
+   then
+      self.ospf_dns_search = v or {}
+   elseif k == elsa_pa.HP_SEARCH_LIST_KEY
+   then
+      self.hp_search = v or {}
+   else
+      return
+   end
+   self:queue()
+end
+

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 16 12:56:30 2012 mstenber
--- Last modified: Fri Jul 19 20:08:30 2013 mstenber
--- Edit time:     25 min
+-- Last modified: Mon Sep 30 17:12:25 2013 mstenber
+-- Edit time:     27 min
 --
 
 require 'pm_handler'
@@ -21,6 +21,14 @@ DHCLIENT6_SCRIPT='/usr/share/hnet/dhclient6_handler.sh'
 DHCLIENT6_PID_PREFIX='pm-pid-dhclient6-'
 
 pm_v6_dhclient = pm_handler.pm_handler_with_pa:new_subclass{class='pm_v6_dhclient'}
+
+function pm_v6_dhclient:skv_changed(k, v)
+   if k == elsa_pa.OSPF_IFLIST_KEY
+   then
+      self.ospf_iflist = v
+      self:queue()
+   end
+end
 
 function pm_v6_dhclient:run()
    -- oddly enough, we actually trust the OS (to a point); therefore,
@@ -39,9 +47,11 @@ function pm_v6_dhclient:run()
 
 
    -- get a list of intefaces that BIRD knows about
-   local hardcoded_wan = self.pm.skv:get('hardcoded-wan')
+   -- historic option - no need anymore?
+   --local hardcoded_wan = self.pm.skv:get('hardcoded-wan')
+   local hardcoded_wan
    local hardcoded_wan_list = hardcoded_wan and {hardcoded_wan}
-   local l = hardcoded_wan_list or self.pm.ospf_iflist or {}
+   local l = hardcoded_wan_list or self.ospf_iflist or {}
    table.sort(l)
 
    -- just take last item by default - who cares about other interfaces

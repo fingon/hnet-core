@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Mar 13 09:38:57 2013 mstenber
--- Last modified: Fri Jul 19 20:07:45 2013 mstenber
--- Edit time:     16 min
+-- Last modified: Mon Sep 30 13:33:12 2013 mstenber
+-- Edit time:     21 min
 --
 
 -- This is used to indicate the pm.lua state to external parties. Two
@@ -59,9 +59,10 @@ function pm_led:apply_state(ledname, value)
 end
 
 function pm_led:have_pd_prefix_in_skv()
+   -- this is a hack; but it can remain a hack too..
    self:d('have_pd_prefix_in_skv')
    -- loop through skv, looking at stuff with prefix
-   for k, v in pairs(self.pm.skv:get_combined_state())
+   for k, v in pairs(self._pm.skv:get_combined_state())
    do
       --self:d('key is', k)
 
@@ -81,8 +82,21 @@ function pm_led:have_pd_prefix_in_skv()
    return false
 end
 
+function pm_led:skv_changed(k, v)
+   if string.find(k, '^' .. elsa_pa.PD_SKVPREFIX) 
+   then 
+      for i, v in ipairs(v)
+      do
+         if v.prefix
+         then
+            self:queue()
+         end
+      end
+   end
+end
+
 function pm_led:have_global_ipv6()
-   for i, v in ipairs(self.pm:get_ipv6_usp())
+   for i, v in ipairs(self.usp:get_ipv6())
    do
       -- for the time being, we're happy with ULAs too if they're desired
       -- (XXX - should this be the case?)

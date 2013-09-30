@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 09:13:53 2012 mstenber
--- Last modified: Mon May 27 07:49:49 2013 mstenber
--- Edit time:     22 min
+-- Last modified: Mon Sep 30 14:12:05 2013 mstenber
+-- Edit time:     23 min
 --
 
 -- pm_v6_listen_ra module turns on and off listening to router
@@ -22,14 +22,15 @@ require 'pm_handler'
 
 module(..., package.seeall)
 
-pm_v6_listen_ra = pm_handler.pm_handler:new_subclass{class='pm_v6_listen_ra'}
+local _parent = pm_handler.pm_handler_with_pa
+
+pm_v6_listen_ra = _parent:new_subclass{class='pm_v6_listen_ra'}
 
 SCRIPT='/usr/share/hnet/listen_ra_handler.sh'
 BASE='/proc/sys/net/ipv6/conf'
 
 function pm_v6_listen_ra:init()
-   -- superclass
-   pm_handler.pm_handler.init(self)
+   _parent.init(self)
    
    self.clientif = mst.set:new{}
 end
@@ -67,7 +68,7 @@ function pm_v6_listen_ra:run()
 
    -- figure which ones we should listen to - get those that are
    -- external, and for which USP exists
-   local extif_set = self.pm:get_external_if_set()
+   local extif_set = self.usp:get_external_if_set()
    local c = mst.sync_tables(self.clientif, extif_set,
                              -- remove spurious
                              function (ifname)

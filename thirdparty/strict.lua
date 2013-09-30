@@ -16,7 +16,7 @@ __STRICT = true
 mt.__declared = {}
 
 -- to work around broken code.. (e.g. busted)
-local broken_variables = {_TEST=true, settimeout=true, err=true}
+local broken_variables = {_TEST=true, settimeout=true, err=true, token=true, fname=true}
 
 mt.__newindex = function (t, n, v)
   if __STRICT and not mt.__declared[n] then
