@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Mon Sep 30 17:25:52 2013 mstenber
+-- Last modified: Mon Sep 30 17:52:40 2013 mstenber
 -- Edit time:     622 min
 --
 
@@ -199,6 +199,7 @@ function pm:kv_changed(k, v)
    self:d('kv_changed', k, v)
    if k == elsa_pa.OSPF_USP_KEY
    then
+      v = mst.table_deep_copy(v)
       setmetatable(v, nil)
       local usp = usp_blob:new(v)
       
@@ -213,6 +214,7 @@ function pm:kv_changed(k, v)
       self.usp_changed(usp)
    elseif k == elsa_pa.OSPF_LAP_KEY
    then
+      v = mst.table_deep_copy(v)
       setmetatable(v, nil)
       local lap = lap_blob:new(v)
       self.lap_changed(lap)
