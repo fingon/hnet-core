@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May  9 12:43:00 2013 mstenber
--- Last modified: Thu Sep 26 17:30:59 2013 mstenber
--- Edit time:     17 min
+-- Last modified: Mon Sep 30 11:19:38 2013 mstenber
+-- Edit time:     19 min
 --
 
 -- eventful class which provides concept of 'events' (ripped out of
@@ -141,3 +141,6 @@ function eventful:connect_method(ev, fun)
    self:connect(ev, fun, self)
 end
 
+function eventful:connect_event(ev, ev2)
+   self:connect(ev, ev2.update, ev2)
+end

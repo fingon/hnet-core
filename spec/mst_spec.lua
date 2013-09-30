@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Fri Jul 19 10:24:10 2013 mstenber
--- Edit time:     253 min
+-- Last modified: Mon Sep 30 11:24:43 2013 mstenber
+-- Edit time:     258 min
 --
 
 require "busted"
@@ -799,6 +799,22 @@ describe("mst_eventful", function ()
                      end
                   end
                end)
+            it("also can forward event -> event", function ()
+                  local c1 = mst_eventful.eventful:new_subclass{events={'foo'}, class='c1'}
+
+                  local c2 = mst_eventful.eventful:new_subclass{events={'bar'}, class='c2'}
+                  local o1 = c1:new()
+                  local o2 = c2:new()
+                  o1:connect_event(o1.foo, o2.bar)
+                  local got
+                  o2:connect(o2.bar, 
+                             function (v)
+                                mst.a(v == 'bar', 'not bar', v)
+                                got = true
+                             end)
+                  o1.foo('bar')
+                  mst.a(got)
+                   end)
 end)
 
 describe("table", function ()
