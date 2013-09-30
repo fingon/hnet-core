@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Mon Sep 30 17:33:52 2013 mstenber
+-- Last modified: Mon Sep 30 18:05:19 2013 mstenber
 -- Edit time:     44 min
 --
 
@@ -90,10 +90,10 @@ s:set(elsa_pa.PA_CONFIG_SKV_KEY, config)
 mst.d('initializing pm')
 local pm = pm_core.pm:new{shell=mst.execute_to_string, skv=s,
                           config={radvd='radvd -m logfile',
+                                  use_dnsmasq=args.dnsmasq,
+                                  use_fakedhcpv6d=args.fakedhcpv6d,
+                                  use_hp_ospf=args.use_hp_ospf,
                           },
-                          use_dnsmasq=args.dnsmasq,
-                          use_fakedhcpv6d=args.fakedhcpv6d,
-                          use_hp_ospf=args.use_hp_ospf,
                          }
 
 function pm:schedule_run()
