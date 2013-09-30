@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Feb 21 11:47:15 2013 mstenber
--- Last modified: Wed Sep 25 11:15:49 2013 mstenber
--- Edit time:     73 min
+-- Last modified: Wed Sep 25 11:19:40 2013 mstenber
+-- Edit time:     74 min
 --
 
 -- This is very, very minimal fake DHCPv6 PD server; what it does, is
@@ -113,7 +113,9 @@ function o.callback(data, src, srcport)
       elseif v.option == dhcpv6_const.O_IA_PD
       then
          local pref = tonumber(args.pref) or v.t1
+         mst.a(pref, 'invalid preference value')
          local valid = tonumber(args.valid) or v.t2
+         mst.a(valid, 'invalid valid value')
          local v2 = {option=v.option,
                      iaid=v.iaid,
                      t1=pref / 2,
@@ -130,6 +132,8 @@ function o.callback(data, src, srcport)
             -- add class option to IAPREFIX also if necessary
             if class
             then
+               class = tonumber(class)
+               mst.a(class, 'invalid class - not a number')
                table.insert(v3, {option=dhcpv6_const.O_PREFIX_CLASS, value=class})
             end
             mst.execute_to_string('ip -6 route delete ' .. prefix .. ' 2>/dev/null')
