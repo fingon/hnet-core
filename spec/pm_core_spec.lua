@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Mon Sep 30 17:33:20 2013 mstenber
+-- Last modified: Mon Sep 30 18:05:44 2013 mstenber
 -- Edit time:     262 min
 --
 
@@ -328,8 +328,8 @@ describe("pm", function ()
                   pm = pm_core.pm:new{skv=s, shell=ds:get_shell(),
                                       config={
                                          dnsmasq_conf_filename=TEMP_DNSMASQ_CONF,
+                                         use_dnsmasq=true,
                                       },
-                                      use_dnsmasq=true,
                                      }
 
                   d:extend(unpack{

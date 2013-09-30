@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Mon Sep 30 17:25:52 2013 mstenber
--- Edit time:     622 min
+-- Last modified: Mon Sep 30 18:05:08 2013 mstenber
+-- Edit time:     624 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -122,7 +122,7 @@ function pm:init()
    if not self.handlers
    then
       self.handlers = mst.array:new{'bird4'}
-      if not self.use_dnsmasq
+      if not config.use_dnsmasq
       then
          self.handlers:insert('dhcpd')
       end
@@ -135,7 +135,7 @@ function pm:init()
          'v6_route',
          'v6_rule',
                           }
-      if not self.use_dnsmasq
+      if not config.use_dnsmasq
       then
          self.handlers:insert('radvd')
          -- radvd depends on v6_route => it is last
@@ -146,11 +146,11 @@ function pm:init()
          -- this controls the leds
          'led',
                           }
-      if self.use_dnsmasq
+      if config.use_dnsmasq
       then
          self.handlers:insert('dnsmasq')
       end
-      if self.use_fakedhcpv6d
+      if config.use_fakedhcpv6d
       then
          -- dhcpd will take care of v4 only, and v6 IA_NA replies will be
          -- provided by fakedhcpv6d
