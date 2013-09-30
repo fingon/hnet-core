@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Sat Jul 27 21:16:21 2013 mstenber
+-- Last modified: Mon Sep 30 17:50:35 2013 mstenber
 -- Edit time:     69 min
 --
 
@@ -33,7 +33,7 @@ require 'mst_cliargs'
 
 -- we re-use pm's memory handler just for the tick() call it provides
 require 'pm_memory'
-local memory_handler = pm_memory.pm_memory:new{pm={}}
+local memory_handler = pm_memory.pm_memory:new{_pm={}}
 
 local cli = mst_cliargs.new{
    options={
