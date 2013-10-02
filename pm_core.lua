@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Mon Sep 30 18:05:08 2013 mstenber
--- Edit time:     624 min
+-- Last modified: Tue Oct  1 14:33:19 2013 mstenber
+-- Edit time:     627 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -90,21 +90,21 @@ end
 local _e = mst_eventful.eventful
 
 pm = _e:new_subclass{class='pm',
-                      mandatory={'skv', 'shell'},
-                      events={'usp_changed', -- usp info blob
-                         'lap_changed', -- lap info blob
-                         'skv_changed', -- key, value (some other one)
-                         --'config_changed', -- config info blob
+                     mandatory={'skv', 'shell'},
+                     events={'usp_changed', -- usp info blob
+                        'lap_changed', -- lap info blob
+                        'skv_changed', -- key, value (some other one)
+                        --'config_changed', -- config info blob
 
-                         -- provided by pm_v6_route
-                         'v6_addr_changed', -- (no content?)
+                        -- provided by pm_v6_route
+                        'v6_addr_changed', -- (no content?)
 
-                         -- provided by pm_v6_nh
-                         'v6_nh_changed', -- v6_nh dict
-                      },
-                      time=function (...)
-                         return os.time()
-                         end}
+                        -- provided by pm_v6_nh
+                        'v6_nh_changed', -- v6_nh dict
+                     },
+                     time=function (...)
+                        return os.time()
+                     end}
 
 function pm:init()
    _e.init(self)
@@ -122,41 +122,57 @@ function pm:init()
    if not self.handlers
    then
       self.handlers = mst.array:new{'bird4'}
-      if not config.use_dnsmasq
+      if config.openwrt
       then
-         self.handlers:insert('dhcpd')
-      end
-      self.handlers:extend{
-         'v4_addr',
-         'v4_dhclient',
-         'v6_dhclient',
-         'v6_listen_ra',
-         'v6_nh',
-         'v6_route',
-         'v6_rule',
-                          }
-      if not config.use_dnsmasq
-      then
-         self.handlers:insert('radvd')
-         -- radvd depends on v6_route => it is last
-      end
-      self.handlers:extend{
-         -- this doesn't matter, it just has tick
-         'memory',
-         -- this controls the leds
-         'led',
-                          }
-      if config.use_dnsmasq
-      then
-         self.handlers:insert('dnsmasq')
-      end
-      if config.use_fakedhcpv6d
-      then
-         -- dhcpd will take care of v4 only, and v6 IA_NA replies will be
-         -- provided by fakedhcpv6d
-         self.handlers:insert('fakedhcpv6d')
+         -- we can keep using bird4 I suppose like we did, although
+         -- it's not pretty
+
+         self.handlers:extend{
+            'memory',
+            'led',
+                             }
+
+         -- tbd: do something about the active set of handlers!
+      else
+         -- fallback - old list of handlers
+         if not config.use_dnsmasq
+         then
+            self.handlers:insert('dhcpd')
+         end
+         self.handlers:extend{
+            'v4_addr',
+            'v4_dhclient',
+            'v6_dhclient',
+            'v6_listen_ra',
+            'v6_nh',
+            'v6_route',
+            'v6_rule',
+                             }
+         if not config.use_dnsmasq
+         then
+            self.handlers:insert('radvd')
+            -- radvd depends on v6_route => it is last
+         end
+         self.handlers:extend{
+            -- this doesn't matter, it just has tick
+            'memory',
+            -- this controls the leds
+            'led',
+                             }
+         if config.use_dnsmasq
+         then
+            self.handlers:insert('dnsmasq')
+         end
+         if config.use_fakedhcpv6d
+         then
+            -- dhcpd will take care of v4 only, and v6 IA_NA replies will be
+            -- provided by fakedhcpv6d
+            self.handlers:insert('fakedhcpv6d')
+         end
       end
    end
+
+   self.skv:set('pm-handlers', self.handlers)
 
    for i, v in ipairs(self.handlers)
    do
@@ -199,6 +215,7 @@ function pm:kv_changed(k, v)
    self:d('kv_changed', k, v)
    if k == elsa_pa.OSPF_USP_KEY
    then
+      v = mst.table_deep_copy(v)
       setmetatable(v, nil)
       local usp = usp_blob:new(v)
       
@@ -213,6 +230,7 @@ function pm:kv_changed(k, v)
       self.usp_changed(usp)
    elseif k == elsa_pa.OSPF_LAP_KEY
    then
+      v = mst.table_deep_copy(v)
       setmetatable(v, nil)
       local lap = lap_blob:new(v)
       self.lap_changed(lap)

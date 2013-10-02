@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Mon Sep 30 18:05:19 2013 mstenber
--- Edit time:     44 min
+-- Last modified: Tue Oct  1 15:20:56 2013 mstenber
+-- Edit time:     45 min
 --
 
 -- 'prefix manager' (name still temporary)
@@ -58,6 +58,9 @@ local args = mst_cliargs.parse{
       {name=pa.CONFIG_DISABLE_IPV4, 
        desc='disable generation of NATted IPv4 sub-prefixes',
        flag=1},
+      {name='openwrt',
+       desc='use netifd to interface with the system, and assume we get client info somehow',
+       flag=1},
       {value='skv', 
        desc='SKV values to set (key=value style)', 
        max=10},
@@ -93,6 +96,7 @@ local pm = pm_core.pm:new{shell=mst.execute_to_string, skv=s,
                                   use_dnsmasq=args.dnsmasq,
                                   use_fakedhcpv6d=args.fakedhcpv6d,
                                   use_hp_ospf=args.use_hp_ospf,
+                                  openwrt=args.openwrt,
                           },
                          }
 
