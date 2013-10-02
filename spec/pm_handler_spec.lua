@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Mon Sep 30 17:13:19 2013 mstenber
--- Edit time:     210 min
+-- Last modified: Wed Oct  2 15:19:44 2013 mstenber
+-- Edit time:     223 min
 --
 
 -- individual handler tests
@@ -701,3 +701,51 @@ describe("pm_memory", function ()
 
                                   end)
                       end)
+
+describe("pm_netifd", function ()
+            it("works #netifd", function ()
+                  local pm = dpm.dpm:new{handlers={'netifd'}, config={test=true}}
+                  local o = pm.h.netifd
+                  -- should be nop w/o state
+                  o:maybe_run()
+                  pm.ds:set_array{
+                     {'ubus call network.interface notify_proto \'{interface="eth0", routes={{gateway="10.1.1.1", netmask="8", target="10.0.0.0"}}, routes6={{gateway="dead::1", netmask="16", target="dead::"}}}\'', ''},
+                     {'ubus call network.interface notify_proto \'{addrs={{ipaddr="10.2.2.0", mask="24"}}, addrs6={{ipaddr="dead:beef::", mask="32"}}, interface="eth1"}\'', ''},
+                                 }
+
+                  -- let's give it some state
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY, 
+                             {
+                                -- one without route'
+                                {prefix='dead::/16',},
+                                
+                                -- IPv6 with route'
+                                {prefix='dead::/16', 
+                                 nh='dead::1', ifname='eth0'},
+                                 
+                                -- IPv4 with route'
+                                {prefix='10.0.0.0/8', 
+                                 ifname='eth0',
+                                 nh='10.1.1.1',
+                                },
+                             })
+                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, 
+                             {
+                                -- ipv4
+                                {address='10.2.2.2',
+                                 prefix='10.2.2.0/24',
+                                 ifname='eth1'},
+                                -- ipv6
+                                {address='dead:beef::1',
+                                 prefix='dead:beef::/32',
+                                 ifname='eth1'},
+                             })
+                  o:maybe_run()
+                  pm.ds:check_used()
+
+                  o:run()
+
+                  pm:done()
+                   end)
+
+end)
