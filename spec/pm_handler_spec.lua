@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Wed Oct  2 15:50:01 2013 mstenber
--- Edit time:     225 min
+-- Last modified: Wed Oct  2 16:08:04 2013 mstenber
+-- Edit time:     235 min
 --
 
 -- individual handler tests
@@ -720,6 +720,12 @@ describe("pm_netifd", function ()
 			"device": "eth1",
 		},
 		{
+			"interface": "lan2",
+			"up": true,
+			"l3_device": "eth2",
+			"device": "eth2",
+		},
+		{
 			"interface": "lan0",
 			"up": true,
 			"l3_device": "eth0",
@@ -730,42 +736,60 @@ describe("pm_netifd", function ()
  ]]                    
 
                      },
-                     {'ubus call network.interface notify_proto \'{interface="lan0", routes={{gateway="10.1.1.1", netmask="8", target="10.0.0.0"}}, routes6={{gateway="dead::1", netmask="16", target="dead::"}}}\'', ''},
+                     {'ubus call network.interface notify_proto \'{interface="lan0", routes6={{gateway="dead::1", netmask="16", target="dead::"}}}\'', ''},
                      {'ubus call network.interface notify_proto \'{addrs={{ipaddr="10.2.2.2", mask="24"}}, addrs6={{ipaddr="dead:beef::1", mask="32"}}, interface="lan1"}\'', ''},
+                     {'ubus call network.interface notify_proto \'{interface="lan2", routes={{gateway="10.1.1.1", netmask="8", target="10.0.0.0"}}}\'', ''},
                                  }
 
                   -- let's give it some state
-                  pm.skv:set(elsa_pa.OSPF_USP_KEY, 
-                             {
-                                -- one without route'
+                  local usps = {
+                                -- IPv4 with route'
+                                {prefix='10.0.0.0/8', 
+                                 ifname='eth2',
+                                 nh='10.1.1.1',
+                                },
+
+                                -- IPv6 without route'
                                 {prefix='dead::/16',},
                                 
                                 -- IPv6 with route'
                                 {prefix='dead::/16', 
                                  nh='dead::1', ifname='eth0'},
                                  
-                                -- IPv4 with route'
-                                {prefix='10.0.0.0/8', 
-                                 ifname='eth0',
-                                 nh='10.1.1.1',
-                                },
-                             })
-                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, 
-                             {
-                                -- ipv4
-                                {address='10.2.2.2',
-                                 prefix='10.2.2.0/24',
-                                 ifname='eth1'},
-                                -- ipv6
-                                {address='dead:beef::1',
-                                 prefix='dead:beef::/32',
-                                 ifname='eth1'},
-                             })
+                             }
+                  local laps = {
+                     -- ipv4
+                     {address='10.2.2.2',
+                      prefix='10.2.2.0/24',
+                      ifname='eth1'},
+
+                     -- ipv6
+                     {address='dead:beef::1',
+                      prefix='dead:beef::/32',
+                      ifname='eth1'},
+                  }
+
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY, usps)
+                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, laps)
+
                   o:maybe_run()
                   pm.ds:check_used()
 
+                  -- another run shouldn't do anything
                   o:run()
 
+                  -- let's remove IPv6 stuff (arbitrary choice)
+                  usps = {usps[1]}
+                  laps = {laps[1]}
+
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY, usps)
+                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, laps)
+                  pm.ds:set_array{
+                     {'ubus call network.interface notify_proto \'{addrs={{ipaddr="10.2.2.2", mask="24"}}, interface="lan1"}\'', ''},
+                     {'ubus call network.interface notify_proto \'{interface="lan0"}\'', ''},
+                                 }
+                  o:run()
+                  pm.ds:check_used()
                   pm:done()
                    end)
 

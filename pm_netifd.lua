@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Wed Oct  2 15:50:21 2013 mstenber
--- Edit time:     48 min
+-- Last modified: Wed Oct  2 16:07:45 2013 mstenber
+-- Edit time:     50 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -127,15 +127,18 @@ end
 function pm_netifd:run()
    -- generate per-interface blobs
    local state = self:get_skv_to_netifd_state()
+
+   local zapping = {}
    
    -- synchronize them with 'known state'
    mst.sync_tables(self.set_netifd_state, state, 
                    -- remove
                    function (k)
-                      -- nop
+                      zapping[k] = true
                    end,
                    -- add
                    function (k, v)
+                      zapping[k] = nil
                       self:push_state(k, v)
                    end,
                    -- are values same? use repr
@@ -143,6 +146,13 @@ function pm_netifd:run()
                       -- we store repr's in set_netifd_state
                       return mst.repr(v2) == v1
                    end)
+
+   -- for those interfaces that we do not have fresh state for, send
+   -- empty state update
+   for k, v in pairs(zapping)
+   do
+      self:push_state(k, {})
+   end
 end
 
 function pm_netifd:push_state(k, v)
