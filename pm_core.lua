@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Tue Oct  1 14:33:19 2013 mstenber
--- Edit time:     627 min
+-- Last modified: Wed Oct  2 15:24:02 2013 mstenber
+-- Edit time:     629 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -128,11 +128,12 @@ function pm:init()
          -- it's not pretty
 
          self.handlers:extend{
+            -- for debugging purposes
             'memory',
             'led',
+            -- and the main event
+            'netifd',
                              }
-
-         -- tbd: do something about the active set of handlers!
       else
          -- fallback - old list of handlers
          if not config.use_dnsmasq
