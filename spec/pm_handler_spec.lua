@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Wed Oct  2 15:29:33 2013 mstenber
--- Edit time:     224 min
+-- Last modified: Wed Oct  2 15:50:01 2013 mstenber
+-- Edit time:     225 min
 --
 
 -- individual handler tests
@@ -709,8 +709,29 @@ describe("pm_netifd", function ()
                   -- should be nop w/o state
                   o:maybe_run()
                   pm.ds:set_array{
-                     {'ubus call network.interface notify_proto \'{interface="eth0", routes={{gateway="10.1.1.1", netmask="8", target="10.0.0.0"}}, routes6={{gateway="dead::1", netmask="16", target="dead::"}}}\'', ''},
-                     {'ubus call network.interface notify_proto \'{addrs={{ipaddr="10.2.2.2", mask="24"}}, addrs6={{ipaddr="dead:beef::1", mask="32"}}, interface="eth1"}\'', ''},
+                     {'ubus call network.interface dump',
+[[
+{
+	"interface": [
+		{
+			"interface": "lan1",
+			"up": true,
+			"l3_device": "eth1",
+			"device": "eth1",
+		},
+		{
+			"interface": "lan0",
+			"up": true,
+			"l3_device": "eth0",
+			"device": "eth0",
+		}
+	]
+}
+ ]]                    
+
+                     },
+                     {'ubus call network.interface notify_proto \'{interface="lan0", routes={{gateway="10.1.1.1", netmask="8", target="10.0.0.0"}}, routes6={{gateway="dead::1", netmask="16", target="dead::"}}}\'', ''},
+                     {'ubus call network.interface notify_proto \'{addrs={{ipaddr="10.2.2.2", mask="24"}}, addrs6={{ipaddr="dead:beef::1", mask="32"}}, interface="lan1"}\'', ''},
                                  }
 
                   -- let's give it some state

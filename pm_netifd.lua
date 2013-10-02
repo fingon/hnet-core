@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Wed Oct  2 15:30:24 2013 mstenber
--- Edit time:     41 min
+-- Last modified: Wed Oct  2 15:50:21 2013 mstenber
+-- Edit time:     48 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -41,7 +41,28 @@ function pm_netifd:init()
    self.set_netifd_state = {}
 end
 
+function pm_netifd:get_network_interface_dump()
+   if self.dump
+   then
+      return self.dump
+   end
+   local s, err = self.shell('ubus call network.interface dump')
+   self.dump = json.decode(s)
+   return self.dump, err
+end
+
 function pm_netifd:device2interface(d)
+   -- 'ifname' we get from skv (and therefore OSPF) is actually real
+   -- Linux device name. netifd deals with 'interface's => we have to adapt
+   local interface_list = self:get_network_interface_dump().interface
+   self:a(interface_list, 'no interface list?!?')
+   for i, v in ipairs(interface_list)
+   do
+      if v.l3_device == d and v.up
+      then
+         return v.interface
+      end
+   end
 end
 
 function pm_netifd:get_skv_to_netifd_state()
@@ -53,9 +74,10 @@ function pm_netifd:get_skv_to_netifd_state()
    -- dig out addresses from lap
    for i, lap in ipairs(self.lap)
    do
-      if lap.address
+      local ifname = self:device2interface(lap.ifname)
+      if ifname and lap.address
       then
-         local ifo = _setdefault_named_subentity(state, lap.ifname, mst.map)
+         local ifo = _setdefault_named_subentity(state, ifname, mst.map)
          local p = ipv6s.new_prefix_from_ascii(lap.prefix)
          local addrs_name = p:is_ipv4() and 'addrs' or 'addrs6'
          local addrs = _setdefault_named_subentity(ifo, addrs_name, mst.array)
@@ -80,9 +102,10 @@ function pm_netifd:get_skv_to_netifd_state()
    do
       -- ifname + nh == source route we care about (we're internal
       -- node, and it needs to point somewhere external)
-      if usp.ifname and usp.nh
+      local ifname = self:device2interface(usp.ifname)
+      if ifname and usp.nh
       then
-         local ifo = _setdefault_named_subentity(state, usp.ifname, mst.map)
+         local ifo = _setdefault_named_subentity(state, ifname, mst.map)
          local p = ipv6s.new_prefix_from_ascii(usp.prefix)
          local routes_name = p:is_ipv4() and 'routes' or 'routes6'
          local routes = _setdefault_named_subentity(ifo, routes_name, mst.array)
