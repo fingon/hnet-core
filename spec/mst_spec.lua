@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Mon Sep 30 11:24:43 2013 mstenber
--- Edit time:     258 min
+-- Last modified: Wed Oct  2 15:00:20 2013 mstenber
+-- Edit time:     263 min
 --
 
 require "busted"
@@ -427,6 +427,20 @@ describe("map", function ()
                   mst.a(m:count() == 0)
 
                                  end)
+            it("setdefault", function ()
+                  local m = mst.map:new{}
+                  local foo = m:setdefault('foo', 'foo')
+                  local foo2 = m:setdefault('foo', 'bar')
+                  mst.a(foo == 'foo')
+                  mst.a(foo2 == 'foo')
+                  mst.a(m.foo == foo)
+
+                  local m = mst.map:new{}
+                  local foo = m:setdefault_lazy('foo', mst.map.new, mst.map)
+                  mst.a(mst.map:is_instance(foo), 'wrong result', 
+                        foo, mst.get_class(foo))
+                  mst.a(m.foo == foo)
+                   end)
                 end)
 
 

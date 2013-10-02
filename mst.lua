@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Sep 30 17:08:05 2013 mstenber
--- Edit time:     738 min
+-- Last modified: Wed Oct  2 13:54:41 2013 mstenber
+-- Edit time:     742 min
 --
 
 -- data structure abstractions provided:
@@ -984,6 +984,26 @@ function table_clear(t)
    end
 end
 
+function table_setdefault(t, k, default_v)
+   local v = t[k]
+   if v ~= nil
+   then
+      return v
+   end
+   t[k] = default_v
+   return default_v
+end
+
+function table_setdefault_lazy(t, k, default_v_fun, ...)
+   local v = t[k]
+   if v ~= nil
+   then
+      return v
+   end
+   t[k] = default_v_fun(...)
+   return t[k]
+end
+
 map = create_class{class='map',
                    clear=table_clear,
                    contains=table_contains,
@@ -992,11 +1012,13 @@ map = create_class{class='map',
                    deep_copy=table_deep_copy,
                    is_empty=table_is_empty,
                    keys=table_keys,
-                   sorted_keys=table_sorted_keys,
-                   sorted_pairs=table_sorted_pairs,
                    map=table_map,
                    repr=table_repr,
+                   setdefault=table_setdefault,
+                   setdefault_lazy=table_setdefault_lazy,
                    sorted_keys=table_sorted_keys,
+                   sorted_keys=table_sorted_keys,
+                   sorted_pairs=table_sorted_pairs,
                    sorted_pairs=table_sorted_pairs,
                    values=table_values,
                   }
