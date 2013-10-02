@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Wed Oct  2 15:20:54 2013 mstenber
--- Edit time:     39 min
+-- Last modified: Wed Oct  2 15:30:24 2013 mstenber
+-- Edit time:     41 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -53,22 +53,26 @@ function pm_netifd:get_skv_to_netifd_state()
    -- dig out addresses from lap
    for i, lap in ipairs(self.lap)
    do
-      local ifo = _setdefault_named_subentity(state, lap.ifname, mst.map)
-      local p = ipv6s.new_prefix_from_ascii(lap.prefix)
-      local addrs_name = p:is_ipv4() and 'addrs' or 'addrs6'
-      local addrs = _setdefault_named_subentity(ifo, addrs_name, mst.array)
-      local addr, mask = unpack(mst.string_split(lap.prefix, '/'))
-      local now = self:time()
-      local pref = pm_radvd.abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY])
-      local valid = pm_radvd.abs_to_delta(now, lap[elsa_pa.VALID_KEY])
-      local o = {
-         ipaddr=addr,
-         mask=mask,
-         preferred=pref,
-         valid=valid,
-      }
-      addrs:insert(o)
-      self:d('added address', addrs_name, o)
+      if lap.address
+      then
+         local ifo = _setdefault_named_subentity(state, lap.ifname, mst.map)
+         local p = ipv6s.new_prefix_from_ascii(lap.prefix)
+         local addrs_name = p:is_ipv4() and 'addrs' or 'addrs6'
+         local addrs = _setdefault_named_subentity(ifo, addrs_name, mst.array)
+         local _, mask = unpack(mst.string_split(lap.prefix, '/'))
+         local now = self:time()
+         local pref = pm_radvd.abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY])
+         local valid = pm_radvd.abs_to_delta(now, lap[elsa_pa.VALID_KEY])
+         local o = {
+            ipaddr=lap.address,
+            mask=mask,
+            preferred=pref,
+            valid=valid,
+         }
+         addrs:insert(o)
+         self:d('added address', addrs_name, o)
+
+      end
    end
 
    -- dig out routes from usp

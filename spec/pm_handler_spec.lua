@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Wed Oct  2 15:19:44 2013 mstenber
--- Edit time:     223 min
+-- Last modified: Wed Oct  2 15:29:33 2013 mstenber
+-- Edit time:     224 min
 --
 
 -- individual handler tests
@@ -710,7 +710,7 @@ describe("pm_netifd", function ()
                   o:maybe_run()
                   pm.ds:set_array{
                      {'ubus call network.interface notify_proto \'{interface="eth0", routes={{gateway="10.1.1.1", netmask="8", target="10.0.0.0"}}, routes6={{gateway="dead::1", netmask="16", target="dead::"}}}\'', ''},
-                     {'ubus call network.interface notify_proto \'{addrs={{ipaddr="10.2.2.0", mask="24"}}, addrs6={{ipaddr="dead:beef::", mask="32"}}, interface="eth1"}\'', ''},
+                     {'ubus call network.interface notify_proto \'{addrs={{ipaddr="10.2.2.2", mask="24"}}, addrs6={{ipaddr="dead:beef::1", mask="32"}}, interface="eth1"}\'', ''},
                                  }
 
                   -- let's give it some state
