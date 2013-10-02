@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Oct  2 13:54:41 2013 mstenber
--- Edit time:     742 min
+-- Last modified: Wed Oct  2 15:06:47 2013 mstenber
+-- Edit time:     743 min
 --
 
 -- data structure abstractions provided:
@@ -996,12 +996,12 @@ end
 
 function table_setdefault_lazy(t, k, default_v_fun, ...)
    local v = t[k]
-   if v ~= nil
+   if v == nil
    then
-      return v
+      v = default_v_fun(...)
+      t[k] = v
    end
-   t[k] = default_v_fun(...)
-   return t[k]
+   return v
 end
 
 map = create_class{class='map',
