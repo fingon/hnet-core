@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Wed Oct  2 16:07:45 2013 mstenber
--- Edit time:     50 min
+-- Last modified: Thu Oct  3 15:36:59 2013 mstenber
+-- Edit time:     58 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -30,6 +30,8 @@ require 'pm_radvd'
 local json = require "dkjson"
 
 module(..., package.seeall)
+
+PROTO_HNET='hnet'
 
 local _parent = pm_handler.pm_handler_with_pa
 
@@ -58,7 +60,15 @@ function pm_netifd:device2interface(d)
    self:a(interface_list, 'no interface list?!?')
    for i, v in ipairs(interface_list)
    do
-      if v.l3_device == d and v.up
+      if v.l3_device == d and v.proto == PROTO_HNET
+      then
+         return v.interface
+      end
+   end
+   -- fallback - accept non-l3_devices too
+   for i, v in ipairs(interface_list)
+   do
+      if v.device == d and v.proto == PROTO_HNET
       then
          return v.interface
       end
@@ -79,7 +89,7 @@ function pm_netifd:get_skv_to_netifd_state()
       then
          local ifo = _setdefault_named_subentity(state, ifname, mst.map)
          local p = ipv6s.new_prefix_from_ascii(lap.prefix)
-         local addrs_name = p:is_ipv4() and 'addrs' or 'addrs6'
+         local addrs_name = p:is_ipv4() and 'ipaddr' or 'ip6addr'
          local addrs = _setdefault_named_subentity(ifo, addrs_name, mst.array)
          local _, mask = unpack(mst.string_split(lap.prefix, '/'))
          local now = self:time()
@@ -159,6 +169,9 @@ function pm_netifd:push_state(k, v)
    self:d('push_state', k)
    self.set_netifd_state[k] = mst.repr(v)
    v.interface = k
+   v['link-up'] = true
+   v.action = 0
+   -- xxx - I don't think we need ifname
    local s = json.encode(v)
    -- json doesn't suit very well in testsuite material - ordering is
    -- arbitrary for those strings
