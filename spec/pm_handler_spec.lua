@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Fri Oct  4 14:23:44 2013 mstenber
--- Edit time:     262 min
+-- Last modified: Fri Oct  4 14:28:40 2013 mstenber
+-- Edit time:     265 min
 --
 
 -- individual handler tests
@@ -845,7 +845,10 @@ describe("pm_netifd", function ()
                   end
                   local exp = {
                      {pref=3926, prefix="2000:dead:bee0::/56", valid=4926}, 
-                     {pref=3926, prefix="2000:dead:bee1::/56", valid=4926}}
+                     {pref=3926, prefix="2000:dead:bee1::/56", valid=4926},
+                     {dns="2000::2"}, {dns="2001:100::1"}, 
+                     {dns_search="v6.lab.example.com"}
+                  }
                   mst_test.assert_repr_equal(pm.skv:get('pd.extdev'), exp)
 
                   -- another run shouldn't do anything

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  3 16:48:11 2013 mstenber
--- Last modified: Fri Oct  4 11:19:24 2013 mstenber
--- Edit time:     26 min
+-- Last modified: Fri Oct  4 14:28:05 2013 mstenber
+-- Edit time:     30 min
 --
 
 
@@ -72,6 +72,20 @@ function pm_netifd_pull:get_pd_state(ni)
          }
          local l = pd_state:setdefault_lazy(device, mst.array.new, mst.array)
          l:insert(o)
+      end
+      for i, d in ipairs(ifo['dns-server'] or {})
+      do
+         local device = ifo.l3_device or ifo.device
+         local l = pd_state:setdefault_lazy(device, mst.array.new, mst.array)
+
+         l:insert{[elsa_pa.DNS_KEY]=d}
+      end
+      for i, d in ipairs(ifo['dns-search'] or {})
+      do
+         local device = ifo.l3_device or ifo.device
+         local l = pd_state:setdefault_lazy(device, mst.array.new, mst.array)
+
+         l:insert{[elsa_pa.DNS_SEARCH_KEY]=d}
       end
    end
    return pd_state
