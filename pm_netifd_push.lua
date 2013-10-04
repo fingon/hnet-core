@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Thu Oct  3 17:56:34 2013 mstenber
--- Edit time:     63 min
+-- Last modified: Fri Oct  4 11:36:46 2013 mstenber
+-- Edit time:     67 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -96,10 +96,9 @@ function pm_netifd_push:get_skv_to_netifd_state()
          local p = ipv6s.new_prefix_from_ascii(usp.prefix)
          local routes_name = p:is_ipv4() and 'routes' or 'routes6'
          local routes = _setdefault_named_subentity(ifo, routes_name, mst.array)
-         local addr, mask = unpack(mst.string_split(usp.prefix, '/'))
          local o = {
-            target=addr,
-            netmask=mask,
+            source=usp.prefix,
+            target=p:is_ipv4() and '0.0.0.0/0' or '::/0',
             gateway=usp.nh,
             -- metric/valid?
          }
