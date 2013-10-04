@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Fri Oct  4 09:58:46 2013 mstenber
--- Edit time:     254 min
+-- Last modified: Fri Oct  4 10:02:17 2013 mstenber
+-- Edit time:     256 min
 --
 
 -- individual handler tests
@@ -838,12 +838,15 @@ describe("pm_netifd", function ()
                   pm.ds:check_used()
 
                   -- make sure the set skv state matches what we have
-                  mst.a(o1.set_pd_state:count() > 0)
+                  mst.a(o1.set_pd_state:count() == 1)
                   for k, v in pairs(o1.set_pd_state)
                   do
                      mst_test.assert_repr_equal(pm.skv:get('pd.' .. k), v)
                   end
-
+                  local exp = {
+                     {pref=3926, prefix="2000:dead:bee0::/56", valid=4926}, 
+                     {pref=3926, prefix="2000:dead:bee1::/56", valid=4926}}
+                  mst_test.assert_repr_equal(pm.skv:get('pd.extdev'), exp)
 
                   -- another run shouldn't do anything
                   o1:run()
