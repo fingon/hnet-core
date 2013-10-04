@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Thu Oct  3 16:39:32 2013 mstenber
--- Edit time:     242 min
+-- Last modified: Fri Oct  4 09:58:46 2013 mstenber
+-- Edit time:     254 min
 --
 
 -- individual handler tests
@@ -704,10 +704,13 @@ describe("pm_memory", function ()
 
 describe("pm_netifd", function ()
             it("works #netifd", function ()
-                  local pm = dpm.dpm:new{handlers={'netifd'}, config={test=true}}
-                  local o = pm.h.netifd
+                  local pm = dpm.dpm:new{handlers={'netifd_pull', 'netifd_push'}, config={test=true}}
+                  local o1 = pm.h.netifd_pull
+                  local o2 = pm.h.netifd_push
                   -- should be nop w/o state
-                  o:maybe_run()
+                  o1:maybe_run()
+                  o2:maybe_run()
+                  pm.skv:set(pm_netifd_pull.NETWORK_INTERFACE_UPDATED_KEY, 1)
                   pm.ds:set_array{
                      {'ubus call network.interface dump',
 [[
@@ -733,6 +736,61 @@ describe("pm_netifd", function ()
 			"proto": "hnet",
 			"l3_device": "eth0",
 			"device": "eth0",
+		},
+		{
+			"interface": "ext",
+			"up": true,
+			"pending": false,
+			"available": true,
+			"autostart": true,
+			"uptime": 307,
+			"l3_device": "extdev",
+			"proto": "dhcpv6",
+			"device": "extdev",
+			"metric": 0,
+			"ipv6-address": [
+				{
+					"address": "2000:dead::c8d9:eaff:fe0b:e3ed",
+					"mask": 64,
+					"preferred": 14121,
+					"valid": 86121
+				},
+				{
+					"address": "fd2a:825a:7a8a:77ce:c8d9:eaff:fe0b:e3ed",
+					"mask": 64,
+					"preferred": 1518,
+					"valid": 6918
+				}
+			],
+			"ipv6-prefix": [
+				{
+					"address": "2000:dead:bee0::",
+					"mask": 56,
+					"preferred": 2692,
+					"valid": 3692,
+					"class": "h1_6",
+					"assigned": {
+						
+					}
+				},
+				{
+					"address": "2000:dead:bee1::",
+					"mask": 56,
+					"preferred": 2692,
+					"valid": 3692,
+					"class": "h1_6",
+					"assigned": {
+						
+					}
+				}
+			],
+			"dns-server": [
+				"2000::2",
+				"2001:100::1"
+			],
+			"dns-search": [
+				"v6.lab.example.com"
+			],
 		}
 	]
 }
@@ -775,11 +833,21 @@ describe("pm_netifd", function ()
                   pm.skv:set(elsa_pa.OSPF_USP_KEY, usps)
                   pm.skv:set(elsa_pa.OSPF_LAP_KEY, laps)
 
-                  o:maybe_run()
+                  o1:maybe_run()
+                  o2:maybe_run()
                   pm.ds:check_used()
 
+                  -- make sure the set skv state matches what we have
+                  mst.a(o1.set_pd_state:count() > 0)
+                  for k, v in pairs(o1.set_pd_state)
+                  do
+                     mst_test.assert_repr_equal(pm.skv:get('pd.' .. k), v)
+                  end
+
+
                   -- another run shouldn't do anything
-                  o:run()
+                  o1:run()
+                  o2:run()
 
                   -- let's remove IPv6 stuff (arbitrary choice)
                   usps = {usps[1]}
@@ -791,7 +859,7 @@ describe("pm_netifd", function ()
                      {'ubus call network.interface notify_proto \'{action=0, interface="lan1", ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}\'', ''},
                      {'ubus call network.interface notify_proto \'{action=0, interface="lan0", ["link-up"]=true}\'', ''},
                                  }
-                  o:run()
+                  o2:run()
                   pm.ds:check_used()
                   pm:done()
                    end)

@@ -1,15 +1,15 @@
 #!/usr/bin/env lua
 -- -*-lua-*-
 --
--- $Id: pm_netifd.lua $
+-- $Id: pm_netifd_push.lua $
 --
 -- Author: Markus Stenberg <markus stenberg@iki.fi>
 --
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Thu Oct  3 15:36:59 2013 mstenber
--- Edit time:     58 min
+-- Last modified: Thu Oct  3 17:56:34 2013 mstenber
+-- Edit time:     63 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -31,51 +31,28 @@ local json = require "dkjson"
 
 module(..., package.seeall)
 
-PROTO_HNET='hnet'
-
 local _parent = pm_handler.pm_handler_with_pa
 
-pm_netifd = _parent:new_subclass{class='pm_netifd'}
+pm_netifd_push = _parent:new_subclass{class='pm_netifd_push'}
 
-function pm_netifd:init()
+function pm_netifd_push:init()
    _parent.init(self)
-
    self.set_netifd_state = {}
+   self:connect_method(self._pm.network_interface_changed, self.ni_changed)
 end
 
-function pm_netifd:get_network_interface_dump()
-   if self.dump
-   then
-      return self.dump
-   end
-   local s, err = self.shell('ubus call network.interface dump')
-   self.dump = json.decode(s)
-   return self.dump, err
+function pm_netifd_push:ni_changed(ni)
+   self.ni = ni
+   self:queue()
 end
 
-function pm_netifd:device2interface(d)
-   -- 'ifname' we get from skv (and therefore OSPF) is actually real
-   -- Linux device name. netifd deals with 'interface's => we have to adapt
-   local interface_list = self:get_network_interface_dump().interface
-   self:a(interface_list, 'no interface list?!?')
-   for i, v in ipairs(interface_list)
-   do
-      if v.l3_device == d and v.proto == PROTO_HNET
-      then
-         return v.interface
-      end
-   end
-   -- fallback - accept non-l3_devices too
-   for i, v in ipairs(interface_list)
-   do
-      if v.device == d and v.proto == PROTO_HNET
-      then
-         return v.interface
-      end
-   end
+function pm_netifd_push:ready()
+   -- we can't do anything useful until we have network interface dump available
+   -- (from pm_netifd_pull)
+   return _parent.ready(self) and self.ni
 end
 
-function pm_netifd:get_skv_to_netifd_state()
+function pm_netifd_push:get_skv_to_netifd_state()
    local state = mst.map:new()
    -- use usp + lap to produce per-interface info blobs we feed to netifd
    local function _setdefault_named_subentity(o, n, class_object)
@@ -84,7 +61,7 @@ function pm_netifd:get_skv_to_netifd_state()
    -- dig out addresses from lap
    for i, lap in ipairs(self.lap)
    do
-      local ifname = self:device2interface(lap.ifname)
+      local ifname = self.ni:device2hnet_interface(lap.ifname)
       if ifname and lap.address
       then
          local ifo = _setdefault_named_subentity(state, ifname, mst.map)
@@ -112,7 +89,7 @@ function pm_netifd:get_skv_to_netifd_state()
    do
       -- ifname + nh == source route we care about (we're internal
       -- node, and it needs to point somewhere external)
-      local ifname = self:device2interface(usp.ifname)
+      local ifname = self.ni:device2hnet_interface(usp.ifname)
       if ifname and usp.nh
       then
          local ifo = _setdefault_named_subentity(state, ifname, mst.map)
@@ -134,7 +111,7 @@ function pm_netifd:get_skv_to_netifd_state()
    return state
 end
 
-function pm_netifd:run()
+function pm_netifd_push:run()
    -- generate per-interface blobs
    local state = self:get_skv_to_netifd_state()
 
@@ -165,7 +142,7 @@ function pm_netifd:run()
    end
 end
 
-function pm_netifd:push_state(k, v)
+function pm_netifd_push:push_state(k, v)
    self:d('push_state', k)
    self.set_netifd_state[k] = mst.repr(v)
    v.interface = k

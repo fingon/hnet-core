@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Wed Oct  2 15:24:02 2013 mstenber
--- Edit time:     629 min
+-- Last modified: Thu Oct  3 16:53:08 2013 mstenber
+-- Edit time:     630 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -101,6 +101,10 @@ pm = _e:new_subclass{class='pm',
 
                         -- provided by pm_v6_nh
                         'v6_nh_changed', -- v6_nh dict
+
+                        -- provided by pm_netifd_interface
+                        -- (openwrt-only)
+                        'network_interface_changed', -- network.interface dump
                      },
                      time=function (...)
                         return os.time()
@@ -131,8 +135,12 @@ function pm:init()
             -- for debugging purposes
             'memory',
             'led',
-            -- and the main event
-            'netifd',
+
+            -- the input which parses to network.interface dump
+            'netifd_pull',
+
+            -- the output which calls network.interface update mechanism
+            'netifd_push',
                              }
       else
          -- fallback - old list of handlers
