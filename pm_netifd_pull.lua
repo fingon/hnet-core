@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  3 16:48:11 2013 mstenber
--- Last modified: Fri Oct  4 09:59:10 2013 mstenber
--- Edit time:     24 min
+-- Last modified: Fri Oct  4 11:19:24 2013 mstenber
+-- Edit time:     26 min
 --
 
 
@@ -39,6 +39,7 @@ pm_netifd_pull = _parent:new_subclass{class='pm_netifd_pull'}
 function pm_netifd_pull:init()
    _parent.init(self)
    self.set_pd_state = mst.map:new()
+   self.last_run = 'xxx' -- force first run, even if just to set this to nil
 end
 
 function pm_netifd_pull:get_network_interface_dump()

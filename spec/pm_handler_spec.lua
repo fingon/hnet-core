@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Fri Oct  4 10:02:17 2013 mstenber
--- Edit time:     256 min
+-- Last modified: Fri Oct  4 11:19:33 2013 mstenber
+-- Edit time:     258 min
 --
 
 -- individual handler tests
@@ -710,7 +710,7 @@ describe("pm_netifd", function ()
                   -- should be nop w/o state
                   o1:maybe_run()
                   o2:maybe_run()
-                  pm.skv:set(pm_netifd_pull.NETWORK_INTERFACE_UPDATED_KEY, 1)
+                  --pm.skv:set(pm_netifd_pull.NETWORK_INTERFACE_UPDATED_KEY, 1)
                   pm.ds:set_array{
                      {'ubus call network.interface dump',
 [[
