@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Fri Oct  4 11:37:48 2013 mstenber
--- Edit time:     260 min
+-- Last modified: Fri Oct  4 14:23:44 2013 mstenber
+-- Edit time:     262 min
 --
 
 -- individual handler tests
@@ -798,7 +798,7 @@ describe("pm_netifd", function ()
 
                      },
                      {'ubus call network.interface notify_proto \'{action=0, interface="lan0", ["link-up"]=true, routes6={{gateway="dead::1", source="dead::/16", target="::/0"}}}\'', ''},
-                     {'ubus call network.interface notify_proto \'{action=0, interface="lan1", ip6addr={{ipaddr="dead:beef::1", mask="32"}}, ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}\'', ''},
+                     {'ubus call network.interface notify_proto \'{action=0, dns_search={"dummy"}, interface="lan1", ip6addr={{ipaddr="dead:beef::1", mask="32"}}, ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}\'', ''},
                      {'ubus call network.interface notify_proto \'{action=0, interface="lan2", ["link-up"]=true, routes={{gateway="10.1.1.1", source="10.0.0.0/8", target="0.0.0.0/0"}}}\'', ''},
                                  }
 
@@ -832,7 +832,7 @@ describe("pm_netifd", function ()
 
                   pm.skv:set(elsa_pa.OSPF_USP_KEY, usps)
                   pm.skv:set(elsa_pa.OSPF_LAP_KEY, laps)
-
+                  pm.skv:set(elsa_pa.HP_SEARCH_LIST_KEY, {'dummy'})
                   o1:maybe_run()
                   o2:maybe_run()
                   pm.ds:check_used()
@@ -859,7 +859,7 @@ describe("pm_netifd", function ()
                   pm.skv:set(elsa_pa.OSPF_USP_KEY, usps)
                   pm.skv:set(elsa_pa.OSPF_LAP_KEY, laps)
                   pm.ds:set_array{
-                     {'ubus call network.interface notify_proto \'{action=0, interface="lan1", ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}\'', ''},
+                     {'ubus call network.interface notify_proto \'{action=0, dns_search={"dummy"}, interface="lan1", ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}\'', ''},
                      {'ubus call network.interface notify_proto \'{action=0, interface="lan0", ["link-up"]=true}\'', ''},
                                  }
                   o2:run()

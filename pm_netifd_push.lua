@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Fri Oct  4 11:36:46 2013 mstenber
--- Edit time:     67 min
+-- Last modified: Fri Oct  4 14:22:08 2013 mstenber
+-- Edit time:     70 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -31,7 +31,7 @@ local json = require "dkjson"
 
 module(..., package.seeall)
 
-local _parent = pm_handler.pm_handler_with_pa
+local _parent = pm_handler.pm_handler_with_pa_dns
 
 pm_netifd_push = _parent:new_subclass{class='pm_netifd_push'}
 
@@ -65,6 +65,10 @@ function pm_netifd_push:get_skv_to_netifd_state()
       if ifname and lap.address
       then
          local ifo = _setdefault_named_subentity(state, ifname, mst.map)
+
+         -- make sure we announce hp search on this
+         ifo.dns_search = self.hp_search
+
          local p = ipv6s.new_prefix_from_ascii(lap.prefix)
          local addrs_name = p:is_ipv4() and 'ipaddr' or 'ip6addr'
          local addrs = _setdefault_named_subentity(ifo, addrs_name, mst.array)
