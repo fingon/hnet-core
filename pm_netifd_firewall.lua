@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  7 12:12:07 2013 mstenber
--- Last modified: Mon Oct  7 14:38:17 2013 mstenber
--- Edit time:     41 min
+-- Last modified: Mon Oct  7 14:50:25 2013 mstenber
+-- Edit time:     44 min
 --
 
 -- This code is responsible for adapting the firewall status of the
@@ -110,6 +110,11 @@ function pm_netifd_firewall:set_uci_firewall(c, zonename, include, exclude)
                 if s.name == zonename
                 then
                    local nw = s.network or {}
+                   -- seems like owrt provides these lists as strings..
+                   if type(nw) == 'string'
+                   then
+                      nw = mst.string_split(nw, ' ')
+                   end
                    local ns = mst.array_to_set(nw)
                    local is = mst.array_to_set(include)
                    local es = mst.array_to_set(exclude)
