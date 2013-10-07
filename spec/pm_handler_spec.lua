@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Mon Oct  7 14:50:56 2013 mstenber
--- Edit time:     283 min
+-- Last modified: Mon Oct  7 14:54:16 2013 mstenber
+-- Edit time:     284 min
 --
 
 -- individual handler tests
@@ -744,15 +744,15 @@ describe("pm_netifd", function ()
                                               }
                   _duci.set:set_array{
                      {
-                        {'network', 'nlan', 'network', {'lan0', 'lan1', 'lan2', 'olan'}},
+                        {'firewall', 'nlan', 'network', {'lan0', 'lan1', 'lan2', 'olan'}},
                      },
                      {
-                        {'network', 'nwan', 'network', {'ext', 'owan', 'owan2'}},
+                        {'firewall', 'nwan', 'network', {'ext', 'owan', 'owan2'}},
                      },
                                      }
                   _duci.commit:set_array{
                      {
-                        {},
+                        {'firewall'},
                      },
                                      }
                   --pm.skv:set(pm_netifd_pull.NETWORK_INTERFACE_UPDATED_KEY, 1)
