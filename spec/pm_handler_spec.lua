@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Mon Oct  7 17:36:58 2013 mstenber
--- Edit time:     307 min
+-- Last modified: Mon Oct  7 17:41:50 2013 mstenber
+-- Edit time:     308 min
 --
 
 -- individual handler tests
@@ -870,7 +870,7 @@ describe("pm_netifd", function ()
                   _ubus1.open:add_expected()
                   _ubus1.call:set_array{
                      {
-                        {'network.interface', 'dump'},
+                        {'network.interface', 'dump', {}},
                         json.decode(network_interface_dump),
                      },
                                    }

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  3 16:48:11 2013 mstenber
--- Last modified: Mon Oct  7 17:03:19 2013 mstenber
--- Edit time:     33 min
+-- Last modified: Mon Oct  7 17:41:14 2013 mstenber
+-- Edit time:     34 min
 --
 
 
@@ -45,7 +45,7 @@ end
 function pm_netifd_pull:get_network_interface_dump()
    local conn = self:get_ubus_connection()
    self:a(conn, 'unable to connect ubus')
-   local r = conn:call('network.interface', 'dump')
+   local r = conn:call('network.interface', 'dump', {})
    conn:close()
    return r
 end
