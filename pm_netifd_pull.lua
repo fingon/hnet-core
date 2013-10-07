@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  3 16:48:11 2013 mstenber
--- Last modified: Fri Oct  4 14:28:05 2013 mstenber
--- Edit time:     30 min
+-- Last modified: Mon Oct  7 12:43:35 2013 mstenber
+-- Edit time:     31 min
 --
 
 
@@ -39,6 +39,7 @@ pm_netifd_pull = _parent:new_subclass{class='pm_netifd_pull'}
 function pm_netifd_pull:init()
    _parent.init(self)
    self.set_pd_state = mst.map:new()
+   self.set_dhcp_state = mst.map:new()
    self.last_run = 'xxx' -- force first run, even if just to set this to nil
 end
 
@@ -55,8 +56,9 @@ function pm_netifd_pull:skv_changed(k, v)
    end
 end
 
-function pm_netifd_pull:get_pd_state(ni)
+function pm_netifd_pull:get_state(ni)
    local pd_state = mst.map:new()
+   local dhcp_state = mst.map:new()
    for i, ifo in ipairs(ni.interface)
    do
       for i, p in ipairs(ifo['ipv6-prefix'] or {})
@@ -76,8 +78,8 @@ function pm_netifd_pull:get_pd_state(ni)
       for i, d in ipairs(ifo['dns-server'] or {})
       do
          local device = ifo.l3_device or ifo.device
-         local l = pd_state:setdefault_lazy(device, mst.array.new, mst.array)
-
+         local state = ipv6s.address_is_ipv4(d) and dhcp_state or pd_state
+         local l = state:setdefault_lazy(device, mst.array.new, mst.array)
          l:insert{[elsa_pa.DNS_KEY]=d}
       end
       for i, d in ipairs(ifo['dns-search'] or {})
@@ -88,7 +90,7 @@ function pm_netifd_pull:get_pd_state(ni)
          l:insert{[elsa_pa.DNS_SEARCH_KEY]=d}
       end
    end
-   return pd_state
+   return pd_state, dhcp_state
 end
 
 function pm_netifd_pull:run()
@@ -146,19 +148,36 @@ function pm_netifd_pull:run()
 
    -- second thing we do is update pd.* in skv; we're responsible for
    -- keeping that in sync with whatever is in netifd 
-   local pd_state = self:get_pd_state(ni)
+   local pd_state, dhcp_state = self:get_state(ni)
 
    -- synchronize them with 'known state'
    mst.sync_tables(self.set_pd_state, pd_state, 
                    -- remove
                    function (k)
-                      self._pm.skv:set('pd.' .. k, {})
+                      self._pm.skv:set(elsa_pa.PD_SKVPREFIX .. k, {})
                       self.set_pd_state[k] = nil
                    end,
                    -- add
                    function (k, v)
-                      self._pm.skv:set('pd.' .. k, v)
+                      self._pm.skv:set(elsa_pa.PD_SKVPREFIX .. k, v)
                       self.set_pd_state[k] = v
+                   end,
+                   -- are values same? use repr
+                   function (k, v1, v2)
+                      return mst.repr(v2) == mst.repr(v1)
+                   end)
+
+   -- synchronize them with 'known state'
+   mst.sync_tables(self.set_dhcp_state, dhcp_state, 
+                   -- remove
+                   function (k)
+                      self._pm.skv:set(elsa_pa.DHCPV4_SKVPREFIX .. k, {})
+                      self.set_dhcp_state[k] = nil
+                   end,
+                   -- add
+                   function (k, v)
+                      self._pm.skv:set(elsa_pa.DHCPV4_SKVPREFIX .. k, v)
+                      self.set_dhcp_state[k] = v
                    end,
                    -- are values same? use repr
                    function (k, v1, v2)

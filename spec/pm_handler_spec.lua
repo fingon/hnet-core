@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Fri Oct  4 14:28:40 2013 mstenber
--- Edit time:     265 min
+-- Last modified: Mon Oct  7 12:41:04 2013 mstenber
+-- Edit time:     266 min
 --
 
 -- individual handler tests
@@ -785,6 +785,7 @@ describe("pm_netifd", function ()
 				}
 			],
 			"dns-server": [
+				"1.2.3.4",
 				"2000::2",
 				"2001:100::1"
 			],
@@ -850,6 +851,11 @@ describe("pm_netifd", function ()
                      {dns_search="v6.lab.example.com"}
                   }
                   mst_test.assert_repr_equal(pm.skv:get('pd.extdev'), exp)
+                  local exp = {
+                     {dns="1.2.3.4"}, 
+                     --{dns_search="v6.lab.example.com"}
+                  }
+                  mst_test.assert_repr_equal(pm.skv:get('dhcp.extdev'), exp)
 
                   -- another run shouldn't do anything
                   o1:run()
