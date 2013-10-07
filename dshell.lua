@@ -8,41 +8,36 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct 29 16:06:24 2012 mstenber
--- Last modified: Thu Jun 27 10:55:41 2013 mstenber
--- Edit time:     3 min
+-- Last modified: Mon Oct  7 14:09:37 2013 mstenber
+-- Edit time:     10 min
 --
 
 -- dummy shell implementation, which has strict assumptions about
 -- inputs and outputs
 
 require 'mst'
+require 'mst_test'
 
 module(..., package.seeall)
 
-dshell = mst.create_class{class='dshell'}
+local _parent = mst_test.fake_callback
 
-function dshell:init()
-   self:set_array{}
-end
+dshell = _parent:new_subclass{class='dshell'}
 
 function dshell:set_array(a)
-   self.arr = a
-   self.arri = 0
+   -- the inputs/outputs for dshell are traditionally just input +
+   -- output strings however, we have to convert them to lists of
+   -- length 1 to match fake_callback
+   _parent.set_array(self, mst.array_map(a, function (o)
+                                            local cmd, r = unpack(o)
+                                            return {{cmd}, r}
+                                            end))
 end
 
 function dshell:get_shell()
    local function fakeshell(s)
       mst.d('fakeshell#', s)
-      self.arri = self.arri + 1
-      self:a(self.arri <= #self.arr, 'tried to consume with array empty', s)
-      local t, v = unpack(self.arr[self.arri])
-      mst.a(t == s, 'mismatch line ', self.arri, 'expected', t, 'got', s)
-      return v
+      return self.__call(self, s)
    end
    return fakeshell
-end
-
-
-function dshell:check_used()
-   mst.a(self.arri == #self.arr, 'did not consume all?', self.arri, #self.arr)
 end

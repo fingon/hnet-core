@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Mon Oct  7 12:41:04 2013 mstenber
--- Edit time:     266 min
+-- Last modified: Mon Oct  7 14:42:20 2013 mstenber
+-- Edit time:     280 min
 --
 
 -- individual handler tests
@@ -18,6 +18,7 @@ require 'dpm'
 require 'dhcpv6_codec'
 require 'dshell'
 require 'mst_test'
+require 'duci'
 
 module("pm_handler_spec", package.seeall)
 
@@ -704,12 +705,56 @@ describe("pm_memory", function ()
 
 describe("pm_netifd", function ()
             it("works #netifd", function ()
-                  local pm = dpm.dpm:new{handlers={'netifd_pull', 'netifd_push'}, config={test=true}}
+                  local pm = dpm.dpm:new{handlers={'netifd_pull', 'netifd_push', 'netifd_firewall'}, config={test=true}}
                   local o1 = pm.h.netifd_pull
                   local o2 = pm.h.netifd_push
+                  local o3 = pm.h.netifd_firewall
+
+                  local _duci = duci.duci:new{}
+                  
+                  -- disable actual UCI part - it has to be
+                  -- empirically tested, sigh (too lazy to write mock
+                  -- for uci cursor for now)
+                  function o3:get_uci_cursor()
+                     return _duci
+                  end
                   -- should be nop w/o state
                   o1:maybe_run()
                   o2:maybe_run()
+                  o3:maybe_run()
+
+
+                  _duci.foreach_data:set_array{
+                     -- two calls per real run - once to set lan, then
+                     -- to set wan
+                     {
+                        {'firewall', 'zone'},
+                        {
+                           {name='lan', ['.name']='nlan', network={'olan'}},
+                           {name='wan', ['.name']='nwan', network={'owan'}},
+                        }
+                     },
+                     {
+                        {'firewall', 'zone'},
+                        {
+                           {name='lan', ['.name']='nlan', network={'olan'}},
+                           {name='wan', ['.name']='nwan', network={'owan'}},
+                        }
+                     }
+                                              }
+                  _duci.set:set_array{
+                     {
+                        {'network', 'nlan', 'network', {'lan0', 'lan1', 'lan2', 'olan'}},
+                     },
+                     {
+                        {'network', 'nwan', 'network', {'ext', 'owan'}},
+                     },
+                                     }
+                  _duci.commit:set_array{
+                     {
+                        {},
+                     },
+                                     }
                   --pm.skv:set(pm_netifd_pull.NETWORK_INTERFACE_UPDATED_KEY, 1)
                   pm.ds:set_array{
                      {'ubus call network.interface dump',
@@ -740,13 +785,18 @@ describe("pm_netifd", function ()
 		{
 			"interface": "ext",
 			"up": true,
+			"proto": "hnet",
+			"l3_device": "eth3",
+		},
+		{
+			"interface": "ext6",
+			"up": true,
 			"pending": false,
 			"available": true,
 			"autostart": true,
 			"uptime": 307,
-			"l3_device": "extdev",
+			"l3_device": "eth3",
 			"proto": "dhcpv6",
-			"device": "extdev",
 			"metric": 0,
 			"ipv6-address": [
 				{
@@ -836,6 +886,9 @@ describe("pm_netifd", function ()
                   pm.skv:set(elsa_pa.HP_SEARCH_LIST_KEY, {'dummy'})
                   o1:maybe_run()
                   o2:maybe_run()
+                  o2:maybe_run()
+                  o3:maybe_run()
+                  o3:maybe_run()
                   pm.ds:check_used()
 
                   -- make sure the set skv state matches what we have
@@ -850,12 +903,12 @@ describe("pm_netifd", function ()
                      {dns="2000::2"}, {dns="2001:100::1"}, 
                      {dns_search="v6.lab.example.com"}
                   }
-                  mst_test.assert_repr_equal(pm.skv:get('pd.extdev'), exp)
+                  mst_test.assert_repr_equal(pm.skv:get('pd.eth3'), exp)
                   local exp = {
                      {dns="1.2.3.4"}, 
                      --{dns_search="v6.lab.example.com"}
                   }
-                  mst_test.assert_repr_equal(pm.skv:get('dhcp.extdev'), exp)
+                  mst_test.assert_repr_equal(pm.skv:get('dhcp.eth3'), exp)
 
                   -- another run shouldn't do anything
                   o1:run()
@@ -874,6 +927,7 @@ describe("pm_netifd", function ()
                   o2:run()
                   pm.ds:check_used()
                   pm:done()
+                  _duci:done()
                    end)
 
 end)

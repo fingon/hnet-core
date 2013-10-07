@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Fri Jul 19 19:49:47 2013 mstenber
--- Edit time:     13 min
+-- Last modified: Mon Oct  7 14:26:17 2013 mstenber
+-- Edit time:     22 min
 --
 
 -- testing related utilities
@@ -92,11 +92,18 @@ end
 
 -- fake callback class for fun and profit
 
-fake_callback = mst.create_class{class='fake_callback'}
+fake_callback = mst.create_class{class='fake_callback',
+                                 unpack_r=false}
 
 function fake_callback:init()
    self.array = self.array or mst.array:new{}
    self.i = self.i or 0
+   self.skip = self.skip or 0
+end
+
+function fake_callback:set_array(array)
+   self.i = 0
+   self.array = array
 end
 
 function fake_callback:repr_data()
@@ -104,12 +111,20 @@ function fake_callback:repr_data()
 end
 
 function fake_callback:__call(...)
-   self:a(self.i < #self.array, 'not enough left to serve', {...})
-   self.i = self.i + 1
    local got = {...}
+   if self.skip > 0
+   then
+      got = mst.array_slice(got, self.skip + 1)
+   end
+   self:a(self.i < #self.array, 'not enough left to serve', got)
+   self.i = self.i + 1
    local exp, r = unpack(self.array[self.i])
    self.assert_equals(exp, got)
    self:d('returning', r)
+   if self.unpack_r
+   then
+      return self.unpack_r(r)
+   end
    return r
 end
 
@@ -118,7 +133,11 @@ function fake_callback.assert_equals(exp, got)
          'non-expected input - exp/got', exp, got)
 end
 
-function fake_callback:uninit()
+function fake_callback:check_used()
    self:a(self.i == #self.array, 'wrong amount consumed', self.i, #self.array, self.array)
+end
+
+function fake_callback:uninit()
+   self:check_used()
 end
 

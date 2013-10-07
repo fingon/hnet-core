@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Oct  2 15:06:47 2013 mstenber
--- Edit time:     743 min
+-- Last modified: Mon Oct  7 14:25:40 2013 mstenber
+-- Edit time:     746 min
 --
 
 -- data structure abstractions provided:
@@ -571,9 +571,14 @@ function array_extend(self, ...)
    end
 end
 
+function array_to_set(self)
+   return array_to_table(self, nil, set:new())
+end
+
 array = create_class{class='array',
-                     filter=array_filter,
+                     extend=array_extend,
                      filter2=array_filter2,
+                     filter=array_filter,
                      find=array_find,
                      foreach=array_foreach,
                      insert=table.insert,
@@ -585,8 +590,8 @@ array = create_class{class='array',
                      reverse=array_reverse,
                      slice=array_slice,
                      sort=table.sort,
+                     to_set=array_to_set,
                      to_table=array_to_table,
-                     extend=array_extend,
                     }
 
 function array:clear()
@@ -602,10 +607,6 @@ end
 
 function array:is_empty()
    return #self == 0
-end
-
-function array:to_set()
-   return array_to_table(self, nil, set:new())
 end
 
 --- string utilities
@@ -1066,6 +1067,10 @@ function set_union(self,t)
    -- but much faster to have dedicated op here
    local r = table_copy(self)
    table_copy(t, r)
+   if getmetatable(r) ~= getmetatable(self)
+   then
+      setmetatable(r, getmetatable(self))
+   end
    return r
 end
 

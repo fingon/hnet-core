@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Oct  2 15:00:20 2013 mstenber
--- Edit time:     263 min
+-- Last modified: Mon Oct  7 14:10:09 2013 mstenber
+-- Edit time:     265 min
 --
 
 require "busted"
@@ -845,3 +845,28 @@ describe("table", function ()
                    end)
 end)
 
+
+describe("fake_callback", function ()
+            it("works", function ()
+                  local fc = mst_test.fake_callback
+                  local o = fc:new()
+                  o:set_array{
+                     {
+                        {'foo'}, 'bar'
+                     }
+                             }
+                  local r = o('foo')
+                  mst_test.assert_repr_equal(r, 'bar')
+                  o:done()
+                  local o = fc:new{skip=1, unpack_r=unpack}
+                  o:set_array{
+                     {
+                        {'foo'}, {'bar'}
+                     }
+                             }
+                  local r = o('xyzzy', 'foo')
+                  mst_test.assert_repr_equal(r, 'bar')
+                  o:done()
+
+                   end)
+end)
