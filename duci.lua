@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  7 13:49:27 2013 mstenber
--- Last modified: Mon Oct  7 14:20:00 2013 mstenber
--- Edit time:     4 min
+-- Last modified: Mon Oct  7 17:35:06 2013 mstenber
+-- Edit time:     6 min
 --
 
 -- Mock for testing UCI APIs (very limited, just for our own use).
@@ -19,12 +19,14 @@ require 'mst_test'
 
 module(..., package.seeall)
 
-duci = mst.create_class{class='duci'}
+local _parent = mst_test.fake_object
+
+duci = _parent:new_subclass{class='duci',
+                            fake_methods={'set', 'commit'}}
 
 function duci:init()
-   self.set = mst_test.fake_callback:new{skip=1}
-   self.commit = mst_test.fake_callback:new{skip=1}
-   self.foreach_data = mst_test.fake_callback:new()
+   _parent.init(self)
+   self.foreach_data = mst_test.fake_callback:new{name='foreach_data'}
 end
 
 function duci:foreach(c, t, fun)
@@ -40,7 +42,6 @@ function duci:foreach(c, t, fun)
 end
 
 function duci:uninit()
-   self.set:done()
-   self.commit:done()
+   _parent.uninit(self)
    self.foreach_data:done()
 end

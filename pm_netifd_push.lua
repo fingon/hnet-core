@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Fri Oct  4 14:22:08 2013 mstenber
--- Edit time:     70 min
+-- Last modified: Mon Oct  7 17:03:25 2013 mstenber
+-- Edit time:     73 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -26,8 +26,6 @@
 
 require 'pm_handler'
 require 'pm_radvd'
-
-local json = require "dkjson"
 
 module(..., package.seeall)
 
@@ -151,14 +149,10 @@ function pm_netifd_push:push_state(k, v)
    v.interface = k
    v['link-up'] = true
    v.action = 0
-   -- xxx - I don't think we need ifname
-   local s = json.encode(v)
-   -- json doesn't suit very well in testsuite material - ordering is
-   -- arbitrary for those strings
-   if self.config.test
-   then
-      s = mst.repr(v)
-   end
    -- xxx - better escaping some day..
-   self.shell("ubus call network.interface notify_proto '" .. s .. "'")
+   local conn = self:get_ubus_connection()
+   self:a(conn, 'unable to connect ubus')
+   local r = conn:call('network.interface', 'notify_proto', v)
+   conn:close()
+   return r
 end

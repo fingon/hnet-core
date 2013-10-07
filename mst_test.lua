@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Mon Oct  7 14:26:17 2013 mstenber
--- Edit time:     22 min
+-- Last modified: Mon Oct  7 17:25:42 2013 mstenber
+-- Edit time:     27 min
 --
 
 -- testing related utilities
@@ -106,6 +106,11 @@ function fake_callback:set_array(array)
    self.array = array
 end
 
+function fake_callback:add_expected(args, return_value)
+   args = args or {}
+   self.array:insert{args, return_value}
+end
+
 function fake_callback:repr_data()
    return mst.repr{i=self.i,n=#self.array,name=self.name}
 end
@@ -141,3 +146,27 @@ function fake_callback:uninit()
    self:check_used()
 end
 
+
+-- fake object which has specified fake callbacks
+fake_object = mst.create_class{class='fake_object', mandatory={'fake_methods'}}
+
+function fake_object:init()
+   for i, v in ipairs(self.fake_methods)
+   do
+      self[v] = fake_callback:new{skip=1, name=v}
+   end
+end
+
+function fake_object:uninit()
+   for i, v in ipairs(self.fake_methods)
+   do
+      self[v]:done()
+   end
+end
+
+function fake_object:check_used()
+   for i, v in ipairs(self.fake_methods)
+   do
+      self[v]:check_used()
+   end
+end

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov  7 19:33:20 2012 mstenber
--- Last modified: Mon Sep 30 15:35:23 2013 mstenber
--- Edit time:     33 min
+-- Last modified: Mon Oct  7 16:55:44 2013 mstenber
+-- Edit time:     35 min
 --
 
 -- single pm handler prototype
@@ -115,6 +115,23 @@ function pm_handler:write_to_file(fpath, t0, comment_prefix)
    -- close the file
    io.close(f)
    return true
+end
+
+-- openwrt-specific utilities (used only in pm_netifd_*)
+
+function pm_handler:get_uci_cursor()
+   require 'uci'
+   return uci.cursor()
+end
+
+function pm_handler:get_uci_cursor()
+   require 'uci'
+   return uci.cursor()
+end
+
+function pm_handler:get_ubus_connection()
+   require 'ubus'
+   return ubus.connect()
 end
 
 pm_handler_with_pa = pm_handler:new_subclass{class='pm_handler_with_pa'}

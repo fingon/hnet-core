@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  7 12:12:07 2013 mstenber
--- Last modified: Mon Oct  7 14:54:31 2013 mstenber
--- Edit time:     45 min
+-- Last modified: Mon Oct  7 16:54:14 2013 mstenber
+-- Edit time:     46 min
 --
 
 -- This code is responsible for adapting the firewall status of the
@@ -95,11 +95,6 @@ function pm_netifd_firewall:get_state()
    table.sort(wan_list)
 
    return lan_list, wan_list
-end
-
-function pm_netifd_firewall:get_uci_cursor()
-   require 'uci'
-   return uci.cursor()
 end
 
 function pm_netifd_firewall:set_uci_firewall(c, zonename, include, exclude)

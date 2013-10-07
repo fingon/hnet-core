@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Mon Oct  7 14:54:16 2013 mstenber
--- Edit time:     284 min
+-- Last modified: Mon Oct  7 17:36:58 2013 mstenber
+-- Edit time:     307 min
 --
 
 -- individual handler tests
@@ -19,6 +19,7 @@ require 'dhcpv6_codec'
 require 'dshell'
 require 'mst_test'
 require 'duci'
+local json = require 'dkjson'
 
 module("pm_handler_spec", package.seeall)
 
@@ -703,62 +704,7 @@ describe("pm_memory", function ()
                                   end)
                       end)
 
-describe("pm_netifd", function ()
-            it("works #netifd", function ()
-                  local pm = dpm.dpm:new{handlers={'netifd_pull', 'netifd_push', 'netifd_firewall'}, config={test=true}}
-                  local o1 = pm.h.netifd_pull
-                  local o2 = pm.h.netifd_push
-                  local o3 = pm.h.netifd_firewall
-
-                  local _duci = duci.duci:new{}
-                  
-                  -- disable actual UCI part - it has to be
-                  -- empirically tested, sigh (too lazy to write mock
-                  -- for uci cursor for now)
-                  function o3:get_uci_cursor()
-                     return _duci
-                  end
-                  -- should be nop w/o state
-                  o1:maybe_run()
-                  o2:maybe_run()
-                  o3:maybe_run()
-
-
-                  _duci.foreach_data:set_array{
-                     -- two calls per real run - once to set lan, then
-                     -- to set wan
-                     {
-                        {'firewall', 'zone'},
-                        {
-                           {name='lan', ['.name']='nlan', network={'olan'}},
-                           {name='wan', ['.name']='nwan', network='owan owan2'},
-                        }
-                     },
-                     {
-                        {'firewall', 'zone'},
-                        {
-                           {name='lan', ['.name']='nlan', network={'olan'}},
-                           {name='wan', ['.name']='nwan', network='owan owan2'},
-                        }
-                     }
-                                              }
-                  _duci.set:set_array{
-                     {
-                        {'firewall', 'nlan', 'network', {'lan0', 'lan1', 'lan2', 'olan'}},
-                     },
-                     {
-                        {'firewall', 'nwan', 'network', {'ext', 'owan', 'owan2'}},
-                     },
-                                     }
-                  _duci.commit:set_array{
-                     {
-                        {'firewall'},
-                     },
-                                     }
-                  --pm.skv:set(pm_netifd_pull.NETWORK_INTERFACE_UPDATED_KEY, 1)
-                  pm.ds:set_array{
-                     {'ubus call network.interface dump',
-[[
+local network_interface_dump = [[
 {
 	"interface": [
 		{
@@ -847,13 +793,46 @@ describe("pm_netifd", function ()
 }
  ]]                    
 
-                     },
-                     {'ubus call network.interface notify_proto \'{action=0, interface="lan0", ["link-up"]=true, routes6={{gateway="dead::1", source="dead::/16", target="::/0"}}}\'', ''},
-                     {'ubus call network.interface notify_proto \'{action=0, dns_search={"dummy"}, interface="lan1", ip6addr={{ipaddr="dead:beef::1", mask="32"}}, ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}\'', ''},
-                     {'ubus call network.interface notify_proto \'{action=0, interface="lan2", ["link-up"]=true, routes={{gateway="10.1.1.1", source="10.0.0.0/8", target="0.0.0.0/0"}}}\'', ''},
-                                 }
 
-                  -- let's give it some state
+local dubus = mst_test.fake_object:new_subclass{class='dubus',
+                                                fake_methods={'open', 'close', 'call'}}
+
+describe("pm_netifd", function ()
+            it("works #netifd", function ()
+                  local pm = dpm.dpm:new{handlers={'netifd_pull', 'netifd_push', 'netifd_firewall'}, config={test=true}}
+                  local o1 = pm.h.netifd_pull
+                  local o2 = pm.h.netifd_push
+                  local o3 = pm.h.netifd_firewall
+
+                  local _duci = duci.duci:new{}
+                  local _ubus1 = dubus:new{}
+                  local _ubus2 = dubus:new{}
+
+                  -- disable actual UCI part - it has to be
+                  -- empirically tested, sigh (too lazy to write mock
+                  -- for uci cursor for now)
+                  function o3:get_uci_cursor()
+                     return _duci
+                  end
+
+                  function o2:get_ubus_connection()
+                     _ubus2:open()
+                     return _ubus2
+                  end
+
+                  function o1:get_ubus_connection()
+                     _ubus1:open()
+                     return _ubus1
+                  end
+
+                  -- should be nop w/o state
+                  o1:maybe_run()
+                  o2:maybe_run()
+                  o3:maybe_run()
+                  
+                  -- then run handlers one by one, making sure they
+                  -- consume exactly the amount of state we expect
+                  -- them to
                   local usps = {
                                 -- IPv4 with route'
                                 {prefix='10.0.0.0/8', 
@@ -884,12 +863,75 @@ describe("pm_netifd", function ()
                   pm.skv:set(elsa_pa.OSPF_USP_KEY, usps)
                   pm.skv:set(elsa_pa.OSPF_LAP_KEY, laps)
                   pm.skv:set(elsa_pa.HP_SEARCH_LIST_KEY, {'dummy'})
+
+                  -- handler 1 - netifd_pull
+
+                  --pm.skv:set(pm_netifd_pull.NETWORK_INTERFACE_UPDATED_KEY, 1)
+                  _ubus1.open:add_expected()
+                  _ubus1.call:set_array{
+                     {
+                        {'network.interface', 'dump'},
+                        json.decode(network_interface_dump),
+                     },
+                                   }
+                  _ubus1.close:add_expected()
+
                   o1:maybe_run()
+                  _ubus1:check_used()
+
+                  -- handler 2 - netifd_push
+
+                  _ubus2.open:add_expected()
+                  _ubus2.call:add_expected(
+                     {'network.interface', 'notify_proto', {action=0, interface="lan0", ["link-up"]=true, routes6={{gateway="dead::1", source="dead::/16", target="::/0"}}}})
+                  _ubus2.close:add_expected()
+
+                  _ubus2.open:add_expected()
+                  _ubus2.call:add_expected(
+                     {'network.interface', 'notify_proto', {action=0, dns_search={"dummy"}, interface="lan1", ip6addr={{ipaddr="dead:beef::1", mask="32"}}, ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}})
+                  _ubus2.close:add_expected()
+
+                  _ubus2.open:add_expected()
+                  _ubus2.call:add_expected(
+                     {"network.interface", "notify_proto", {action=0, interface="lan2", ["link-up"]=true, routes={{gateway="10.1.1.1", source="10.0.0.0/8", target="0.0.0.0/0"}}}})
+                  _ubus2.close:add_expected()
+                         
                   o2:maybe_run()
                   o2:maybe_run()
+                  _ubus2:check_used()
+
+                  -- handler 3 - netifd_firewall
+
+                  -- two calls per real run - once to set lan, then
+                  -- to set wan
+                  _duci.foreach_data:set_array{
+                     {
+                        {'firewall', 'zone'},
+                        {
+                           {name='lan', ['.name']='nlan', network={'olan'}},
+                           {name='wan', ['.name']='nwan', network='owan owan2'},
+                        }
+                     },
+                     {
+                        {'firewall', 'zone'},
+                        {
+                           {name='lan', ['.name']='nlan', network={'olan'}},
+                           {name='wan', ['.name']='nwan', network='owan owan2'},
+                        }
+                     }
+                                              }
+                  _duci.set:set_array{
+                     {
+                        {'firewall', 'nlan', 'network', {'lan0', 'lan1', 'lan2', 'olan'}},
+                     },
+                     {
+                        {'firewall', 'nwan', 'network', {'ext', 'owan', 'owan2'}},
+                     },
+                                     }
+                  _duci.commit:add_expected({'firewall'})
+
                   o3:maybe_run()
                   o3:maybe_run()
-                  pm.ds:check_used()
 
                   -- make sure the set skv state matches what we have
                   mst.a(o1.set_pd_state:count() == 1)
@@ -920,14 +962,25 @@ describe("pm_netifd", function ()
 
                   pm.skv:set(elsa_pa.OSPF_USP_KEY, usps)
                   pm.skv:set(elsa_pa.OSPF_LAP_KEY, laps)
-                  pm.ds:set_array{
-                     {'ubus call network.interface notify_proto \'{action=0, dns_search={"dummy"}, interface="lan1", ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}\'', ''},
-                     {'ubus call network.interface notify_proto \'{action=0, interface="lan0", ["link-up"]=true}\'', ''},
-                                 }
+
+                  _ubus2.open:add_expected()
+                  _ubus2.call:add_expected(
+                     {'network.interface', 'notify_proto', {action=0, dns_search={"dummy"}, interface="lan1", ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}}
+                                           )
+                  _ubus2.close:add_expected()
+
+                  _ubus2.open:add_expected()
+                  _ubus2.call:add_expected(
+                     {'network.interface', 'notify_proto', {action=0, interface="lan0", ["link-up"]=true}}
+                                           )
+                  _ubus2.close:add_expected()
+
                   o2:run()
-                  pm.ds:check_used()
                   pm:done()
                   _duci:done()
+                  _ubus1:done()
+                  _ubus2:done()
+
                    end)
 
 end)

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  3 16:48:11 2013 mstenber
--- Last modified: Mon Oct  7 12:43:35 2013 mstenber
--- Edit time:     31 min
+-- Last modified: Mon Oct  7 17:03:19 2013 mstenber
+-- Edit time:     33 min
 --
 
 
@@ -25,7 +25,6 @@
 -- the openwrt interface <> real physical device mapping information)
 
 require 'pm_handler'
-local json = require "dkjson"
 
 module(..., package.seeall)
 
@@ -44,8 +43,11 @@ function pm_netifd_pull:init()
 end
 
 function pm_netifd_pull:get_network_interface_dump()
-   local s = self.shell('ubus call network.interface dump')
-   return json.decode(s)
+   local conn = self:get_ubus_connection()
+   self:a(conn, 'unable to connect ubus')
+   local r = conn:call('network.interface', 'dump')
+   conn:close()
+   return r
 end
 
 function pm_netifd_pull:skv_changed(k, v)
