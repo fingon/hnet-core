@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Thu Oct  3 16:53:08 2013 mstenber
+-- Last modified: Mon Oct  7 14:46:38 2013 mstenber
 -- Edit time:     630 min
 --
 
@@ -141,6 +141,9 @@ function pm:init()
 
             -- the output which calls network.interface update mechanism
             'netifd_push',
+
+            -- and firewall configuration script
+            'netifd_firewall',
                              }
       else
          -- fallback - old list of handlers
