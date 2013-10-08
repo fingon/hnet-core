@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Mon Oct  7 17:41:50 2013 mstenber
--- Edit time:     308 min
+-- Last modified: Tue Oct  8 16:12:35 2013 mstenber
+-- Edit time:     317 min
 --
 
 -- individual handler tests
@@ -780,7 +780,25 @@ local network_interface_dump = [[
 					}
 				}
 			],
-			"dns-server": [
+                        "route": [
+                {
+                        "target": "2000:dead::1",
+                        "mask": 64,
+                        "nexthop": "::",
+                        "metric": 256,
+                        "valid": 86397,
+                        "source": "::\/0"
+                },
+                {
+                        "target": "::",
+                        "mask": 0,
+                        "nexthop": "fe80::b494:e8ff:feef:9a87",
+                        "metric": 1024,
+                        "valid": 597,
+                        "source": "::\/0"
+                }
+        ],
+                        "dns-server": [
 				"1.2.3.4",
 				"2000::2",
 				"2001:100::1"
@@ -834,18 +852,22 @@ describe("pm_netifd", function ()
                   -- consume exactly the amount of state we expect
                   -- them to
                   local usps = {
-                                -- IPv4 with route'
+                                -- IPv4 with route
                                 {prefix='10.0.0.0/8', 
                                  ifname='eth2',
                                  nh='10.1.1.1',
                                 },
 
-                                -- IPv6 without route'
+                                -- IPv6 without route
                                 {prefix='dead::/16',},
                                 
-                                -- IPv6 with route'
+                                -- IPv6 with route
                                 {prefix='dead::/16', 
                                  nh='dead::1', ifname='eth0'},
+                                
+                                -- IPv6 without route (but interface -> local)
+                                {prefix='beef::/16', 
+                                 ifname='eth3'},
                                  
                              }
                   local laps = {
@@ -880,10 +902,14 @@ describe("pm_netifd", function ()
                   _ubus1:check_used()
 
                   -- handler 2 - netifd_push
+                  _ubus2.open:add_expected()
+                  _ubus2.call:add_expected(
+                     {"network.interface", "notify_proto", {action=0, interface="ext", ["link-up"]=true, routes6={{gateway="fe80::b494:e8ff:feef:9a87", source="beef::/16", target="::/0", metric=1024}}}})
+                  _ubus2.close:add_expected()
 
                   _ubus2.open:add_expected()
                   _ubus2.call:add_expected(
-                     {'network.interface', 'notify_proto', {action=0, interface="lan0", ["link-up"]=true, routes6={{gateway="dead::1", source="dead::/16", target="::/0"}}}})
+                     {'network.interface', 'notify_proto', {action=0, interface="lan0", ["link-up"]=true, routes6={{gateway="dead::1", source="dead::/16", target="::/0", metric=1024}}}})
                   _ubus2.close:add_expected()
 
                   _ubus2.open:add_expected()
@@ -893,7 +919,7 @@ describe("pm_netifd", function ()
 
                   _ubus2.open:add_expected()
                   _ubus2.call:add_expected(
-                     {"network.interface", "notify_proto", {action=0, interface="lan2", ["link-up"]=true, routes={{gateway="10.1.1.1", source="10.0.0.0/8", target="0.0.0.0/0"}}}})
+                     {"network.interface", "notify_proto", {action=0, interface="lan2", ["link-up"]=true, routes={{gateway="10.1.1.1", source="10.0.0.0/8", target="0.0.0.0/0", metric=1024}}}})
                   _ubus2.close:add_expected()
                          
                   o2:maybe_run()
@@ -972,6 +998,12 @@ describe("pm_netifd", function ()
                   _ubus2.open:add_expected()
                   _ubus2.call:add_expected(
                      {'network.interface', 'notify_proto', {action=0, interface="lan0", ["link-up"]=true}}
+                                           )
+                  _ubus2.close:add_expected()
+
+                  _ubus2.open:add_expected()
+                  _ubus2.call:add_expected(
+                     {"network.interface", "notify_proto", {action=0, interface="ext", ["link-up"]=true}}
                                            )
                   _ubus2.close:add_expected()
 

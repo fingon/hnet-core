@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Mon Oct  7 17:03:25 2013 mstenber
--- Edit time:     73 min
+-- Last modified: Tue Oct  8 16:12:45 2013 mstenber
+-- Edit time:     84 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -29,6 +29,8 @@ require 'pm_radvd'
 
 module(..., package.seeall)
 
+DEFAULT_METRIC=1024
+
 local _parent = pm_handler.pm_handler_with_pa_dns
 
 pm_netifd_push = _parent:new_subclass{class='pm_netifd_push'}
@@ -36,6 +38,7 @@ pm_netifd_push = _parent:new_subclass{class='pm_netifd_push'}
 function pm_netifd_push:init()
    _parent.init(self)
    self.set_netifd_state = {}
+   self.device2nh = {}
    self:connect_method(self._pm.network_interface_changed, self.ni_changed)
 end
 
@@ -91,21 +94,30 @@ function pm_netifd_push:get_skv_to_netifd_state()
    do
       -- ifname + nh == source route we care about (we're internal
       -- node, and it needs to point somewhere external)
-      local ifname = self.ni:device2hnet_interface(usp.ifname)
-      if ifname and usp.nh
+      local devname = usp.ifname
+      local ifname = self.ni:device2hnet_interface(devname)
+      if ifname 
       then
-         local ifo = _setdefault_named_subentity(state, ifname, mst.map)
-         local p = ipv6s.new_prefix_from_ascii(usp.prefix)
-         local routes_name = p:is_ipv4() and 'routes' or 'routes6'
-         local routes = _setdefault_named_subentity(ifo, routes_name, mst.array)
-         local o = {
-            source=usp.prefix,
-            target=p:is_ipv4() and '0.0.0.0/0' or '::/0',
-            gateway=usp.nh,
-            -- metric/valid?
-         }
-         routes:insert(o)
-         self:d('added route', routes_name, o)
+
+         local nh = usp.nh or self.device2nh[devname]
+         if nh
+         then
+            local ifo = _setdefault_named_subentity(state, ifname, mst.map)
+            local p = ipv6s.new_prefix_from_ascii(usp.prefix)
+            local routes_name = p:is_ipv4() and 'routes' or 'routes6'
+            local routes = _setdefault_named_subentity(ifo, routes_name, mst.array)
+            local o = {
+               source=usp.prefix,
+               target=p:is_ipv4() and '0.0.0.0/0' or '::/0',
+               gateway=nh,
+               metric=DEFAULT_METRIC,
+               -- metric/valid?
+            }
+            routes:insert(o)
+            self:d('added route', routes_name, o)
+         else
+            self:d('no nh found for usp', usp, ifname, devname)
+         end
       end
    end
    --self:d('produced state', state)
@@ -113,6 +125,20 @@ function pm_netifd_push:get_skv_to_netifd_state()
 end
 
 function pm_netifd_push:run()
+   -- determine the local next hops on interfaces
+   -- (e.g. have 'route', with target '::' and nexthop)
+   self.device2nh = {}
+   for i, ifo in ipairs(self.ni.interface)
+   do
+      for i, r in ipairs(ifo['route'] or {})
+      do
+         if r.target == '::' and r.nexthop
+         then
+            self.device2nh[ifo.l3_device or ifo.device] = r.nexthop
+         end
+      end
+   end
+
    -- generate per-interface blobs
    local state = self:get_skv_to_netifd_state()
 
