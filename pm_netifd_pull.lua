@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  3 16:48:11 2013 mstenber
--- Last modified: Wed Oct  9 15:59:51 2013 mstenber
--- Edit time:     68 min
+-- Last modified: Wed Oct  9 17:03:11 2013 mstenber
+-- Edit time:     72 min
 --
 
 
@@ -48,8 +48,11 @@ function network_interface_dump:get_device2interface_multimap()
       local mm = mst.multimap:new{}
       for i, ifo in ipairs(self.interface)
       do
-         local dev = ifo.l3_device or l3.device
-         mm:insert(dev, ifo)
+         local dev = ifo.l3_device or ifo.device
+         if dev
+         then
+            mm:insert(dev, ifo)
+         end
       end
       self.device2ifo = mm
    end

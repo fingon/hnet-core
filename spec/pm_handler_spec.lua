@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Wed Oct  9 16:56:00 2013 mstenber
--- Edit time:     323 min
+-- Last modified: Wed Oct  9 17:03:34 2013 mstenber
+-- Edit time:     325 min
 --
 
 -- individual handler tests
@@ -712,6 +712,11 @@ local network_interface_dump = [[
 			"proto": "hnet",
 			"l3_device": "eth1",
 			"device": "eth1",
+		},
+		{
+			"interface": "dummy",
+			"up": true,
+			"device": "lan1",
 		},
 		{
 			"interface": "lan2",
