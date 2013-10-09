@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Sat Jul 20 21:02:39 2013 mstenber
--- Edit time:     1070 min
+-- Last modified: Wed Oct  9 19:00:07 2013 mstenber
+-- Edit time:     1073 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -345,7 +345,13 @@ function elsa_pa:kv_changed(k, v)
    -- implicitly add the tunnel interfaces to the all_seen_if_names
    -- (someone plays with stuff that starts with TUNNEL_SKVPREFIX ->
    -- stuff happens)
-   local r = mst.string_startswith(k, TUNNEL_SKVPREFIX)
+   
+   -- same with also 'pd'; in case of OpenWRT, the pd external
+   -- interfaces WON'T be on the OSPF iflist, but instead we have to
+   -- detect them just like tunnel interfaces.
+
+   local r = mst.string_startswith(k, TUNNEL_SKVPREFIX) or 
+      mst.string_startswith(k, PD_SKVPREFIX)
    if r
    then
       if r ~= IFLIST_KEY
