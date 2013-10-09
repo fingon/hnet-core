@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  3 16:48:11 2013 mstenber
--- Last modified: Wed Oct  9 17:03:11 2013 mstenber
--- Edit time:     72 min
+-- Last modified: Wed Oct  9 17:57:57 2013 mstenber
+-- Edit time:     80 min
 --
 
 
@@ -31,12 +31,13 @@ module(..., package.seeall)
 NETWORK_INTERFACE_UPDATED_KEY='network-interface-updated'
 PROTO_HNET='hnet'
 
-local _parent = pm_handler.pm_handler_with_pa
+local _parent = pm_handler.pm_handler
 
 -- abstraction class around the structure we get from ubus that
 -- represents the current network state
 
-network_interface_dump = mst.create_class{class='network_interface_dump'}
+network_interface_dump = mst.create_class{class='network_interface_dump',
+                                          sources={pm_handler.skv_source}}
 
 function network_interface_dump:repr_data()
    return '?'
@@ -131,7 +132,10 @@ function pm_netifd_pull:init()
    _parent.init(self)
    self.set_pd_state = mst.map:new()
    self.set_dhcp_state = mst.map:new()
+   
+   -- make sure we get run as soon as possible
    self.last_run = 'xxx' -- force first run, even if just to set this to nil
+   self:queue()
 end
 
 function pm_netifd_pull:get_network_interface_dump()

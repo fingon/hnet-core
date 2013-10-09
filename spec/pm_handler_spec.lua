@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Wed Oct  9 17:03:34 2013 mstenber
--- Edit time:     325 min
+-- Last modified: Wed Oct  9 17:58:08 2013 mstenber
+-- Edit time:     328 min
 --
 
 -- individual handler tests
@@ -849,7 +849,7 @@ describe("pm_netifd", function ()
                   end
 
                   -- should be nop w/o state
-                  o1:maybe_run()
+                  --o1:maybe_run() -- this will poll system immediately
                   o2:maybe_run()
                   o3:maybe_run()
                   o4:maybe_run()
@@ -888,10 +888,6 @@ describe("pm_netifd", function ()
                       ifname='eth1'},
                   }
 
-                  pm.skv:set(elsa_pa.OSPF_USP_KEY, usps)
-                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, laps)
-                  pm.skv:set(elsa_pa.HP_SEARCH_LIST_KEY, {'dummy'})
-
                   -- handler 1 - netifd_pull
 
                   --pm.skv:set(pm_netifd_pull.NETWORK_INTERFACE_UPDATED_KEY, 1)
@@ -906,6 +902,13 @@ describe("pm_netifd", function ()
 
                   o1:maybe_run()
                   _ubus1:check_used()
+
+                  -- set up pd things only _afterwards_; the
+                  -- netifd_pull MUST work without PA stuff (and it
+                  -- shouldn't even depend on it)
+                  pm.skv:set(elsa_pa.OSPF_USP_KEY, usps)
+                  pm.skv:set(elsa_pa.OSPF_LAP_KEY, laps)
+                  pm.skv:set(elsa_pa.HP_SEARCH_LIST_KEY, {'dummy'})
 
                   -- handler 2 - netifd_push
                   _ubus2.open:add_expected()
