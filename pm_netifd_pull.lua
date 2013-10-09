@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  3 16:48:11 2013 mstenber
--- Last modified: Mon Oct  7 17:41:14 2013 mstenber
--- Edit time:     34 min
+-- Last modified: Wed Oct  9 15:59:51 2013 mstenber
+-- Edit time:     68 min
 --
 
 
@@ -23,7 +23,7 @@
 
 -- (Note: push is not possible without initial pull, as pull provides
 -- the openwrt interface <> real physical device mapping information)
-
+ 
 require 'pm_handler'
 
 module(..., package.seeall)
@@ -32,6 +32,95 @@ NETWORK_INTERFACE_UPDATED_KEY='network-interface-updated'
 PROTO_HNET='hnet'
 
 local _parent = pm_handler.pm_handler_with_pa
+
+-- abstraction class around the structure we get from ubus that
+-- represents the current network state
+
+network_interface_dump = mst.create_class{class='network_interface_dump'}
+
+function network_interface_dump:repr_data()
+   return '?'
+end
+
+function network_interface_dump:get_device2interface_multimap()
+   if not self.device2ifo
+   then
+      local mm = mst.multimap:new{}
+      for i, ifo in ipairs(self.interface)
+      do
+         local dev = ifo.l3_device or l3.device
+         mm:insert(dev, ifo)
+      end
+      self.device2ifo = mm
+   end
+   return self.device2ifo
+end
+
+function network_interface_dump:device2interface(d, filter)
+   local d2i = self:get_device2interface_multimap()
+   for i, v in ipairs(d2i[d] or {})
+   do
+      if (not filter or filter(v, d))
+      then
+         return v.interface
+      end
+   end
+end
+
+function network_interface_dump:ifo_is_itself_external(ifo)
+   local pl = ifo['ipv6-prefix']
+   local is_ext = pl and #pl > 0
+   return is_ext
+end
+
+function network_interface_dump:device2hnet_interface(d)
+   return self:device2interface(d, function (v)
+                                   return v.proto == PROTO_HNET
+                                   end)
+end
+
+function network_interface_dump:device_is_external(d)
+   return self:device2interface(d, function (ifo)
+                                   return self:ifo_is_itself_external(ifo)
+                                   end)
+end
+
+function network_interface_dump:ifo_is_external(ifo)
+   -- this is nontrivial to determine; what we have to do is to make
+   -- sure that the underlying _device_ is external.. and that depends
+   -- on every interface object attached to that device.
+   local dev = ifo.l3_device or ifo.device
+   return self:device_is_external(dev)
+end
+
+function network_interface_dump:interface2device(i)
+   local interface_list = self.interface
+   mst.a(interface_list, 'no interface list?!?')
+   for i, v in ipairs(interface_list)
+   do
+      if v.interface == i
+      then
+         return v.l3_device or v.device
+      end
+   end
+end
+
+function network_interface_dump:iterate_interfaces(f, want_ext, want_hnet)
+   self:d('starting iteration', not not want_ext, not not want_hnet)
+
+   for i, ifo in ipairs(self.interface)
+   do
+      local is_hnet = ifo.proto == PROTO_HNET 
+      local is_ext = self:ifo_is_external(ifo)
+      local match = (want_ext == nil or (not want_ext == not is_ext)) and
+         (want_hnet == nil or (not want_hnet == not is_hnet))
+      self:d('iteratating', ifo.interface, is_ext, is_hnet, match)
+      if match
+      then
+         f(ifo)
+      end
+   end
+end
 
 pm_netifd_pull = _parent:new_subclass{class='pm_netifd_pull'}
 
@@ -46,6 +135,7 @@ function pm_netifd_pull:get_network_interface_dump()
    local conn = self:get_ubus_connection()
    self:a(conn, 'unable to connect ubus')
    local r = conn:call('network.interface', 'dump', {})
+   setmetatable(r, network_interface_dump)
    conn:close()
    return r
 end
@@ -61,8 +151,7 @@ end
 function pm_netifd_pull:get_state(ni)
    local pd_state = mst.map:new()
    local dhcp_state = mst.map:new()
-   for i, ifo in ipairs(ni.interface)
-   do
+   local function _ext_if_iterator(ifo)
       for i, p in ipairs(ifo['ipv6-prefix'] or {})
       do
          local device = ifo.l3_device or ifo.device
@@ -91,7 +180,9 @@ function pm_netifd_pull:get_state(ni)
 
          l:insert{[elsa_pa.DNS_SEARCH_KEY]=d}
       end
+
    end
+   ni:iterate_interfaces(_ext_if_iterator, true)
    return pd_state, dhcp_state
 end
 
@@ -106,45 +197,6 @@ function pm_netifd_pull:run()
    -- there isn't any useful way how we can verify it isn't same ->
    -- just forward it as-is
    local ni = self:get_network_interface_dump()
-   function ni:device2interface(d, filter)
-      -- 'ifname' we get from skv (and therefore OSPF) is actually real
-      -- Linux device name. netifd deals with 'interface's => we have to adapt
-      local interface_list = self.interface
-      mst.a(interface_list, 'no interface list?!?')
-      for i, v in ipairs(interface_list)
-      do
-         if v.l3_device == d and (not filter or filter(v, d))
-         then
-            return v.interface
-         end
-      end
-      -- fallback - accept non-l3_devices too
-      for i, v in ipairs(interface_list)
-      do
-         if v.device == d and (not filter or filter(v, d))
-         then
-            return v.interface
-         end
-      end
-   end
-
-   function ni:device2hnet_interface(d)
-      return self:device2interface(d, function (v)
-                                      return v.proto == PROTO_HNET
-                                      end)
-   end
-
-   function ni:interface2device(i)
-      local interface_list = self.interface
-      mst.a(interface_list, 'no interface list?!?')
-      for i, v in ipairs(interface_list)
-      do
-         if v.interface == i
-         then
-            return v.l3_device or v.device
-         end
-      end
-   end
 
    self._pm.network_interface_changed(ni)
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Tue Oct  8 16:12:45 2013 mstenber
--- Edit time:     84 min
+-- Last modified: Wed Oct  9 14:18:55 2013 mstenber
+-- Edit time:     86 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -128,8 +128,7 @@ function pm_netifd_push:run()
    -- determine the local next hops on interfaces
    -- (e.g. have 'route', with target '::' and nexthop)
    self.device2nh = {}
-   for i, ifo in ipairs(self.ni.interface)
-   do
+   local function _iterate_ext_route(ifo)
       for i, r in ipairs(ifo['route'] or {})
       do
          if r.target == '::' and r.nexthop
@@ -138,6 +137,7 @@ function pm_netifd_push:run()
          end
       end
    end
+   self.ni:iterate_interfaces(_iterate_ext_route, true)
 
    -- generate per-interface blobs
    local state = self:get_skv_to_netifd_state()

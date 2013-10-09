@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  7 12:12:07 2013 mstenber
--- Last modified: Mon Oct  7 16:54:14 2013 mstenber
--- Edit time:     46 min
+-- Last modified: Wed Oct  9 16:06:44 2013 mstenber
+-- Edit time:     62 min
 --
 
 -- This code is responsible for adapting the firewall status of the
@@ -60,34 +60,26 @@ function pm_netifd_firewall:ready()
 end
 
 function pm_netifd_firewall:get_state()
-   local wan_state = mst.set:new()
-
    local ni = self.ni
 
-   for i, ifo in ipairs(ni.interface)
-   do
-      local prefixes = ifo['ipv6-prefix'] or {}
-      if #prefixes > 0
-      then
-         local device = ifo.l3_device or ifo.device
-         local hnet_ifname = ni:device2hnet_interface(device)
-         if hnet_ifname
-         then
-            wan_state:insert(hnet_ifname)
-         end
-      end
-   end  
+   local wan_state = mst.set:new()
+   -- external-only -> we already get what we want
+   ni:iterate_interfaces(function (ifo)
+                            local device = ifo.l3_device or ifo.device
+                            local hnet_ifname = ni:device2hnet_interface(device)
+                            if hnet_ifname
+                            then
+                               wan_state:insert(hnet_ifname)
+                            end
+                         end, true)
 
    local lan_state = mst.set:new()
-   for i, ifo in ipairs(ni.interface)
-   do
-      local ifname = ifo.interface
-      if ifo.proto == pm_netifd_pull.PROTO_HNET and not wan_state[ifname]
-      then
-         self:a(ifname, 'no ifname?!?', ifo)
-         lan_state:insert(ifname)
-      end
-   end
+   ni:iterate_interfaces(function (ifo)
+                            local ifname = ifo.interface
+                            self:a(ifname, 'no ifname?!?', ifo)
+                            lan_state:insert(ifname)
+                         end, false, true)
+
    local lan_list = lan_state:keys()
    table.sort(lan_list)
 
@@ -113,6 +105,7 @@ function pm_netifd_firewall:set_uci_firewall(c, zonename, include, exclude)
                    local ns = mst.array_to_set(nw)
                    local is = mst.array_to_set(include)
                    local es = mst.array_to_set(exclude)
+
                    self:d(' doing set up', ns, is, es)
                    ns = ns:union(is):difference(es)
                    found = true
