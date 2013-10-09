@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Mon Oct  7 14:46:38 2013 mstenber
--- Edit time:     630 min
+-- Last modified: Wed Oct  9 13:39:15 2013 mstenber
+-- Edit time:     632 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -125,7 +125,7 @@ function pm:init()
    -- DO NOT CHANGE THE ORDER (at least without fixing the pm_core_spec as well)
    if not self.handlers
    then
-      self.handlers = mst.array:new{'bird4'}
+      self.handlers = mst.array:new{}
       if config.openwrt
       then
          -- we can keep using bird4 I suppose like we did, although
@@ -146,6 +146,10 @@ function pm:init()
             'netifd_firewall',
                              }
       else
+         -- bird4 handler is redundant - we _should_ just let it use
+         -- auto-configuration and deal with that?
+         self.handlers:insert('bird4')
+
          -- fallback - old list of handlers
          if not config.use_dnsmasq
          then
