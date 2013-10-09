@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Wed Oct  9 16:55:25 2013 mstenber
--- Edit time:     633 min
+-- Last modified: Wed Oct  9 18:46:23 2013 mstenber
+-- Edit time:     637 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -203,6 +203,13 @@ function pm:init()
       o:connect(o.changed, function ()
                    self.changes = self.changes + 1
                            end)
+
+      -- if it immediately queued itself _before_ we connected to it,
+      -- let's make sure our tick causes things to happen
+      if o.queued
+      then
+         self.changes = self.changes + 1
+      end
    end
 
    -- post-init activities

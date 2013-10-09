@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  3 16:48:11 2013 mstenber
--- Last modified: Wed Oct  9 17:57:57 2013 mstenber
--- Edit time:     80 min
+-- Last modified: Wed Oct  9 18:52:42 2013 mstenber
+-- Edit time:     87 min
 --
 
 
@@ -194,11 +194,14 @@ function pm_netifd_pull:get_state(ni)
 end
 
 function pm_netifd_pull:run()
+   self:d('run')
+
    -- don't do anything if there does not seem to be a need
    if self.last_run == self.updated
    then
       return
    end
+
    self.last_run = self.updated
 
    -- there isn't any useful way how we can verify it isn't same ->
@@ -215,11 +218,13 @@ function pm_netifd_pull:run()
    mst.sync_tables(self.set_pd_state, pd_state, 
                    -- remove
                    function (k)
+                      self:d('removing pd', k)
                       self._pm.skv:set(elsa_pa.PD_SKVPREFIX .. k, {})
                       self.set_pd_state[k] = nil
                    end,
                    -- add
                    function (k, v)
+                      self:d('adding pd', k, v)
                       self._pm.skv:set(elsa_pa.PD_SKVPREFIX .. k, v)
                       self.set_pd_state[k] = v
                    end,
@@ -232,11 +237,13 @@ function pm_netifd_pull:run()
    mst.sync_tables(self.set_dhcp_state, dhcp_state, 
                    -- remove
                    function (k)
+                      self:d('removing dhcpv4 info', k)
                       self._pm.skv:set(elsa_pa.DHCPV4_SKVPREFIX .. k, {})
                       self.set_dhcp_state[k] = nil
                    end,
                    -- add
                    function (k, v)
+                      self:d('adding dhcpv4 info', k, v)
                       self._pm.skv:set(elsa_pa.DHCPV4_SKVPREFIX .. k, v)
                       self.set_dhcp_state[k] = v
                    end,
