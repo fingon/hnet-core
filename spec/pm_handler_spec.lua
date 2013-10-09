@@ -8,15 +8,14 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Tue Oct  8 16:12:35 2013 mstenber
--- Edit time:     317 min
+-- Last modified: Wed Oct  9 16:56:00 2013 mstenber
+-- Edit time:     323 min
 --
 
 -- individual handler tests
 require 'busted'
 require 'dpm'
 require 'dhcpv6_codec'
-require 'dshell'
 require 'mst_test'
 require 'duci'
 local json = require 'dkjson'
@@ -817,10 +816,11 @@ local dubus = mst_test.fake_object:new_subclass{class='dubus',
 
 describe("pm_netifd", function ()
             it("works #netifd", function ()
-                  local pm = dpm.dpm:new{handlers={'netifd_pull', 'netifd_push', 'netifd_firewall'}, config={test=true}}
+                  local pm = dpm.dpm:new{handlers={'netifd_pull', 'netifd_push', 'netifd_firewall', 'netifd_bird6'}, config={test=true}}
                   local o1 = pm.h.netifd_pull
                   local o2 = pm.h.netifd_push
                   local o3 = pm.h.netifd_firewall
+                  local o4 = pm.h.netifd_bird6
 
                   local _duci = duci.duci:new{}
                   local _ubus1 = dubus:new{}
@@ -847,6 +847,7 @@ describe("pm_netifd", function ()
                   o1:maybe_run()
                   o2:maybe_run()
                   o3:maybe_run()
+                  o4:maybe_run()
                   
                   -- then run handlers one by one, making sure they
                   -- consume exactly the amount of state we expect
@@ -958,6 +959,14 @@ describe("pm_netifd", function ()
 
                   o3:maybe_run()
                   o3:maybe_run()
+
+                  -- handler 4 - netifd_bird6
+                  pm.ds:set_array{
+                     {'/usr/share/hnet/bird6_handler.sh start eth0 eth1 eth2', ''},
+                                 }
+                  o4:maybe_run()
+                  o4:maybe_run()
+                  pm.ds:check_used()
 
                   -- make sure the set skv state matches what we have
                   mst.a(o1.set_pd_state:count() == 1)
