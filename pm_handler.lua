@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov  7 19:33:20 2012 mstenber
--- Last modified: Wed Oct  9 16:35:33 2013 mstenber
+-- Last modified: Wed Oct  9 17:43:17 2013 mstenber
 -- Edit time:     52 min
 --
 
@@ -226,20 +226,6 @@ end
 
 function pm_handler_with_pa:skv_changed(k, v)
    -- nop
-end
-
-function pm_handler_with_pa:ready()
-   if not self.usp
-   then
-      self:d('no usp, not ready')
-      return
-   end
-   if not self.lap
-   then
-      self:d('no lap, not ready')
-      return
-   end
-   return true
 end
 
 pm_handler_with_pa_dns = pm_handler_with_pa:new_subclass{class='pm_handler_with_pa_dns'}
