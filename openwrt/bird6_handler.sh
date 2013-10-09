@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Wed Oct  9 17:24:48 2013 mstenber
-# Edit time:     30 min
+# Last modified: Wed Oct  9 17:32:17 2013 mstenber
+# Edit time:     34 min
 #
 
 # Start or stop bird6
@@ -65,11 +65,15 @@ protocol ospf {
         import all;
         duplicate rid detection yes;
         elsa path "/usr/share/bird/elsa.lua";
-        area 0 {
+        area 0.0.0.0 {
                 stub no;
                 interface "$IFLIST" {
                         hello 10; dead count 4;
                 };
+                # This is also semi-crucial, as it affects
+                # default LSA max size (default is <3kb, which
+                # is ridiculously small for AC LSAs with lot of content)
+                rx buffer large;
         };
 }
 
