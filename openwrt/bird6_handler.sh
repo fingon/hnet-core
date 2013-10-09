@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Wed Oct  9 17:32:17 2013 mstenber
-# Edit time:     34 min
+# Last modified: Wed Oct  9 18:17:24 2013 mstenber
+# Edit time:     36 min
 #
 
 # Start or stop bird6
@@ -37,7 +37,7 @@ writeconf() {
     IFLIST=$*
     # Bird interface pattern looks like "if1","if2","if3" 
     # (first and last mark are taken care of by the config file below)
-    IFLIST=`echo "$IFLIST" | sed 's/ /","`
+    IFLIST=`echo "$IFLIST" | sed 's/ /","/g'`
     cat > $CONF <<EOF
 
 #log "/tmp/bird6.log" all;
@@ -69,11 +69,11 @@ protocol ospf {
                 stub no;
                 interface "$IFLIST" {
                         hello 10; dead count 4;
+                        # This is also semi-crucial, as it affects
+                        # default LSA max size (default is <3kb, which
+                        # is ridiculously small for AC LSAs with lot of content)
+                        rx buffer large;
                 };
-                # This is also semi-crucial, as it affects
-                # default LSA max size (default is <3kb, which
-                # is ridiculously small for AC LSAs with lot of content)
-                rx buffer large;
         };
 }
 
