@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Wed Oct  9 16:33:25 2013 mstenber
--- Edit time:     87 min
+-- Last modified: Wed Oct  9 18:05:24 2013 mstenber
+-- Edit time:     90 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -34,8 +34,10 @@ DEFAULT_METRIC=1024
 local _parent = pm_handler.pm_handler_with_pa_dns
 
 pm_netifd_push = _parent:new_subclass{class='pm_netifd_push',
-                                     sources={pm_handler.ni_source,
-                                              pm_handler.pa_source}}
+                                      sources={pm_handler.ni_source,
+                                               pm_handler.pa_source,
+                                               pm_handler.skv_source,
+                                      }}
 
 function pm_netifd_push:init()
    _parent.init(self)

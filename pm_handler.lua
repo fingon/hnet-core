@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov  7 19:33:20 2012 mstenber
--- Last modified: Wed Oct  9 17:43:17 2013 mstenber
--- Edit time:     52 min
+-- Last modified: Wed Oct  9 18:08:01 2013 mstenber
+-- Edit time:     55 min
 --
 
 -- single pm handler prototype
@@ -203,16 +203,21 @@ function pa_source:ready()
    return self.parent.usp and self.parent.lap
 end
 
-pm_handler_with_pa = pm_handler:new_subclass{class='pm_handler_with_pa',
-                                             sources={pa_source}}
 
+skv_source = source:new_subclass{class='skv_source'}
 
-function pm_handler_with_pa:init()
-   -- parent init first
-   pm_handler.init(self)
-
-   self:connect_method(self._pm.skv_changed, self.skv_changed)
+function skv_source:init()
+   self:connect_method(self.parent._pm.skv_changed, self.skv_changed)
 end
+
+function skv_source:skv_changed(k, v)
+   -- just proxy skv_changed to parent
+   self.parent:skv_changed(k, v)
+end
+
+pm_handler_with_pa = pm_handler:new_subclass{class='pm_handler_with_pa',
+                                             sources={pa_source,
+                                                      skv_source}}
 
 function pm_handler_with_pa:get_if_table()
    if not self.if_table
