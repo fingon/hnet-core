@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Wed Oct  9 18:17:24 2013 mstenber
-# Edit time:     36 min
+# Last modified: Wed Oct  9 18:25:05 2013 mstenber
+# Edit time:     37 min
 #
 
 # Start or stop bird6
@@ -41,7 +41,6 @@ writeconf() {
     cat > $CONF <<EOF
 
 #log "/tmp/bird6.log" all;
-log syslog all;
 #debug protocols {states, routes, filters, interfaces, events, packets};
 
 router id random;
@@ -78,6 +77,18 @@ protocol ospf {
 }
 
 EOF
+    if [ -d /hosthome ]
+    then
+        # Log to specific magic directory if under NetKit
+        HOSTNAME=`cat /proc/sys/kernel/hostname`
+        # Netkit debugging log storage elsewhere than the virtual machine
+        LOGDIR=/hostlab/logs/$HOSTNAME
+        mkdir -p $LOGDIR
+        echo "log \"$LOGDIR/bird6.log\" all;" >> $CONF
+    else
+        # Log to syslog by default
+        echo 'log syslog all;' >> $CONF
+    fi
 }
 
 start() {
