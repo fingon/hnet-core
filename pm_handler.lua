@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov  7 19:33:20 2012 mstenber
--- Last modified: Wed Oct  9 18:08:01 2013 mstenber
--- Edit time:     55 min
+-- Last modified: Wed Oct  9 18:09:53 2013 mstenber
+-- Edit time:     59 min
 --
 
 -- single pm handler prototype
@@ -24,6 +24,11 @@ module('pm_handler', package.seeall)
 -- first an abstract class that can be used to get information to a
 -- handler
 source = _eventful:new_subclass{class='source', mandatory={'parent'}}
+
+-- by default, source is always ready
+function source:ready()
+   return true
+end
 
 pm_handler = _eventful:new_subclass{class='pm_handler', 
                                     mandatory={'_pm'},
