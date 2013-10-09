@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  7 12:12:07 2013 mstenber
--- Last modified: Wed Oct  9 16:06:44 2013 mstenber
--- Edit time:     62 min
+-- Last modified: Wed Oct  9 16:17:33 2013 mstenber
+-- Edit time:     64 min
 --
 
 -- This code is responsible for adapting the firewall status of the
@@ -31,7 +31,7 @@ require 'pm_handler'
 
 module(..., package.seeall)
 
-local _parent = pm_handler.pm_handler
+local _parent = pm_handler.pm_handler_with_ni
 
 pm_netifd_firewall = _parent:new_subclass{class='pm_netifd_firewall'}
 
@@ -45,18 +45,6 @@ function pm_netifd_firewall:init()
    self.set_lan_state = {}
    self.set_wan_state = {}
 
-   self:connect_method(self._pm.network_interface_changed, self.ni_changed)
-end
-
-function pm_netifd_firewall:ni_changed(ni)
-   self:d('ni_changed')
-   self.ni = ni
-   self:queue()
-end
-
-function pm_netifd_firewall:ready()
-   self:d('ready?', self.ni ~= nil)
-   return self.ni
 end
 
 function pm_netifd_firewall:get_state()

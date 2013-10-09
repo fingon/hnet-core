@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov  7 19:33:20 2012 mstenber
--- Last modified: Mon Oct  7 16:55:44 2013 mstenber
--- Edit time:     35 min
+-- Last modified: Wed Oct  9 16:35:33 2013 mstenber
+-- Edit time:     52 min
 --
 
 -- single pm handler prototype
@@ -19,11 +19,16 @@ require 'mst_eventful'
 
 local _eventful = mst_eventful.eventful
 
-module(..., package.seeall)
+module('pm_handler', package.seeall)
+
+-- first an abstract class that can be used to get information to a
+-- handler
+source = _eventful:new_subclass{class='source', mandatory={'parent'}}
 
 pm_handler = _eventful:new_subclass{class='pm_handler', 
                                     mandatory={'_pm'},
-                                    events={'changed'}}
+                                    events={'changed'},
+                                    sources={}}
 
 function pm_handler:repr_data()
    return '?'
@@ -33,6 +38,18 @@ function pm_handler:init()
    _eventful.init(self)
    self.file_contents = {}
    self.shell = self._pm.shell
+   for i, s in ipairs(self.sources)
+   do
+      self._sources = self._sources or {}
+      self._sources[s:new{parent=self}] = s
+   end
+end
+
+function pm_handler:uninit()
+   for k, v in pairs(self._sources or {})
+   do
+      k:done()
+   end
 end
 
 function pm_handler:queue()
@@ -42,6 +59,13 @@ function pm_handler:queue()
 end
 
 function pm_handler:ready()
+   for k, v in pairs(self._sources or {})
+   do
+      if not k:ready()
+      then
+         return false
+      end
+   end
    return true
 end
 
@@ -134,15 +158,59 @@ function pm_handler:get_ubus_connection()
    return ubus.connect()
 end
 
-pm_handler_with_pa = pm_handler:new_subclass{class='pm_handler_with_pa'}
+-- openwrt-specific subclass
+
+ni_source = source:new_subclass{class='ni_source'}
+
+function ni_source:init()
+   self:connect_method(self.parent._pm.network_interface_changed, 
+                       self.ni_changed)
+end
+
+function ni_source:ni_changed(ni)
+   self:d('ni_changed')
+   self.parent.ni = ni
+   self.parent:queue()
+end
+
+function ni_source:ready()
+   return self.parent.ni
+end
+
+pm_handler_with_ni = pm_handler:new_subclass{class='pm_handler_with_ni',
+                                             sources={ni_source}}
+
+
+pa_source = source:new_subclass{class='pa_source'}
+
+function pa_source:init()
+   -- then connect to relevant change notifications we're interested about
+   self:connect_method(self.parent._pm.usp_changed, self.usp_changed)
+   self:connect_method(self.parent._pm.lap_changed, self.lap_changed)
+end
+
+function pa_source:usp_changed(usp)
+   self.parent.usp = usp
+   self.parent:queue()
+end
+
+function pa_source:lap_changed(lap)
+   self.parent.lap = lap
+   self.parent:queue()
+end
+
+function pa_source:ready()
+   return self.parent.usp and self.parent.lap
+end
+
+pm_handler_with_pa = pm_handler:new_subclass{class='pm_handler_with_pa',
+                                             sources={pa_source}}
+
 
 function pm_handler_with_pa:init()
    -- parent init first
    pm_handler.init(self)
 
-   -- then connect to relevant change notifications we're interested about
-   self:connect_method(self._pm.usp_changed, self.usp_changed)
-   self:connect_method(self._pm.lap_changed, self.lap_changed)
    self:connect_method(self._pm.skv_changed, self.skv_changed)
 end
 
@@ -155,16 +223,6 @@ function pm_handler_with_pa:get_if_table()
    return self.if_table
 end
 
-
-function pm_handler_with_pa:usp_changed(usp)
-   self.usp = usp
-   self:queue()
-end
-
-function pm_handler_with_pa:lap_changed(lap)
-   self.lap = lap
-   self:queue()
-end
 
 function pm_handler_with_pa:skv_changed(k, v)
    -- nop
