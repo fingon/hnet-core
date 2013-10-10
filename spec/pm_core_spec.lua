@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 23:56:40 2012 mstenber
--- Last modified: Mon Sep 30 18:05:44 2013 mstenber
+-- Last modified: Thu Oct 10 14:39:35 2013 mstenber
 -- Edit time:     262 min
 --
 
@@ -45,7 +45,7 @@ assert(mst.create_hash_type == 'md5',
 -- (out of which we create the combined ones)
 
 local bird_start = {
-   {'/usr/share/hnet/bird4_handler.sh start 135.214.18.0', ''},
+   {'/usr/share/hnet/bird4_handler.sh start', ''},
 }
 
 local bird_stop = {
