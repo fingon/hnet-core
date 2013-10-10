@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:15:58 2012 mstenber
--- Last modified: Mon Sep 30 17:26:24 2013 mstenber
--- Edit time:     3 min
+-- Last modified: Thu Oct 10 14:14:58 2013 mstenber
+-- Edit time:     6 min
 --
 
 require 'pm_handler'
@@ -19,13 +19,6 @@ module(..., package.seeall)
 BIRD4_SCRIPT='/usr/share/hnet/bird4_handler.sh'
 
 pm_bird4 = pm_handler.pm_handler_with_pa:new_subclass{class='pm_bird4'}
-
-function pm_bird4:skv_changed(k, v)
-   if k == elsa_pa.OSPF_RID_KEY
-   then
-      self.rid = v
-   end
-end
 
 function pm_bird4:run()
    -- just assume that the bird state sticks, and that it's not
@@ -38,36 +31,34 @@ function pm_bird4:run()
                                   local p = ipv6s.ipv6_prefix:new{ascii=lap.prefix}
                                   return p:is_ipv4() and not lap.depracate
                                     end)
-   local rid = self.rid
-   self:d('check_bird4', rid, v4:count(), self.bird_rid)
-
-
+   self:d('check_bird4', rid, v4:count(), self.bird_running)
    
    -- first check if we should stop existing one
-   if self.bird_rid and (v4:count() == 0 or rid ~= self.bird_rid)
+   if not self.bird_running and not (v4:count() == 0)
    then
-      self.shell(BIRD4_SCRIPT .. ' stop')
-      self.bird_rid = nil
-      self:changed()
-   end
-   if v4:count()>0 and rid ~= self.bird_rid
-   then
-      self:a(rid, 'no rid but wanting to turn on bird, strange')
-      -- convert the rid to IPv4
-      t = mst.array:new{}
-      local v, err = tonumber(rid)
-      self:a(v, 'unable to convert rid to number?!?', rid, err)
+      if self.bird_running
+      then
+         self.shell(BIRD4_SCRIPT .. ' stop')
+         self.bird_running = nil
+         self:changed()
+      else
+         self:a(rid, 'no rid but wanting to turn on bird, strange')
+         -- convert the rid to IPv4
+         t = mst.array:new{}
+         local v, err = tonumber(rid)
+         self:a(v, 'unable to convert rid to number?!?', rid, err)
 
-      for i=1,4
-      do
-         t:insert(v % 256)
-         v = math.floor(v / 256)
+         for i=1,4
+         do
+            t:insert(v % 256)
+            v = math.floor(v / 256)
+         end
+         local ips = table.concat(t, '.')
+
+         self.shell(BIRD4_SCRIPT .. ' start ' .. ips)
+         self.bird_running = true
+         return 1
       end
-      local ips = table.concat(t, '.')
-
-      self.shell(BIRD4_SCRIPT .. ' start ' .. ips)
-      self.bird_rid = rid
-      self:changed()
    end
 end
 

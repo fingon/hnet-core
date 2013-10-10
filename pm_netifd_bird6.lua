@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  9 16:40:25 2013 mstenber
--- Last modified: Wed Oct  9 16:55:51 2013 mstenber
+-- Last modified: Thu Oct 10 13:58:02 2013 mstenber
 -- Edit time:     5 min
 --
 
@@ -25,7 +25,8 @@ BIRD6_SCRIPT='/usr/share/hnet/bird6_handler.sh'
 
 local _parent = pm_handler.pm_handler_with_ni
 
-pm_netifd_bird6 = _parent:new_subclass{class='pm_netifd_bird6'}
+pm_netifd_bird6 = _parent:new_subclass{class='pm_netifd_bird6',
+                                       script=BIRD6_SCRIPT}
 
 function pm_netifd_bird6:get_state()
    local devices = mst.set:new()
@@ -48,8 +49,8 @@ function pm_netifd_bird6:run()
    self.state = st
    if st:count() > 0
    then
-      self.shell(BIRD6_SCRIPT .. ' start ' .. st:join(' '))
+      self.shell(self.BIRD6_SCRIPT .. ' start ' .. st:join(' '))
    else
-      self.shell(BIRD6_SCRIPT .. ' stop')
+      self.shell(self.BIRD6_SCRIPT .. ' stop')
    end
 end

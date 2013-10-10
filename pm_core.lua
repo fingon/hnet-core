@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Wed Oct  9 18:46:23 2013 mstenber
--- Edit time:     637 min
+-- Last modified: Thu Oct 10 14:07:39 2013 mstenber
+-- Edit time:     633 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -147,6 +147,9 @@ function pm:init()
 
             -- and bird6 control script (sigh, do we see a trend here)
             'netifd_bird6',
+
+            -- and bird4 control script (sigh, we _do_ see a trend here)
+            'netifd_bird4',
                              }
       else
          -- bird4 handler is redundant - we _should_ just let it use

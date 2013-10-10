@@ -8,14 +8,14 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Wed Jul 24 22:38:12 2013 mstenber
-# Edit time:     19 min
+# Last modified: Thu Oct 10 14:12:57 2013 mstenber
+# Edit time:     25 min
 #
 
 # Start or stop bird4 (for 'home' routing)
 # Call syntax should be either
 
-# start RID
+# start [IF] [IF2] [...]
 # or
 # stop
 
@@ -23,27 +23,26 @@ if [ -f /usr/bin/hnetenv.sh ]
 then
     . /usr/bin/hnetenv.sh
     BIRD4=$HNET/build/bin/bird4
+    BIRDCTL4=$HNET/build/bin/birdc4
 else
     BIRD4=bird4
+    BIRDCTL4=birdc4
 fi
 
 CONF=/tmp/pm-bird4.conf
+PIDFILE=/tmp/pm-bird6.pid
 
-start() {
-    RID=$1
-cat > $CONF <<EOF
-
-#log "/tmp/bird4.log" all;
-#log syslog all;
-#debug protocols {states, routes, filters, interfaces, events, packets};
-
-router id $RID;
-
-protocol device {
-        scan time 10;
-}
-
-# protocol direct is implicit
+writeconf() {
+    # Initially interface list is "if1 if2 if3"
+    IFLIST=$*
+    # Bird interface pattern looks like "if1","if2","if3" 
+    # (first and last mark are taken care of by the config file below)
+    IFLIST=`echo "$IFLIST" | sed 's/ /","/g'`
+    if ["x$IFLIST" = "x" ]
+    then
+        IFLIST="*"
+    fi
+    cat > $CONF <<EOF
 
 protocol kernel {
         learn; # learn alien routes from kernel
@@ -54,39 +53,60 @@ protocol kernel {
         scan time 15;
 }
 
+protocol device {
+        scan time 10;
+}
+
+# protocol direct is implicit
+
 protocol ospf {
         import all;
         export all;
 
         area 0 {
                 # We talk with about anyone with the password.. ;-)
-                interface "*" {
+                interface "$IFLIST" {
                         hello 5; retransmit 2; wait 10; dead count 4;
                         authentication cryptographic; password "foo";
                 };
 
-#                interface "*" {
-#                        cost 1000;
-#                        stub;
-#                };
+                interface "*" {
+                        cost 1000;
+                        stub;
+                };
         };
 }
 
 EOF
-    $BIRD4 -c $CONF
+}
+
+
+start() {
+    $BIRD4 -c $CONF -P $PIDFILE
+}
+
+reconfigure() {
+    $BIRDCTL4 configure
 }
 
 stop() {
     # -q would be nice, but not in busybox.. oh well.
-    killall -9 bird4 2>&1 > /dev/null
+    killall bird4 2>&1 > /dev/null
+    rm -f $PIDFILE
 }
 
 CMD=$1
 
 case $CMD in
     start)
-        stop
-        start $2
+        shift
+        writeconf $*
+        if [ -f $PIDFILE ]
+        then
+            reconfigure
+        else
+            start
+        fi
         ;;
     stop)
         stop
