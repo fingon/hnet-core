@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov  7 19:33:20 2012 mstenber
--- Last modified: Thu Oct 10 11:17:52 2013 mstenber
--- Edit time:     58 min
+-- Last modified: Thu Oct 10 18:09:50 2013 mstenber
+-- Edit time:     63 min
 --
 
 -- single pm handler prototype
@@ -73,6 +73,7 @@ function pm_handler:ready()
    do
       if not k:ready()
       then
+         self:d('not ready source', k)
          return false
       end
    end

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:15:58 2012 mstenber
--- Last modified: Thu Oct 10 15:01:02 2013 mstenber
--- Edit time:     17 min
+-- Last modified: Thu Oct 10 18:10:20 2013 mstenber
+-- Edit time:     21 min
 --
 
 require 'pm_handler'
@@ -18,7 +18,9 @@ module(..., package.seeall)
 
 BIRD4_SCRIPT='/usr/share/hnet/bird4_handler.sh'
 
-pm_bird4 = pm_handler.pm_handler_with_pa:new_subclass{class='pm_bird4'}
+local _parent = pm_handler.pm_handler_with_pa
+
+pm_bird4 = _parent:new_subclass{class='pm_bird4'}
 
 function pm_bird4:skv_changed(k, v)
    if k == elsa_pa.OSPF_RID_KEY
@@ -73,7 +75,7 @@ function pm_bird4:run()
 
    
    -- first check if we should stop existing one
-   if self.bird_rid and (v4:count() == 0 or rid ~= self.bird_rid)
+   if self.bird_rid and v4:count() == 0
    then
       self:stop_bird()
       return 1

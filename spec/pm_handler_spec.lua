@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Wed Oct  9 17:58:08 2013 mstenber
--- Edit time:     328 min
+-- Last modified: Thu Oct 10 18:19:54 2013 mstenber
+-- Edit time:     334 min
 --
 
 -- individual handler tests
@@ -821,11 +821,12 @@ local dubus = mst_test.fake_object:new_subclass{class='dubus',
 
 describe("pm_netifd", function ()
             it("works #netifd", function ()
-                  local pm = dpm.dpm:new{handlers={'netifd_pull', 'netifd_push', 'netifd_firewall', 'netifd_bird6'}, config={test=true}}
+                  local pm = dpm.dpm:new{handlers={'netifd_pull', 'netifd_push', 'netifd_firewall', 'netifd_bird6', 'netifd_bird4'}, config={test=true}}
                   local o1 = pm.h.netifd_pull
                   local o2 = pm.h.netifd_push
                   local o3 = pm.h.netifd_firewall
                   local o4 = pm.h.netifd_bird6
+                  local o5 = pm.h.netifd_bird4
 
                   local _duci = duci.duci:new{}
                   local _ubus1 = dubus:new{}
@@ -853,6 +854,7 @@ describe("pm_netifd", function ()
                   o2:maybe_run()
                   o3:maybe_run()
                   o4:maybe_run()
+                  o5:maybe_run()
                   
                   -- then run handlers one by one, making sure they
                   -- consume exactly the amount of state we expect
@@ -909,6 +911,8 @@ describe("pm_netifd", function ()
                   pm.skv:set(elsa_pa.OSPF_USP_KEY, usps)
                   pm.skv:set(elsa_pa.OSPF_LAP_KEY, laps)
                   pm.skv:set(elsa_pa.HP_SEARCH_LIST_KEY, {'dummy'})
+                  local myrid = 123456789
+                  pm.skv:set(elsa_pa.OSPF_RID_KEY, myrid)
 
                   -- handler 2 - netifd_push
                   _ubus2.open:add_expected()
@@ -974,6 +978,14 @@ describe("pm_netifd", function ()
                                  }
                   o4:maybe_run()
                   o4:maybe_run()
+                  pm.ds:check_used()
+
+                  -- handler 5 - netifd_bird4
+                  pm.ds:set_array{
+                     {'/usr/share/hnet/bird4_handler.sh start 21.205.91.7 eth0 eth1 eth2', ''},
+                                 }
+                  o5:maybe_run()
+                  o5:maybe_run()
                   pm.ds:check_used()
 
                   -- make sure the set skv state matches what we have
