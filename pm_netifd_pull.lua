@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  3 16:48:11 2013 mstenber
--- Last modified: Wed Oct  9 18:52:42 2013 mstenber
--- Edit time:     87 min
+-- Last modified: Thu Oct 10 13:33:33 2013 mstenber
+-- Edit time:     98 min
 --
 
 
@@ -36,8 +36,7 @@ local _parent = pm_handler.pm_handler
 -- abstraction class around the structure we get from ubus that
 -- represents the current network state
 
-network_interface_dump = mst.create_class{class='network_interface_dump',
-                                          sources={pm_handler.skv_source}}
+network_interface_dump = mst.create_class{class='network_interface_dump'}
 
 function network_interface_dump:repr_data()
    return '?'
@@ -126,7 +125,8 @@ function network_interface_dump:iterate_interfaces(f, want_ext, want_hnet)
    end
 end
 
-pm_netifd_pull = _parent:new_subclass{class='pm_netifd_pull'}
+pm_netifd_pull = _parent:new_subclass{class='pm_netifd_pull',
+                                      sources={pm_handler.skv_source}}
 
 function pm_netifd_pull:init()
    _parent.init(self)
@@ -150,6 +150,7 @@ end
 function pm_netifd_pull:skv_changed(k, v)
    if k == NETWORK_INTERFACE_UPDATED_KEY
    then
+      self:d('noticed network interface update, queued')
       self.updated = v
       self:queue()
    end

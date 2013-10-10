@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Wed Oct  9 18:25:05 2013 mstenber
-# Edit time:     37 min
+# Last modified: Thu Oct 10 12:22:42 2013 mstenber
+# Edit time:     60 min
 #
 
 # Start or stop bird6
@@ -72,6 +72,14 @@ protocol ospf {
                         # default LSA max size (default is <3kb, which
                         # is ridiculously small for AC LSAs with lot of content)
                         rx buffer large;
+                };
+                interface "*" {
+                        # We're aware of non-hnet interfaces, but
+                        # as they're in practise external, set very high 
+                        # cost here so that nobody can steal in-home traffic
+                        # with e.g. SLAAC of in-home prefixes..
+                        stub yes;
+                        cost 200; 
                 };
         };
 }

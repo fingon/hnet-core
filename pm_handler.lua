@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov  7 19:33:20 2012 mstenber
--- Last modified: Wed Oct  9 18:09:53 2013 mstenber
--- Edit time:     59 min
+-- Last modified: Thu Oct 10 11:17:52 2013 mstenber
+-- Edit time:     58 min
 --
 
 -- single pm handler prototype
@@ -29,6 +29,11 @@ source = _eventful:new_subclass{class='source', mandatory={'parent'}}
 function source:ready()
    return true
 end
+
+function source:repr_data()
+   return '?'
+end
+
 
 pm_handler = _eventful:new_subclass{class='pm_handler', 
                                     mandatory={'_pm'},
