@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Thu Oct 10 18:19:54 2013 mstenber
--- Edit time:     334 min
+-- Last modified: Thu Oct 10 19:13:13 2013 mstenber
+-- Edit time:     337 min
 --
 
 -- individual handler tests
@@ -961,10 +961,10 @@ describe("pm_netifd", function ()
                                               }
                   _duci.set:set_array{
                      {
-                        {'firewall', 'nlan', 'network', {'lan0', 'lan1', 'lan2', 'olan'}},
+                        {'firewall', 'nlan', 'network', 'lan0 lan1 lan2 olan'},
                      },
                      {
-                        {'firewall', 'nwan', 'network', {'ext', 'owan', 'owan2'}},
+                        {'firewall', 'nwan', 'network', 'ext owan owan2'},
                      },
                                      }
                   _duci.commit:add_expected({'firewall'})

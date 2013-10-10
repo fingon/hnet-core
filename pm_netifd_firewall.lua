@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  7 12:12:07 2013 mstenber
--- Last modified: Wed Oct  9 16:17:33 2013 mstenber
--- Edit time:     64 min
+-- Last modified: Thu Oct 10 19:12:18 2013 mstenber
+-- Edit time:     66 min
 --
 
 -- This code is responsible for adapting the firewall status of the
@@ -100,7 +100,7 @@ function pm_netifd_firewall:set_uci_firewall(c, zonename, include, exclude)
                    local nl = ns:keys()
                    table.sort(nl)
                    self:d(' got', nl)
-                   c:set('firewall', s['.name'], 'network', nl)
+                   c:set('firewall', s['.name'], 'network', nl:join(' '))
                    return false
                 end
                                  end)
