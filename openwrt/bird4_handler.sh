@@ -8,14 +8,14 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Thu Oct 10 14:46:27 2013 mstenber
-# Edit time:     24 min
+# Last modified: Thu Oct 10 14:51:10 2013 mstenber
+# Edit time:     28 min
 #
 
 # Start or stop bird4 (for 'home' routing)
 # Call syntax should be either
 
-# start [IF] [IF2] [...]
+# start <RID> [IF] [IF2] [...]
 # or
 # stop
 
@@ -33,6 +33,8 @@ CONF=/tmp/pm-bird4.conf
 PIDFILE=/tmp/pm-bird4.pid
 
 writeconf() {
+    RID=$1
+    shift
     # Initially interface list is "if1 if2 if3"
     IFLIST=$*
     if [ "x$IFLIST" = "x" ]
@@ -44,6 +46,8 @@ writeconf() {
         IFLIST=`echo "$IFLIST" | sed 's/ /","/g'`
     fi
     cat > $CONF <<EOF
+
+router id $RID;
 
 protocol kernel {
         learn; # learn alien routes from kernel

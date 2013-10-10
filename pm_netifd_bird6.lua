@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  9 16:40:25 2013 mstenber
--- Last modified: Thu Oct 10 14:32:45 2013 mstenber
--- Edit time:     6 min
+-- Last modified: Thu Oct 10 15:04:32 2013 mstenber
+-- Edit time:     10 min
 --
 
 -- We assume that we _don't_ really want to run bird6 on every
@@ -28,7 +28,7 @@ local _parent = pm_handler.pm_handler_with_ni
 pm_netifd_bird6 = _parent:new_subclass{class='pm_netifd_bird6',
                                        script=BIRD6_SCRIPT}
 
-function pm_netifd_bird6:get_state()
+function pm_netifd_bird6:get_ni_state()
    local devices = mst.set:new()
    self.ni:iterate_interfaces(function (ifo)
                                  local dev = ifo.l3_device or ifo.device
@@ -39,14 +39,23 @@ function pm_netifd_bird6:get_state()
    return a
 end
 
-function pm_netifd_bird6:run()
-   local st = self:get_state()
+function pm_netifd_bird6:ni_is_changed()
+   local st = self:get_ni_state()
    self:d('run', st)
-   if mst.repr_equal(st, self.state)
+   if mst.repr_equal(st, self.set_ni_state)
    then
       return
    end
-   self.state = st
+   self.set_ni_state = st
+   return true
+end
+
+function pm_netifd_bird6:run()
+   if not self:ni_is_changed()
+   then
+      return
+   end
+   local st = self.set_ni_state
    if st:count() > 0
    then
       self.shell(self.script .. ' start ' .. st:join(' '))

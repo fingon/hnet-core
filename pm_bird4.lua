@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 07:15:58 2012 mstenber
--- Last modified: Thu Oct 10 14:39:49 2013 mstenber
--- Edit time:     8 min
+-- Last modified: Thu Oct 10 15:01:02 2013 mstenber
+-- Edit time:     17 min
 --
 
 require 'pm_handler'
@@ -19,6 +19,42 @@ module(..., package.seeall)
 BIRD4_SCRIPT='/usr/share/hnet/bird4_handler.sh'
 
 pm_bird4 = pm_handler.pm_handler_with_pa:new_subclass{class='pm_bird4'}
+
+function pm_bird4:skv_changed(k, v)
+   if k == elsa_pa.OSPF_RID_KEY
+   then
+      self.rid = v
+   end
+end
+
+function pm_bird4:stop_bird()
+   self.shell(BIRD4_SCRIPT .. ' stop')
+   self.bird_rid = nil
+end
+
+function pm_bird4:run_start_bird(...)
+   local a = mst.array:new{BIRD4_SCRIPT, 'start', ...}
+   self.shell(a:join(' '))
+end
+
+function pm_bird4:start_bird()
+   local rid = self.rid
+
+   self:a(rid, 'no rid but wanting to turn on bird, strange')
+   -- convert the rid to IPv4
+   t = mst.array:new{}
+   local v, err = tonumber(rid)
+   self:a(v, 'unable to convert rid to number?!?', rid, err)
+
+   for i=1,4
+   do
+      t:insert(v % 256)
+      v = math.floor(v / 256)
+   end
+   local ips = table.concat(t, '.')
+   self:run_start_bird(ips)
+   self.bird_rid = rid
+end
 
 function pm_bird4:run()
    -- just assume that the bird state sticks, and that it's not
@@ -31,21 +67,21 @@ function pm_bird4:run()
                                   local p = ipv6s.ipv6_prefix:new{ascii=lap.prefix}
                                   return p:is_ipv4() and not lap.depracate
                                     end)
-   self:d('check_bird4', v4:count(), self.bird_running)
+   local rid = self.rid
+   self:d('check_bird4', rid, v4:count(), self.bird_rid)
+
+
    
    -- first check if we should stop existing one
-   if not self.bird_running and not (v4:count() == 0)
+   if self.bird_rid and (v4:count() == 0 or rid ~= self.bird_rid)
    then
-      if self.bird_running
-      then
-         self.shell(BIRD4_SCRIPT .. ' stop')
-         self.bird_running = nil
-         self:changed()
-      else
-         self.shell(BIRD4_SCRIPT .. ' start')
-         self.bird_running = true
-         return 1
-      end
+      self:stop_bird()
+      return 1
+   end
+   if v4:count()>0 and rid ~= self.bird_rid
+   then
+      self:start_bird()
+      return 1
    end
 end
 
