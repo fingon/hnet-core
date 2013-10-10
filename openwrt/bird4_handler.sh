@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Thu Oct 10 14:38:02 2013 mstenber
-# Edit time:     22 min
+# Last modified: Thu Oct 10 14:46:27 2013 mstenber
+# Edit time:     24 min
 #
 
 # Start or stop bird4 (for 'home' routing)
@@ -30,7 +30,7 @@ else
 fi
 
 CONF=/tmp/pm-bird4.conf
-PIDFILE=/tmp/pm-bird6.pid
+PIDFILE=/tmp/pm-bird4.pid
 
 writeconf() {
     # Initially interface list is "if1 if2 if3"
@@ -83,7 +83,7 @@ EOF
 
 
 start() {
-    $BIRD4 -c $CONF -P $PIDFILE
+    $BIRD4 -c $CONF && touch $PIDFILE
 }
 
 reconfigure() {
