@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  9 16:40:25 2013 mstenber
--- Last modified: Thu Oct 10 13:58:02 2013 mstenber
--- Edit time:     5 min
+-- Last modified: Thu Oct 10 14:32:45 2013 mstenber
+-- Edit time:     6 min
 --
 
 -- We assume that we _don't_ really want to run bird6 on every
@@ -49,8 +49,8 @@ function pm_netifd_bird6:run()
    self.state = st
    if st:count() > 0
    then
-      self.shell(self.BIRD6_SCRIPT .. ' start ' .. st:join(' '))
+      self.shell(self.script .. ' start ' .. st:join(' '))
    else
-      self.shell(self.BIRD6_SCRIPT .. ' stop')
+      self.shell(self.script .. ' stop')
    end
 end
