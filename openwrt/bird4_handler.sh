@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Thu Oct 10 14:12:57 2013 mstenber
-# Edit time:     25 min
+# Last modified: Thu Oct 10 14:38:02 2013 mstenber
+# Edit time:     22 min
 #
 
 # Start or stop bird4 (for 'home' routing)
@@ -35,12 +35,13 @@ PIDFILE=/tmp/pm-bird6.pid
 writeconf() {
     # Initially interface list is "if1 if2 if3"
     IFLIST=$*
-    # Bird interface pattern looks like "if1","if2","if3" 
-    # (first and last mark are taken care of by the config file below)
-    IFLIST=`echo "$IFLIST" | sed 's/ /","/g'`
-    if ["x$IFLIST" = "x" ]
+    if [ "x$IFLIST" = "x" ]
     then
         IFLIST="*"
+    else
+        # Bird interface pattern looks like "if1","if2","if3" 
+        # (first and last mark are taken care of by the config file below)
+        IFLIST=`echo "$IFLIST" | sed 's/ /","/g'`
     fi
     cat > $CONF <<EOF
 
