@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  7 12:12:07 2013 mstenber
--- Last modified: Thu Oct 10 19:12:18 2013 mstenber
--- Edit time:     66 min
+-- Last modified: Fri Oct 11 05:17:07 2013 mstenber
+-- Edit time:     67 min
 --
 
 -- This code is responsible for adapting the firewall status of the
@@ -30,6 +30,8 @@
 require 'pm_handler'
 
 module(..., package.seeall)
+
+RELOAD_FIREWALL_COMMAND='/etc/init.d/firewall enabled && fw3 -q reload'
 
 local _parent = pm_handler.pm_handler_with_ni
 
@@ -128,5 +130,9 @@ function pm_netifd_firewall:run()
       self:d('committing changes')
 
       c:commit('firewall')
+      
+      -- restart firewall - hardcoding command here isn't elegant but
+      -- oh well
+      self.shell(RELOAD_FIREWALL_COMMAND)
    end
 end

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Thu Oct 10 19:13:13 2013 mstenber
--- Edit time:     337 min
+-- Last modified: Fri Oct 11 05:16:39 2013 mstenber
+-- Edit time:     339 min
 --
 
 -- individual handler tests
@@ -969,8 +969,14 @@ describe("pm_netifd", function ()
                                      }
                   _duci.commit:add_expected({'firewall'})
 
+                  pm.ds:set_array{
+                     {pm_netifd_firewall.RELOAD_FIREWALL_COMMAND, ''}
+                                 }
+
                   o3:maybe_run()
                   o3:maybe_run()
+                  pm.ds:check_used()
+
 
                   -- handler 4 - netifd_bird6
                   pm.ds:set_array{
