@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Wed Jul 17 19:26:28 2013 mstenber
--- Edit time:     1000 min
+-- Last modified: Fri Oct 11 05:54:46 2013 mstenber
+-- Edit time:     1001 min
 --
 
 -- This is homenet prefix assignment algorithm, written using fairly
@@ -908,13 +908,14 @@ function pa:check_asp_conflicts(iid, asp)
                        -- depracate prefix
                        if asp2.ascii_prefix == asp.ascii_prefix and asp2.rid > asp.rid
                        then
-                          found_conflict = true
+                          found_conflict = asp2
                        end
                     end)
    
    if found_conflict
    then
       -- as described in 6.3.3
+      self:d(' found conflict', found_conflict)
       self:a(asp:get_liid() == iid)
       asp:depracate_lap()
       return
