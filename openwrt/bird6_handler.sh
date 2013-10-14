@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Thu Oct 10 12:22:42 2013 mstenber
-# Edit time:     60 min
+# Last modified: Mon Oct 14 10:52:38 2013 mstenber
+# Edit time:     61 min
 #
 
 # Start or stop bird6
@@ -92,6 +92,8 @@ EOF
         # Netkit debugging log storage elsewhere than the virtual machine
         LOGDIR=/hostlab/logs/$HOSTNAME
         mkdir -p $LOGDIR
+        #, packets
+        echo "debug protocols {states, routes, filters, interfaces, events};" >> $CONF
         echo "log \"$LOGDIR/bird6.log\" all;" >> $CONF
     else
         # Log to syslog by default
