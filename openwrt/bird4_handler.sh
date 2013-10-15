@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Thu Oct 10 14:51:10 2013 mstenber
-# Edit time:     28 min
+# Last modified: Tue Oct 15 12:53:22 2013 mstenber
+# Edit time:     35 min
 #
 
 # Start or stop bird4 (for 'home' routing)
@@ -50,7 +50,7 @@ writeconf() {
 router id $RID;
 
 protocol kernel {
-        learn; # learn alien routes from kernel
+        #learn; # learn alien routes from kernel
         persist;
         device routes;
         import all;
