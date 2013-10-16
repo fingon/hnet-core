@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Wed Oct  9 18:05:24 2013 mstenber
--- Edit time:     90 min
+-- Last modified: Wed Oct 16 12:23:47 2013 mstenber
+-- Edit time:     97 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -58,6 +58,7 @@ function pm_netifd_push:get_skv_to_netifd_state()
    local function _setdefault_named_subentity(o, n, class_object)
       return o:setdefault_lazy(n, class_object.new, class_object)
    end
+
    -- dig out addresses from lap
    for i, lap in ipairs(self.lap)
    do
@@ -67,7 +68,8 @@ function pm_netifd_push:get_skv_to_netifd_state()
          local ifo = _setdefault_named_subentity(state, ifname, mst.map)
 
          -- make sure we announce hp search on this
-         ifo.dns_search = self.hp_search
+         --ifo.dns_search = self.hp_search
+         -- moved to 'data' section
 
          local p = ipv6s.new_prefix_from_ascii(lap.prefix)
          local addrs_name = p:is_ipv4() and 'ipaddr' or 'ip6addr'
@@ -85,6 +87,11 @@ function pm_netifd_push:get_skv_to_netifd_state()
          addrs:insert(o)
          self:d('added address', addrs_name, o)
 
+         data = _setdefault_named_subentity(ifo, 'data', mst.map)
+         data.dhcpv6='server'
+         data.dhcpv4='server'
+         data.ra='server'
+         data.domain=self.hp_search
       end
    end
 
