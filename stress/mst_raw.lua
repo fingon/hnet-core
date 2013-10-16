@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb  4 16:24:43 2013 mstenber
--- Last modified: Wed Oct 16 14:55:24 2013 mstenber
--- Edit time:     46 min
+-- Last modified: Wed Oct 16 16:22:56 2013 mstenber
+-- Edit time:     50 min
 --
 
 
@@ -59,8 +59,8 @@ function skiplist_sim:run()
    -- we repeat this for X cycles, and
    -- hopefully cover most cases this way
    -- (it's not very scientific method, unfortunately)
-   local obj_in = mst.array:new{}
-   local obj_out = mst.array:new{}
+   local obj_in = mst.iset:new{}
+   local obj_out = mst.iset:new{}
    local sl = ipi_skiplist:new{p=self.skiplist_p, width=self.skiplist_width}
    self.number_of_items = self.number_of_values * self.dup_factor
    for i=1,self.number_of_values
@@ -76,12 +76,12 @@ function skiplist_sim:run()
          if mst.randint(1, 100) > chance_insert
          then
             -- remove
-            local o, i = mst.array_randitem(obj_in)
+            local o = obj_in:randitem()
             if o
             then
                mst.d('performing remove', o)
                mst.a(sl:get_first())
-               obj_in:remove_index(i)
+               obj_in:remove(o)
                obj_out:insert(o)
                sl:remove(o)
             else
@@ -89,11 +89,11 @@ function skiplist_sim:run()
             end
          else
             -- add 
-            local o, i = mst.array_randitem(obj_out)
+            local o = obj_out:randitem()
             if o
             then
                mst.d('performing add', o)
-               obj_out:remove_index(i)
+               obj_out:remove(o)
                obj_in:insert(o)
                sl:insert(o)
                mst.a(sl:get_first())
@@ -115,18 +115,25 @@ function skiplist_sim:run()
 
    -- and then last bit with 100% add chance
    sim(100, self.number_of_items / 10)
-   mst.a(#obj_out == 0)
-   mst.a(#obj_in == self.number_of_items, #obj_in)
+   mst_test.assert_repr_equal(obj_out:count(), 0)
+   mst_test.assert_repr_equal(obj_in:count(), self.number_of_items)
+
+   local rnditem = ptest:new{cb=function ()
+                                obj_in:randitem()
+                                end,
+                             name='randitem',
+                             overhead={nop},
+                            }
 
    -- then simulate lots of iterations ~full
    mst_test.perf_test:new{cb=function ()
                              sim(50, 1)
    end,
                           duration=0.2,
-                          name='ipi_skiplist:' .. mst.repr{self},
+                          name=mst.repr{self},
                           -- there's two random calls there;
                           -- whether or not that really matters is questionable
-                          overhead={nop, rnd100, rnd100},
+                          overhead={nop, rnd100, rnditem},
                          }:run()
 
    --sim(50, self.number_of_items * 10)
@@ -136,8 +143,8 @@ function skiplist_sim:run()
 
    -- and last bit certain removes
    sim(0, self.number_of_items / 10)
-   mst.a(#obj_in == 0)
-   mst.a(#obj_out == self.number_of_items, #obj_out)
+   mst_test.assert_repr_equal(obj_in:count(), 0)
+   mst_test.assert_repr_equal(obj_out:count(), self.number_of_items)
 end
 
 
