@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Oct 16 15:45:37 2013 mstenber
--- Edit time:     762 min
+-- Last modified: Wed Oct 16 16:15:10 2013 mstenber
+-- Edit time:     765 min
 --
 
 -- data structure abstractions provided:
@@ -1095,7 +1095,7 @@ end
 iset = set:new_subclass{class='iset'}
 
 function iset:init()
-   self._array = array:new()
+   self._array = {}
 end
 
 function iset:insert(o)
@@ -1105,21 +1105,19 @@ function iset:insert(o)
       return
    end
    local a = self._array
-   a:insert(o)
-   local idx = a:count()
-   self:a(idx, 'no index')
+   local idx = #a+1
+   a[idx] = o
    self[o] = idx
 end
 
 function iset:count()
-   return self._array:count()
+   return #self._array
 end
 
 function iset:remove(o)
    local idx = self[o]
    if not idx
    then
-      self:d('not found', o)
       return
    end
    self:_remove_index(idx)
@@ -1127,7 +1125,7 @@ end
 
 function iset:_remove_index(idx)
    local a = self._array
-   local cnt = a:count()
+   local cnt = #a
    self:a(idx >= 1 and idx <= cnt)
    local o = a[idx]
    if idx < cnt
