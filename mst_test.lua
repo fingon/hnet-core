@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Wed Oct 16 13:38:21 2013 mstenber
--- Edit time:     37 min
+-- Last modified: Wed Oct 16 14:38:03 2013 mstenber
+-- Edit time:     52 min
 --
 
 -- testing related utilities
@@ -221,7 +221,30 @@ function perf_test:run()
    end
 end
 
+function perf_test:get_us_per_call()
+   if not self.own_us_per_call
+   then
+      self:run()
+   end
+   return self.own_us_per_call
+end
+
 function perf_test:report_result(delta, count)
-   local cps = count / delta
-   print(self.name, 'cps', cps)
+   self.us_per_call = 1000000.0 * delta / count
+   if self.overhead
+   then
+      local o = self.overhead
+      o = type(o) ~= 'table' and {o} or o
+      local overhead = 0
+      for i, v in ipairs(o)
+      do
+         overhead = overhead + v:get_us_per_call()
+      end
+      self.own_us_per_call = self.us_per_call - overhead
+      print(string.format('%s: %.3f us (own)', self.name, self.own_us_per_call))
+   else
+      self.own_us_per_call = self.us_per_call
+      print(string.format('%s: %.3f us', self.name, self.us_per_call))
+   end
+   --print(self.name, 'cps', cps)
 end

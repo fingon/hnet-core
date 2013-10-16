@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb  4 16:24:43 2013 mstenber
--- Last modified: Wed Oct 16 14:00:24 2013 mstenber
--- Edit time:     40 min
+-- Last modified: Wed Oct 16 14:32:02 2013 mstenber
+-- Edit time:     41 min
 --
 
 
@@ -107,7 +107,7 @@ function skiplist_sim:run()
                              sim(50, 1)
    end,
                           duration=0.2,
-                          name='ipi_skiplist:' .. mst.repr{self}
+                          name='ipi_skiplist:' .. mst.repr{self},
                          }:run()
 
    --sim(50, self.number_of_items * 10)
