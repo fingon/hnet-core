@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Mon Oct  7 14:10:09 2013 mstenber
--- Edit time:     265 min
+-- Last modified: Wed Oct 16 13:21:09 2013 mstenber
+-- Edit time:     266 min
 --
 
 require "busted"
@@ -867,6 +867,24 @@ describe("fake_callback", function ()
                   local r = o('xyzzy', 'foo')
                   mst_test.assert_repr_equal(r, 'bar')
                   o:done()
+
+                   end)
+end)
+
+describe("mst_perf", function ()
+            it("works", function ()
+                  local c = 0
+                  local r = 0
+                  local p = mst_test.perf_test:new{duration=0.01,
+                                                   cb=function ()
+                                                      c = c + 1
+                                                   end}
+                  function p:report_result()
+                     r = r + 1
+                  end
+                  p:run()
+                  mst.a(c > 0)
+                  mst.a(r > 0)
 
                    end)
 end)

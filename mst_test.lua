@@ -8,13 +8,14 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Mon Oct  7 17:25:42 2013 mstenber
--- Edit time:     27 min
+-- Last modified: Wed Oct 16 13:20:26 2013 mstenber
+-- Edit time:     36 min
 --
 
 -- testing related utilities
 require 'mst'
 require 'ssloop'
+require 'socket' -- for socket.gettime
 
 module(..., package.seeall)
 
@@ -169,4 +170,46 @@ function fake_object:check_used()
    do
       self[v]:check_used()
    end
+end
+
+-- minimalist performance testing functionality
+-- assumption: one call is ~equal to another
+perf_test = mst.create_class{class='perf_test',
+                             mandatory={'cb'},
+                             duration=1, -- how long can we test at most
+                             verbose=false,
+                            }
+
+function perf_test:run()
+   -- basic idea: double # of tests every iteration
+
+   -- show iterations that takes >= 10% of the budget (so the minimal,
+   -- insanely fast ones in the beginning do not show)
+   local now = socket.gettime()
+   local strep = now + 0.1 * self.duration
+   local done = now + self.duration / 2 -- next iteration would overflow
+   local count = 1
+   while true
+   do
+      local t1 = socket.gettime()
+      if t1 >= done
+      then
+         break
+      end
+      for i=1, count
+      do
+         self.cb()
+      end
+      local t2 = socket.gettime()
+      if t2 >= strep
+      then
+         self:report_result(t2-t1, count)
+      end
+      count = count * 2
+   end
+end
+
+function perf_test:report_result(delta, count)
+   local cps = count / delta
+   print(self.name, 'cps', cps)
 end
