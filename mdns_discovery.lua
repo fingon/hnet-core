@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Mar  5 11:57:53 2013 mstenber
--- Last modified: Tue Mar  5 13:12:44 2013 mstenber
+-- Last modified: Wed Oct 16 14:02:54 2013 mstenber
 -- Edit time:     29 min
 --
 
@@ -64,7 +64,7 @@ end
 
 function mdns_discovery:init()
    self.ns = dns_db.ns:new{}
-   self.sl = mst_skiplist.ipi_skiplist:new{p=2, lt=next_is_less}
+   self.sl = mst_skiplist.ipi_skiplist:new{lt=next_is_less}
    self:insert_rr{name=SD_ROOT}
 end
 

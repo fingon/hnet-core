@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 21:35:07 2013 mstenber
--- Last modified: Thu Jun 13 13:46:52 2013 mstenber
--- Edit time:     255 min
+-- Last modified: Wed Oct 16 14:01:37 2013 mstenber
+-- Edit time:     257 min
 --
 
 local mst = require 'mst'
@@ -32,11 +32,12 @@ module(...)
 -- p = probability of being on next level (1 in p) => 2 = 50%
 
 ipi_skiplist = mst.create_class{class='ipi_skiplist', 
-                                mandatory={'p'}}
+                                p=7,
+                               }
 
 function ipi_skiplist:init()
    self.next = mst.array:new{}
-   if self.width == nil
+   if self.width == nil or self.width == true
    then
       self.width = mst.array:new{}
    end

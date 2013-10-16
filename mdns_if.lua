@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu Jun 27 10:59:56 2013 mstenber
+-- Last modified: Wed Oct 16 14:03:05 2013 mstenber
 -- Edit time:     836 min
 --
 
@@ -206,8 +206,7 @@ function mdns_if:init()
    -- when querying active records
    self.qofs = mst.randint(0, 20)
 
-   self.cache_sl = mst_skiplist.ipi_skiplist:new{p=2,
-                                                 prefix='cache_sl',
+   self.cache_sl = mst_skiplist.ipi_skiplist:new{prefix='cache_sl',
                                                  lt=next_is_less,
                                                 }
    self:connect(self.cache.inserted, 
@@ -221,11 +220,10 @@ function mdns_if:init()
                    self.queue_check_propagate_rr(rr)
                    self.md:cache_changed_rr(rr, false)
                 end)
-   self.own_sl = mst_skiplist.ipi_skiplist:new{p=2,
-                                               prefix='own_sl',
+   self.own_sl = mst_skiplist.ipi_skiplist:new{prefix='own_sl',
                                                lt=next_is_less,
                                               }
-
+   
    
    local function mark_nsec_dirty_if_cache_flush(rr)
       if rr.cache_flush
@@ -240,8 +238,7 @@ function mdns_if:init()
                                   end)
 
    self.probe = dns_db.ns:new{}
-   self.probe_sl = mst_skiplist.ipi_skiplist:new{p=2,
-                                                 prefix='probe_sl',
+   self.probe_sl = mst_skiplist.ipi_skiplist:new{prefix='probe_sl',
                                                  lt=next_is_less,
                                                 }
 

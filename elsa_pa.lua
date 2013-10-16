@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Wed Oct  9 19:00:07 2013 mstenber
+-- Last modified: Wed Oct 16 14:02:49 2013 mstenber
 -- Edit time:     1073 min
 --
 
@@ -314,8 +314,7 @@ function elsa_pa:init_pa()
    -- (create shallow copy of args, so that we don't wind up re-using
    -- the object)
    self.pa = pa.pa:new(mst.table_copy(args))
-   self.pa.timeouts = mst_skiplist.ipi_skiplist:new{p=2,
-                                                    lt=timeout_is_less}
+   self.pa.timeouts = mst_skiplist.ipi_skiplist:new{lt=timeout_is_less}
 end
 
 function elsa_pa:uninit()
