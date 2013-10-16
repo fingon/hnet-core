@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Oct 16 13:39:26 2013 mstenber
--- Edit time:     268 min
+-- Last modified: Wed Oct 16 15:47:11 2013 mstenber
+-- Edit time:     281 min
 --
 
 require "busted"
@@ -212,7 +212,7 @@ describe("create_class", function ()
                   mst.a(c4.foo, 'multiple inheritance fail1')
                   mst.a(c4.bar, 'multiple inheritance fail2')
 
-                   end)
+                                             end)
             
             it("has working cascading init/uninit", function ()
                   local function create_dummy_class(name)
@@ -247,7 +247,7 @@ describe("create_class", function ()
                   i1:done()
                   mst.a(s1[2] and s2[2] and s3[2])
                   
-                   end)
+                                                    end)
 
             it("can create class with args", function ()
                   local c = mst.create_class{mandatory={"foo"}}
@@ -315,8 +315,8 @@ describe("debug_print", function ()
                                   end, t)
                   mst.a(getmetatable(t) == nil, 'metatable was set?!?')
 
-                   end)
-             end)
+                        end)
+                        end)
 
 describe("array_to_table", function ()
             it("works", function ()
@@ -440,7 +440,7 @@ describe("map", function ()
                   mst.a(mst.map:is_instance(foo), 'wrong result', 
                         foo, mst.get_class(foo))
                   mst.a(m.foo == foo)
-                   end)
+                             end)
                 end)
 
 
@@ -512,7 +512,7 @@ describe("cache", function ()
                            c = mst_cache.cache:new{get_callback=function (k)
                                                       t[2] = t[2] + 1
                                                       return k and true or nil
-                                                   end}
+                                                                end}
                         end)
             it("works (positive+negative ttl with real time_callback)", function ()
                   -- re-initialize to use 'real' time (smirk)
@@ -575,7 +575,7 @@ describe("cache", function ()
                   mst.a(t[2] == 5)
                   mst.a(c:get(true) == true)
                   mst.a(t[2] == 6)
-                                                end)
+                                                                        end)
             it("works (limited) #cachesize", function ()
                   c.max_items = 10
                   for i=1,100
@@ -593,7 +593,7 @@ describe("cache", function ()
                   mst.a(c.items > 0 and c.items <= c.max_items, 'wrong # items', c.items)
                   mst.a(c.items == mst.table_count(c.map))
 
-                                            end)
+                                             end)
                   end)
 
 describe("string_find_one", function ()
@@ -628,7 +628,7 @@ describe("string misc", function ()
                   mst.a(mst.string_strip(' foo ') == 'foo')
                   mst.a(mst.string_strip(' foo\n') == 'foo')
 
-                   end)
+                        end)
                         end)
 
 describe("validity_sync", function ()
@@ -740,8 +740,8 @@ describe("array_unique", function ()
 
                   mst_test.assert_repr_equal(mst.array_unique(), nil)
 
-                   end)
-             end)
+                        end)
+                         end)
 
 describe("hash_set", function ()
             it("works", function ()
@@ -828,8 +828,8 @@ describe("mst_eventful", function ()
                              end)
                   o1.foo('bar')
                   mst.a(got)
-                   end)
-end)
+                                                  end)
+                         end)
 
 describe("table", function ()
             it("table_sorted_keys works", function ()
@@ -842,8 +842,8 @@ describe("table", function ()
                      table.insert(keys2, k)
                   end
                   mst_test.assert_repr_equal(keys2, {'b', 'i', 's'})
-                   end)
-end)
+                                          end)
+                  end)
 
 
 describe("fake_callback", function ()
@@ -868,8 +868,8 @@ describe("fake_callback", function ()
                   mst_test.assert_repr_equal(r, 'bar')
                   o:done()
 
-                   end)
-end)
+                        end)
+                          end)
 
 describe("mst_perf", function ()
             local c
@@ -890,11 +890,59 @@ describe("mst_perf", function ()
                   p:run()
                   mst.a(c > 0)
                   mst.a(r == 1)
-                   end)
+                        end)
             it("works (verbose)", function ()
                   p.verbose = true
                   p:run()
                   mst.a(c > 0)
                   mst.a(r > 1)
+                                  end)
+                     end)
+
+describe("iset #iset", function ()
+            local data = {'foo', 'bar', 'baz'}
+            local is
+            local function sanity_random()
+               local d = is:randitem()
+               local found
+               for i, v in ipairs(data)
+               do
+                  if v == d
+                  then
+                     found = true
+                     --mst.a(i == idx, 'wrong index', v, i, idx)
+                  end
+               end
+               mst.a(found, 'not found?!?', d)
+               return d
+            end
+            before_each(function ()
+                           is = mst.iset:new()
+                           for i, v in ipairs(data)
+                           do
+                              is:insert(v)
+                           end
+                           mst_test.assert_repr_equal(is:count(), #data)
+
+                        end)
+            it("remove #isetr1", function ()
+                  local d = sanity_random()
+                  mst.d('removing (name)', d)
+                  is:remove(d)
+                  mst_test.assert_repr_equal(is:count(), #data - 1)
+                  -- ugh, playing with internals, oh well
+                  is:remove(is._array[1])
+                  mst_test.assert_repr_equal(is:count(), #data - 2)
+                  sanity_random()
+                        end)
+            it("remove nonradom", function ()
+                  is:remove(data[1])
+                  mst_test.assert_repr_equal(is._array, {'baz', 'bar'})
+                  mst_test.assert_repr_equal(is['baz'], 1)
+                  mst_test.assert_repr_equal(is['bar'], 2)
+                  is:remove(data[2])
+                  mst_test.assert_repr_equal(is._array, {'baz'})
+                  mst_test.assert_repr_equal(is['baz'], 1)
+                  mst_test.assert_repr_equal(is['bar'], nil)
                    end)
-end)
+                 end)

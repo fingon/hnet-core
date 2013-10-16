@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Oct 16 13:33:05 2013 mstenber
--- Edit time:     747 min
+-- Last modified: Wed Oct 16 15:45:37 2013 mstenber
+-- Edit time:     762 min
 --
 
 -- data structure abstractions provided:
@@ -1087,6 +1087,65 @@ end
 
 function set:remove(o)
    self[o] = nil
+end
+
+-- indexed set; it has some array-like functionality as well
+-- (randitem, fast count)
+
+iset = set:new_subclass{class='iset'}
+
+function iset:init()
+   self._array = array:new()
+end
+
+function iset:insert(o)
+   -- should be same?
+   if self[o]
+   then
+      return
+   end
+   local a = self._array
+   a:insert(o)
+   local idx = a:count()
+   self:a(idx, 'no index')
+   self[o] = idx
+end
+
+function iset:count()
+   return self._array:count()
+end
+
+function iset:remove(o)
+   local idx = self[o]
+   if not idx
+   then
+      self:d('not found', o)
+      return
+   end
+   self:_remove_index(idx)
+end
+
+function iset:_remove_index(idx)
+   local a = self._array
+   local cnt = a:count()
+   self:a(idx >= 1 and idx <= cnt)
+   local o = a[idx]
+   if idx < cnt
+   then
+      -- rewrite that some other object lives there
+      local o2 = a[cnt]
+      self[o2] = idx
+      a[idx] = o2
+      a[cnt] = nil
+   else
+      a[idx] = nil
+   end
+   self[o] = nil
+end
+
+function iset:randitem()
+   local i, idx = array_randitem(self._array)
+   return i
 end
 
 --- multimap 
