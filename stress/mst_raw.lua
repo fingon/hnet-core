@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb  4 16:24:43 2013 mstenber
--- Last modified: Wed Oct 16 16:22:56 2013 mstenber
--- Edit time:     50 min
+-- Last modified: Wed Oct 16 16:28:14 2013 mstenber
+-- Edit time:     52 min
 --
 
 
@@ -80,7 +80,6 @@ function skiplist_sim:run()
             if o
             then
                mst.d('performing remove', o)
-               mst.a(sl:get_first())
                obj_in:remove(o)
                obj_out:insert(o)
                sl:remove(o)
@@ -96,7 +95,6 @@ function skiplist_sim:run()
                obj_out:remove(o)
                obj_in:insert(o)
                sl:insert(o)
-               mst.a(sl:get_first())
             else
                mst.a(#obj_out == 0)
             end
