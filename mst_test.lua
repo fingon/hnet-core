@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Wed Oct 16 14:38:03 2013 mstenber
--- Edit time:     52 min
+-- Last modified: Wed Oct 16 14:52:28 2013 mstenber
+-- Edit time:     55 min
 --
 
 -- testing related utilities
@@ -233,10 +233,8 @@ function perf_test:report_result(delta, count)
    self.us_per_call = 1000000.0 * delta / count
    if self.overhead
    then
-      local o = self.overhead
-      o = type(o) ~= 'table' and {o} or o
       local overhead = 0
-      for i, v in ipairs(o)
+      for i, v in ipairs(self.overhead)
       do
          overhead = overhead + v:get_us_per_call()
       end
