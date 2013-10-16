@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Oct  7 14:25:40 2013 mstenber
--- Edit time:     746 min
+-- Last modified: Wed Oct 16 13:33:05 2013 mstenber
+-- Edit time:     747 min
 --
 
 -- data structure abstractions provided:
@@ -1388,7 +1388,7 @@ function array_randitem(t)
    local idx = array_randindex(t)
    if idx
    then
-      return t[idx]
+      return t[idx], idx
    end
 end
 
