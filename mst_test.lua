@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Wed Oct 16 16:00:27 2013 mstenber
--- Edit time:     57 min
+-- Last modified: Wed Oct 16 16:36:59 2013 mstenber
+-- Edit time:     62 min
 --
 
 -- testing related utilities
@@ -239,10 +239,16 @@ function perf_test:report_result(delta, count)
          overhead = overhead + v:get_us_per_call()
       end
       self.own_us_per_call = self.us_per_call - overhead
-      print(string.format('%s: %.3f us (own), %.3f us (total)', self.name, self.own_us_per_call, self.us_per_call))
+      local n = (self.n or 1)
+      self.own_us_per_call = self.own_us_per_call / n
+      local nmul = n > 1 and string.format(" (x%d)", n) or ""
+      print(string.format('%s: %.3f us (own%s), %.3f us (total)', self.name, self.own_us_per_call, nmul, self.us_per_call))
    else
       self.own_us_per_call = self.us_per_call
-      print(string.format('%s: %.3f us', self.name, self.us_per_call))
+      local n = (self.n or 1)
+      self.own_us_per_call = self.own_us_per_call / n
+      local nmul = n > 1 and string.format(" (x%d)", n) or ""
+      print(string.format('%s: %.3f us %s', self.name, self.us_per_call, nmul))
    end
    --print(self.name, 'cps', cps)
 end

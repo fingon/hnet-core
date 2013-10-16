@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct 16 13:35:59 2013 mstenber
--- Last modified: Wed Oct 16 16:17:31 2013 mstenber
--- Edit time:     27 min
+-- Last modified: Wed Oct 16 16:31:03 2013 mstenber
+-- Edit time:     28 min
 --
 
 -- Raw lua performance testing (without busted dependency so that we
@@ -80,7 +80,8 @@ local ra = ptest:new{cb=function ()
                            a:remove_index(mst.randint(1, #a))
                         end
                         end,
-                     name='array remove_index+randint xN',
+                     name='array remove_index+randint',
+                     n=N_REMOVE,
                      overhead={nop, ia}}
 ra:run()
 
@@ -97,7 +98,8 @@ local rs = ptest:new{cb=function ()
                            a:remove(a:randitem())
                         end
                         end,
-                     name='iset remove_index+randitem xN',
+                     name='iset remove_index+randitem',
+                     n=N_REMOVE,
                      overhead={nop, is}}
 rs:run()
 
