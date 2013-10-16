@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Oct 16 13:21:09 2013 mstenber
--- Edit time:     266 min
+-- Last modified: Wed Oct 16 13:39:26 2013 mstenber
+-- Edit time:     268 min
 --
 
 require "busted"
@@ -872,19 +872,29 @@ describe("fake_callback", function ()
 end)
 
 describe("mst_perf", function ()
+            local c
+            local r
+            local p
+            before_each(function ()
+                           c = 0
+                           r = 0
+                           p = mst_test.perf_test:new{duration=0.01,
+                                                      cb=function ()
+                                                         c = c + 1
+                                                      end}
+                           function p:report_result()
+                              r = r + 1
+                           end
+                        end)
             it("works", function ()
-                  local c = 0
-                  local r = 0
-                  local p = mst_test.perf_test:new{duration=0.01,
-                                                   cb=function ()
-                                                      c = c + 1
-                                                   end}
-                  function p:report_result()
-                     r = r + 1
-                  end
                   p:run()
                   mst.a(c > 0)
-                  mst.a(r > 0)
-
+                  mst.a(r == 1)
+                   end)
+            it("works (verbose)", function ()
+                  p.verbose = true
+                  p:run()
+                  mst.a(c > 0)
+                  mst.a(r > 1)
                    end)
 end)

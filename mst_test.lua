@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Wed Oct 16 13:20:26 2013 mstenber
--- Edit time:     36 min
+-- Last modified: Wed Oct 16 13:38:21 2013 mstenber
+-- Edit time:     37 min
 --
 
 -- testing related utilities
@@ -189,6 +189,7 @@ function perf_test:run()
    local strep = now + 0.1 * self.duration
    local done = now + self.duration / 2 -- next iteration would overflow
    local count = 1
+   local r = mst.array:new{}
    while true
    do
       local t1 = socket.gettime()
@@ -203,9 +204,20 @@ function perf_test:run()
       local t2 = socket.gettime()
       if t2 >= strep
       then
-         self:report_result(t2-t1, count)
+         local got = {t2-t1, count}
+         if self.verbose
+         then
+            self:report_result(unpack(got))
+         else
+            r:insert(got)
+         end
       end
       count = count * 2
+   end
+   if not self.verbose
+   then
+      self:a(#r > 0)
+      self:report_result(unpack(r[#r]))
    end
 end
 
