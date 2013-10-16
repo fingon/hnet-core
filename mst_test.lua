@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Wed Oct 16 14:52:28 2013 mstenber
--- Edit time:     55 min
+-- Last modified: Wed Oct 16 16:00:27 2013 mstenber
+-- Edit time:     57 min
 --
 
 -- testing related utilities
@@ -239,7 +239,7 @@ function perf_test:report_result(delta, count)
          overhead = overhead + v:get_us_per_call()
       end
       self.own_us_per_call = self.us_per_call - overhead
-      print(string.format('%s: %.3f us (own)', self.name, self.own_us_per_call))
+      print(string.format('%s: %.3f us (own), %.3f us (total)', self.name, self.own_us_per_call, self.us_per_call))
    else
       self.own_us_per_call = self.us_per_call
       print(string.format('%s: %.3f us', self.name, self.us_per_call))
