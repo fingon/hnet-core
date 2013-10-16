@@ -1,15 +1,15 @@
 #!/usr/bin/env lua
 -- -*-lua-*-
 --
--- $Id: mst_stress.lua $
+-- $Id: mst_raw.lua $
 --
 -- Author: Markus Stenberg <markus stenberg@iki.fi>
 --
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Feb  4 16:24:43 2013 mstenber
--- Last modified: Wed Oct 16 14:32:02 2013 mstenber
--- Edit time:     41 min
+-- Last modified: Wed Oct 16 14:55:24 2013 mstenber
+-- Edit time:     46 min
 --
 
 
@@ -20,6 +20,22 @@ require "dint"
 
 local ipi_skiplist = mst_skiplist.ipi_skiplist
 local dummy_int = dint.dint
+
+local ptest = mst_test.perf_test:new_subclass{duration=1}
+
+local nop = ptest:new{cb=function ()
+                         -- nop
+                         end,
+                      name='nop',
+                     }
+
+local rnd100 = ptest:new{cb=function ()
+                         mst.randint(1, 100)
+                         end,
+                      name='randint(1,100)',
+                      overhead={nop},
+                     }
+
 
 --local SANITY_EVERY=10
 local SANITY_EVERY=123456789
@@ -108,6 +124,9 @@ function skiplist_sim:run()
    end,
                           duration=0.2,
                           name='ipi_skiplist:' .. mst.repr{self},
+                          -- there's two random calls there;
+                          -- whether or not that really matters is questionable
+                          overhead={nop, rnd100, rnd100},
                          }:run()
 
    --sim(50, self.number_of_items * 10)
@@ -122,18 +141,19 @@ function skiplist_sim:run()
 end
 
 
-local pmat = {2, 3, 4, 5, 6, 7, 8, 16}
+--local pmat = {2, 3, 4, 5, 6, 7, 8, 16}
+local pmat = {2, 7}
 
 for i, v in ipairs(pmat)
 do
    skiplist_sim:new{number_of_values=1000, skiplist_p=v}:run()
 end
 
+--local mat = {10, 100, 1000}
 local mat = {10, 100, 1000}
 
 for i, v in ipairs(mat)
 do
    skiplist_sim:new{number_of_values=v}:run()
-   skiplist_sim:new{number_of_values=v, skiplist_width=true}:run()
-   skiplist_sim:new{number_of_values=v, skiplist_p=4}:run()
+   --skiplist_sim:new{number_of_values=v, skiplist_width=true}:run()
 end
