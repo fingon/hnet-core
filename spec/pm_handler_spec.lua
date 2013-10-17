@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Wed Oct 16 12:27:04 2013 mstenber
--- Edit time:     342 min
+-- Last modified: Thu Oct 17 19:15:48 2013 mstenber
+-- Edit time:     353 min
 --
 
 -- individual handler tests
@@ -882,12 +882,16 @@ describe("pm_netifd", function ()
                      -- ipv4
                      {address='10.2.2.2',
                       prefix='10.2.2.0/24',
-                      ifname='eth1'},
+                      ifname='eth1',
+                      owner=true,
+                     },
 
                      -- ipv6
                      {address='dead:beef::1',
                       prefix='dead:beef::/32',
-                      ifname='eth1'},
+                      ifname='eth1',
+                      owner=true,
+                     },
                   }
 
                   -- handler 1 - netifd_pull
@@ -914,9 +918,11 @@ describe("pm_netifd", function ()
                   local myrid = 123456789
                   pm.skv:set(elsa_pa.OSPF_RID_KEY, myrid)
 
-                  local _data_dummy = {dhcpv4='server', dhcpv6='server', 
-                                       ra='server',
-                                       domain={'dummy'}}
+                  local _data_dummy_46 = {dhcpv4='server', dhcpv6='server', 
+                                          ra='server',
+                                          domain={'dummy'}}
+                  
+                  local _data_dummy_4 = {dhcpv4='server', domain={'dummy'}}
                   
                   -- handler 2 - netifd_push
                   _ubus2.open:add_expected()
@@ -931,7 +937,7 @@ describe("pm_netifd", function ()
 
                   _ubus2.open:add_expected()
                   _ubus2.call:add_expected(
-                     {'network.interface', 'notify_proto', {action=0, data=_data_dummy, interface="lan1", ip6addr={{ipaddr="dead:beef::1", mask="32"}}, ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}})
+                     {'network.interface', 'notify_proto', {action=0, data=_data_dummy_46, interface="lan1", ip6addr={{ipaddr="dead:beef::1", mask="32"}}, ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}})
                   _ubus2.close:add_expected()
 
                   _ubus2.open:add_expected()
@@ -1030,7 +1036,7 @@ describe("pm_netifd", function ()
 
                   _ubus2.open:add_expected()
                   _ubus2.call:add_expected(
-                     {'network.interface', 'notify_proto', {action=0, data=_data_dummy, interface="lan1", ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}}
+                     {'network.interface', 'notify_proto', {action=0, data=_data_dummy_4, interface="lan1", ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}}
                                            )
                   _ubus2.close:add_expected()
 
