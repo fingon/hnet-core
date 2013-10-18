@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 21:59:03 2012 mstenber
--- Last modified: Wed Jul 17 17:24:51 2013 mstenber
+-- Last modified: Sat Oct 19 00:23:46 2013 mstenber
 -- Edit time:     188 min
 --
 
@@ -182,9 +182,7 @@ function address_to_binary_address(b)
          mst.a(#v > 0)
          local n, err = tonumber(v, 16)
          mst.a(n, 'no n?', v, t)
-         local b1 = string.char(math.floor(n / 256))
-         local b2 = string.char(n % 256)
-         table.insert(t,  b1 .. b2)
+         table.insert(t,  codec.u16_to_nb(n))
       end
    end
    return table.concat(t)

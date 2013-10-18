@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Tue Jul 30 16:58:12 2013 mstenber
+-- Last modified: Sat Oct 19 01:03:46 2013 mstenber
 -- Edit time:     524 min
 --
 
@@ -384,7 +384,7 @@ function hybrid_proxy:forward(req, server, nreq_callback)
                         tcp=req.tcp, 
                         ip=server}
    local v = self.forward_ops[key]
-   local got
+   local got, err
    if not v
    then
       self:d('no op key', key)
@@ -395,12 +395,12 @@ function hybrid_proxy:forward(req, server, nreq_callback)
       nreq = nreq_callback{binary=req:get_binary(),
                            ip=server,
                            tcp=req.tcp}
-      got = nreq:resolve(timeout)
+      got, err = nreq:resolve(timeout)
       if got
       then
          v[2] = got:get_binary()
       else
-         self:d('request failed for op key', key)
+         self:d('request failed for op key', key, err)
       end
       v[1] = true
       self.forward_ops[key] = nil
@@ -420,7 +420,7 @@ function hybrid_proxy:forward(req, server, nreq_callback)
          -- request and handle the binary payload response only
          if not msg
          then
-            self:d('unable to decode message', msg)
+            self:d('unable to decode message', mst.string_to_hex(got_binary))
             return self:forward(req, server, nreq_callback)
          end
          -- copy the id

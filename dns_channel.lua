@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 17:02:57 2013 mstenber
--- Last modified: Wed Jul 24 22:58:29 2013 mstenber
--- Edit time:     188 min
+-- Last modified: Sat Oct 19 00:55:59 2013 mstenber
+-- Edit time:     200 min
 --
 
 -- DNS channels is an abstraction between two entities that speak DNS,
@@ -17,8 +17,7 @@
 -- do the obvious, with optional extra argument for src/dst (in case
 -- of UDP channel).
 
--- All are set up with get_udp_channel(d), get_tcp_channel_socket(d)
--- or get_tcp_channel_connect(d).
+-- All are set up with get_udp_channel(d), get_tcp_channel(d).
 
 -- There's also convenience wrapper for doing resolution:
 
@@ -139,13 +138,17 @@ function msg:resolve_tcp(timeout)
    local msg = self:get_msg()
    mst.a(server and msg, 'server+msg not provided')
    -- just sanity check, we pass along really self
-   local c = get_tcp_channel{ip='*', port=0, remote_ip=server}
+   self:d('getting a channel')
+   local c, err = get_tcp_channel{ip='*', port=0, remote_ip=server}
    if not c then return c, err end
+   self:d('sending request')
    local r, err = c:send(self, timeout)
    if not r then return nil, err end
-   local got = c:receive(timeout)
+   self:d('waiting for reply')
+   local got, err = c:receive(timeout)
    c:done()
-   if not got then return nil, ERR_TIMEOUT end
+   self:d('got', got, err)
+   if not got then return nil, err end
    return got
 end
 
@@ -184,7 +187,8 @@ function tcp_channel:send(o, timeout)
 end
 
 function tcp_channel:socket_send(b, timeout)
-   return self.s:send(b, timeout)
+   -- prefix the message with number of bytes in request (16 bits)
+   return self.s:send(codec.u16_to_nb(#b) .. b, timeout)
 end
 
 local _decode_args = {disable_decode_names=true,
@@ -197,24 +201,27 @@ function tcp_channel:receive(timeout)
    while true
    do
       -- first off, see if we've got enough in our incoming queue
-      if self.queue and #self.queue>0
+      -- (we _at least_ have to have the 16 bits for number of bytes)
+      if self.queue and #self.queue >= 2
       then
          local q = self.queue
-         local m, pos = dns_codec.dns_message:decode(q, _decode_args)
-         if m
+         local l = codec.nb_to_u16(q)
+         if #q >= (l + 2)
          then
-            self:d('allegedly decoded', pos, m)
-            local b = string.sub(q, 1, pos)
-            self.queue = string.sub(q, pos+1)
+            local b = string.sub(q, 3, l+2)
+            self.queue = string.sub(q, l+3)
+            self:d('tcp payload with bytes', l)
             return msg:new{binary=b, tcp=true}
+         else
+            self:d('missing part of tcp payload - got/exp', #q, l+2)
          end
-         self:d('decode failed')
       end
 
       -- no (full?) message, have to receive more
       local b, err = self.s:receive(timeout)
       if not b
       then
+         self:d('receive error', err)
          return nil, err
       end
       
@@ -315,7 +322,6 @@ function get_tcp_channel(self)
    self = self or {}
    local ip = self.ip or '*'
    local port = self.port or dns_const.PORT
-   mst.d('creating tcp socket', self)
    mst.a(self.remote_ip)
    local tcp_s, err = scbtcp.create_socket{ip=ip, port=port}
    mst.a(tcp_s, 'unable to create tcp socket', port, err)

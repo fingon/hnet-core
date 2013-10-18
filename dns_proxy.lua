@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Apr 29 18:16:53 2013 mstenber
--- Last modified: Tue Jul 30 16:22:41 2013 mstenber
--- Edit time:     129 min
+-- Last modified: Sat Oct 19 01:49:55 2013 mstenber
+-- Edit time:     135 min
 --
 
 -- This is minimalist DNS proxy implementation.
@@ -81,8 +81,11 @@ function handler:loop()
          scr.run(self.handle_request, self, r)
       else
          self:d('error reading', err)
+         break
       end
    end
+   -- kill the object from eventloop etc
+   self:done()
 end
 
 function handler:handle_request(msg, src)

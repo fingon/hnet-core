@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Apr 25 10:13:25 2013 mstenber
--- Last modified: Wed Jun 26 14:34:23 2013 mstenber
--- Edit time:     158 min
+-- Last modified: Sat Oct 19 01:46:38 2013 mstenber
+-- Edit time:     164 min
 --
 
 -- coroutine event reactor - coroutine based handling of file
@@ -32,6 +32,7 @@
 
 require 'mst'
 require 'ssloop'
+require 'scbtcp'
 
 module(..., package.seeall)
 
@@ -261,20 +262,23 @@ function scrsocket:connect(ip, port, timeout)
 
    local r, e = self.s:connect(ip, port)
    self:d('got from connect', r, e)
-   if r == 1
+   if r
    then
       return r
+   end
+   if err == scbtcp.ERR_ALREADY_CONNECTED
+   then
+      return 1
    end
    -- blocking connect call -> wait for it to finish
    return self:io_with_timeout(function ()
                                   self:d('[callback] connect', ip, port)
                                   local r, err = self.s:connect(ip, port)
-                                  if err == scbtcp.ERR_CONNECTION_REFUSED
+                                  self:d('connect result', r, err)
+                                  if not r and err == scbtcp.ERR_ALREADY_CONNECTED
                                   then
-                                     r = nil
-                                  else
-                                     -- anything else = ok?
                                      r = true
+                                     err = nil
                                   end
                                   return r, err
                                end, false, timeout)
