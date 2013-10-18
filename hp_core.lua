@@ -187,30 +187,62 @@ end
 function hybrid_proxy:create_local_forward_node(router, o)
    local iid = o.iid
    local liid = self:iid2label(iid)
+   local n_ret
 
    -- [2] <link>.<router>[.<domain>] for our entries
    local ifname = o.ifname
    -- (another option: self:get_local_ifname_for_prefix(prefix))
    self:a(ifname)
    local n = router:get_child(liid)
-   if n then return end
-   n = dns_tree.create_node_callback{label=liid}
-   function n:get_default()
-      local ll = n:get_ll()
-      self:a(ll)
-      return RESULT_FORWARD_MDNS, {ifname, ll}
-   end
-   function n:get_value()
-      -- XXX - is NXDOMAIN ok result for link itself?
-      return nil
-   end
-   router:add_child(n)
-   mst.d('defined (own)', n:get_fqdn())
-   
-   -- add it to browse domain
-   self:add_browse(n)
 
-   return n
+   if not n then
+      -- creating the node
+      n = dns_tree.create_node_callback{label=liid}
+      function n:get_default()
+         local ll = n:get_ll()
+         self:a(ll)
+         return RESULT_FORWARD_MDNS, {ifname, ll}
+      end
+      n.value = {}
+      function n:get_value()
+         return self.value
+      end
+      router:add_child(n)
+      mst.d('defined (own)', n:get_fqdn())
+
+      -- add it to browse domain
+      self:add_browse(n)
+
+      -- This function returns the node if it created it
+      n_ret = n
+   end
+
+   -- creating A or AAAA rr for <link>.<router>.<domain>
+   local rr = {name={liid, router.label, unpack(dns_db.name2ll(self.domain))}}
+   local ip = o.address
+   if ipv6s.address_is_ipv4(ip) then
+      rr.rtype=dns_const.TYPE_A
+      rr.rdata_a=ip
+   else
+      rr.rtype=dns_const.TYPE_AAAA
+      rr.rdata_aaaa=ip
+   end
+   table.insert(n.value, rr)
+
+   -- We want <router>.<domain> to answer at most one A and one AAAA
+   local insert = true
+   for i, v in ipairs(router.value)
+   do
+      if v.rtype == rr.rtype then
+         insert = false
+         break
+      end
+   end
+   if insert then
+      table.insert(router.value, rr)
+   end
+
+   return n_ret
 end
 
 function hybrid_proxy:create_local_reverse_node(root, router, o)
@@ -314,7 +346,13 @@ function hybrid_proxy:recreate_tree()
                       -- intermediate node
                       create_default_forward_ext_node_callback)
 
-   local router = domain:add_child(dns_tree.create_node_callback{label=mylabel})
+   -- Create <router>.<domain> node
+   local router_node = dns_tree.create_node_callback{label=mylabel}
+   router_node.value = {}
+   function router_node:get_value()
+      return self.value
+   end
+   local router = domain:add_child(router_node)
 
    -- Create forward hierarchy
    self:iterate_lap(
