@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Apr 30 18:35:23 2013 mstenber
--- Last modified: Tue Jun 18 17:55:16 2013 mstenber
--- Edit time:     25 min
+-- Last modified: Sat Oct 19 00:56:40 2013 mstenber
+-- Edit time:     27 min
 --
 
 require 'busted'
@@ -38,11 +38,20 @@ describe("dns_channel", function ()
                   mst.d('got', msg)
                   mst.a(scr.clear_scr())
                    end)
-            it("resolve for google works (any) #any", function ()
+            it("resolve for google works (any) #google", function ()
                   local msg, err = scr.timeouted_run_async_call(1,
                                                                 dns_channel.resolve_q,
                                                                 '8.8.8.8',
                                                                 {name={'google', 'com'}, qtype=dns_const.TYPE_ANY}, 1)
+                  mst.a(msg, 'resolve_q failed', err)
+                  mst.d('got', msg)
+                  mst.a(scr.clear_scr())
+                   end)
+            it("resolve for apple works (any) #apple", function ()
+                  local msg, err = scr.timeouted_run_async_call(1,
+                                                                dns_channel.resolve_q,
+                                                                '8.8.8.8',
+                                                                {name={'apple', 'com'}, qtype=dns_const.TYPE_ANY}, 1)
                   mst.a(msg, 'resolve_q failed', err)
                   mst.d('got', msg)
                   mst.a(scr.clear_scr())
