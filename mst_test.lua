@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 20:37:09 2013 mstenber
--- Last modified: Wed Oct 16 16:36:59 2013 mstenber
--- Edit time:     62 min
+-- Last modified: Mon Oct 21 10:45:59 2013 mstenber
+-- Edit time:     65 min
 --
 
 -- testing related utilities
@@ -181,10 +181,28 @@ perf_test = mst.create_class{class='perf_test',
                             }
 
 function perf_test:run()
-   -- basic idea: double # of tests every iteration
+   self:d('run()')
 
-   -- show iterations that takes >= 10% of the budget (so the minimal,
-   -- insanely fast ones in the beginning do not show)
+   -- two different modes; if self.count is specified, just do known
+   -- number of runs.
+   if self.count
+   then
+      local t1 = socket.gettime()
+      for i=1, self.count
+      do
+         self.cb()
+      end
+      local t2 = socket.gettime()
+      local got = {t2-t1, self.count}
+      self:report_result(unpack(got))
+      return
+   end
+   
+   -- if not, use duration as guideline for how long to run
+
+   -- basic idea: double # of tests every iteration show iterations
+   -- that takes >= 10% of the budget (so the minimal, insanely fast
+   -- ones in the beginning do not show)
    local now = socket.gettime()
    local strep = now + 0.1 * self.duration
    local done = now + self.duration / 2 -- next iteration would overflow
