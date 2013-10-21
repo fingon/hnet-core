@@ -217,9 +217,12 @@ function hybrid_proxy:create_local_forward_node(router, o)
       n_ret = n
    end
 
+   local ip = o.address
+   -- For some reasons, address is sometime nil
+   if type(ip) ~= "string" then return n_ret end
+
    -- creating A or AAAA rr for <link>.<router>.<domain>
    local rr = {name={liid, router.label, unpack(dns_db.name2ll(self.domain))}}
-   local ip = o.address
    if ipv6s.address_is_ipv4(ip) then
       rr.rtype=dns_const.TYPE_A
       rr.rdata_a=ip
