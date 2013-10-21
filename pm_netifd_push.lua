@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Thu Oct 17 18:43:20 2013 mstenber
--- Edit time:     102 min
+-- Last modified: Mon Oct 21 16:06:58 2013 mstenber
+-- Edit time:     129 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -138,6 +138,133 @@ function pm_netifd_push:get_skv_to_netifd_state()
    return state
 end
 
+local function convert_to_if_data(now, v)
+   if not v
+   then
+      return nil
+   end
+   local rest = mst.table_copy(v)
+   rest.ipaddr = nil
+   rest.ip6addr = nil
+   return {now, v.ipaddr, v.ip6addr, rest}
+end
+
+-- v1, v2 are _relative_ lifetimes at time t1, t2.
+-- what makes them similar? 
+function lifetime_similar(t1, v1, t2, v2, ...)
+   if not v1 == not not v2
+   then
+      mst.d('! other has lifetime, other does not')
+      return false
+   end
+
+   -- no lifetime in either -> win(?)
+   if not v1
+   then
+      return true
+   end
+
+   -- we're happy if (t1+v2) =~ (t2+v2) given
+   -- order of magnitude of v1/v2 >> (a1-a2)
+   local a1 = t1 + v1
+   local a2 = t2 + v2
+
+   local d = math.abs(a2 - a1)
+   local magnitude_d = math.log(d)
+   local magnitude_v = math.log(mst.min(v1, v2))
+   if magnitude_d < (magnitude_v/2)
+   then
+      return true
+   end
+   mst.d('! magnitude mismatch', magnitude_d, magnitude_v, t1, v1, t2, v2, ...)
+   return false
+end
+
+function addr_list_similar(t1, v1, t2, v2, addrtype)
+   -- empty lists are similar
+   if not v1 and not v2
+   then
+      return true
+   end
+   -- one list set, one not, is NOT similar
+   if not not v1 == not v2
+   then
+      mst.d('! one addr list nil')
+      return false
+   end
+   -- if the lists are of different length, they're NOT similar
+   if #v1 ~= #v2
+   then
+      mst.d('! addr lists of different length')
+      return false
+   end
+   for i=1,#v1
+   do
+      local o1 = mst.table_copy(v1[i])
+      local p1 = o1.preferred
+      local v1 = o1.valid
+
+      local o2 = mst.table_copy(v2[i])
+      local p2 = o2.preferred
+      local v2 = o2.valid
+
+      -- initially consider lifetimes
+
+      if not lifetime_similar(t1, p1, t2, p2, 'valid', addrtype)
+      then
+         return false
+      end
+
+      if not lifetime_similar(t1, v1, t2, v2, 'preferred', addrtype)
+      then
+         return false
+      end
+
+      -- then the 'rest' of the content in objects
+      o1.preferred = nil
+      o1.valid = nil
+      o2.preferred = nil
+      o2.valid = nil
+      if not mst.repr_equal(o1, o2)
+      then
+         mst.d('! other addr cruft mismatch', o1, o2)
+         return false
+      end
+   end
+   return true
+end
+
+local function if_data_same(v1, v2)
+   -- one of them nil? not same
+   if not not v1 == not v2
+   then
+      mst.d('! one of ifdatas nil')
+      return false
+   end
+   -- both nil? same
+   if not v1
+   then
+      return true
+   end
+   -- non-addr different?
+   if not mst.repr_equal(v1[4], v2[4])
+   then
+      mst.d('non-addr difference')
+      return false
+   end
+   -- ipv4 addr
+   if not addr_list_similar(v1[1], v1[2], v2[1], v2[2], 'ipv4')
+   then
+      return false
+   end
+   -- ipv6 addr
+   if not addr_list_similar(v1[1], v1[3], v2[1], v2[3], 'ipv6')
+   then
+      return false
+   end
+   return true
+end
+
 function pm_netifd_push:run()
    -- determine the local next hops on interfaces
    -- (e.g. have 'route', with target '::' and nexthop)
@@ -159,6 +286,7 @@ function pm_netifd_push:run()
    local zapping = {}
    
    -- synchronize them with 'known state'
+   local now = self:time()
    mst.sync_tables(self.set_netifd_state, state, 
                    -- remove
                    function (k)
@@ -169,10 +297,10 @@ function pm_netifd_push:run()
                       zapping[k] = nil
                       self:push_state(k, v)
                    end,
-                   -- are values same? use repr
+                   -- are values same? 
                    function (k, v1, v2)
-                      -- we store repr's in set_netifd_state
-                      return mst.repr(v2) == v1
+                      -- we store if_data's in set_netifd_state (v1)
+                      return if_data_same(v1, convert_to_if_data(now, v2))
                    end)
 
    -- for those interfaces that we do not have fresh state for, send
@@ -185,7 +313,8 @@ end
 
 function pm_netifd_push:push_state(k, v)
    self:d('push_state', k)
-   self.set_netifd_state[k] = mst.repr(v)
+   local now = self:time()
+   self.set_netifd_state[k] = convert_to_if_data(now, v)
    v.interface = k
    v['link-up'] = true
    v.action = 0

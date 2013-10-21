@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Thu Oct 17 19:15:48 2013 mstenber
--- Edit time:     353 min
+-- Last modified: Mon Oct 21 16:01:41 2013 mstenber
+-- Edit time:     354 min
 --
 
 -- individual handler tests
@@ -1026,6 +1026,9 @@ describe("pm_netifd", function ()
                   -- another run shouldn't do anything
                   o1:run()
                   o2:run()
+                  o3:run()
+                  o4:run()
+                  o5:run()
 
                   -- let's remove IPv6 stuff (arbitrary choice)
                   usps = {usps[1]}
