@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct 16 16:46:45 2013 mstenber
--- Last modified: Mon Oct 21 10:44:58 2013 mstenber
--- Edit time:     112 min
+-- Last modified: Mon Oct 21 11:05:31 2013 mstenber
+-- Edit time:     119 min
 --
 
 -- This is bruteforce-ish code which abuses hybrid proxy.
@@ -353,13 +353,11 @@ if a.debug
 then
    ptest.count = 1
 end
+-- mir2ll is used within tests, define as overhead function
 local mir2ll = ptest:new{cb=function ()
                             mir2ll(0, 0, 0)
                             end, name='mir2ll'}
-ptest:new{cb=function ()
-             hp:test(0, 0, 0)
-end, name='local mdns (fwd)', overhead={mir2ll}}:run()
-
+-- name encoding speed tests
 local a6 = rid_iid_to_pa6(0, 0)
 local ll6 = mst.array:new()
 ll6:extend{1, 0, 0, 0,
@@ -367,14 +365,34 @@ ll6:extend{1, 0, 0, 0,
 ll6 = ll6:map(tostring)
 ll6:extend(dns_db.prefix2ll(a6))
 ptest:new{cb=function ()
+             dns_name.encode_name(ll6)
+end, name='just dns_name encode of reverse'}:run()
+
+local dns_db_new = ptest:new{cb=function ()
+             dns_db.ns:new{}
+end, name='dns_db.ns:new'}:run()
+
+ptest:new{cb=function ()
+             local h = {pos=123, ns = dns_db.ns:new{}}
+             dns_name.encode_name(ll6, h)
+end, name='just dns_name encode of reverse (name compression on)'}:run()
+
+-- test first mdns lookup (forward)
+ptest:new{cb=function ()
+             hp:test(0, 0, 0)
+end, name='local mdns (fwd)', overhead={mir2ll}}:run()
+
+-- test first mdns lookup (reverse)
+ptest:new{cb=function ()
              hp:testll(ll6)
 end, name='local mdns (reverse)'}:run()
 
-
+-- remote dns forward
 ptest:new{cb=function ()
              hp:test(0, 0, 1)
 end, name='remote forward (fwd)', overhead={mir2ll}}:run()
 
+-- remote dns forward (reverse)
 local a6 = rid_iid_to_pa6(1, 0)
 local ll6 = mst.array:new()
 ll6:extend{1, 0, 0, 0,
