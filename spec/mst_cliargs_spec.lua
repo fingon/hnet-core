@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Fri Jul 19 10:23:38 2013 mstenber
--- Last modified: Fri Jul 19 17:06:01 2013 mstenber
--- Edit time:     1 min
+-- Last modified: Mon Oct 21 10:50:04 2013 mstenber
+-- Edit time:     2 min
 --
 
 -- Moved here from mst_spec.lua (so that we can really get stand-alone
@@ -165,6 +165,24 @@ local cliargs_tests = {
       {
          arg={[0]='dummy', '--asdf'},
          options={{name='asdf', default=123}},
+      },
+      {ERR+3+1},
+   },
+
+   {
+      -- converted value
+      {
+         arg={[0]='dummy', '--asdf', '42'},
+         options={{name='asdf', default=123, convert=tonumber}},
+      },
+      {0, {asdf=42}},
+   },
+
+   {
+      -- conversion error
+      {
+         arg={[0]='dummy', '--asdf', 'x'},
+         options={{name='asdf', default=123, convert=tonumber}},
       },
       {ERR+3+1},
    },

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Jul 17 15:15:29 2013 mstenber
--- Last modified: Fri Jul 19 17:08:37 2013 mstenber
--- Edit time:     76 min
+-- Last modified: Mon Oct 21 10:05:22 2013 mstenber
+-- Edit time:     81 min
 --
 
 -- My variant on CLI argument parsing.
@@ -39,6 +39,7 @@
 -- [,flag='is a flag?']
 -- [,value='value description']
 -- [,default='default value']
+-- [,convert=<e.g. tonumber>]
 -- [,min=N]
 -- [,max=N]}...}
 
@@ -113,11 +114,6 @@ local function option_to_desc(opt)
    if opt.desc
    then
       table.insert(l, opt.desc)
-   end
-   if opt.default
-   then
-      table.insert(l, string.format('[default=%s]', 
-                                    mst.repr(opt.default)))
    end
    if opt.min and opt.max
    then
@@ -245,6 +241,16 @@ function cli:parse()
    local topt
    local function _to_opt(found, opt)
       local n = opt.name or opt.value
+      if opt.convert
+      then
+         local r = opt.convert(found)
+         if not r
+         then
+            print('conversion error', opt, found)
+            had_error = true
+         end
+         found = r
+      end
       if opt.min or opt.max
       then
          local l = r[n] or {}
