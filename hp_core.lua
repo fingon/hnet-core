@@ -305,6 +305,7 @@ function hybrid_proxy:create_remote_zone(root, zone)
                        end
                        return RESULT_FORWARD_EXT
                     end
+                    n.get_value = n.get_default
                     return n
                  end,
                  -- we inherit the default behavior; hopefully
