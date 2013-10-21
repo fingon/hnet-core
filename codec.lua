@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Sep 27 13:46:47 2012 mstenber
--- Last modified: Mon May 20 15:15:24 2013 mstenber
--- Edit time:     228 min
+-- Last modified: Sat Oct 19 00:31:52 2013 mstenber
+-- Edit time:     233 min
 --
 
 -- object-oriented codec stuff that handles encoding and decoding of
@@ -131,3 +131,14 @@ function cursor_has_left(cur, n)
    return (#cur.str - cur.pos) >= n
 end
 
+-- value -> network binary order data conversion functions
+function u16_to_nb(v)
+   return string.char(math.floor(v / 256)) .. string.char(v % 256)
+end
+
+function nb_to_u16(b, ofs)
+   local ofs = ofs or 1
+   local b1 = string.byte(b, ofs, ofs)
+   local b2 = string.byte(b, ofs+1, ofs+1)
+   return b1 * 256 + b2, ofs + 2
+end

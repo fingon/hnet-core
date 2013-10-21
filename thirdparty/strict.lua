@@ -15,10 +15,13 @@ end
 __STRICT = true
 mt.__declared = {}
 
+-- to work around broken code.. (e.g. busted)
+local broken_variables = {_TEST=true, settimeout=true, err=true, token=true, fname=true}
+
 mt.__newindex = function (t, n, v)
   if __STRICT and not mt.__declared[n] then
     local w = debug.getinfo(2, "S").what
-    if w ~= "main" and w ~= "C" then
+    if w ~= "main" and w ~= "C" and not broken_variables[n] then
       error("assign to undeclared variable '"..n.."'", 2)
     end
     mt.__declared[n] = true
@@ -27,7 +30,7 @@ mt.__newindex = function (t, n, v)
 end
   
 mt.__index = function (t, n)
-  if not mt.__declared[n] and debug.getinfo(2, "S").what ~= "C" then
+  if not mt.__declared[n] and debug.getinfo(2, "S").what ~= "C" and not broken_variables[n] then
     error("variable '"..n.."' is not declared", 2)
   end
   return rawget(t, n)

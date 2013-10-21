@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Feb 20 18:30:04 2013 mstenber
--- Last modified: Tue Jun 18 17:07:02 2013 mstenber
--- Edit time:     84 min
+-- Last modified: Sat Oct 19 00:33:40 2013 mstenber
+-- Edit time:     85 min
 --
 
 require 'codec'
@@ -36,9 +36,8 @@ option_map = {
          mst.d('got data', #data)
          for i = 1, #data/2
          do
-            local b1 = string.byte(data, 2 * i - 1, 2 * i - 1)
-            local b2 = string.byte(data, 2 * i, 2 * i)
-            table.insert(t, b1 * 256 + b2)
+            local v = codec.nb_to_u16(data, i * 2 - 1)
+            table.insert(t, v)
          end
          return t
       end,
@@ -46,8 +45,7 @@ option_map = {
          local t = {}
          for i, v in ipairs(o)
          do
-            table.insert(t, string.char(math.floor(v / 256)))
-            table.insert(t, string.char(v % 256))
+            table.insert(t, codec.u16_to_nb(v))
          end
          return table.concat(t)
       end,

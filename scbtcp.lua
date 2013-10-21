@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Sun Jan 27 11:15:32 2013 mstenber
--- Last modified: Thu May 30 15:12:57 2013 mstenber
--- Edit time:     23 min
+-- Last modified: Sat Oct 19 01:48:06 2013 mstenber
+-- Edit time:     27 min
 --
 
 -- (Code has been moved here from scb.lua)
@@ -23,6 +23,7 @@ local socket = require 'socket'
 
 local ERR_CONNECTION_REFUSED = "connection refused"
 local ERR_TIMEOUT = 'timeout'
+local ERR_ALREADY_CONNECTED = 'already connected'
 
 module(...)
 
@@ -183,8 +184,10 @@ function create_socket(d)
    local s
    if scb.parameters_ipv6ish(d)
    then
+      mst.d('creating tcp6 socket for', d)
       s = socket.tcp6()
    else
+      mst.d('creating tcp socket for', d)
       s = socket.tcp()
    end
    s:settimeout(0)
