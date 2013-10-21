@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct 16 16:46:45 2013 mstenber
--- Last modified: Mon Oct 21 11:05:31 2013 mstenber
--- Edit time:     119 min
+-- Last modified: Mon Oct 21 12:04:33 2013 mstenber
+-- Edit time:     120 min
 --
 
 -- This is bruteforce-ish code which abuses hybrid proxy.
@@ -373,7 +373,7 @@ local dns_db_new = ptest:new{cb=function ()
 end, name='dns_db.ns:new'}:run()
 
 ptest:new{cb=function ()
-             local h = {pos=123, ns = dns_db.ns:new{}}
+             local h = {pos=123, nt={}}
              dns_name.encode_name(ll6, h)
 end, name='just dns_name encode of reverse (name compression on)'}:run()
 

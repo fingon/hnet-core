@@ -8,15 +8,20 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Mon Jan 14 13:08:37 2013 mstenber
--- Last modified: Wed Jun 19 14:14:31 2013 mstenber
--- Edit time:     45 min
+-- Last modified: Mon Oct 21 12:09:08 2013 mstenber
+-- Edit time:     66 min
 --
+
+-- TODO: Figure how to make this new, faster name compression correct
+-- (note use of _null below; DNS labels with nulls in them will be
+-- encoded incorrectly with bad luck). However, in the typical hybrid
+-- proxy case, there's only one level on which user-provided strings
+-- can be used, and this should work just fine..
 
 require 'dns_const'
 require 'codec'
 
 module(..., package.seeall)
-
 
 local cursor_has_left = codec.cursor_has_left
 
@@ -91,6 +96,8 @@ function try_decode_name(cur, h)
    return _try_decode_name_rec(cur, h, {})
 end
 
+local _null = string.char(0)
+
 function _encode_name_rec(n, h, t, ofs)
    mst.a(type(n) == 'table', 'non-table given to encode_name_rec', n)
    -- handle eof
@@ -106,20 +113,12 @@ function _encode_name_rec(n, h, t, ofs)
    local v = n[ofs]
 
    -- name compression handling
-   if h and h.ns
+   if h and h.nt
    then
-      local ns = h.ns
       -- figure if this array(sub)string exists
-      local sn = n
-      if ofs > 1
-      then
-         sn = mst.array_slice(n, ofs)
-      end
-      local ofs2
-      ns:iterate_rrs_for_ll(sn, 
-                            function (o)
-                               ofs2 = o.pos
-                            end)
+      local sn = ofs > 1 and mst.array_slice(n, ofs) or n
+      local k = table.concat(sn, _null)
+      local ofs2 = h.nt[k]
       if ofs2
       then
          --mst.d('found at', ofs2, sn)
@@ -132,7 +131,7 @@ function _encode_name_rec(n, h, t, ofs)
       end
       --mst.d('inserting', h.pos, sn)
       -- store the current position as where we can be found
-      ns:insert_raw{name=sn, pos=h.pos}
+      h.nt[k] = h.pos
       -- and update the position with the encoded data length
       h.pos = h.pos + 1 + #v
    end

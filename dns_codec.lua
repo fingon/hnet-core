@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Fri Nov 30 11:15:52 2012 mstenber
--- Last modified: Tue Sep 24 16:28:51 2013 mstenber
+-- Last modified: Mon Oct 21 12:05:20 2013 mstenber
 -- Edit time:     289 min
 --
 
@@ -222,7 +222,7 @@ function dns_message:do_encode(o)
    -- context for storing the encoded offsets of names
    local pos = #r
    local context = {pos=pos}
-   context.ns = dns_db.ns:new{}
+   context.nt = {}
 
    -- then, handle each sub-list
 
