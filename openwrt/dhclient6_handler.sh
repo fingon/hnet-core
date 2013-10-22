@@ -21,6 +21,8 @@ LOGFILE=/tmp/dhclient6-$IF.log
 
 
 BIN=odhcp6c
+#SOL_TIMEOUT is used by odhcpv6c as the maximum time between soliciations
+SOL_TIMEOUT=30
 UMLPATH=/hosthome/uml/debian-bin
 
 # Do this only on UML, not real OWRT
@@ -59,7 +61,7 @@ start() {
     #dhclient -d -v -6 -D LL -P -cf $CONFFILE -pf $PIDFILE -lf $LEASEFILE $IF 2>&1 >> $LOGFILE &
 
     # odhcp6c
-    $BIN -N none -P 0 -s $SCRIPT -p $PIDFILE -d $IF
+    $BIN -N none -P 0 -s $SCRIPT -p $PIDFILE -d $IF -t $SOL_TIMEOUT
 
     while [ ! -f $PIDFILE ]
     do
