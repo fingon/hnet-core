@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Mon Oct 21 16:01:41 2013 mstenber
--- Edit time:     354 min
+-- Last modified: Wed Oct 23 18:04:07 2013 mstenber
+-- Edit time:     364 min
 --
 
 -- individual handler tests
@@ -917,22 +917,27 @@ describe("pm_netifd", function ()
                   pm.skv:set(elsa_pa.HP_SEARCH_LIST_KEY, {'dummy'})
                   local myrid = 123456789
                   pm.skv:set(elsa_pa.OSPF_RID_KEY, myrid)
-
+                  
                   local _data_dummy_46 = {dhcpv4='server', dhcpv6='server', 
                                           ra='server',
-                                          domain={'dummy'}}
+                                          domain={'dummy'},
+                                          zone='lan',
+                  }
                   
-                  local _data_dummy_4 = {dhcpv4='server', domain={'dummy'}}
+                  local _data_dummy_4 = {dhcpv4='server', 
+                                         domain={'dummy'},
+                                         zone='lan',
+                  }
                   
                   -- handler 2 - netifd_push
                   _ubus2.open:add_expected()
                   _ubus2.call:add_expected(
-                     {"network.interface", "notify_proto", {action=0, interface="ext", ["link-up"]=true, routes6={{gateway="fe80::b494:e8ff:feef:9a87", source="beef::/16", target="::/0", metric=1024}}}})
+                     {"network.interface", "notify_proto", {action=0, interface="ext", ["link-up"]=true, routes6={{gateway="fe80::b494:e8ff:feef:9a87", source="beef::/16", target="::/0", metric=1024}}, data={zone='wan'}}})
                   _ubus2.close:add_expected()
 
                   _ubus2.open:add_expected()
                   _ubus2.call:add_expected(
-                     {'network.interface', 'notify_proto', {action=0, interface="lan0", ["link-up"]=true, routes6={{gateway="dead::1", source="dead::/16", target="::/0", metric=1024}}}})
+                     {'network.interface', 'notify_proto', {action=0, interface="lan0", ["link-up"]=true, routes6={{gateway="dead::1", source="dead::/16", target="::/0", metric=1024}}, data={zone='lan'}}})
                   _ubus2.close:add_expected()
 
                   _ubus2.open:add_expected()
@@ -942,7 +947,7 @@ describe("pm_netifd", function ()
 
                   _ubus2.open:add_expected()
                   _ubus2.call:add_expected(
-                     {"network.interface", "notify_proto", {action=0, interface="lan2", ["link-up"]=true, routes={{gateway="10.1.1.1", source="10.0.0.0/8", target="0.0.0.0/0", metric=1024}}}})
+                     {"network.interface", "notify_proto", {action=0, interface="lan2", ["link-up"]=true, routes={{gateway="10.1.1.1", source="10.0.0.0/8", target="0.0.0.0/0", metric=1024}}, data={zone='lan'}}})
                   _ubus2.close:add_expected()
                          
                   o2:maybe_run()
@@ -1039,19 +1044,19 @@ describe("pm_netifd", function ()
 
                   _ubus2.open:add_expected()
                   _ubus2.call:add_expected(
+                     {"network.interface", "notify_proto", {action=0, data={zone='wan'}, interface="ext", ["link-up"]=true}}
+                                           )
+                  _ubus2.close:add_expected()
+
+                  _ubus2.open:add_expected()
+                  _ubus2.call:add_expected(
+                     {'network.interface', 'notify_proto', {action=0, data={zone='lan'}, interface="lan0", ["link-up"]=true}}
+                                           )
+                  _ubus2.close:add_expected()
+
+                  _ubus2.open:add_expected()
+                  _ubus2.call:add_expected(
                      {'network.interface', 'notify_proto', {action=0, data=_data_dummy_4, interface="lan1", ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}}
-                                           )
-                  _ubus2.close:add_expected()
-
-                  _ubus2.open:add_expected()
-                  _ubus2.call:add_expected(
-                     {'network.interface', 'notify_proto', {action=0, interface="lan0", ["link-up"]=true}}
-                                           )
-                  _ubus2.close:add_expected()
-
-                  _ubus2.open:add_expected()
-                  _ubus2.call:add_expected(
-                     {"network.interface", "notify_proto", {action=0, interface="ext", ["link-up"]=true}}
                                            )
                   _ubus2.close:add_expected()
 

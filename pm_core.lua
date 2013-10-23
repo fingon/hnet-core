@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:40:42 2012 mstenber
--- Last modified: Thu Oct 10 14:07:39 2013 mstenber
--- Edit time:     633 min
+-- Last modified: Wed Oct 23 18:04:50 2013 mstenber
+-- Edit time:     634 min
 --
 
 -- main class living within PM, with interface to exterior world and
@@ -143,7 +143,9 @@ function pm:init()
             'netifd_push',
 
             -- and firewall configuration script
-            'netifd_firewall',
+            --'netifd_firewall',
+            -- (historic; use of UCI is bad idea, instead we should push
+            -- firewall zones using interface.data.zone in netifd_push)
 
             -- and bird6 control script (sigh, do we see a trend here)
             'netifd_bird6',

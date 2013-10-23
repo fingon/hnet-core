@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Mon Oct 21 16:06:58 2013 mstenber
--- Edit time:     129 min
+-- Last modified: Wed Oct 23 17:53:53 2013 mstenber
+-- Edit time:     137 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -90,7 +90,7 @@ function pm_netifd_push:get_skv_to_netifd_state()
 
          if lap.owner
          then
-            data = _setdefault_named_subentity(ifo, 'data', mst.map)
+            local data = _setdefault_named_subentity(ifo, 'data', mst.map)
             if is_ipv4
             then
                data.dhcpv4='server'
@@ -134,6 +134,25 @@ function pm_netifd_push:get_skv_to_netifd_state()
          end
       end
    end
+
+   -- mark external interfaces 'wan'
+   local ni = self.ni
+   ni:iterate_interfaces(function (ifo)
+                            local ifname = ifo.interface
+                            local ifo = _setdefault_named_subentity(state, ifname, mst.map)
+                            local data = _setdefault_named_subentity(ifo, 'data', mst.map)
+                            data.zone = 'wan'
+                         end, true, true)
+
+   -- mark internal interfaces 'lan'
+   ni:iterate_interfaces(function (ifo)
+                            local ifname = ifo.interface
+                            local ifo = _setdefault_named_subentity(state, ifname, mst.map)
+                            local data = _setdefault_named_subentity(ifo, 'data', mst.map)
+                            data.zone = 'lan'
+                         end, false, true)
+   
+
    --self:d('produced state', state)
    return state
 end
