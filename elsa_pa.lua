@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Sat Jul 20 21:02:39 2013 mstenber
--- Edit time:     1070 min
+-- Last modified: Thu Oct 24 16:11:00 2013 mstenber
+-- Edit time:     1107 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -368,6 +368,7 @@ function elsa_pa:lsa_changed(lsa)
       -- 'see' our own changes
       return
    end
+   self.ac_tlv_cache = nil
    if lsatype == AC_TYPE
    then
       self:d('ac lsa changed at', lsa.rid)
@@ -388,6 +389,7 @@ function elsa_pa:ospf_changed()
    self:d('deprecated ospf_changed called')
    self.ac_changes = self.ac_changes + 1
    self.lsa_changes = self.lsa_changes + 1
+   self.ac_tlv_cache = nil
 end
 
 function elsa_pa:repr_data()
@@ -788,7 +790,33 @@ function absolute_to_relative(v, now)
    return math.floor(v)
 end
 
-function elsa_pa:copy_prefix_info_to_o(prefix, dst)
+-- gather local and remote prefix information
+-- local == what's in skvprefix - prefix string -> object mapping
+-- remote == what's in JSON_USP_INFO_KEY jsonblobs of LSAs
+function elsa_pa:gather_prefix_info()
+   local i1 = {}
+   local i2 = {}
+   self:iterate_skv_prefix(function (p)
+                              if p.prefix 
+                              then
+                                 i1[p.prefix] = p
+                              end
+                           end)
+   self:iterate_ac_lsa_tlv(function (json, lsa)
+                              local t = json.table
+                              local h = t[JSON_USP_INFO_KEY]
+                              
+                              if not h then return end
+                              for p, v in pairs(h)
+                              do
+                                 i2[p] = v
+                              end
+                           end,
+                           {type=ospf_codec.AC_TLV_JSONBLOB})
+   return {i1, i2}
+end
+
+function elsa_pa:copy_prefix_info_to_o(pi, prefix, dst)
    self:a(type(prefix) == 'string', 'non-string prefix', prefix)
    self:d('copy_prefix_info_to_o', prefix)
 
@@ -800,32 +828,17 @@ function elsa_pa:copy_prefix_info_to_o(prefix, dst)
    -- - 'some' jsonblob AC TLV with the information we want
    local o
    local o_lsa
-   self:iterate_skv_prefix(function (p)
-                              if p.prefix == prefix
-                              then
-                                 o = p
-                                 self:d('found from local', o)
-                              end
-                           end)
-   if not o
+   local v = pi[1][prefix]
+   if v
    then
-
-      -- backup plan - look for JSONBLOB with corresponding
-      -- JSON_USP_INFO_KEY and prefix key
-      self:iterate_ac_lsa_tlv(function (json, lsa)
-                                 local t = json.table
-                                 local h = t[JSON_USP_INFO_KEY]
-                                 self:d('considering', t)
-
-                                 if not h then return end
-                                 local v = h[prefix]
-                                 if v
-                                 then
-                                    o = v
-                                    o_lsa = o
-                                    self:d('found from remote', o)
-                                 end
-                              end, {type=ospf_codec.AC_TLV_JSONBLOB})
+      o = v
+   else
+      local v = pi[2][prefix]
+      if v
+      then
+         o = v
+         o_lsa = v
+      end
    end
    if not o then return end
    for _, key in ipairs(PREFIX_INFO_SKV_KEYS)
@@ -884,6 +897,8 @@ function elsa_pa:run_handle_skv_publish()
    -- set up the locally assigned prefix field
    local t = mst.array:new()
    local dumped_if_ipv4 = {}
+   local pi = self:gather_prefix_info()
+
    for i, lap in ipairs(self.pa.lap:values())
    do
       local iid = lap.iid
@@ -914,7 +929,7 @@ function elsa_pa:run_handle_skv_publish()
       then
          local p2 = usp.ascii_prefix
          self:a(p2, 'no ascii_prefix in usp')
-         self:copy_prefix_info_to_o(p2, o)
+         self:copy_prefix_info_to_o(pi, p2, o)
       else
          self:d('no usp?', lap)
       end
@@ -997,7 +1012,7 @@ function elsa_pa:run_handle_skv_publish()
             o.nh = non_empty(n.nh)
             o.ifname = n.ifname
          end
-         self:copy_prefix_info_to_o(p, o)
+         self:copy_prefix_info_to_o(pi, p, o)
          t:insert(o)
       end
    end
@@ -1039,7 +1054,7 @@ function elsa_pa:iterate_ac_lsa(f, criteria)
    self.elsa:iterate_lsa(self.rid, f, criteria)
 end
 
-function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
+function elsa_pa:iterate_ac_lsa_tlv_all_raw(f)
    local function inner_f(lsa) 
       -- don't bother with own rid
       if lsa.rid == self.rid
@@ -1049,10 +1064,7 @@ function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
       xpcall(function ()
                 for i, tlv in ipairs(ospf_codec.decode_ac_tlvs(lsa.body))
                 do
-                   if not criteria or mst.table_contains(tlv, criteria)
-                   then
-                      f(tlv, lsa)
-                   end
+                   f(tlv, lsa)
                 end
              end,
              function (...)
@@ -1065,6 +1077,46 @@ function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
              end)
    end
    self:iterate_ac_lsa(inner_f)
+end
+
+function elsa_pa:iterate_ac_lsa_tlv_all(f)
+   if not self.ac_tlv_cache or not self.ac_tlv_cache.all
+   then
+      local l = {}
+      self.ac_tlv_cache = self.ac_tlv_cache or {}
+      self:iterate_ac_lsa_tlv_all_raw(function (...)
+                                         table.insert(l, {...})
+                                      end)
+      self.ac_tlv_cache.all = l
+      self:d('updated ac_tlv_cache.all')
+   end
+   for i, v in ipairs(self.ac_tlv_cache.all)
+   do
+      f(unpack(v))
+   end
+end
+
+function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
+   -- this is a caching call; based on criteria, we remember things in 
+   -- ac_tlv_cache until LSAs change, and then it's reset again
+   local k = mst.repr(criteria)
+   if not self.ac_tlv_cache or not self.ac_tlv_cache[k]
+   then
+      self.ac_tlv_cache = self.ac_tlv_cache or {}
+      local l = {}
+      self:iterate_ac_lsa_tlv_all(function (tlv, lsa)
+                                     if not criteria or mst.table_contains(tlv, criteria)
+                                     then
+                                        table.insert(l, {tlv, lsa})
+                                     end
+                                  end)
+      self.ac_tlv_cache[k] = l
+      self:d('updated ac_tlv_cache', k)
+   end
+   for i, v in ipairs(self.ac_tlv_cache[k])
+   do
+      f(unpack(v))
+   end
 end
 
 -- get route to the rid, if any
