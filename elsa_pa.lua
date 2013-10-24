@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Oct 24 15:57:13 2013 mstenber
--- Edit time:     1099 min
+-- Last modified: Thu Oct 24 16:11:00 2013 mstenber
+-- Edit time:     1107 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -314,7 +314,8 @@ function elsa_pa:init_pa()
    -- (create shallow copy of args, so that we don't wind up re-using
    -- the object)
    self.pa = pa.pa:new(mst.table_copy(args))
-   self.pa.timeouts = mst_skiplist.ipi_skiplist:new{lt=timeout_is_less}
+   self.pa.timeouts = mst_skiplist.ipi_skiplist:new{p=2,
+                                                    lt=timeout_is_less}
 end
 
 function elsa_pa:uninit()
@@ -344,13 +345,7 @@ function elsa_pa:kv_changed(k, v)
    -- implicitly add the tunnel interfaces to the all_seen_if_names
    -- (someone plays with stuff that starts with TUNNEL_SKVPREFIX ->
    -- stuff happens)
-   
-   -- same with also 'pd'; in case of OpenWRT, the pd external
-   -- interfaces WON'T be on the OSPF iflist, but instead we have to
-   -- detect them just like tunnel interfaces.
-
-   local r = mst.string_startswith(k, TUNNEL_SKVPREFIX) or 
-      mst.string_startswith(k, PD_SKVPREFIX)
+   local r = mst.string_startswith(k, TUNNEL_SKVPREFIX)
    if r
    then
       if r ~= IFLIST_KEY
@@ -795,7 +790,33 @@ function absolute_to_relative(v, now)
    return math.floor(v)
 end
 
-function elsa_pa:copy_prefix_info_to_o(prefix, dst)
+-- gather local and remote prefix information
+-- local == what's in skvprefix - prefix string -> object mapping
+-- remote == what's in JSON_USP_INFO_KEY jsonblobs of LSAs
+function elsa_pa:gather_prefix_info()
+   local i1 = {}
+   local i2 = {}
+   self:iterate_skv_prefix(function (p)
+                              if p.prefix 
+                              then
+                                 i1[p.prefix] = p
+                              end
+                           end)
+   self:iterate_ac_lsa_tlv(function (json, lsa)
+                              local t = json.table
+                              local h = t[JSON_USP_INFO_KEY]
+                              
+                              if not h then return end
+                              for p, v in pairs(h)
+                              do
+                                 i2[p] = v
+                              end
+                           end,
+                           {type=ospf_codec.AC_TLV_JSONBLOB})
+   return {i1, i2}
+end
+
+function elsa_pa:copy_prefix_info_to_o(pi, prefix, dst)
    self:a(type(prefix) == 'string', 'non-string prefix', prefix)
    self:d('copy_prefix_info_to_o', prefix)
 
@@ -807,32 +828,17 @@ function elsa_pa:copy_prefix_info_to_o(prefix, dst)
    -- - 'some' jsonblob AC TLV with the information we want
    local o
    local o_lsa
-   self:iterate_skv_prefix(function (p)
-                              if p.prefix == prefix
-                              then
-                                 o = p
-                                 self:d('found from local', o)
-                              end
-                           end)
-   if not o
+   local v = pi[1][prefix]
+   if v
    then
-
-      -- backup plan - look for JSONBLOB with corresponding
-      -- JSON_USP_INFO_KEY and prefix key
-      self:iterate_ac_lsa_tlv(function (json, lsa)
-                                 local t = json.table
-                                 local h = t[JSON_USP_INFO_KEY]
-                                 self:d('considering', t)
-
-                                 if not h then return end
-                                 local v = h[prefix]
-                                 if v
-                                 then
-                                    o = v
-                                    o_lsa = o
-                                    self:d('found from remote', o)
-                                 end
-                              end, {type=ospf_codec.AC_TLV_JSONBLOB})
+      o = v
+   else
+      local v = pi[2][prefix]
+      if v
+      then
+         o = v
+         o_lsa = v
+      end
    end
    if not o then return end
    for _, key in ipairs(PREFIX_INFO_SKV_KEYS)
@@ -891,6 +897,8 @@ function elsa_pa:run_handle_skv_publish()
    -- set up the locally assigned prefix field
    local t = mst.array:new()
    local dumped_if_ipv4 = {}
+   local pi = self:gather_prefix_info()
+
    for i, lap in ipairs(self.pa.lap:values())
    do
       local iid = lap.iid
@@ -921,7 +929,7 @@ function elsa_pa:run_handle_skv_publish()
       then
          local p2 = usp.ascii_prefix
          self:a(p2, 'no ascii_prefix in usp')
-         self:copy_prefix_info_to_o(p2, o)
+         self:copy_prefix_info_to_o(pi, p2, o)
       else
          self:d('no usp?', lap)
       end
@@ -1004,7 +1012,7 @@ function elsa_pa:run_handle_skv_publish()
             o.nh = non_empty(n.nh)
             o.ifname = n.ifname
          end
-         self:copy_prefix_info_to_o(p, o)
+         self:copy_prefix_info_to_o(pi, p, o)
          t:insert(o)
       end
    end
