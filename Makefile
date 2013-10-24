@@ -65,7 +65,9 @@ mdns_todo:
 %_sm.lua: %.sm
 	java -jar $(SMC) -g -lua $<
 	java -jar $(SMC) -graph -glevel 2 $<
-	dot -Tpdf < $*_sm.dot > $*_sm.pdf
+
+#dot -Tpdf < $*_sm.dot > $*_sm.pdf
+# Disabled, OS X 10.9 fucked up my dot..
 
 debug:
 	ENABLE_MST_DEBUG=1 busted spec
