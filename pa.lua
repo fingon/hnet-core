@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Oct  1 11:08:04 2012 mstenber
--- Last modified: Fri Oct 11 05:54:46 2013 mstenber
+-- Last modified: Thu Oct 24 15:56:54 2013 mstenber
 -- Edit time:     1001 min
 --
 
@@ -563,7 +563,7 @@ function pa:init()
    -- locally assigned prefixes - iid => list
    self.lap = mst.multimap:new()
 
-   -- rid reachability => true/false (reachable right now)
+   -- rid reachability => neighbor object (keys: rid, rname) if reachable
    self.ridr = mst.map:new()
 
    -- all asp data, ordered by prefix
@@ -950,19 +950,11 @@ function pa:find_usp_matching(filter)
 end
 
 function pa:is_only_visible_router()
-   local found
    for rid, o in pairs(self.ridr)
    do
-      if o
+      if o and o.rid ~= self.rid
       then
-         -- _second_ found one means that there's at least
-         -- 2 reachable routers (=us + someone else) => we're not only
-         -- visible router any more..
-         if found
-         then
-            return false
-         end
-         found = true
+         return false
       end
    end
    return true
@@ -1130,7 +1122,7 @@ function pa:update_rname()
    local rnames = mst.set:new()
    for rid, o in pairs(self.ridr)
    do
-      if o.rname
+      if o and o.rname
       then
          rnames:insert(o.rname)
       end
