@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Sat Jul 20 21:02:39 2013 mstenber
--- Edit time:     1070 min
+-- Last modified: Thu Oct 24 15:42:35 2013 mstenber
+-- Edit time:     1099 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -368,6 +368,7 @@ function elsa_pa:lsa_changed(lsa)
       -- 'see' our own changes
       return
    end
+   self.ac_tlv_cache = nil
    if lsatype == AC_TYPE
    then
       self:d('ac lsa changed at', lsa.rid)
@@ -388,6 +389,7 @@ function elsa_pa:ospf_changed()
    self:d('deprecated ospf_changed called')
    self.ac_changes = self.ac_changes + 1
    self.lsa_changes = self.lsa_changes + 1
+   self.ac_tlv_cache = nil
 end
 
 function elsa_pa:repr_data()
@@ -1039,7 +1041,7 @@ function elsa_pa:iterate_ac_lsa(f, criteria)
    self.elsa:iterate_lsa(self.rid, f, criteria)
 end
 
-function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
+function elsa_pa:iterate_ac_lsa_tlv_all_raw(f)
    local function inner_f(lsa) 
       -- don't bother with own rid
       if lsa.rid == self.rid
@@ -1049,10 +1051,7 @@ function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
       xpcall(function ()
                 for i, tlv in ipairs(ospf_codec.decode_ac_tlvs(lsa.body))
                 do
-                   if not criteria or mst.table_contains(tlv, criteria)
-                   then
-                      f(tlv, lsa)
-                   end
+                   f(tlv, lsa)
                 end
              end,
              function (...)
@@ -1065,6 +1064,46 @@ function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
              end)
    end
    self:iterate_ac_lsa(inner_f)
+end
+
+function elsa_pa:iterate_ac_lsa_tlv_all(f)
+   if not self.ac_tlv_cache or not self.ac_tlv_cache.all
+   then
+      local l = {}
+      self.ac_tlv_cache = self.ac_tlv_cache or {}
+      self:iterate_ac_lsa_tlv_all_raw(function (...)
+                                         table.insert(l, {...})
+                                      end)
+      self.ac_tlv_cache.all = l
+      self:d('updated ac_tlv_cache.all')
+   end
+   for i, v in ipairs(self.ac_tlv_cache.all)
+   do
+      f(unpack(v))
+   end
+end
+
+function elsa_pa:iterate_ac_lsa_tlv(f, criteria)
+   -- this is a caching call; based on criteria, we remember things in 
+   -- ac_tlv_cache until LSAs change, and then it's reset again
+   local k = mst.repr(criteria)
+   if not self.ac_tlv_cache or not self.ac_tlv_cache[k]
+   then
+      self.ac_tlv_cache = self.ac_tlv_cache or {}
+      local l = {}
+      self:iterate_ac_lsa_tlv_all(function (tlv, lsa)
+                                     if not criteria or mst.table_contains(tlv, criteria)
+                                     then
+                                        table.insert(l, {tlv, lsa})
+                                     end
+                                  end)
+      self.ac_tlv_cache[k] = l
+      self:d('updated ac_tlv_cache', k)
+   end
+   for i, v in ipairs(self.ac_tlv_cache[k])
+   do
+      f(unpack(v))
+   end
 end
 
 -- get route to the rid, if any
