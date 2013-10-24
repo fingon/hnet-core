@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Nov 13 16:04:01 2012 mstenber
--- Last modified: Thu Oct 24 15:08:19 2013 mstenber
--- Edit time:     24 min
+-- Last modified: Thu Oct 24 15:51:48 2013 mstenber
+-- Edit time:     30 min
 --
 
 require 'busted'
@@ -104,6 +104,16 @@ describe("elsa_pa N-node mutating topology", function ()
                   do
                      mst.d('elsa_pa_stress N - iteration', i, #nl, n)
 
+                     local function mark_changed(rid)
+                        -- _anyone_ connected to this should have
+                        -- lsa_changed from this dude
+                        for rid2, _ in pairs(e:get_connected(rid))
+                        do
+                           local o = e.nodes[rid2]
+                           o:lsa_changed{rid=rid}
+                        end
+                     end
+
                      -- topology changes - add 
                      for j=1,TEST_ADDITIONS_PER_ITERATION
                      do
@@ -111,6 +121,8 @@ describe("elsa_pa N-node mutating topology", function ()
                         local srci = mst.randint(42, 43)
                         local dst = mst.array_randitem(nl)
                         local dsti = mst.randint(42, 43)
+                        mark_changed(src.rid)
+                        mark_changed(dst.rid)
                         e:connect_neigh_one(src.rid, srci, dst.rid, dsti)
                      end
                      -- gather set of _all_ links
@@ -122,6 +134,9 @@ describe("elsa_pa N-node mutating topology", function ()
                      for k=1,TEST_REMOVALS_PER_ITERATION
                      do
                         local o = mst.array_randitem(conns)
+                        local srcrid, srci, dstrid, dsti = unpack(o)
+                        mark_changed(srcrid)
+                        mark_changed(dstrid)
                         e:disconnect_neigh_one(unpack(o))
                      end
 
