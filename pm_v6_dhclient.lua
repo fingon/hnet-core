@@ -33,7 +33,13 @@ function pm_v6_dhclient:run()
       local rest = mst.string_startswith(v, DHCLIENT6_PID_PREFIX)
       if rest
       then
-         running_ifnames:insert(rest)
+         local pid = self.shell('cat ' .. pm_core.PID_DIR .. "/" .. v)
+         pid = tonumber(pid)
+         self:d("considering pid file " .. pm_core.PID_DIR .. "/" .. v .. " with pid " .. pid)
+         if pid and pid > 0 and self.shell('if [ -d "/proc/' .. pid .. '" ]; then echo -n "1"; fi') == "1"
+         then
+            running_ifnames:insert(rest)
+         end
       end
    end
 
