@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Wed Oct 16 15:47:11 2013 mstenber
--- Edit time:     281 min
+-- Last modified: Mon Oct 28 12:19:43 2013 mstenber
+-- Edit time:     283 min
 --
 
 require "busted"
@@ -310,10 +310,13 @@ describe("repr", function()
 describe("debug_print", function ()
             it("works", function ()
                   local t = {'foo'}
-                  mst.debug_print(function (...)
+                  local old = mst.debug_print_raw 
+                  mst.debug_print_raw = function (...)
 
-                                  end, t)
+                  end
+                  mst.debug_print(t)
                   mst.a(getmetatable(t) == nil, 'metatable was set?!?')
+                  mst.debug_print_raw = old
 
                         end)
                         end)

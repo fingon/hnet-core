@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Oct 16 16:15:10 2013 mstenber
--- Edit time:     765 min
+-- Last modified: Mon Oct 28 12:19:11 2013 mstenber
+-- Edit time:     774 min
 --
 
 -- data structure abstractions provided:
@@ -25,7 +25,6 @@ local math = require 'math'
 local os = require 'os'
 local string = require 'string'
 local table = require 'table'
-
 local enable_debug_date_ms=true
 if enable_debug_date_ms
 then
@@ -93,8 +92,19 @@ end
 
 local _repr_metatable = {__tostring=function (self) return repr(self) end}
 
+debug_print_raw = print
+
+if enable_debug and enable_debug ~= "1"
+then
+   local f = io.open(enable_debug, "w")
+   debug_print_raw = function (...)
+      f:write(table.concat(array_map({...}, tostring), '\t'))
+      f:write("\n")
+   end
+end
+
 -- debugging (class stuff depends on this -> must be first)
-function debug_print(f, ...)
+function debug_print(...)
    -- rewrite all table's to have metatable which has tostring => repr wrapper, if they don't have metatable
    local sm 
    --print('handling arguments', #al)
@@ -118,12 +128,12 @@ function debug_print(f, ...)
    then
       local ms = math.floor(socket.gettime()*1000%1000)
       local ts = os.date('%x %X')
-      f(string.format('%s.%03d', ts, ms), ...)
+      debug_print_raw(string.format('%s.%03d', ts, ms), ...)
    elseif enable_debug_date
    then
-      f(os.date(), ...)
+      debug_print_raw(os.date(), ...)
    else
-      f(...)
+      debug_print_raw(...)
    end
    if sm
    then
@@ -144,7 +154,7 @@ function a(stmt, ...)
    if not stmt
    then
       print(debug.traceback())
-      debug_print(print, ...)
+      debug_print(...)
       error('assertion failed', 2)
    end
 end
@@ -152,7 +162,7 @@ end
 function d(...)
    if enable_debug
    then
-      debug_print(print, ...)
+      debug_print(...)
    end
 end
 
@@ -261,7 +271,7 @@ function baseclass:d(...)
    self:a(type(self) == 'table', "wrong self type ", type(self))
    if self.debug or enable_debug
    then
-      debug_print(print, self:tostring(), ...)
+      debug_print(self:tostring(), ...)
    end
 end
 
@@ -274,7 +284,7 @@ function baseclass:a(stmt, ...)
    if not stmt
    then
       print(debug.traceback())
-      debug_print(print, self:tostring(), ...)
+      debug_print(self:tostring(), ...)
       error(self:tostring() .. ' assertion failed', 2)
    end
 end
@@ -1328,8 +1338,8 @@ end
 function d_xpcall(fun)
    local r = {xpcall(fun,
                      function (...)
-                        print(debug.traceback())
-                        debug_print(print, '!!! d_xpcall failed', ...)
+                        debug_print(debug.traceback())
+                        debug_print('!!! d_xpcall failed', ...)
                      end)}
    table.remove(r, 1)
    return unpack(r)
