@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Mon Oct 14 10:52:38 2013 mstenber
-# Edit time:     61 min
+# Last modified: Mon Oct 28 09:46:33 2013 mstenber
+# Edit time:     65 min
 #
 
 # Start or stop bird6
@@ -38,10 +38,32 @@ writeconf() {
     # Bird interface pattern looks like "if1","if2","if3" 
     # (first and last mark are taken care of by the config file below)
     IFLIST=`echo "$IFLIST" | sed 's/ /","/g'`
+    if [ -d /hosthome ]
+    then
+        DEBUG='debug protocols {states, routes, filters, interfaces, events}; #, packets'
+        # Log to specific magic directory if under NetKit
+        HOSTNAME=`cat /proc/sys/kernel/hostname`
+        # Netkit debugging log storage elsewhere than the virtual machine
+        LOGDIR=/hostlab/logs/$HOSTNAME
+        mkdir -p $LOGDIR
+        LOG="log \"$LOGDIR/bird6.log\" all;"
+    else
+        DEBUG='#debug protocols {states, routes, filters, interfaces, events, packets};'
+        LOG='log syslog all;'
+    fi
+
     cat > $CONF <<EOF
 
-#log "/tmp/bird6.log" all;
-#debug protocols {states, routes, filters, interfaces, events, packets};
+# Debug statement has to be _before_ instantiations of
+# protocols. Otherwise there is no point in having one. (The debug
+# level is copied at the time of configuration of the protocol, it
+# seems.)
+$DEBUG
+
+
+# Where do we want the logs anyway..
+$LOG
+
 
 router id random;
 router id remember "/tmp/pm-bird6.rid";
@@ -85,20 +107,6 @@ protocol ospf {
 }
 
 EOF
-    if [ -d /hosthome ]
-    then
-        # Log to specific magic directory if under NetKit
-        HOSTNAME=`cat /proc/sys/kernel/hostname`
-        # Netkit debugging log storage elsewhere than the virtual machine
-        LOGDIR=/hostlab/logs/$HOSTNAME
-        mkdir -p $LOGDIR
-        #, packets
-        echo "debug protocols {states, routes, filters, interfaces, events};" >> $CONF
-        echo "log \"$LOGDIR/bird6.log\" all;" >> $CONF
-    else
-        # Log to syslog by default
-        echo 'log syslog all;' >> $CONF
-    fi
 }
 
 start() {

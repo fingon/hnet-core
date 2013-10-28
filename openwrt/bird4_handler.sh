@@ -8,7 +8,7 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Tue Oct 15 13:00:03 2013 mstenber
+# Last modified: Mon Oct 28 09:46:54 2013 mstenber
 # Edit time:     37 min
 #
 
@@ -46,6 +46,8 @@ writeconf() {
         IFLIST=`echo "$IFLIST" | sed 's/ /","/g'`
     fi
     cat > $CONF <<EOF
+
+log syslog all;
 
 router id $RID;
 
