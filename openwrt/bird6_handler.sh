@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Mon Oct 28 09:46:33 2013 mstenber
-# Edit time:     65 min
+# Last modified: Mon Oct 28 14:37:39 2013 mstenber
+# Edit time:     68 min
 #
 
 # Start or stop bird6
@@ -19,6 +19,11 @@
 # or
 # stop
 
+# This debug stmt controls Lua debugging - it will decrease
+# performance quite a bit if enabled.
+DEBUG=
+#DEBUG=1
+
 if [ -f /usr/bin/hnetenv.sh -a ! -d /etc/config ]
 then
     . /usr/bin/hnetenv.sh
@@ -27,6 +32,12 @@ then
 else
     BIRD6=bird6-elsa
     BIRDCTL6=birdc6-elsa
+fi
+
+# Always enable debugging within UML
+if [ -d /hosthome ]
+then
+    DEBUG=1
 fi
 
 CONF=/tmp/pm-bird6.conf
@@ -110,7 +121,7 @@ EOF
 }
 
 start() {
-    $BIRD6 -c $CONF -P $PIDFILE
+    ENABLE_MST_DEBUG=$DEBUG $BIRD6 -c $CONF -P $PIDFILE
 }
 
 reconfigure() {
