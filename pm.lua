@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 19:38:48 2012 mstenber
--- Last modified: Tue Oct  1 15:20:56 2013 mstenber
--- Edit time:     45 min
+-- Last modified: Mon Oct 28 14:03:58 2013 mstenber
+-- Edit time:     47 min
 --
 
 -- 'prefix manager' (name still temporary)
@@ -61,11 +61,18 @@ local args = mst_cliargs.parse{
       {name='openwrt',
        desc='use netifd to interface with the system, and assume we get client info somehow',
        flag=1},
+      {name='debug', 
+       value='file',
+       desc='enable debugging (to stdout if value 1, otherwise to given file)'
+      },
       {value='skv', 
        desc='SKV values to set (key=value style)', 
        max=10},
    }
                               }
+
+-- handle debugging
+if args.debug then mst.set_enable_debug(args.debug) end
 
 mst.d('initializing skv')
 local s = skv.skv:new{long_lived=true}

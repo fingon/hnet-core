@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Oct 28 12:19:11 2013 mstenber
--- Edit time:     774 min
+-- Last modified: Mon Oct 28 14:01:36 2013 mstenber
+-- Edit time:     776 min
 --
 
 -- data structure abstractions provided:
@@ -65,7 +65,7 @@ end
 module(...)
 
 -- global debug switch
-enable_debug=os.getenv("ENABLE_MST_DEBUG") or false
+enable_debug=false
 enable_debug_date=true
 
 -- enable own assert
@@ -94,14 +94,20 @@ local _repr_metatable = {__tostring=function (self) return repr(self) end}
 
 debug_print_raw = print
 
-if enable_debug and enable_debug ~= "1"
-then
-   local f = io.open(enable_debug, "w")
-   debug_print_raw = function (...)
-      f:write(table.concat(array_map({...}, tostring), '\t'))
-      f:write("\n")
+function set_enable_debug(v)
+   enable_debug = v
+   if enable_debug and enable_debug ~= "1"
+   then
+      local f = io.open(enable_debug, "w")
+      debug_print_raw = function (...)
+         f:write(table.concat(array_map({...}, tostring), '\t'))
+         f:write("\n")
+      end
    end
 end
+
+-- set the enable debug based on environment variable, by default..
+set_enable_debug(os.getenv("ENABLE_MST_DEBUG"))
 
 -- debugging (class stuff depends on this -> must be first)
 function debug_print(...)

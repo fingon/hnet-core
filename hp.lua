@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Mon Sep 30 17:50:35 2013 mstenber
+-- Last modified: Mon Oct 28 14:04:11 2013 mstenber
 -- Edit time:     69 min
 --
 
@@ -54,12 +54,20 @@ local cli = mst_cliargs.new{
       {name='rid',
        desc="the id of the router", 
        default='router'},
+      {name='debug', 
+       value='file',
+       desc='enable debugging (to stdout if value 1, otherwise to given file)'
+      },
       {value='interface',
        desc="interface(s) to listen proxy for", 
        max=10},
    }
                               }
 local args = cli:parse()
+
+-- handle debugging
+if args.debug then mst.set_enable_debug(args.debug) end
+
 local loop = ssloop.loop()
 
 mst.d('initializing socket')

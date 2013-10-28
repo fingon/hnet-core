@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  4 13:18:34 2012 mstenber
--- Last modified: Wed Jul 17 19:03:32 2013 mstenber
+-- Last modified: Mon Oct 28 14:05:13 2013 mstenber
 -- Edit time:     74 min
 --
 
@@ -48,11 +48,18 @@ local args = mst_cliargs.parse{
       {name='r', 
        flag=1, 
        desc='read key=value pairs from stdin, in -l format'},
+      {name='debug', 
+       value='file',
+       desc='enable debugging (to stdout if value 1, otherwise to given file)'
+      },
       {value='keys', 
        desc='list of keys, or key=value pairs (=set)', 
        max=999},
    }
                               }
+-- handle debugging
+if args.debug then mst.set_enable_debug(args.debug) end
+
 if args.d
 then
    mst.enable_debug = true
