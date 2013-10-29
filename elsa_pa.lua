@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Oct 29 15:48:17 2013 mstenber
--- Edit time:     1118 min
+-- Last modified: Tue Oct 29 16:11:09 2013 mstenber
+-- Edit time:     1122 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -56,6 +56,8 @@ FORCE_SKV_AC_CHECK_INTERVAL=60
 PD_SKVPREFIX='pd.'
 DHCPV4_SKVPREFIX='dhcp.'
 TUNNEL_SKVPREFIX='tunnel.'
+
+SKVPREFIXES={PD_SKVPREFIX, DHCPV4_SKVPREFIX, TUNNEL_SKVPREFIX}
 
 -- these keys are used within the objects to describe found information
 PREFIX_KEY='prefix'
@@ -136,7 +138,7 @@ STATIC_HP_ZONES_KEY='static-zones' -- manually added extra remote zones
 
 -- this is provided by hybrid proxy _to_ OSPF
 HP_MDNS_ZONES_KEY='hp-mdns-zones' -- local autodiscovered mdns zones
-                                  -- (populated by hp_ospf)
+-- (populated by hp_ospf)
 
 -- and this to PM for local DHCP/RA server usage
 HP_SEARCH_LIST_KEY='hp-search' -- to be published via DHCP*/RA
@@ -342,15 +344,20 @@ function elsa_pa:kv_changed(k, v)
       self.skv_changes = self.skv_changes + 1
    end
 
-   -- implicitly add the tunnel interfaces to the all_seen_if_names
-   -- (someone plays with stuff that starts with TUNNEL_SKVPREFIX ->
-   -- stuff happens)
-   local r = mst.string_startswith(k, TUNNEL_SKVPREFIX)
-   if r
-   then
-      if r ~= IFLIST_KEY
+   -- implicitly externally sourced information to the
+   -- all_seen_if_names (someone plays with stuff that starts with
+   -- one of the skvprefixes -> stuff happens)
+
+   for i, p in ipairs(SKVPREFIXES)
+   do
+      local r = mst.string_startswith(k, p)
+      if r
       then
-         self:add_seen_if(r)
+         if r ~= IFLIST_KEY
+         then
+            self:add_seen_if(r)
+         end
+         break
       end
    end
 
