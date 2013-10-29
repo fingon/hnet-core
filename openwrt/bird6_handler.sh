@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Mon Nov  5 05:49:41 2012 mstenber
-# Last modified: Mon Oct 28 14:37:39 2013 mstenber
-# Edit time:     68 min
+# Last modified: Tue Oct 29 10:14:48 2013 mstenber
+# Edit time:     71 min
 #
 
 # Start or stop bird6
@@ -21,8 +21,8 @@
 
 # This debug stmt controls Lua debugging - it will decrease
 # performance quite a bit if enabled.
-DEBUG=
-#DEBUG=1
+LUA_DEBUG=
+#LUA_DEBUG=1
 
 if [ -f /usr/bin/hnetenv.sh -a ! -d /etc/config ]
 then
@@ -37,7 +37,17 @@ fi
 # Always enable debugging within UML
 if [ -d /hosthome ]
 then
-    DEBUG=1
+    LUA_DEBUG=1
+    BIRD_DEBUG='debug protocols {states, routes, filters, interfaces, events}; #, packets'
+    # Log to specific magic directory if under NetKit
+    HOSTNAME=`cat /proc/sys/kernel/hostname`
+    # Netkit debugging log storage elsewhere than the virtual machine
+    LOGDIR=/hostlab/logs/$HOSTNAME
+    mkdir -p $LOGDIR
+    BIRD_LOG="log \"$LOGDIR/bird6.log\" all;"
+else
+    BIRD_DEBUG='#debug protocols {states, routes, filters, interfaces, events, packets};'
+    BIRD_LOG='log syslog all;'
 fi
 
 CONF=/tmp/pm-bird6.conf
@@ -49,31 +59,17 @@ writeconf() {
     # Bird interface pattern looks like "if1","if2","if3" 
     # (first and last mark are taken care of by the config file below)
     IFLIST=`echo "$IFLIST" | sed 's/ /","/g'`
-    if [ -d /hosthome ]
-    then
-        DEBUG='debug protocols {states, routes, filters, interfaces, events}; #, packets'
-        # Log to specific magic directory if under NetKit
-        HOSTNAME=`cat /proc/sys/kernel/hostname`
-        # Netkit debugging log storage elsewhere than the virtual machine
-        LOGDIR=/hostlab/logs/$HOSTNAME
-        mkdir -p $LOGDIR
-        LOG="log \"$LOGDIR/bird6.log\" all;"
-    else
-        DEBUG='#debug protocols {states, routes, filters, interfaces, events, packets};'
-        LOG='log syslog all;'
-    fi
-
     cat > $CONF <<EOF
 
 # Debug statement has to be _before_ instantiations of
 # protocols. Otherwise there is no point in having one. (The debug
 # level is copied at the time of configuration of the protocol, it
 # seems.)
-$DEBUG
+$BIRD_DEBUG
 
 
 # Where do we want the logs anyway..
-$LOG
+$BIRD_LOG
 
 
 router id random;
@@ -121,7 +117,7 @@ EOF
 }
 
 start() {
-    ENABLE_MST_DEBUG=$DEBUG $BIRD6 -c $CONF -P $PIDFILE
+    ENABLE_MST_DEBUG=$LUA_DEBUG $BIRD6 -c $CONF -P $PIDFILE
 }
 
 reconfigure() {
