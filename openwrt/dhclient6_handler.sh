@@ -8,8 +8,8 @@
 # Copyright (c) 2012 cisco Systems, Inc.
 #
 # Created:       Fri Nov 16 13:10:54 2012 mstenber
-# Last modified: Tue Oct 29 08:51:55 2013 mstenber
-# Edit time:     89 min
+# Last modified: Tue Oct 29 09:00:54 2013 mstenber
+# Edit time:     91 min
 #
 
 CMD=$1
@@ -61,7 +61,7 @@ start() {
     #dhclient -d -v -6 -D LL -P -cf $CONFFILE -pf $PIDFILE -lf $LEASEFILE $IF 2>&1 >> $LOGFILE &
 
     # odhcp6c
-    $BIN -F -P 0 -s $SCRIPT -p $PIDFILE -d $IF -t $SOL_TIMEOUT
+    $BIN -P 0 -F -s $SCRIPT -p $PIDFILE -d $IF -t $SOL_TIMEOUT
 
     while [ ! -f $PIDFILE ]
     do
