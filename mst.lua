@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Mon Oct 28 14:01:36 2013 mstenber
--- Edit time:     776 min
+-- Last modified: Tue Oct 29 10:03:38 2013 mstenber
+-- Edit time:     778 min
 --
 
 -- data structure abstractions provided:
@@ -92,7 +92,7 @@ end
 
 local _repr_metatable = {__tostring=function (self) return repr(self) end}
 
-debug_print_raw = print
+debug_print_raw = false -- going to be set to real value in set_enable_debug
 
 function set_enable_debug(v)
    enable_debug = v
@@ -103,6 +103,8 @@ function set_enable_debug(v)
          f:write(table.concat(array_map({...}, tostring), '\t'))
          f:write("\n")
       end
+   else
+      debug_print_raw = print
    end
 end
 
