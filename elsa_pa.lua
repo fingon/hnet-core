@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Oct 24 16:11:00 2013 mstenber
--- Edit time:     1107 min
+-- Last modified: Tue Oct 29 15:48:17 2013 mstenber
+-- Edit time:     1118 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -1201,6 +1201,7 @@ function elsa_pa:add_seen_if(ifname)
    then
       return
    end
+   self:d('added new interface to all_seen_if_names', ifname)
    self.all_seen_if_names:insert(ifname)
 
    -- invalidate caches that have if info
@@ -1353,10 +1354,9 @@ end
 
 -- iterate callback called with object + name of interface (possibly N
 -- times per interface name)
-function elsa_pa:iterate_skvprefix_o(prefix, f, l)
-   for i, ifname in ipairs(l or self.skv:get(prefix .. IFLIST_KEY) 
-                           or self.all_seen_if_names:keys())
-   do
+function elsa_pa:iterate_skvprefix_o(prefix, f)
+   -- what we actually want to do per-ifname..
+   local function g(ifname)
       local l = self.skv:get(string.format('%s%s', 
                                            prefix, ifname))
       if l
@@ -1365,6 +1365,22 @@ function elsa_pa:iterate_skvprefix_o(prefix, f, l)
          do
             f(o, ifname)
          end
+      end
+   end
+
+   -- either use hardcoded list (if supplied via skv), or what's in
+   -- all_seen_if_names.
+   local hclist = self.skv:get(prefix .. IFLIST_KEY)
+   if hclist
+   then
+      for i, ifname in ipairs(hclist)
+      do
+         g(ifname)
+      end
+   else
+      for ifname, _ in pairs(self.all_seen_if_names)
+      do
+         g(ifname)
       end
    end
 end
