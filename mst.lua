@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Tue Oct 29 10:03:38 2013 mstenber
--- Edit time:     778 min
+-- Last modified: Wed Oct 30 13:29:30 2013 mstenber
+-- Edit time:     782 min
 --
 
 -- data structure abstractions provided:
@@ -99,6 +99,7 @@ function set_enable_debug(v)
    if enable_debug and enable_debug ~= "1"
    then
       local f = io.open(enable_debug, "w")
+      f:setvbuf('full', 4096) -- write at least 4k at once (assume we're spammy)
       debug_print_raw = function (...)
          f:write(table.concat(array_map({...}, tostring), '\t'))
          f:write("\n")
