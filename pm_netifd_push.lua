@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Thu Oct 31 08:38:31 2013 mstenber
--- Edit time:     147 min
+-- Last modified: Thu Oct 31 09:04:34 2013 mstenber
+-- Edit time:     150 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -230,7 +230,7 @@ function addr_list_similar(t1, v1, t2, v2, addrtype)
    -- if the lists are of different length, they're NOT similar
    if #v1 ~= #v2
    then
-      mst.d('! addr lists of different length')
+      mst.d('! addr lists of different length', #v1, #v2)
       return false
    end
    for i=1,#v1
@@ -284,7 +284,7 @@ local function if_data_same(v1, v2)
    -- non-addr different?
    if not mst.repr_equal(v1[4], v2[4])
    then
-      mst.d('non-addr difference')
+      mst.d('non-addr difference', v1[4], v2[4])
       return false
    end
    -- ipv4 addr
