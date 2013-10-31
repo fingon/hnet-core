@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Oct 29 16:11:09 2013 mstenber
--- Edit time:     1122 min
+-- Last modified: Thu Oct 31 10:28:00 2013 mstenber
+-- Edit time:     1126 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -376,6 +376,7 @@ function elsa_pa:lsa_changed(lsa)
       return
    end
    self.ac_tlv_cache = nil
+   self.rid2ro = nil
    if lsatype == AC_TYPE
    then
       self:d('ac lsa changed at', lsa.rid)
@@ -394,9 +395,8 @@ end
 function elsa_pa:ospf_changed()
    -- emulate to get the old behavior.. shouldn't be called!
    self:d('deprecated ospf_changed called')
-   self.ac_changes = self.ac_changes + 1
-   self.lsa_changes = self.lsa_changes + 1
-   self.ac_tlv_cache = nil
+   self:lsa_changed{type=AC_TYPE}
+   self:lsa_changed{type=(AC_TYPE-1)}
 end
 
 function elsa_pa:repr_data()
@@ -1128,8 +1128,16 @@ end
 
 -- get route to the rid, if any
 function elsa_pa:route_to_rid(rid)
-   local r = self.elsa:route_to_rid(self.rid, rid) or {}
-   return r
+   -- use 'false' to keep track of failed routing attempts
+   self.rid2ro = self.rid2ro or {}
+   local v = self.rid2ro[rid]
+   if v == nil
+   then
+      v = self.elsa:route_to_rid(self.rid, rid) or {}
+      v = v or false
+      self.rid2ro[rid] = v
+   end
+   return v or nil
 end
 
 --  iterate_rid(rid, f) => callback with rid
