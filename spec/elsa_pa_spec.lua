@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Sat Jul 20 21:06:49 2013 mstenber
--- Edit time:     493 min
+-- Last modified: Thu Oct 31 10:26:40 2013 mstenber
+-- Edit time:     494 min
 --
 
 require 'mst'
@@ -53,8 +53,10 @@ function ensure_skv_usp_has_nh(s, should_nh, should_if)
    -- make sure it has nh+ifname set
    local uspo = uspkey[1]
    should_if = should_if ~= nil and should_if or should_nh
-   mst.a(not uspo.nh == not should_nh, 'nh state unexpected - not', should_nh)
-   mst.a(not uspo.ifname == not should_if, 'ifname state unexpected - not', should_if)
+   mst_test.assert_repr_equal(not uspo.nh, not should_nh, 
+                              '!nh state')
+   mst_test.assert_repr_equal(not uspo.ifname, not should_if, 
+                              '!ifname state')
 end
 
 function dsm_run_with_clear_busy_callback(dsm, o)
