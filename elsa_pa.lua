@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Oct 31 10:28:00 2013 mstenber
--- Edit time:     1126 min
+-- Last modified: Thu Oct 31 11:36:32 2013 mstenber
+-- Edit time:     1133 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -619,7 +619,7 @@ function elsa_pa:should_publish(d)
    if  (self.time() - self.last_publish) > FORCE_SKV_AC_CHECK_INTERVAL 
    then 
       self:d(' should publish state due to FORCE_SKV_AC_CHECK_INTERVAL exceeded', self.time(), self.last_publish)
-
+      self.rid2ro = nil
       r = r or {}
    end
 
