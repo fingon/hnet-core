@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Wed Oct 23 18:04:07 2013 mstenber
--- Edit time:     364 min
+-- Last modified: Thu Oct 31 08:40:35 2013 mstenber
+-- Edit time:     372 min
 --
 
 -- individual handler tests
@@ -18,6 +18,8 @@ require 'dpm'
 require 'dhcpv6_codec'
 require 'mst_test'
 require 'duci'
+require 'pm_netifd_push'
+
 local json = require 'dkjson'
 
 module("pm_handler_spec", package.seeall)
@@ -1068,4 +1070,36 @@ describe("pm_netifd", function ()
 
                    end)
 
+end)
+
+local lifetime_material = {
+   -- nil tests
+   {{0, 0}, false},
+   {{}, true},
+
+   -- clearly same
+   {{0, 0, 0, 0}, true},
+
+   -- clearly different
+   {{0, 0, 0, 100}, false},
+
+   -- different time offset, same lifetime
+   {{0, 200, 150, 50}, true},
+
+   -- real-world samples (off by 200 seconds; who cares)
+   {{0, 3400, 100, 3500}, true},
+   -- as long as within ~magnitude (of 2^), it's ok 
+   {{0, 3400, 100, 2000}, true},
+   -- but too far off, not ok
+   {{0, 3400, 100, 1500}, false},
+}
+
+describe("pm_netifd_push", function ()
+            it("has reasonable lifetime handling #life", function ()
+                  local function _test(x)
+                     return pm_netifd_push.lifetime_similar(unpack(x))
+                  end
+                  mst_test.test_list(lifetime_material,
+                                     _test)
+                   end)
 end)

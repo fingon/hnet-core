@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Wed Oct 23 17:53:53 2013 mstenber
--- Edit time:     137 min
+-- Last modified: Thu Oct 31 08:38:31 2013 mstenber
+-- Edit time:     147 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -183,19 +183,35 @@ function lifetime_similar(t1, v1, t2, v2, ...)
       return true
    end
 
+   -- special handling for zeros (log won't work here)
+   if v1 == 0
+   then
+      if v2 == 0
+      then
+         return true
+      end
+      return false
+   end
+
    -- we're happy if (t1+v2) =~ (t2+v2) given
    -- order of magnitude of v1/v2 >> (a1-a2)
    local a1 = t1 + v1
    local a2 = t2 + v2
 
    local d = math.abs(a2 - a1)
-   local magnitude_d = math.log(d)
-   local magnitude_v = math.log(mst.min(v1, v2))
-   if magnitude_d < (magnitude_v/2)
+   if d == 0
    then
       return true
    end
-   mst.d('! magnitude mismatch', magnitude_d, magnitude_v, t1, v1, t2, v2, ...)
+   local magnitude_d = math.log(d)
+   local magnitude_v = math.log(mst.min(v1, v2))
+   local dm = magnitude_v - magnitude_d
+   if dm > 0.3
+   then
+      return true
+   end
+   mst.d('! magnitude mismatch', dm, 
+         magnitude_d, magnitude_v, t1, v1, t2, v2, ...)
    return false
 end
 
