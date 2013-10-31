@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 15:13:37 2012 mstenber
--- Last modified: Wed Oct 30 13:29:30 2013 mstenber
--- Edit time:     782 min
+-- Last modified: Thu Oct 31 12:59:29 2013 mstenber
+-- Edit time:     783 min
 --
 
 -- data structure abstractions provided:
@@ -95,7 +95,8 @@ local _repr_metatable = {__tostring=function (self) return repr(self) end}
 debug_print_raw = false -- going to be set to real value in set_enable_debug
 
 function set_enable_debug(v)
-   enable_debug = v
+   -- empty string is not valid debug enabler either.. 
+   enable_debug = v and #v > 0 and v
    if enable_debug and enable_debug ~= "1"
    then
       local f = io.open(enable_debug, "w")
