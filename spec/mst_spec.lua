@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Sep 19 16:38:56 2012 mstenber
--- Last modified: Mon Nov  4 13:57:30 2013 mstenber
--- Edit time:     253 min
+-- Last modified: Mon Nov  4 14:46:41 2013 mstenber
+-- Edit time:     254 min
 --
 
 require "busted"
@@ -354,6 +354,9 @@ describe("multimap", function ()
                   mm:insert('foo', 'bar')
                   assert.are.same(mm:count(), 1)
                   mst_test.assert_repr_equal(mm:is_empty(), false)
+                  mm:remove('foo', 'bar')
+                  assert.are.same(mm:count(), 0)
+                  mst_test.assert_repr_equal(mm:is_empty(), true)
                                  end)
                      end)
 

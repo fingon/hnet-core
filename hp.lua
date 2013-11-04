@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Mon Nov  4 13:20:56 2013 mstenber
--- Edit time:     70 min
+-- Last modified: Tue Nov  5 00:15:32 2013 mstenber
+-- Edit time:     71 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -136,6 +136,8 @@ then
                                     memory_handler:tick()
                                  end)
 end
+
+hp:connect_method(mdns.if_active, hp.set_if_active)
 
 if args.ospf
 then

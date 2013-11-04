@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 17:40:20 2013 mstenber
--- Last modified: Thu Jul 18 11:55:18 2013 mstenber
--- Edit time:     83 min
+-- Last modified: Mon Nov  4 15:15:29 2013 mstenber
+-- Edit time:     85 min
 --
 
 require 'busted'
@@ -198,6 +198,27 @@ describe("hybrid_ospf", function ()
 
                   local v = s:get(elsa_pa.HP_MDNS_ZONES_KEY)
                   local e = {
+                     {ip=IP1, name=IFNAME2_ESCAPED .. ".r-rid1.foo.com"}, 
+                     {ip=IP1, 
+                      name="0.0.0.0.0.0.0.0.f.e.e.b.d.a.e.d.ip6.arpa"},
+                     {ip=IP1, 
+                      name="0.0.0.0.0.0.0.0.e.f.a.c.d.a.e.d.ip6.arpa"},
+                  }
+                  mst_test.assert_repr_equal(v, e)
+
+
+
+                  local v = s:get(elsa_pa.HP_SEARCH_LIST_KEY)
+                  local e = {'foo.com', NAME3}
+                  mst_test.assert_repr_equal(v, e)
+
+                  -- mark ifname1 active -> ifname1 should show up too
+                  -- for browse
+                  hp:set_if_active(IFNAME1, true)
+                  hp:recreate_tree() -- forcibly
+
+                  local v = s:get(elsa_pa.HP_MDNS_ZONES_KEY)
+                  local e = {
                      {browse=1, ip=IP1, name=IFNAME1_ESCAPED .. ".r-rid1.foo.com"}, 
                      {ip=IP1, name=IFNAME2_ESCAPED .. ".r-rid1.foo.com"}, 
                      {ip=IP1, 
@@ -207,9 +228,6 @@ describe("hybrid_ospf", function ()
                   }
                   mst_test.assert_repr_equal(v, e)
 
-                  local v = s:get(elsa_pa.HP_SEARCH_LIST_KEY)
-                  local e = {'foo.com', NAME3}
-                  mst_test.assert_repr_equal(v, e)
 
                   local b_dns_sd_ll = mst.table_copy(dns_const.B_DNS_SD_LL)
                   mst.array_extend(b_dns_sd_ll, DOMAIN_LL)
