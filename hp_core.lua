@@ -84,7 +84,7 @@ RESULT_FORWARD_MDNS='forward_mdns' -- forward via mDNS
 -- mdns depends on POOF to some degree -> it has hour-long TTLs for
 -- some entries. We cannot do that, though, and therefore we force TTL
 -- to be relatively short no matter what.
-MAXIMUM_TTL=120
+MAXIMUM_TTL=40
 
 -- We enforce this on the results we provide; ttl=0 may cause trouble
 -- in various places, and in general it seems like nonsensical
@@ -92,7 +92,7 @@ MAXIMUM_TTL=120
 -- locally. It is NOT applied to forwarded ones (hopefully the other
 -- end knows what they're doing). But it IS applied to mdns->dns
 -- proxied results.
-MINIMUM_TTL=30
+MINIMUM_TTL=15
 
 hybrid_proxy = _dns_server:new_subclass{class='hybrid_proxy',
                                         mandatory={'rid', 'domain', 
