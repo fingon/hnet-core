@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Thu Oct 31 08:40:35 2013 mstenber
--- Edit time:     372 min
+-- Last modified: Mon Nov  4 09:15:43 2013 mstenber
+-- Edit time:     381 min
 --
 
 -- individual handler tests
@@ -585,7 +585,11 @@ describe("pm_v6_dhclient", function ()
                      {'ls -1 /var/run', ''},
                      {'/usr/share/hnet/dhclient6_handler.sh start eth0 /var/run/pm-pid-dhclient6-eth0', ''},
                      {'ls -1 /var/run', 'pm-pid-dhclient6-eth0'},
+                     {'cat /var/run/pm-pid-dhclient6-eth0', '42'},
+                     {'if [ -d "/proc/42" ]; then echo -n "1"; fi', '1'},
                      {'ls -1 /var/run', 'pm-pid-dhclient6-eth0'},
+                     {'cat /var/run/pm-pid-dhclient6-eth0', '42'},
+                     {'if [ -d "/proc/42" ]; then echo -n "1"; fi', '1'},
                                  }
 
                   o:run()
