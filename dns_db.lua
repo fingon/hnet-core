@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Mon Jun 24 10:53:10 2013 mstenber
--- Edit time:     219 min
+-- Last modified: Mon Nov  4 14:01:21 2013 mstenber
+-- Edit time:     221 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -204,7 +204,11 @@ end
 
 -- namespace of RR records; it has ~fast access to RRs by name
 ns = _eventful:new_subclass{class='ns',
-                            events={'inserted', 'removed'}}
+                            events={'inserted', -- per entry
+                                    'removed',
+                                    'is_not_empty', -- when emptiness changes
+                                    'is_empty',
+                            }}
 function ns:init()
    _eventful.init(self)
    self.nh2rr = mst.multimap:new{}
@@ -367,7 +371,12 @@ function ns:insert_raw(o)
    local key = ll2key(ll)
    self.nh2rr:insert(key, o)
    self:d('calling inserted', o)
+   local was_empty = self:is_empty()
    self.inserted(o)
+   if was_empty
+   then
+      self.is_not_empty()
+   end
    return o, true
 end
 
@@ -380,11 +389,19 @@ function ns:remove_rr(o)
    self.nh2rr:remove(key, old_rr)
    self:d('calling removed', old_rr)
    self.removed(old_rr)
+   if self:is_empty()
+   then
+      self.is_empty()
+   end
    return old_rr
 end
 
 function ns:count()
    return self.nh2rr:count()
+end
+
+function ns:is_empty()
+   return self.nh2rr:is_empty()
 end
 
 function ns:values()

@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 15:07:49 2012 mstenber
--- Last modified: Thu Jun 20 20:28:19 2013 mstenber
--- Edit time:     988 min
+-- Last modified: Mon Nov  4 14:08:34 2013 mstenber
+-- Edit time:     994 min
 --
 
 -- This module contains the main mdns algorithm; it is not tied
@@ -68,6 +68,7 @@ mdns = mst.create_class({class='mdns',
                          ifclass=mdns_if.mdns_if,
                          time=ssloop.time,
                          mandatory={'sendto', 'shell'},
+                         events={'if_active'}, -- ifname + true/false
                         },
                         _mcj,
                         _eventful)
@@ -191,6 +192,14 @@ function mdns:get_if(ifname)
       self:connect(o.queue_check_propagate_rr,
                    function (rr)
                       self:queue_check_propagate_if_rr(ifname, rr)
+                   end)
+      self:connect(o.cache.is_not_empty,
+                   function ()
+                      self.if_active(ifname, true)
+                   end)
+      self:connect(o.cache.is_empty,
+                   function ()
+                      self.if_active(ifname, false)
                    end)
    end
    return o
