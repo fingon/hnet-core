@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Mon Nov  4 13:23:03 2013 mstenber
+-- Last modified: Tue Nov  5 00:28:24 2013 mstenber
 -- Edit time:     528 min
 --
 
@@ -111,6 +111,9 @@ function hybrid_proxy:init()
    -- mst.repr of {q, is_tcp} and resulting array contains done-flag +
    -- result value (may be nil)
    self.forward_ops = {}
+
+   -- active interfaces
+   self.active = {}
 end
 
 function create_default_forward_ext_node_callback(o)
@@ -137,6 +140,16 @@ function create_default_inherit_node_callback(o)
    end
    mst.d('created default inherit node', n)
    return n
+end
+
+function hybrid_proxy:refresh_tree()
+   self.root = nil
+end
+
+function hybrid_proxy:set_if_active(ifname, active)
+   self:d('set_if_active', ifname, active)
+   self.active[ifname] = active
+   self:refresh_tree()
 end
 
 function hybrid_proxy:get_rid()
