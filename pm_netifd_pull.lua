@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  3 16:48:11 2013 mstenber
--- Last modified: Thu Oct 10 13:33:33 2013 mstenber
--- Edit time:     98 min
+-- Last modified: Mon Nov  4 10:23:27 2013 mstenber
+-- Edit time:     117 min
 --
 
 
@@ -23,7 +23,7 @@
 
 -- (Note: push is not possible without initial pull, as pull provides
 -- the openwrt interface <> real physical device mapping information)
- 
+
 require 'pm_handler'
 
 module(..., package.seeall)
@@ -71,9 +71,32 @@ function network_interface_dump:device2interface(d, filter)
 end
 
 function network_interface_dump:ifo_is_itself_external(ifo)
+   -- IPv6 indicator: ipv6-prefix set
    local pl = ifo['ipv6-prefix']
-   local is_ext = pl and #pl > 0
-   return is_ext
+   if pl and #pl > 0 
+   then
+      return true
+   end
+
+   -- IPv4 indicator: has an external route and non-empty list of ipv4 addresses
+   local al = ifo['ipv4-address']
+   if al and #al > 0
+   then
+      -- now that we have IPv4 address, make sure there's default
+      -- route on the interface (I'm not sure if this is the way to
+      -- detect external IF, but as we don't inject default
+      -- routes(??), it should be ok)
+      for i, v in ipairs(ifo['route'] or {})
+      do
+         if v.target == "0.0.0.0" and v.mask == 0
+         then
+            return true
+         end
+      end
+   end
+
+   -- if no indicator is found, it's internal
+   return false
 end
 
 function network_interface_dump:device2hnet_interface(d)
@@ -141,10 +164,10 @@ end
 function pm_netifd_pull:get_network_interface_dump()
    local conn = self:get_ubus_connection()
    self:a(conn, 'unable to connect ubus')
-   local r = conn:call('network.interface', 'dump', {})
+   local r, err = conn:call('network.interface', 'dump', {})
    setmetatable(r, network_interface_dump)
    conn:close()
-   return r
+   return r, err
 end
 
 function pm_netifd_pull:skv_changed(k, v)
@@ -162,17 +185,20 @@ function pm_netifd_pull:get_state(ni)
    local function _ext_if_iterator(ifo)
       for i, p in ipairs(ifo['ipv6-prefix'] or {})
       do
-         local device = ifo.l3_device or ifo.device
-         local prefix = string.format('%s/%s', p.address, p.mask)
-         local now = self:time()
-         local o = {[elsa_pa.PREFIX_KEY]=prefix,
-                    [elsa_pa.VALID_KEY]=p.valid+now,
-                    [elsa_pa.PREFERRED_KEY]=p.preferred+now,
-                    -- no prefix class info for now, sigh
-                    --[elsa_pa.PREFIX_CLASS_KEY]=pclass,
-         }
-         local l = pd_state:setdefault_lazy(device, mst.array.new, mst.array)
-         l:insert(o)
+         if ifo.delegation == false
+         then
+            local device = ifo.l3_device or ifo.device
+            local prefix = string.format('%s/%s', p.address, p.mask)
+            local now = self:time()
+            local o = {[elsa_pa.PREFIX_KEY]=prefix,
+                       [elsa_pa.VALID_KEY]=p.valid+now,
+                       [elsa_pa.PREFERRED_KEY]=p.preferred+now,
+                       -- no prefix class info for now, sigh
+                       --[elsa_pa.PREFIX_CLASS_KEY]=pclass,
+            }
+            local l = pd_state:setdefault_lazy(device, mst.array.new, mst.array)
+            l:insert(o)
+         end
       end
       for i, d in ipairs(ifo['dns-server'] or {})
       do
@@ -207,7 +233,9 @@ function pm_netifd_pull:run()
 
    -- there isn't any useful way how we can verify it isn't same ->
    -- just forward it as-is
-   local ni = self:get_network_interface_dump()
+   local ni, err = self:get_network_interface_dump()
+   self:a(ni, 'got error when getting interface list', err)
+
 
    self._pm.network_interface_changed(ni)
 

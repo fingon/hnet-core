@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Mon Nov  4 09:15:43 2013 mstenber
--- Edit time:     381 min
+-- Last modified: Mon Nov  4 10:25:13 2013 mstenber
+-- Edit time:     417 min
 --
 
 -- individual handler tests
@@ -750,6 +750,7 @@ local network_interface_dump = [[
 			"pending": false,
 			"available": true,
 			"autostart": true,
+			"delegation": false,
 			"uptime": 307,
 			"l3_device": "eth3",
 			"proto": "dhcpv6",
@@ -1106,4 +1107,215 @@ describe("pm_netifd_push", function ()
                   mst_test.test_list(lifetime_material,
                                      _test)
                    end)
+end)
+
+-- interfaces:
+-- e0 = ipv6 (external, NOT homenet, delegation ON)
+-- e1 = ipv6 (external, NOT homenet, delegation OFF)
+-- e2 = ipv6 (external, NOT homenet, delegation not set (default ON))
+-- h0{,_4,_6} = ipv4 + ipv6 (external)
+-- h1{,_6} = ipv6 (external)
+-- h2{,_4} = ipv4 (external)
+-- h3 = (internal)
+local network_interface_dump2 = [[
+{
+	"interface": [
+		{
+			"interface": "e0",
+			"l3_device": "ext0",
+			"proto": "dhcpv6",
+			"device": "ext0",
+			"delegation": true,
+			"ipv6-prefix": [
+				{
+					"address": "2000:dead:fee0::",
+					"mask": 56,
+					"preferred": 2612,
+					"valid": 3612
+				}
+			]
+		},
+		{
+			"interface": "e1",
+			"l3_device": "ext1",
+			"proto": "dhcpv6",
+			"device": "ext1",
+			"delegation": false,
+			"ipv6-prefix": [
+				{
+					"address": "2000:dead:fee1::",
+					"mask": 56,
+					"preferred": 2612,
+					"valid": 3612
+				}
+			]
+		},
+		{
+			"interface": "e2",
+			"l3_device": "ext2",
+			"proto": "dhcpv6",
+			"device": "ext2",
+			"ipv6-prefix": [
+				{
+					"address": "2000:dead:fee2::",
+					"mask": 56,
+					"preferred": 2612,
+					"valid": 3612
+				}
+			]
+		},
+		{
+			"interface": "h0",
+			"l3_device": "eth0",
+			"proto": "hnet",
+			"device": "eth0"
+		},
+		{
+			"interface": "h0_4",
+			"l3_device": "eth0",
+			"proto": "dhcp",
+			"device": "eth0",
+			"ipv4-address": [
+				{
+					"address": "192.168.100.100",
+					"mask": 24
+				}
+			],
+			"route": [
+				{
+					"target": "0.0.0.0",
+					"mask": 0,
+					"nexthop": "192.168.100.1",
+					"source": "0.0.0.0\/0"
+				}
+			]
+		},
+		{
+			"interface": "h0_6",
+			"l3_device": "eth0",
+			"proto": "dhcpv6",
+			"device": "eth0",
+			"delegation": false,
+			"ipv6-prefix": [
+				{
+					"address": "2000:dead:bee0::",
+					"mask": 56,
+					"preferred": 2612,
+					"valid": 3612
+				}
+			]
+		},
+		{
+			"interface": "h1",
+			"l3_device": "eth1",
+			"proto": "hnet",
+			"device": "eth1"
+		},
+		{
+			"interface": "h1_6",
+			"l3_device": "eth1",
+			"proto": "dhcpv6",
+			"device": "eth1",
+			"delegation": false,
+			"ipv6-prefix": [
+				{
+					"address": "2000:dead:bee1::",
+					"mask": 56,
+					"preferred": 2612,
+					"valid": 3612
+				}
+			]
+		},
+		{
+			"interface": "h2",
+			"l3_device": "eth2",
+			"proto": "hnet",
+			"device": "eth2"
+		},
+		{
+			"interface": "h2_4",
+			"l3_device": "eth2",
+			"proto": "dhcp",
+			"device": "eth2",
+			"ipv4-address": [
+				{
+					"address": "192.168.200.100",
+					"mask": 24
+				}
+			],
+			"route": [
+				{
+					"target": "0.0.0.0",
+					"mask": 0,
+					"nexthop": "192.168.200.1",
+					"source": "0.0.0.0\/0"
+				}
+			]
+		},
+		{
+			"interface": "h3",
+			"l3_device": "eth3",
+			"proto": "hnet",
+			"device": "eth3"
+		}
+	]
+}
+
+                                 ]]
+
+describe("pm_netifd_pull", function ()
+            it("works #pull", function ()
+                  local ni
+                  local pm = dpm.dpm:new{handlers={'netifd_pull'}, config={test=true}}
+                  function pm.network_interface_changed(_ni)
+                     ni = _ni
+                  end
+                  local o = pm.h.netifd_pull
+                  local _ubus = dubus:new{}
+                  function o:get_ubus_connection()
+                     _ubus:open()
+                     return _ubus
+                  end
+
+                  _ubus.open:add_expected()
+                  _ubus.call:set_array{
+                     {
+                        {'network.interface', 'dump', {}},
+                        json.decode(network_interface_dump2),
+                     },
+                                   }
+
+                  _ubus.close:add_expected()
+                  o:run()
+                  _ubus:done()
+
+                  local expect_ext = {e0=true, e1=true, e2=true,
+                                      h0=true, h0_4=true, h0_6=true,
+                                      h1=true, h1_6=true,
+                                      h2=true, h2_4=true,
+                                      h3=false}
+
+                  -- make sure that iterate_interfaces matches
+                  -- expect_ext
+                  local got_ext = {}
+                  ni:iterate_interfaces(function (ifo)
+                                           got_ext[ifo.interface] = true
+                                        end, true)
+                  ni:iterate_interfaces(function (ifo)
+                                           got_ext[ifo.interface] = false
+                                        end, false)
+                  mst_test.assert_repr_equal(got_ext, expect_ext)
+
+                  -- make sure generated pd state looks also sensible
+                  local exp_pd_state = {
+                     eth0={{pref=3846, prefix="2000:dead:bee0::/56", valid=4846}}, 
+                     eth1={{pref=3846, prefix="2000:dead:bee1::/56", valid=4846}}, 
+                     ext1={{pref=3846, prefix="2000:dead:fee1::/56", valid=4846}}}
+
+                  mst_test.assert_repr_equal(o.set_pd_state, exp_pd_state)
+
+                  o:done()
+                  pm:done()
+                   end)
+
 end)
