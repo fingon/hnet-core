@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May 15 14:19:01 2013 mstenber
--- Last modified: Mon Oct 28 14:04:11 2013 mstenber
--- Edit time:     69 min
+-- Last modified: Mon Nov  4 15:33:27 2013 mstenber
+-- Edit time:     70 min
 --
 
 -- This is the main file for hybrid proxy (dns<>mdns). 
@@ -86,7 +86,8 @@ local mdns = mdns_client.mdns_client:new{sendto=function (...)
                                          shell=mst.execute_to_string,
                                          -- for multicastjoiner
                                          mcast6=mdns_const.MULTICAST_ADDRESS_IPV6,
-                                         mcasts=o.s,                               
+                                         mcasts=o.s,
+                                         maximum_ttl=hp_core.DEFAULT_MAXIMUM_TTL,
                                         }
 
 function o.callback(...)
@@ -143,6 +144,8 @@ then
                                     memory_handler:tick()
                                  end)
 end
+
+hp:connect_method(mdns.if_active, hp.set_if_active)
 
 if args.ospf
 then

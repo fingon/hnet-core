@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Wed Jul 24 22:36:36 2013 mstenber
--- Edit time:     132 min
+-- Last modified: Tue Nov  5 00:37:40 2013 mstenber
+-- Edit time:     141 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -113,11 +113,20 @@ function hybrid_ospf:create_local_forward_node(router, o)
    if not n then return end
    local ip = self:get_ip()
    if not ip then return end
+   local browse = self:is_owner_of_iid(o.iid) and 1 or nil
    local o2 = {
       name=n:get_fqdn(),
       ip=ip,
-      browse=self:is_owner_of_iid(o.iid) and 1 or nil,
+      browse=browse,
    }
+   -- we care only about browse zones - omit them if no mdns traffic
+   -- in cache (including the discovery stuff - this should be fairly
+   -- robust measure of 'active' links)
+   if browse and not self.active[o.ifname]
+   then
+      self:d('omitting browse interface', o)
+      return
+   end
    table.insert(self.local_zones, o2)
 end
 
@@ -193,10 +202,14 @@ function hybrid_ospf:attach_skv(skv)
          -- unknown key => no need to invalidate tree, hopefully ;-)
          return
       end
-      self.root = nil -- invalidate tree
-      self:set_timeout(true)
+      self:refresh_tree()
    end
    self.skv:add_change_observer(self.f)
+end
+
+function hybrid_ospf:refresh_tree()
+   _hp.refresh_tree(self)
+   self:set_timeout(true) -- schedule a timeout to redo the tree
 end
 
 function hybrid_ospf:iterate_usable_prefixes(f)

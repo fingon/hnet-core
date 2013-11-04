@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Sat Oct 19 01:03:46 2013 mstenber
--- Edit time:     524 min
+-- Last modified: Tue Nov  5 00:28:24 2013 mstenber
+-- Edit time:     528 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -84,7 +84,7 @@ RESULT_FORWARD_MDNS='forward_mdns' -- forward via mDNS
 -- mdns depends on POOF to some degree -> it has hour-long TTLs for
 -- some entries. We cannot do that, though, and therefore we force TTL
 -- to be relatively short no matter what.
-MAXIMUM_TTL=120
+DEFAULT_MAXIMUM_TTL=120
 
 -- We enforce this on the results we provide; ttl=0 may cause trouble
 -- in various places, and in general it seems like nonsensical
@@ -92,13 +92,15 @@ MAXIMUM_TTL=120
 -- locally. It is NOT applied to forwarded ones (hopefully the other
 -- end knows what they're doing). But it IS applied to mdns->dns
 -- proxied results.
-MINIMUM_TTL=30
+DEFAULT_MINIMUM_TTL=30
 
 hybrid_proxy = _dns_server:new_subclass{class='hybrid_proxy',
                                         mandatory={'rid', 'domain', 
                                                    'mdns_resolve_callback',
                                         },
                                         events={'rid_changed'},
+                                        maximum_ttl=DEFAULT_MAXIMUM_TTL,
+                                        minimum_ttl=DEFAULT_MINIMUM_TTL,
                                        }
 
 function hybrid_proxy:init()
@@ -109,6 +111,9 @@ function hybrid_proxy:init()
    -- mst.repr of {q, is_tcp} and resulting array contains done-flag +
    -- result value (may be nil)
    self.forward_ops = {}
+
+   -- active interfaces
+   self.active = {}
 end
 
 function create_default_forward_ext_node_callback(o)
@@ -135,6 +140,16 @@ function create_default_inherit_node_callback(o)
    end
    mst.d('created default inherit node', n)
    return n
+end
+
+function hybrid_proxy:refresh_tree()
+   self.root = nil
+end
+
+function hybrid_proxy:set_if_active(ifname, active)
+   self:d('set_if_active', ifname, active)
+   self.active[ifname] = active
+   self:refresh_tree()
 end
 
 function hybrid_proxy:get_rid()
@@ -626,13 +641,13 @@ function hybrid_proxy:rewrite_rrs_from_mdns_to_reply_msg(req, mdns_q,
       local nrr, err = self:rewrite_mdns_rr_to_dns(rr, ll)
       if nrr
       then
-         if nrr.ttl < MINIMUM_TTL
+         if nrr.ttl < self.minimum_ttl
          then
-            nrr.ttl = MINIMUM_TTL
+            nrr.ttl = self.minimum_ttl
          end
-         if nrr.ttl > MAXIMUM_TTL
+         if nrr.ttl > self.maximum_ttl
          then
-            nrr.ttl = MAXIMUM_TTL
+            nrr.ttl = self.maximum_ttl
          end
          if matches_q
          then
@@ -725,10 +740,10 @@ function hybrid_proxy:process_match(req, r, o)
    then
       for i, rr in ipairs(r)
       do
-         if not rr.ttl or rr.ttl < MINIMUM_TTL
+         if not rr.ttl or rr.ttl < self.minimum_ttl
          then
             self:d('setting rr ttl to minimum', rr)
-            rr.ttl = MINIMUM_TTL
+            rr.ttl = self.minimum_ttl
          end
       end
    end

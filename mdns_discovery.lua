@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Mar  5 11:57:53 2013 mstenber
--- Last modified: Wed Oct 16 14:02:54 2013 mstenber
--- Edit time:     29 min
+-- Last modified: Mon Nov  4 15:33:18 2013 mstenber
+-- Edit time:     30 min
 --
 
 -- This is mdns discovery module.
@@ -47,8 +47,11 @@ require 'dns_db'
 
 module(..., package.seeall)
 
--- every 5 minutes, even without any indication we should, we _will_ do things
-REDUNDANT_FREQUENCY=300
+-- every minute, even without any indication we should, we _will_ do things
+REDUNDANT_FREQUENCY=60
+-- (note that this should be ~order of magnitude less than maximum ttl
+-- if set (in e.g. hp_core, mdns_core)
+
 
 SD_ROOT={'_services', '_dns-sd', '_udp', 'local'}
 
@@ -145,11 +148,13 @@ function mdns_discovery:run()
       then
          break
       end
-      -- send query
-      self.query{name=o.name,
+      local q = {name=o.name,
                  qclass=o.rclass,
                  qtype=o.rtype,
-                }
+      }
+      self:d('performing discovery query', q)
+      -- send query
+      self.query(q)
 
       -- update the next-to-run time
       self.sl:remove(o)
