@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Jan 10 14:37:44 2013 mstenber
--- Last modified: Thu Jun 27 10:59:56 2013 mstenber
--- Edit time:     836 min
+-- Last modified: Mon Nov  4 13:48:09 2013 mstenber
+-- Edit time:     843 min
 --
 
 -- For efficient storage, we have skiplist ordered on the 'time to
@@ -1046,6 +1046,11 @@ function mdns_if:update_rr_ttl(o, ttl, update_field)
    self:d('update_rr_ttl', o, ttl)
    ttl = ttl or o.ttl
    self:a(ttl, 'no ttl?!?', o)
+   local mttl = self.parent.maximum_ttl
+   if mttl
+   then
+      ttl = mst.min(mttl, ttl)
+   end
    o.ttl = ttl
    o.received_ttl = ttl
    -- we keep ttl's with zero received ttl of 0 for 1 second

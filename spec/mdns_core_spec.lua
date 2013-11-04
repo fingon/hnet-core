@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Tue Dec 18 21:10:33 2012 mstenber
--- Last modified: Wed Jun 12 11:00:31 2013 mstenber
--- Edit time:     831 min
+-- Last modified: Mon Nov  4 13:46:36 2013 mstenber
+-- Edit time:     838 min
 --
 
 -- TO DO: 
@@ -25,6 +25,7 @@ require "elsa_pa"
 require "dns_codec"
 require "dneigh"
 require "dshell"
+require "mst_test"
 
 local _dsm = require "dsm"
 
@@ -1220,8 +1221,21 @@ describe("mdns", function ()
 
                                                              end)
 
-            it("handles various queries correctly #q", function ()
+            it("handles maximum_ttl", function ()
+                  local ifo = mdns:get_if(DUMMY_IF)
+                  mst.a(ifo, 'no ifo')
+                  mdns.maximum_ttl = 123
                   mdns:recvfrom(msg1, DUMMY_SRC, mdns_const.PORT)
+                  local drr = ifo.cache:find_rr(rr1)
+                  mst_test.assert_repr_equal(drr.ttl, mdns.maximum_ttl)
+                   end)
+
+            it("handles various queries correctly #q", function ()
+                  local ifo = mdns:get_if(DUMMY_IF)
+                  mdns:recvfrom(msg1, DUMMY_SRC, mdns_const.PORT)
+                  local drr = ifo.cache:find_rr(rr1)
+                  mst_test.assert_repr_equal(drr.ttl, DUMMY_TTL)
+
                   dsm:wait_receiveds_counts(2)
                   dsm:clear_receiveds()
 

@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Tue Sep 24 16:52:19 2013 mstenber
--- Edit time:     423 min
+-- Last modified: Thu Oct 24 16:03:11 2013 mstenber
+-- Edit time:     425 min
 --
 
 require 'busted'
@@ -199,8 +199,8 @@ local q_to_r_material = {
    {'local', dns_server.RESULT_NXDOMAIN},
    {'foo.local', dns_server.RESULT_NXDOMAIN},
    {'nonexistent.foo.com', dns_server.RESULT_NXDOMAIN},
-   {RP .. 'rid1.foo.com', nil},
-   {IP .. 'iid1.' .. RP .. 'rid1.foo.com', nil},
+   {RP .. 'rid1.foo.com', {}}, -- Pierre's mod - used to be nil
+   {IP .. 'iid1.' .. RP .. 'rid1.foo.com', {}}, -- Pierre's mod - used to be nil
    {'x.' .. IP .. 'iid1.' .. RP .. 'rid2.foo.com', hp_core.RESULT_FORWARD_INT},
    {'foo.' .. IP .. 'iid1.' .. RP .. 'rid1.foo.com', hp_core.RESULT_FORWARD_MDNS},
    {'11.in-addr.arpa', hp_core.RESULT_FORWARD_EXT},
