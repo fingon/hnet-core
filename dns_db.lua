@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:09:58 2012 mstenber
--- Last modified: Mon Nov  4 14:01:21 2013 mstenber
--- Edit time:     221 min
+-- Last modified: Mon Nov  4 14:47:40 2013 mstenber
+-- Edit time:     222 min
 --
 
 -- This is a datastructure used for storing the (m)DNS
@@ -369,9 +369,9 @@ function ns:insert_raw(o)
    -- not found - have to add
    local ll = o.name
    local key = ll2key(ll)
+   local was_empty = self.nh2rr:is_empty()
    self.nh2rr:insert(key, o)
    self:d('calling inserted', o)
-   local was_empty = self:is_empty()
    self.inserted(o)
    if was_empty
    then
@@ -389,7 +389,7 @@ function ns:remove_rr(o)
    self.nh2rr:remove(key, old_rr)
    self:d('calling removed', old_rr)
    self.removed(old_rr)
-   if self:is_empty()
+   if self.nh2rr:is_empty()
    then
       self.is_empty()
    end
@@ -398,10 +398,6 @@ end
 
 function ns:count()
    return self.nh2rr:count()
-end
-
-function ns:is_empty()
-   return self.nh2rr:is_empty()
 end
 
 function ns:values()

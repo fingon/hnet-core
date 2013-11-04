@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Mon Dec 17 14:37:02 2012 mstenber
--- Last modified: Thu Jun 13 10:56:16 2013 mstenber
--- Edit time:     50 min
+-- Last modified: Mon Nov  4 14:57:54 2013 mstenber
+-- Edit time:     56 min
 --
 
 require "busted"
@@ -116,8 +116,20 @@ describe("ll<>name functions", function ()
 describe("ns", function ()
             it("works", function ()
                   local ns = dns_db.ns:new{enable_copy=true}
+                  local ecalls = 0 -- empty
+                  ns:connect(ns.is_empty, function ()
+                                ecalls = ecalls + 1
+                                          end)
+                  local ncalls = 0 -- non-empty
+                  ns:connect(ns.is_not_empty, function ()
+                                ncalls = ncalls + 1
+                                          end)
+
                   -- add two items (one twice, just to make sure it
                   -- doesn't get added again)
+                  mst_test.assert_repr_equal(ecalls, 0)
+                  mst_test.assert_repr_equal(ncalls, 0)
+
                   mst.a(ns:count() == 0)
                   ns:insert_rr(fake1)
                   ns:insert_rr(fake1)
@@ -127,6 +139,9 @@ describe("ns", function ()
                   mst.a(ns:count() == 2, 'different rdata => same? problem', ns:count())
                   ns:insert_rr(fake2)
                   mst.a(ns:count() == 3)
+
+                  mst_test.assert_repr_equal(ecalls, 0)
+                  mst_test.assert_repr_equal(ncalls, 1)
 
                   -- test that we can also find fake1 based on synthetic entry
                   local s = {name = fake1.name, rtype = fake1.rtype, rdata=fake1.rdata}
@@ -151,7 +166,11 @@ describe("ns", function ()
                   ns:remove_rr(fake1)
                   ns:remove_rr(fake12)
                   ns:remove_rr(fake2)
+
                   mst.a(ns:count() == 0)
+
+                  mst_test.assert_repr_equal(ecalls, 1)
+                  mst_test.assert_repr_equal(ncalls, 1)
 
                    end)
 
