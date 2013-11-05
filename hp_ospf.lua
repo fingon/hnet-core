@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 14:11:50 2013 mstenber
--- Last modified: Tue Nov  5 00:37:40 2013 mstenber
--- Edit time:     141 min
+-- Last modified: Tue Nov  5 03:54:37 2013 mstenber
+-- Edit time:     148 min
 --
 
 -- Auto-configured hybrid proxy code.  It interacts with skv to
@@ -122,7 +122,9 @@ function hybrid_ospf:create_local_forward_node(router, o)
    -- we care only about browse zones - omit them if no mdns traffic
    -- in cache (including the discovery stuff - this should be fairly
    -- robust measure of 'active' links)
-   if browse and not self.active[o.ifname]
+   if not self.disable_filter_browse_active_only and 
+      browse and 
+      not self.active[o.ifname] 
    then
       self:d('omitting browse interface', o)
       return
