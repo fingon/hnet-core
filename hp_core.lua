@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue May  7 11:44:38 2013 mstenber
--- Last modified: Tue Nov  5 00:28:24 2013 mstenber
--- Edit time:     528 min
+-- Last modified: Tue Nov  5 03:54:12 2013 mstenber
+-- Edit time:     532 min
 --
 
 -- This is the 'main module' of hybrid proxy; it leaves some of the
@@ -225,8 +225,11 @@ function hybrid_proxy:create_local_forward_node(router, o)
       router:add_child(n)
       mst.d('defined (own)', n:get_fqdn())
 
-      -- add it to browse domain
-      self:add_browse(n)
+      if self.disable_filter_browse_active_only or self.active[ifname]
+      then
+         -- add it to browse domain (if it's relevant)
+         self:add_browse(n)
+      end
 
       -- This function returns the node if it created it
       n_ret = n
