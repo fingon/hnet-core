@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Thu Oct 31 11:36:32 2013 mstenber
--- Edit time:     1133 min
+-- Last modified: Tue Nov  5 19:35:37 2013 mstenber
+-- Edit time:     1145 min
 --
 
 -- the main logic around with prefix assignment within e.g. BIRD works
@@ -376,7 +376,6 @@ function elsa_pa:lsa_changed(lsa)
       return
    end
    self.ac_tlv_cache = nil
-   self.rid2ro = nil
    if lsatype == AC_TYPE
    then
       self:d('ac lsa changed at', lsa.rid)
@@ -619,7 +618,6 @@ function elsa_pa:should_publish(d)
    if  (self.time() - self.last_publish) > FORCE_SKV_AC_CHECK_INTERVAL 
    then 
       self:d(' should publish state due to FORCE_SKV_AC_CHECK_INTERVAL exceeded', self.time(), self.last_publish)
-      self.rid2ro = nil
       r = r or {}
    end
 
@@ -643,8 +641,16 @@ function elsa_pa:should_publish(d)
    return r
 end
 
-function elsa_pa:run()
+function elsa_pa:run(calcrt)
    self:d('run starting')
+
+   -- clear the route cache if calcrt > 0
+   if calcrt and calcrt > 0
+   then
+      self:d('clearing rid2ro due to calcrt', calcrt)
+      self.rid2ro = nil
+      self.ac_changes = self.ac_changes + 1
+   end
 
    -- without pa, there is no point
    if not self.pa
