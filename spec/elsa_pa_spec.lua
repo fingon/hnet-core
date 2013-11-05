@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:49:00 2012 mstenber
--- Last modified: Thu Oct 31 10:26:40 2013 mstenber
+-- Last modified: Tue Nov  5 09:41:55 2013 mstenber
 -- Edit time:     494 min
 --
 
@@ -276,7 +276,7 @@ describe("elsa_pa [one node]", function ()
                   -- add route info
                   e.routes = old_routes
                   ep:ospf_changed() -- XXX - hopefully it will trigger this too!
-                  ep:run()
+                  ep:run(1) -- 1 == calcrt == routes changed
                   ensure_skv_usp_has_nh(s, true)
 
                   -- make sure no DNS IF we don't have DNS info
@@ -363,7 +363,7 @@ describe("elsa_pa [one node]", function ()
 
                   -- and then we should get our own asp back too
                   usp_added = false
-                  ep:run(ep)
+                  ep:run()
                   mst.a(usp_added)
 
                   -- local usp -> should NOT have nh (if not configured to SKV)
@@ -379,7 +379,7 @@ describe("elsa_pa [one node]", function ()
                         }
                        )
 
-                  ep:run(ep)
+                  ep:run()
                   ensure_skv_usp_has_nh(s, true, true)
 
                   -- ensure that if we advance time, we shouldn't re-publish lsa

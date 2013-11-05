@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  3 11:47:19 2012 mstenber
--- Last modified: Tue Nov  5 19:35:37 2013 mstenber
+-- Last modified: Tue Nov  5 09:40:56 2013 mstenber
 -- Edit time:     1145 min
 --
 
@@ -645,6 +645,7 @@ function elsa_pa:run(calcrt)
    self:d('run starting')
 
    -- clear the route cache if calcrt > 0
+   self:a(not calcrt or type(calcrt) == 'number', 'weird calcrt', calcrt)
    if calcrt and calcrt > 0
    then
       self:d('clearing rid2ro due to calcrt', calcrt)
