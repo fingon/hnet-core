@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu May 23 17:40:20 2013 mstenber
--- Last modified: Mon Nov  4 15:15:29 2013 mstenber
--- Edit time:     85 min
+-- Last modified: Wed Nov  6 16:07:44 2013 mstenber
+-- Edit time:     86 min
 --
 
 require 'busted'
@@ -198,6 +198,7 @@ describe("hybrid_ospf", function ()
 
                   local v = s:get(elsa_pa.HP_MDNS_ZONES_KEY)
                   local e = {
+                     {ip=IP1, name=IFNAME1_ESCAPED .. ".r-rid1.foo.com"},
                      {ip=IP1, name=IFNAME2_ESCAPED .. ".r-rid1.foo.com"}, 
                      {ip=IP1, 
                       name="0.0.0.0.0.0.0.0.f.e.e.b.d.a.e.d.ip6.arpa"},

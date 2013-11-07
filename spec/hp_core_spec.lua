@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed May  8 09:00:52 2013 mstenber
--- Last modified: Thu Oct 24 16:03:11 2013 mstenber
--- Edit time:     425 min
+-- Last modified: Wed Nov  6 16:12:30 2013 mstenber
+-- Edit time:     429 min
 --
 
 require 'busted'
@@ -268,9 +268,10 @@ local msg_b_dnssd = {
       {name=n_b_dnssd, 
        rtype=dns_const.TYPE_PTR, rclass=dns_const.CLASS_IN, 
        rdata_ptr={IP .. 'iid2', RP .. 'rid1', 'foo', 'com'}},
-      {name=n_b_dnssd, 
-       rtype=dns_const.TYPE_PTR, rclass=dns_const.CLASS_IN, 
-       rdata_ptr={IP .. 'iid3', RP .. 'rid1', 'foo', 'com'}},
+      -- this should not happen as interface is not active
+      --{name=n_b_dnssd, 
+      --rtype=dns_const.TYPE_PTR, rclass=dns_const.CLASS_IN, 
+      --rdata_ptr={IP .. 'iid3', RP .. 'rid1', 'foo', 'com'}},
       {name=n_b_dnssd, 
        rtype=dns_const.TYPE_PTR, rclass=dns_const.CLASS_IN, 
        rdata_ptr={IP .. 'iid1', RP .. 'rid2', 'foo', 'com'}},
@@ -483,6 +484,8 @@ describe("hybrid_proxy", function ()
                                                          domain=DOMAIN_LL,
                                                          mdns_resolve_callback=mdns,
                                                         }
+                           hp:set_if_active('eth0', true)
+                           hp:set_if_active('eth1', true)
                            l1 = {
                               {iid='iid1',
                                ip='1.2.3.4',
