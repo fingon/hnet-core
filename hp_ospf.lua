@@ -114,21 +114,17 @@ function hybrid_ospf:create_local_forward_node(router, o)
    local ip = self:get_ip()
    if not ip then return end
    local browse = self:is_owner_of_iid(o.iid) and 1 or nil
+   -- We don't want inactive domains to be browsed.
+   if not self.disable_filter_browse_active_only and
+      not self.active[o.ifname]
+   then
+      browse = nil
+   end
    local o2 = {
       name=n:get_fqdn(),
       ip=ip,
       browse=browse,
    }
-   -- we care only about browse zones - omit them if no mdns traffic
-   -- in cache (including the discovery stuff - this should be fairly
-   -- robust measure of 'active' links)
-   if not self.disable_filter_browse_active_only and 
-      browse and 
-      not self.active[o.ifname] 
-   then
-      self:d('omitting browse interface', o)
-      return
-   end
    table.insert(self.local_zones, o2)
 end
 
