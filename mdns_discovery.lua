@@ -48,7 +48,8 @@ require 'dns_db'
 module(..., package.seeall)
 
 -- every minute, even without any indication we should, we _will_ do things
-REDUNDANT_FREQUENCY=60
+-- For Vancouver demo: 20 sec (must be < MAX/2 from mdns_discovery)
+REDUNDANT_FREQUENCY=20
 -- (note that this should be ~order of magnitude less than maximum ttl
 -- if set (in e.g. hp_core, mdns_core)
 
