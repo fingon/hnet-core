@@ -8,7 +8,7 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Tue Feb 26 18:35:40 2013 mstenber
--- Last modified: Mon Sep 30 15:35:02 2013 mstenber
+-- Last modified: Tue Nov 12 11:03:31 2013 mstenber
 -- Edit time:     46 min
 --
 
@@ -33,7 +33,6 @@ require 'dhcpv6_const'
 require 'scb'
 require 'dns_db'
 require 'dhcpv6_codec'
-require 'pm_radvd'
 
 module(..., package.seeall)
 
@@ -191,8 +190,8 @@ function pm_fakedhcpv6d:recvfrom(data, src, srcport)
                local a = ipv6s.binary_address_to_address(b)
 
                local now = self:time()
-               local pref = pm_radvd.abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY], na.t1)
-               local valid = pm_radvd.abs_to_delta(now, lap[elsa_pa.VALID_KEY], na.t2)
+               local pref = self:abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY], na.t1)
+               local valid = self:abs_to_delta(now, lap[elsa_pa.VALID_KEY], na.t2)
                local v3 = {option=dhcpv6_const.O_IAADDR,
                            preferred=pref,
                            valid=valid,

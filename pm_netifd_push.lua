@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Thu Oct 31 09:04:34 2013 mstenber
--- Edit time:     150 min
+-- Last modified: Tue Nov 12 11:02:30 2013 mstenber
+-- Edit time:     151 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -25,7 +25,6 @@
 -- module
 
 require 'pm_handler'
-require 'pm_radvd'
 
 module(..., package.seeall)
 
@@ -77,8 +76,8 @@ function pm_netifd_push:get_skv_to_netifd_state()
          local addrs = _setdefault_named_subentity(ifo, addrs_name, mst.array)
          local _, mask = unpack(mst.string_split(lap.prefix, '/'))
          local now = self:time()
-         local pref = pm_radvd.abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY])
-         local valid = pm_radvd.abs_to_delta(now, lap[elsa_pa.VALID_KEY])
+         local pref = self:abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY])
+         local valid = self:abs_to_delta(now, lap[elsa_pa.VALID_KEY])
          local o = {
             ipaddr=lap.address,
             mask=mask,

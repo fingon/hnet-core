@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Wed Nov  7 19:33:20 2012 mstenber
--- Last modified: Thu Oct 10 18:09:50 2013 mstenber
+-- Last modified: Tue Nov 12 11:03:04 2013 mstenber
 -- Edit time:     63 min
 --
 
@@ -151,6 +151,26 @@ function pm_handler:write_to_file(fpath, t0, comment_prefix)
    io.close(f)
    return true
 end
+
+-- time handling utility function
+function pm_handler:abs_to_delta(now, t, def)
+   if not t 
+   then 
+      mst.d('using default, no lifetime provided', def)
+      return def
+   end
+   local d = math.floor(t - now)
+   if d <= 0
+   then
+      mst.d('using default - t <= now', d, now, t, def)
+      return def
+   else
+      mst.d('using delta', d)
+   end
+   return d, true
+end
+
+
 
 -- openwrt-specific utilities (used only in pm_netifd_*)
 

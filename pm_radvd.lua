@@ -8,7 +8,7 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 06:51:43 2012 mstenber
--- Last modified: Mon Sep 30 15:35:44 2013 mstenber
+-- Last modified: Tue Nov 12 11:02:43 2013 mstenber
 -- Edit time:     45 min
 --
 
@@ -41,23 +41,6 @@ function pm_radvd:run()
       self.shell(radvd .. ' -C ' .. fpath)
    end
    return 1
-end
-
-function abs_to_delta(now, t, def)
-   if not t 
-   then 
-      mst.d('using default, no lifetime provided', def)
-      return def
-   end
-   local d = math.floor(t - now)
-   if d <= 0
-   then
-      mst.d('using default - t <= now', d, now, t, def)
-      return def
-   else
-      mst.d('using delta', d)
-   end
-   return d, true
 end
 
 function pm_radvd:write_radvd_conf(fpath)
@@ -113,8 +96,8 @@ function pm_radvd:write_radvd_conf(fpath)
                local dep = lap.depracate
                -- has to be nil or 1
                mst.a(not dep or dep == 1)
-               local pref, vpref = abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY], DEFAULT_PREFERRED_LIFETIME)
-               local valid, vvalid = abs_to_delta(now, lap[elsa_pa.VALID_KEY], DEFAULT_VALID_LIFETIME)
+               local pref, vpref = self:abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY], DEFAULT_PREFERRED_LIFETIME)
+               local valid, vvalid = self:abs_to_delta(now, lap[elsa_pa.VALID_KEY], DEFAULT_VALID_LIFETIME)
                if vpref and vvalid
                then
                   t:insert('    DecrementLifetimes on;')
