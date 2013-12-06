@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Wed Oct  2 12:54:49 2013 mstenber
--- Last modified: Tue Nov 12 11:02:30 2013 mstenber
--- Edit time:     151 min
+-- Last modified: Fri Dec  6 16:27:51 2013 mstenber
+-- Edit time:     154 min
 --
 
 -- This is unidirectional channel which pushes the 'known state' of
@@ -78,11 +78,14 @@ function pm_netifd_push:get_skv_to_netifd_state()
          local now = self:time()
          local pref = self:abs_to_delta(now, lap[elsa_pa.PREFERRED_KEY])
          local valid = self:abs_to_delta(now, lap[elsa_pa.VALID_KEY])
+         local pclass = lap[elsa_pa.PREFIX_CLASS_KEY]
+         pclass = pclass and tostring(pclass)
          local o = {
             ipaddr=lap.address,
             mask=mask,
             preferred=pref,
             valid=valid,
+            class=pclass,
          }
          addrs:insert(o)
          self:d('added address', addrs_name, o)

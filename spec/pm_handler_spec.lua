@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Mon Nov  4 10:25:13 2013 mstenber
--- Edit time:     417 min
+-- Last modified: Fri Dec  6 16:26:57 2013 mstenber
+-- Edit time:     422 min
 --
 
 -- individual handler tests
@@ -785,7 +785,7 @@ local network_interface_dump = [[
 					"mask": 56,
 					"preferred": 2692,
 					"valid": 3692,
-					"class": "h1_6",
+					"class": "42",
 					"assigned": {
 						
 					}
@@ -899,6 +899,12 @@ describe("pm_netifd", function ()
                       ifname='eth1',
                       owner=true,
                      },
+                     {address='dead:dead::1',
+                      prefix='dead:dead::/32',
+                      ifname='eth1',
+                      owner=true,
+                      pclass=42,
+                     },
                   }
 
                   -- handler 1 - netifd_pull
@@ -949,7 +955,7 @@ describe("pm_netifd", function ()
 
                   _ubus2.open:add_expected()
                   _ubus2.call:add_expected(
-                     {'network.interface', 'notify_proto', {action=0, data=_data_dummy_46, interface="lan1", ip6addr={{ipaddr="dead:beef::1", mask="32"}}, ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}})
+                     {'network.interface', 'notify_proto', {action=0, data=_data_dummy_46, interface="lan1", ip6addr={{ipaddr="dead:beef::1", mask="32"}, {ipaddr="dead:dead::1", mask="32", class="42"}}, ipaddr={{ipaddr="10.2.2.2", mask="24"}}, ["link-up"]=true}})
                   _ubus2.close:add_expected()
 
                   _ubus2.open:add_expected()
