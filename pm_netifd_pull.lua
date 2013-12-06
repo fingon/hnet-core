@@ -8,8 +8,8 @@
 -- Copyright (c) 2013 cisco Systems, Inc.
 --
 -- Created:       Thu Oct  3 16:48:11 2013 mstenber
--- Last modified: Fri Dec  6 16:17:29 2013 mstenber
--- Edit time:     118 min
+-- Last modified: Fri Dec  6 16:37:00 2013 mstenber
+-- Edit time:     119 min
 --
 
 
@@ -190,7 +190,7 @@ function pm_netifd_pull:get_state(ni)
             local device = ifo.l3_device or ifo.device
             local prefix = string.format('%s/%s', p.address, p.mask)
             local now = self:time()
-            local pclass = tonumber(ifo.class)
+            local pclass = tonumber(p.class)
             local o = {[elsa_pa.PREFIX_KEY]=prefix,
                        [elsa_pa.VALID_KEY]=p.valid+now,
                        [elsa_pa.PREFERRED_KEY]=p.preferred+now,

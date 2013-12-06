@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Fri Dec  6 16:26:57 2013 mstenber
--- Edit time:     422 min
+-- Last modified: Fri Dec  6 16:37:22 2013 mstenber
+-- Edit time:     425 min
 --
 
 -- individual handler tests
@@ -1030,7 +1030,7 @@ describe("pm_netifd", function ()
                   end
                   local exp = {
                      {pref=3926, prefix="2000:dead:bee0::/56", valid=4926}, 
-                     {pref=3926, prefix="2000:dead:bee1::/56", valid=4926},
+                     {pref=3926, prefix="2000:dead:bee1::/56", valid=4926, pclass=42},
                      {dns="2000::2"}, {dns="2001:100::1"}, 
                      {dns_search="v6.lab.example.com"}
                   }
@@ -1204,6 +1204,7 @@ local network_interface_dump2 = [[
 			"delegation": false,
 			"ipv6-prefix": [
 				{
+					"class": "h1_6",
 					"address": "2000:dead:bee0::",
 					"mask": 56,
 					"preferred": 2612,
@@ -1225,6 +1226,7 @@ local network_interface_dump2 = [[
 			"delegation": false,
 			"ipv6-prefix": [
 				{
+					"class": "42",
 					"address": "2000:dead:bee1::",
 					"mask": 56,
 					"preferred": 2612,
@@ -1315,7 +1317,7 @@ describe("pm_netifd_pull", function ()
                   -- make sure generated pd state looks also sensible
                   local exp_pd_state = {
                      eth0={{pref=3846, prefix="2000:dead:bee0::/56", valid=4846}}, 
-                     eth1={{pref=3846, prefix="2000:dead:bee1::/56", valid=4846}}, 
+                     eth1={{pref=3846, prefix="2000:dead:bee1::/56", valid=4846, pclass=42}}, 
                      ext1={{pref=3846, prefix="2000:dead:fee1::/56", valid=4846}}}
 
                   mst_test.assert_repr_equal(o.set_pd_state, exp_pd_state)
