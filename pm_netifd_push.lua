@@ -130,6 +130,17 @@ function pm_netifd_push:get_skv_to_netifd_state()
                -- metric/valid?
             }
             routes:insert(o)
+            if not p:is_ipv4()
+            then
+               -- Because linux needs to find a route from ::/128
+               local o2 = {
+                  source='::/128',
+                  target='::/0',
+                  gateway=nh,
+                  metric=DEFAULT_METRIC,
+               }
+               routes:insert(o2)
+            end
             self:d('added route', routes_name, o)
          else
             self:d('no nh found for usp', usp, ifname, devname)

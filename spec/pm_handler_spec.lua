@@ -8,8 +8,8 @@
 -- Copyright (c) 2012 cisco Systems, Inc.
 --
 -- Created:       Thu Nov  8 08:25:33 2012 mstenber
--- Last modified: Fri Dec  6 16:37:22 2013 mstenber
--- Edit time:     425 min
+-- Last modified: Thu Jan 30 11:50:30 2014 mstenber
+-- Edit time:     427 min
 --
 
 -- individual handler tests
@@ -945,12 +945,13 @@ describe("pm_netifd", function ()
                   -- handler 2 - netifd_push
                   _ubus2.open:add_expected()
                   _ubus2.call:add_expected(
-                     {"network.interface", "notify_proto", {action=0, interface="ext", ["link-up"]=true, routes6={{gateway="fe80::b494:e8ff:feef:9a87", source="beef::/16", target="::/0", metric=1024}}, data={zone='wan'}}})
+                     {"network.interface", "notify_proto", {action=0, interface="ext", ["link-up"]=true, routes6={{gateway="fe80::b494:e8ff:feef:9a87", source="beef::/16", target="::/0", metric=1024},{gateway="fe80::b494:e8ff:feef:9a87", metric=1024, source="::/128", target="::/0"}
+}, data={zone='wan'}}})
                   _ubus2.close:add_expected()
 
                   _ubus2.open:add_expected()
                   _ubus2.call:add_expected(
-                     {'network.interface', 'notify_proto', {action=0, interface="lan0", ["link-up"]=true, routes6={{gateway="dead::1", source="dead::/16", target="::/0", metric=1024}}, data={zone='lan'}}})
+                     {'network.interface', 'notify_proto', {action=0, interface="lan0", ["link-up"]=true, routes6={{gateway="dead::1", source="dead::/16", target="::/0", metric=1024}, {gateway="dead::1", metric=1024, source="::/128", target="::/0"}}, data={zone='lan'}}})
                   _ubus2.close:add_expected()
 
                   _ubus2.open:add_expected()
